@@ -19,7 +19,7 @@ Instructions for the scheduled refresh agent (and any human running a manual ref
    `node scripts/refresh-evidence.mjs --registry refresh/sources.json --accept-baselines`
    This writes registry, cache, and drift report together — never hand-edit checksums, versions, or timestamps; they must always come from a run.
 3. **Semantic verification** only for sources the deterministic pass flagged: read the changed source (WebFetch the registry URLs), decide whether any `<!-- source: X -->` marked sentence or compatibility pin is now wrong, and propose the minimal edit.
-4. **One PR per refresh**, branch `refresh/<date>`, force-updating the standing refresh branch if last week's PR is unmerged (never stack duplicate PRs). PR body lists: each changed source, old→new version/checksum, links to the evidence, and which marked sentences changed and why.
+4. **One standing refresh PR**, branch `refresh/weekly`, force-updated on every run (never stacked duplicates; the weekly workflow .github/workflows/refresh.yml maintains it). PR body lists: each changed source, old→new version/checksum, links to the evidence, and which marked sentences changed and why.
 5. Changes to durable rules, scripts, SKILL.md, assets, or tests are out of scope for a refresh PR — CI enforces this (refresh-guard workflow).
 
 ## Cadence and thresholds

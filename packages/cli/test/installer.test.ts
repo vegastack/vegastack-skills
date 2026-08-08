@@ -191,6 +191,57 @@ describe('@vegastack/skills installer', () => {
     expect(await Bun.file(join(project, '.hermes')).exists()).toBe(false)
   })
 
+  test('verify with no skill name checks all bundled skills and tolerates uninstalled ones', async () => {
+    const project = join(temporary, 'verify-all')
+    await mkdir(project, { recursive: true })
+    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    const result = run(temporary, ['verify', '--agent', 'codex', '--dir', project, '--non-interactive'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout.toString()).toContain(`verified codex ${skill()}`)
+    expect(result.stdout.toString()).toContain('not installed codex skillify')
+
+    const empty = join(temporary, 'verify-all-empty')
+    await mkdir(empty, { recursive: true })
+    const none = run(temporary, ['verify', '--agent', 'codex', '--dir', empty, '--non-interactive'])
+    expect(none.exitCode).not.toBe(0)
+    expect(none.stdout.toString()).toContain('no bundled skills are installed')
+  })
+
+  test('remove uninstalls a clean copy and refuses a drifted one without --force', async () => {
+    const project = join(temporary, 'remove-flow')
+    await mkdir(project, { recursive: true })
+    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    const target = join(project, '.agents/skills', skill(), 'SKILL.md')
+    await writeFile(target, 'locally modified\n')
+    const refused = run(temporary, ['remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    expect(refused.exitCode).not.toBe(0)
+    expect(refused.stderr.toString()).toContain('--force')
+    expect(await Bun.file(target).exists()).toBe(true)
+    expect(run(temporary, ['remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive', '--force']).exitCode).toBe(0)
+    expect(await Bun.file(target).exists()).toBe(false)
+    const gone = run(temporary, ['remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    expect(gone.exitCode).not.toBe(0)
+    expect(gone.stdout.toString()).toContain('not installed')
+  })
+
+  test('hermes with defaulted project mode errors with global guidance', async () => {
+    const project = join(temporary, 'hermes-defaulted')
+    await mkdir(project, { recursive: true })
+    const result = run(temporary, ['add', skill(), '--agent', 'hermes', '--dir', project, '--non-interactive'])
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toContain('--global')
+  })
+
+  test('dry-run over a differing install reports would-replace instead of erroring', async () => {
+    const project = join(temporary, 'dry-run-differing')
+    await mkdir(project, { recursive: true })
+    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    await writeFile(join(project, '.agents/skills', skill(), 'SKILL.md'), 'drift\n')
+    const result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--dry-run', '--non-interactive'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout.toString()).toContain('would replace')
+  })
+
   test('rejects a legacy v1 recovery journal with a manual-cleanup error', async () => {
     const project = join(temporary, 'legacy-journal')
     await mkdir(join(project, '.vegastack'), { recursive: true })

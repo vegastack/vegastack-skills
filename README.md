@@ -31,7 +31,7 @@ The installer is fully offline with one exception: `doctor` checks npmjs.org for
 
 ## How freshness works
 
-Skill content cites external sources (specs, vendor docs, package versions) tracked per skill in `skills/*/refresh/sources.json`, with per-skill agent instructions in `refresh/REFRESH.md`. A weekly automated refresh re-verifies sources deterministically and opens an evidence-linked PR per skill; a human reviews and merges. CI restricts refresh branches to refresh metadata only and re-fetches claimed versions/checksums so hand-edited or hallucinated values cannot merge. Old installs degrade gracefully: `doctor` reports installed-vs-latest, and advice leaning on a stale critical source is marked not verified rather than asserted.
+Skill content cites external sources (specs, vendor docs, package versions) tracked per skill in `skills/*/refresh/sources.json`, with per-skill agent instructions in `refresh/REFRESH.md`. A weekly automated refresh (.github/workflows/refresh.yml) re-verifies every registry deterministically and maintains one standing evidence-linked PR; a human reviews and merges. CI restricts refresh branches to refresh metadata only and re-fetches claimed versions/checksums so hand-edited or hallucinated values cannot merge. Old installs degrade gracefully: `doctor` reports installed-vs-latest, and advice leaning on a stale critical source is marked not verified rather than asserted.
 
 ## Advisory by design
 
