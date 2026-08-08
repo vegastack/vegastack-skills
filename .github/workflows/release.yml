@@ -94,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf node_modules packages/cli/node_modules
-          npm install --package-lock-only
+          npm install --no-audit --no-fund
           npm sbom --sbom-format cyclonedx > sbom.json
 
       - name: Create GitHub release with SBOM
