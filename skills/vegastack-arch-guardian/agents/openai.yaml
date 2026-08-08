@@ -1,4 +1,0 @@
-interface:
-  display_name: "VegaStack Architecture Guardian"
-  short_description: "Design and guard adaptive VegaStack architecture"
-  default_prompt: "Use $vegastack-arch-guardian to make one scoped architecture recommendation for this project without assuming absent capabilities."

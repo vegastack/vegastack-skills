@@ -1,7 +1,7 @@
 {
   "name": "@vegastack/skills",
-  "version": "0.1.0",
-  "description": "Installer and verifier for VegaStack Agent Skills (Claude Code and Codex)",
+  "version": "0.2.0",
+  "description": "Installer and verifier for VegaStack Agent Skills (Claude Code, Codex, and Hermes)",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -16,13 +16,24 @@
     "agent-skills",
     "claude-code",
     "codex",
+    "hermes",
     "skill",
     "architecture",
     "vegastack"
   ],
-  "bin": { "vegastack-skills": "dist/index.js" },
-  "files": ["dist", "skill", "skill-integrity.json", "README.md", "LICENSE"],
-  "engines": { "node": ">=20.11" },
+  "bin": {
+    "vegastack-skills": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "skill",
+    "skill-integrity.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "sync": "bun scripts/sync-skill.mjs",
     "build": "bun run sync && bun build src/index.ts --target=node --outfile dist/index.js && chmod +x dist/index.js",

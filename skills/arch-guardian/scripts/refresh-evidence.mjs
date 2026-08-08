@@ -13,7 +13,7 @@ const defaultRegistry = join(skillRoot, 'refresh', 'sources.json')
 const maximumBytes = 5 * 1024 * 1024
 // Every host referenced by refresh/sources.json must appear here; loadRegistry enforces the
 // consistency so the allowlist cannot silently drift from the registry.
-const approvedHosts = new Set(['ai-sdk.dev', 'ai.google.dev', 'api.flutter.dev', 'aws.amazon.com', 'better-auth.com', 'bun.sh', 'developer.apple.com', 'developers.cloudflare.com', 'developers.openai.com', 'docs.aws.amazon.com', 'docs.flutter.dev', 'firebase.google.com', 'git.postgresql.org', 'github.com', 'modal.com', 'modelcontextprotocol.io', 'nextjs.org', 'openbao.org', 'openid.github.io', 'opennext.js.org', 'opentelemetry.io', 'platform.claude.com', 'pub.dev', 'pypi.org', 'raw.githubusercontent.com', 'registry.npmjs.org', 'riverpod.dev', 'turborepo.dev', 'workflow-sdk.dev', 'www.cloudflare.com', 'www.npmjs.com', 'www.postgresql.org'])
+const approvedHosts = new Set(['agentskills.io', 'ai-sdk.dev', 'ai.google.dev', 'api.flutter.dev', 'aws.amazon.com', 'better-auth.com', 'bun.sh', 'code.claude.com', 'developer.apple.com', 'developers.cloudflare.com', 'developers.openai.com', 'docs.aws.amazon.com', 'docs.flutter.dev', 'firebase.google.com', 'git.postgresql.org', 'github.com', 'hermes-agent.nousresearch.com', 'learn.chatgpt.com', 'modal.com', 'modelcontextprotocol.io', 'nextjs.org', 'openbao.org', 'openid.github.io', 'opennext.js.org', 'opentelemetry.io', 'platform.claude.com', 'pub.dev', 'pypi.org', 'raw.githubusercontent.com', 'registry.npmjs.org', 'riverpod.dev', 'turborepo.dev', 'workflow-sdk.dev', 'www.cloudflare.com', 'www.npmjs.com', 'www.postgresql.org'])
 
 function flagValue(argv, flag) {
   const value = argv.shift()
@@ -309,6 +309,9 @@ export async function refreshEvidence(options) {
       Object.assign(source, update)
       report.acceptedBaselines.push({ id: source.id, ...update })
     }
+    // A manual-review flag raised earlier in this same run is satisfied by the acceptance that
+    // just refreshed the source's retrievedAt — it must not fail-close the run that fixed it.
+    for (const entry of report.manualVersionReview) if (baselineUpdates.get(entry.id)?.retrievedAt) { entry.due = false; entry.ageDays = 0 }
     await atomicJson(options.registry, registry)
   }
   await atomicJson(options.cache, cache)

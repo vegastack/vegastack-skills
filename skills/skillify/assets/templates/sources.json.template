@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "retrievalBaseline": "{{date}}",
+  "note": "TODO: add one entry per volatile or mechanism-coupled external claim (see skillify references/authoring.md, claim classification), or record an evergreen waiver in REFRESH.md and keep sources empty.",
+  "sources": []
+}

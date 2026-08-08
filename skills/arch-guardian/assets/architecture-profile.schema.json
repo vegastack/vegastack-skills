@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/vegastack/vegastack-skills/main/skills/vegastack-arch-guardian/assets/architecture-profile.schema.json",
+  "$id": "https://raw.githubusercontent.com/vegastack/vegastack-skills/main/skills/arch-guardian/assets/architecture-profile.schema.json",
   "title": "VegaStack Architecture Profile v3",
   "type": "object",
   "additionalProperties": false,

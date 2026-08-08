@@ -22,8 +22,8 @@
       "service": "EVE",
       "kind": "pinned-source-package",
       "pinnedVersion": "0.29.5",
-      "currentVersion": "0.31.2",
-      "versionCheckedAt": "2026-08-07T18:47:48.335Z",
+      "currentVersion": "0.31.3",
+      "versionCheckedAt": "2026-08-08T07:53:01.687Z",
       "commit": "8988139097d1e1a1f1aca9b2828e63408848fccf",
       "stability": "beta-protocol-critical",
       "thresholdDays": 14,
@@ -639,7 +639,7 @@
       "service": "Turborepo",
       "kind": "official-docs",
       "pinnedVersion": "2.5.6",
-      "currentVersion": "2.10.8",
+      "currentVersion": "2.10.9",
       "stability": "tooling",
       "thresholdDays": 30,
       "critical": false,
@@ -666,7 +666,7 @@
         "rule:PKG-002",
         "ref:topology-monorepo"
       ],
-      "versionCheckedAt": "2026-08-07T18:47:48.335Z"
+      "versionCheckedAt": "2026-08-08T07:53:01.687Z"
     },
     {
       "id": "FLUTTER-DOCS",
@@ -777,8 +777,8 @@
       "versionDetection": {
         "type": "http-hash-and-changelog"
       },
-      "retrievedAt": "2026-08-07T18:47:48.335Z",
-      "checksum": "a8e45e4fda04b32279f1a82bd0afa7380b70f738cc1b5ee42ab178945d7dd1fe",
+      "retrievedAt": "2026-08-08T07:53:01.687Z",
+      "checksum": "9d428c76f42eafa6cd895e29bc54cd7b2ba0fa067c63eef457d6cf1a519b1b71",
       "previousRetrievalChecksum": "d8117a391c5875a7b4d352a3f8b8b89ad12e6617a91038228f7279c732d0cd98",
       "topics": [
         "notifications",
@@ -1047,7 +1047,7 @@
       "service": "AI SDK",
       "kind": "official-docs-package",
       "pinnedVersion": "7.x",
-      "currentVersion": "7.0.57",
+      "currentVersion": "7.0.58",
       "stability": "model-library",
       "thresholdDays": 30,
       "critical": false,
@@ -1075,7 +1075,7 @@
         "rule:MODEL-001",
         "ref:models-observability"
       ],
-      "versionCheckedAt": "2026-08-07T18:47:48.335Z"
+      "versionCheckedAt": "2026-08-08T07:53:01.687Z"
     },
     {
       "id": "ANTHROPIC-MODELS",
@@ -1152,8 +1152,8 @@
         "ref:model-lifecycle",
         "ref:models-observability"
       ],
-      "checksum": "379866ba1eef7fa6ed14b14f7961fb3f58989e02dc1e54d12c4a8293d87667fd",
-      "retrievedAt": "2026-08-07T19:12:27.794Z"
+      "checksum": "5f2224358c1f3f47ba6cdd5e46b2d695a2c8bfcad93faedcab549290fcada1e6",
+      "retrievedAt": "2026-08-08T07:53:01.687Z"
     }
   ]
 }

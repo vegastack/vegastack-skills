@@ -63,12 +63,16 @@ jobs:
       - name: Deterministic re-verification
         run: |
           set -euo pipefail
-          RUNNER=skills/vegastack-arch-guardian/scripts/refresh-evidence.mjs
-          REGISTRY=skills/vegastack-arch-guardian/refresh/sources.json
+          # The runner is repo-shared (hosted in arch-guardian); every skill's
+          # registry is re-verified.
+          RUNNER=skills/arch-guardian/scripts/refresh-evidence.mjs
           SCRATCH=$(mktemp -d)
-          node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
-            --cache "$SCRATCH/evidence-cache.json" \
-            --report "$SCRATCH/evidence-drift.json"
+          for REGISTRY in skills/*/refresh/sources.json; do
+            echo "== $REGISTRY"
+            node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
+              --cache "$SCRATCH/evidence-cache-$(basename "$(dirname "$(dirname "$REGISTRY")")").json" \
+              --report "$SCRATCH/evidence-drift-$(basename "$(dirname "$(dirname "$REGISTRY")")").json"
+          done
           # Exit 0 tolerates NON-critical drift: a few sources (e.g. Google doc
           # properties) churn text per request, and blocking on them would flap.
           # Critical-source drift or unavailability still fails the job.

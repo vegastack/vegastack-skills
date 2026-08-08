@@ -1,0 +1,26 @@
+---
+name: {{name}}
+description: TODO - state only the conditions that should load this skill. Third person, trigger phrases in quotes first, symptoms and situations next, one clause naming what this skill is NOT for. Never summarize the workflow. Max 1024 characters, no angle brackets.
+---
+
+# {{name}}
+
+TODO: one-paragraph overview - what this skill guarantees and the single trigger family it serves.
+
+## When to use
+
+- TODO: concrete situations and user phrasings
+- TODO: when NOT to use - the nearest adjacent intent and where it goes instead
+
+## Workflow
+
+1. TODO
+2. TODO
+
+## Example
+
+TODO: one excellent, realistic example (input and output). One great example beats five mediocre ones.
+
+## Routing
+
+TODO: if this skill has references/, add a routing table (Need | Read) here; otherwise delete this section and record item 4 as N-A in the checklist with a rationale.

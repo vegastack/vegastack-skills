@@ -1,5 +1,5 @@
 ---
-name: vegastack-arch-guardian
+name: arch-guardian
 description: Architecture advisor for VegaStack projects. Use when designing a new service or feature, reviewing architecture or a risky change (auth, tenancy, agents, jobs, connectors, data lifecycle, hosting), deciding between architectural options, writing or validating an ADR or .vegastack/architecture.json profile, threat modeling, planning a migration, or checking dependency and source drift. Gives one scoped recommendation with an explicit verdict; activates only the capabilities a project has actually enabled. Covers web-only, Flutter, agentic and non-agentic, single- and multi-tenant, internal, public, platform-service, and shared-package projects.
 ---
 

@@ -2,12 +2,14 @@
 // Structural validation of authored skill trees (JS port of the skill-creator
 // quick_validate checks, so `check` has no machine-local python dependency).
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { basename, join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// The agentskills.io spec's six fields are the ceiling (claude.ai packaging hard-errors on
+// anything else); the tri-harness portable floor is name + description.
 const MAX_NAME_LENGTH = 64;
 const MAX_DESCRIPTION_LENGTH = 1024;
-const ALLOWED_KEYS = new Set(['name', 'description', 'license', 'allowed-tools', 'metadata']);
+const ALLOWED_KEYS = new Set(['name', 'description', 'license', 'compatibility', 'allowed-tools', 'metadata']);
 
 // Frontmatter in our skills is single-line "key: value" scalars only; reject anything fancier
 // rather than mis-parse it.
@@ -62,26 +64,34 @@ export function validateSkill(skillDir) {
   if (!('description' in frontmatter)) return { ok: false, message: "Missing 'description' in frontmatter" };
 
   const name = frontmatter.name.trim();
-  if (name !== '') {
-    if (!/^[a-z0-9-]+$/.test(name)) {
-      return { ok: false, message: `Name '${name}' should be hyphen-case (lowercase letters, digits, and hyphens only)` };
-    }
-    if (name.startsWith('-') || name.endsWith('-') || name.includes('--')) {
-      return { ok: false, message: `Name '${name}' cannot start/end with hyphen or contain consecutive hyphens` };
-    }
-    if (name.length > MAX_NAME_LENGTH) {
-      return { ok: false, message: `Name is too long (${name.length} characters). Maximum is ${MAX_NAME_LENGTH} characters.` };
-    }
+  if (name === '') return { ok: false, message: 'Name must not be empty' };
+  if (!/^[a-z0-9-]+$/.test(name)) {
+    return { ok: false, message: `Name '${name}' should be hyphen-case (lowercase letters, digits, and hyphens only)` };
+  }
+  // Grammar intersection across harnesses: Hermes requires a leading letter; the spec forbids
+  // consecutive hyphens and leading/trailing hyphens.
+  if (!/^[a-z]/.test(name)) {
+    return { ok: false, message: `Name '${name}' must start with a lowercase letter` };
+  }
+  if (name.startsWith('-') || name.endsWith('-') || name.includes('--')) {
+    return { ok: false, message: `Name '${name}' cannot start/end with hyphen or contain consecutive hyphens` };
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    return { ok: false, message: `Name is too long (${name.length} characters). Maximum is ${MAX_NAME_LENGTH} characters.` };
+  }
+  // The spec requires the name to equal the parent directory name (the directory is the command).
+  const directoryName = basename(resolve(skillDir));
+  if (name !== directoryName) {
+    return { ok: false, message: `Name '${name}' must match the skill directory name '${directoryName}'` };
   }
 
   const description = frontmatter.description.trim();
-  if (description !== '') {
-    if (description.includes('<') || description.includes('>')) {
-      return { ok: false, message: 'Description cannot contain angle brackets (< or >)' };
-    }
-    if (description.length > MAX_DESCRIPTION_LENGTH) {
-      return { ok: false, message: `Description is too long (${description.length} characters). Maximum is ${MAX_DESCRIPTION_LENGTH} characters.` };
-    }
+  if (description === '') return { ok: false, message: 'Description must not be empty' };
+  if (description.includes('<') || description.includes('>')) {
+    return { ok: false, message: 'Description cannot contain angle brackets (< or >)' };
+  }
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    return { ok: false, message: `Description is too long (${description.length} characters). Maximum is ${MAX_DESCRIPTION_LENGTH} characters.` };
   }
 
   return { ok: true, message: 'Skill is valid!' };

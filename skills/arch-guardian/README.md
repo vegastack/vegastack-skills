@@ -1,4 +1,4 @@
-# vegastack-arch-guardian
+# arch-guardian
 
 An opinionated senior-architect Agent Skill for VegaStack projects. It advises during design, review, ADR, threat-model, migration, and continuous work — activating only the capabilities a project has actually enabled, giving one scoped recommendation with an explicit verdict, and backing volatile claims with a source-freshness contract.
 
@@ -7,7 +7,7 @@ This README is the complete walkthrough for humans and for agents reading outsid
 ## Install
 
 ```sh
-npx @vegastack/skills add vegastack-arch-guardian
+npx @vegastack/skills add arch-guardian
 ```
 
 Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex); `--global` targets the home directory. `verify` re-checks installed bytes against the shipped checksum manifest; `remove` uninstalls. See the [installer README](../../packages/cli/README.md) for all flags.

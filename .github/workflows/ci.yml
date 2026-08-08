@@ -53,5 +53,5 @@ jobs:
           npm init -y > /dev/null
           npm install "$TARBALL"
           ./node_modules/.bin/vegastack-skills --version
-          ./node_modules/.bin/vegastack-skills add vegastack-arch-guardian \
+          ./node_modules/.bin/vegastack-skills add arch-guardian \
             --dry-run --non-interactive --agent both --dir "$TARGET_DIR"

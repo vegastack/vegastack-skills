@@ -1,0 +1,4 @@
+interface:
+  display_name: "VegaStack Skillify"
+  short_description: "Create and audit skills for the vegastack-skills repo"
+  default_prompt: "Use $skillify to audit or scaffold a skill in skills/ against the full repo contract."

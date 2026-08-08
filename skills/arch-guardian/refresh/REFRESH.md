@@ -1,4 +1,4 @@
-# Refresh contract — vegastack-arch-guardian
+# Refresh contract — arch-guardian
 
 Instructions for the scheduled refresh agent (and any human running a manual refresh). This file, together with `sources.json`, is the complete freshness contract for this skill.
 

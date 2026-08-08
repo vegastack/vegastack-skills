@@ -8,41 +8,63 @@ import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
 import { spawnSync } from 'node:child_process'
 
-type Agent = 'codex' | 'claude'
+type Agent = 'codex' | 'claude' | 'hermes'
+type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'version' | 'help'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help'
 interface Options {
   command: Command
-  skill: string
-  agent?: Agent | 'both'
+  skill?: string
+  agent?: AgentChoice
   mode?: Mode
   dir?: string
   dryRun: boolean
   force: boolean
   nonInteractive: boolean
 }
-interface Integrity { schemaVersion: number; skill: string; files: Record<string, string> }
-interface Operation { agent: Agent; destination: string; stage: string; backup?: string; existed: boolean }
-interface InstallJournal { schemaVersion: 1; status: 'prepared' | 'committed'; operations: Operation[] }
+interface SkillIntegrity { files: Record<string, string> }
+interface Integrity { schemaVersion: number; skills: Record<string, SkillIntegrity> }
+interface Operation { skill: string; agent: Agent; destination: string; stage: string; backup?: string; existed: boolean }
+interface InstallJournal { schemaVersion: 2; status: 'prepared' | 'committed'; operations: Operation[] }
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const skillName = 'vegastack-arch-guardian'
-const surfaces: Record<Agent, string> = { codex: '.agents/skills', claude: '.claude/skills' }
+const bundleRoot = join(packageRoot, 'skill')
+// Hermes has no project-level skill discovery (single global dir); see docs.
+const surfaces: Record<Agent, string> = { codex: '.agents/skills', claude: '.claude/skills', hermes: '.hermes/skills' }
+const projectAgents: Agent[] = ['codex', 'claude']
 // Single version source: package.json ships in every npm install alongside dist/.
 const packageVersion = (JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')) as { version: string }).version
 
 function usage() {
-  return `Usage: vegastack-skills <add|verify|doctor|remove> [vegastack-arch-guardian] [options]\n\nOptions:\n  --agent codex|claude|both\n  --project | --global\n  --dir PATH\n  --dry-run\n  --force\n  --non-interactive\n  --version\n`
+  return `Usage: vegastack-skills <add|verify|remove> <skill> [options]
+       vegastack-skills <list|doctor> [options]
+
+Options:
+  --agent codex|claude|hermes|both|all   (both = codex+claude; hermes is global-only)
+  --project | --global
+  --dir PATH
+  --dry-run
+  --force
+  --non-interactive
+  --version
+
+Run "vegastack-skills list" to see the bundled skills.
+`
+}
+
+async function bundledSkills(): Promise<string[]> {
+  const entries = await readdir(bundleRoot, { withFileTypes: true })
+  return entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
 }
 
 function parse(argv: string[]): Options {
   // A leading flag (e.g. `vegastack-skills --version`) is not a command.
   const command = (argv[0] && !argv[0].startsWith('-') ? argv.shift()! : 'help') as Command
-  const options: Options = { command, skill: skillName, dryRun: false, force: false, nonInteractive: false }
+  const options: Options = { command, dryRun: false, force: false, nonInteractive: false }
   if (argv[0] && !argv[0].startsWith('-')) options.skill = argv.shift()!
   while (argv.length) {
     const flag = argv.shift()!
-    if (flag === '--agent') options.agent = argv.shift() as Agent | 'both'
+    if (flag === '--agent') options.agent = argv.shift() as AgentChoice
     else if (flag === '--project') options.mode = 'project'
     else if (flag === '--global') options.mode = 'global'
     else if (flag === '--dir') options.dir = argv.shift()
@@ -53,26 +75,43 @@ function parse(argv: string[]): Options {
     else if (flag === '--version' || flag === '-v') options.command = 'version'
     else throw new Error(`Unknown option: ${flag}`)
   }
-  if (!['add', 'verify', 'doctor', 'remove', 'version', 'help'].includes(options.command)) throw new Error(`Unknown command: ${options.command}`)
-  if (options.skill !== skillName) throw new Error(`Unknown skill: ${options.skill}`)
-  if (options.agent && !['codex', 'claude', 'both'].includes(options.agent)) throw new Error(`Invalid --agent: ${options.agent}`)
+  if (!['add', 'verify', 'doctor', 'remove', 'list', 'version', 'help'].includes(options.command)) throw new Error(`Unknown command: ${options.command}`)
+  if (options.agent && !['codex', 'claude', 'hermes', 'both', 'all'].includes(options.agent)) throw new Error(`Invalid --agent: ${options.agent}`)
   if (options.mode === 'global' && options.dir) throw new Error('--dir cannot be combined with --global')
   return options
 }
 
-async function prompt(options: Options): Promise<Required<Pick<Options, 'agent' | 'mode'>>> {
+async function requireSkill(options: Options): Promise<string> {
+  const skills = await bundledSkills()
+  if (!options.skill) throw new Error(`Specify a skill: ${skills.join(', ')}`)
+  if (!skills.includes(options.skill)) throw new Error(`Unknown skill: ${options.skill}. Bundled skills: ${skills.join(', ')}`)
+  return options.skill
+}
+
+async function prompt(options: Options): Promise<{ agent: AgentChoice; mode: Mode }> {
   if (options.agent && options.mode) return { agent: options.agent, mode: options.mode }
   if (options.nonInteractive || !process.stdin.isTTY) {
     return { agent: options.agent ?? 'both', mode: options.mode ?? 'project' }
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout })
-  const agentAnswer = options.agent ?? await rl.question('Install for codex, claude, or both? [both] ')
+  const agentAnswer = options.agent ?? await rl.question('Install for codex, claude, hermes, both (codex+claude), or all? [both] ')
   const modeAnswer = options.mode ?? await rl.question('Install project-local or user-global? [project] ')
   rl.close()
-  const agent = (agentAnswer || 'both') as Agent | 'both'
+  const agent = (agentAnswer || 'both') as AgentChoice
   const mode = (modeAnswer === 'global' ? 'global' : 'project') as Mode
-  if (!['codex', 'claude', 'both'].includes(agent)) throw new Error(`Invalid agent choice: ${agent}`)
+  if (!['codex', 'claude', 'hermes', 'both', 'all'].includes(agent)) throw new Error(`Invalid agent choice: ${agent}`)
   return { agent, mode }
+}
+
+// Expand an agent choice to concrete agents, enforcing Hermes's global-only discovery.
+function resolveAgents(choice: AgentChoice, mode: Mode): Agent[] {
+  const wanted: Agent[] = choice === 'both' ? ['codex', 'claude'] : choice === 'all' ? ['codex', 'claude', 'hermes'] : [choice]
+  if (mode === 'project' && wanted.includes('hermes')) {
+    if (choice === 'hermes') throw new Error('Hermes discovers skills only in the global ~/.hermes/skills directory; use --global (without --dir) with --agent hermes, or --agent all')
+    console.log('note: skipping hermes for a project install — Hermes discovers skills globally only; run with --global --agent hermes')
+    return wanted.filter(agent => agent !== 'hermes')
+  }
+  return wanted
 }
 
 async function exists(path: string) {
@@ -121,19 +160,24 @@ async function recoverInstall(base: string) {
   if (!await exists(journalPath)) return
   await assertNoSymlink(journalPath, false)
   const journal = JSON.parse(await readFile(journalPath, 'utf8')) as InstallJournal
-  if (journal.schemaVersion !== 1 || !['prepared', 'committed'].includes(journal.status) || !Array.isArray(journal.operations)) throw new Error(`Invalid installer recovery journal: ${journalPath}`)
-  const seenAgents = new Set<Agent>()
+  if (journal.schemaVersion !== 2 || !['prepared', 'committed'].includes(journal.status) || !Array.isArray(journal.operations)) {
+    throw new Error(`Unsupported installer recovery journal (schemaVersion ${(journal as { schemaVersion?: unknown }).schemaVersion ?? 'unknown'}); inspect and remove it manually: ${journalPath}`)
+  }
+  const skills = new Set(await bundledSkills())
+  const seen = new Set<string>()
   for (const operation of journal.operations) {
-    if (!['codex', 'claude'].includes(operation.agent) || seenAgents.has(operation.agent)) throw new Error(`Untrusted installer recovery journal: invalid agent`)
-    seenAgents.add(operation.agent)
-    const expectedDestination = join(base, surfaces[operation.agent], skillName)
-    if (resolve(operation.destination) !== expectedDestination || typeof operation.existed !== 'boolean') throw new Error(`Untrusted installer recovery journal: destination outside installer roots`)
+    if (!['codex', 'claude', 'hermes'].includes(operation.agent) || typeof operation.skill !== 'string' || !skills.has(operation.skill)) throw new Error(`Untrusted installer recovery journal: invalid agent or skill; inspect and remove it manually: ${journalPath}`)
+    const key = `${operation.agent}/${operation.skill}`
+    if (seen.has(key)) throw new Error('Untrusted installer recovery journal: duplicate operation')
+    seen.add(key)
+    const expectedDestination = join(base, surfaces[operation.agent], operation.skill)
+    if (resolve(operation.destination) !== expectedDestination || typeof operation.existed !== 'boolean') throw new Error('Untrusted installer recovery journal: destination outside installer roots')
     const expectedParent = dirname(expectedDestination)
     const validateTemporary = (path: string | undefined, kind: 'stage' | 'backup') => {
       if (!path) return kind === 'backup' && !operation.existed
-      return dirname(resolve(path)) === expectedParent && basename(path).startsWith(`.${skillName}.${kind}-`)
+      return dirname(resolve(path)) === expectedParent && basename(path).startsWith(`.${operation.skill}.${kind}-`)
     }
-    if (!validateTemporary(operation.stage, 'stage') || !validateTemporary(operation.backup, 'backup')) throw new Error(`Untrusted installer recovery journal: invalid transaction path`)
+    if (!validateTemporary(operation.stage, 'stage') || !validateTemporary(operation.backup, 'backup')) throw new Error('Untrusted installer recovery journal: invalid transaction path')
   }
   for (const operation of [...journal.operations].reverse()) {
     for (const path of [operation.destination, operation.stage, operation.backup].filter(Boolean) as string[]) await assertNoSymlink(path)
@@ -198,68 +242,78 @@ async function listFiles(root: string) {
 
 const hash = (body: Uint8Array) => createHash('sha256').update(body).digest('hex')
 
-async function loadSource() {
-  const source = join(packageRoot, 'skill', skillName)
-  const integrityPath = join(packageRoot, 'skill-integrity.json')
-  const manifest = JSON.parse(await readFile(integrityPath, 'utf8')) as Integrity
-  if (manifest.schemaVersion !== 1 || manifest.skill !== skillName) throw new Error('Invalid bundled skill manifest')
+async function loadManifest(): Promise<Integrity> {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'skill-integrity.json'), 'utf8')) as Integrity
+  if (manifest.schemaVersion !== 2 || typeof manifest.skills !== 'object') throw new Error('Invalid bundled skill manifest')
+  return manifest
+}
+
+async function loadSource(skillName: string) {
+  const manifest = await loadManifest()
+  const skillManifest = manifest.skills[skillName]
+  if (!skillManifest) throw new Error(`Bundled manifest has no entry for skill ${skillName}`)
+  const source = join(bundleRoot, skillName)
   const skill = await readFile(join(source, 'SKILL.md'), 'utf8')
-  if (!skill.startsWith('---\n') || !/^name: vegastack-arch-guardian$/m.test(skill) || !/^description: .+/m.test(skill)) {
-    throw new Error('Bundled skill fails Agent Skills frontmatter validation')
+  if (!skill.startsWith('---\n') || !new RegExp(`^name: ${skillName}$`, 'm').test(skill) || !/^description: .+/m.test(skill)) {
+    throw new Error(`Bundled skill ${skillName} fails Agent Skills frontmatter validation`)
   }
   const observed: Record<string, string> = {}
   for (const file of await listFiles(source)) observed[relative(source, file).split(sep).join('/')] = hash(await readFile(file))
-  if (JSON.stringify(observed) !== JSON.stringify(manifest.files)) throw new Error('Bundled skill checksum mismatch')
-  return { source, manifest }
+  if (JSON.stringify(observed) !== JSON.stringify(skillManifest.files)) throw new Error(`Bundled skill ${skillName} checksum mismatch`)
+  return { source, files: skillManifest.files }
 }
 
-function destinations(agent: Agent | 'both', mode: Mode, directory?: string) {
-  const agents: Agent[] = agent === 'both' ? ['codex', 'claude'] : [agent]
-  const base = mode === 'global' ? homedir() : resolve(directory ?? process.cwd())
-  return agents.map(item => ({ agent: item, destination: join(base, surfaces[item], skillName) }))
+function baseFor(mode: Mode, directory?: string) {
+  return mode === 'global' ? homedir() : resolve(directory ?? process.cwd())
 }
 
-async function compare(destination: string, manifest: Integrity) {
+async function compare(destination: string, files: Record<string, string>) {
   if (!await exists(destination)) return { status: 'missing' as const, issues: ['not installed'] }
   await assertNoSymlink(destination, false)
   const issues: string[] = []
   const actualFiles = await listFiles(destination)
   const actualKeys = new Set(actualFiles.map(file => relative(destination, file).split(sep).join('/')).filter(key => key !== '.vegastack-install.json'))
-  for (const [key, expected] of Object.entries(manifest.files)) {
+  for (const [key, expected] of Object.entries(files)) {
     if (!actualKeys.has(key)) issues.push(`missing ${key}`)
     else if (hash(await readFile(join(destination, key))) !== expected) issues.push(`changed ${key}`)
   }
-  for (const key of actualKeys) if (!(key in manifest.files)) issues.push(`unexpected ${key}`)
+  for (const key of actualKeys) if (!(key in files)) issues.push(`unexpected ${key}`)
   return { status: issues.length ? 'drifted' as const : 'verified' as const, issues }
 }
 
 async function install(options: Options) {
+  const skillName = await requireSkill(options)
   const choice = await prompt(options)
-  const base = choice.mode === 'global' ? homedir() : resolve(options.dir ?? process.cwd())
-  if (!options.dryRun) return withInstallLock(base, () => installLocked(options, choice, base))
-  return installLocked(options, choice, base, false)
+  const base = baseFor(choice.mode, options.dir)
+  const agents = resolveAgents(choice.agent, choice.mode)
+  if (!agents.length) return
+  if (!options.dryRun) return withInstallLock(base, () => installLocked(options, skillName, agents, base))
+  return installLocked(options, skillName, agents, base, false)
 }
 
-async function installLocked(options: Options, choice: Required<Pick<Options, 'agent' | 'mode'>>, base: string, recover = true) {
+async function installLocked(options: Options, skillName: string, agents: Agent[], base: string, recover = true) {
   if (recover) await recoverInstall(base)
-  const { source, manifest } = await loadSource()
-  const targets = destinations(choice.agent, choice.mode, options.dir)
+  const { source, files } = await loadSource(skillName)
   const operations: Operation[] = []
-  for (const target of targets) {
-    await assertNoSymlink(target.destination)
-    const parent = dirname(target.destination)
+  for (const agent of agents) {
+    const destination = join(base, surfaces[agent], skillName)
+    await assertNoSymlink(destination)
+    const parent = dirname(destination)
     await assertNoSymlink(parent)
-    const existed = await exists(target.destination)
+    const existed = await exists(destination)
     if (existed) {
-      const comparison = await compare(target.destination, manifest)
+      const comparison = await compare(destination, files)
       if (comparison.status === 'verified' && !options.force) {
-        console.log(`unchanged ${target.agent}: ${target.destination}`)
+        console.log(`unchanged ${agent}: ${destination}`)
         continue
       }
-      if (!options.force) throw new Error(`Refusing differing installation without --force: ${target.destination}`)
+      if (!options.force) {
+        if (options.dryRun) { console.log(`would replace ${agent} (requires --force; installed copy differs): ${destination}`); continue }
+        throw new Error(`Refusing differing installation without --force: ${destination}`)
+      }
     }
     const suffix = randomUUID()
-    operations.push({ ...target, existed, stage: join(parent, `.${skillName}.stage-${suffix}`), backup: existed ? join(parent, `.${skillName}.backup-${suffix}`) : undefined })
+    operations.push({ skill: skillName, agent, destination, existed, stage: join(parent, `.${skillName}.stage-${suffix}`), backup: existed ? join(parent, `.${skillName}.backup-${suffix}`) : undefined })
   }
   if (options.dryRun) {
     for (const operation of operations) console.log(`would install ${operation.agent}: ${operation.destination}`)
@@ -274,12 +328,12 @@ async function installLocked(options: Options, choice: Required<Pick<Options, 'a
       await mkdir(dirname(operation.destination), { recursive: true })
       await assertNoSymlink(dirname(operation.destination), false)
       await cp(source, operation.stage, { recursive: true, dereference: false, errorOnExist: true })
-      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/skills', version: packageVersion, manifest }, null, 2)}\n`, { flag: 'wx' })
-      const stagedCheck = await compare(operation.stage, manifest)
+      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/skills', version: packageVersion, skill: skillName, files }, null, 2)}\n`, { flag: 'wx' })
+      const stagedCheck = await compare(operation.stage, files)
       if (stagedCheck.status !== 'verified') throw new Error(`Staged copy failed verification: ${stagedCheck.issues.join(', ')}`)
       staged.push(operation)
     }
-    await durableJson(journalPath, { schemaVersion: 1, status: 'prepared', operations } satisfies InstallJournal)
+    await durableJson(journalPath, { schemaVersion: 2, status: 'prepared', operations } satisfies InstallJournal)
     for (const operation of operations) {
       await assertNoSymlink(dirname(operation.destination), false)
       if (await exists(operation.destination)) await assertNoSymlink(operation.destination, false)
@@ -292,7 +346,7 @@ async function installLocked(options: Options, choice: Required<Pick<Options, 'a
       }
       applied.push(operation)
     }
-    await durableJson(journalPath, { schemaVersion: 1, status: 'committed', operations } satisfies InstallJournal)
+    await durableJson(journalPath, { schemaVersion: 2, status: 'committed', operations } satisfies InstallJournal)
   } catch (error) {
     if (await exists(journalPath)) await recoverInstall(base)
     else for (const operation of [...applied].reverse()) {
@@ -313,14 +367,34 @@ async function installLocked(options: Options, choice: Required<Pick<Options, 'a
 
 async function verify(options: Options) {
   const choice = await prompt(options)
-  const { manifest } = await loadSource()
+  const base = baseFor(choice.mode, options.dir)
+  const agents = resolveAgents(choice.agent, choice.mode)
+  const explicit = Boolean(options.skill)
+  const skills = explicit ? [await requireSkill(options)] : await bundledSkills()
   let failed = false
-  for (const target of destinations(choice.agent, choice.mode, options.dir)) {
-    const result = await compare(target.destination, manifest)
-    console.log(`${result.status} ${target.agent}: ${target.destination}${result.issues.length ? ` (${result.issues.join(', ')})` : ''}`)
-    if (result.status !== 'verified') failed = true
+  let found = 0
+  for (const skillName of skills) {
+    const { files } = await loadSource(skillName)
+    for (const agent of agents) {
+      const destination = join(base, surfaces[agent], skillName)
+      const result = await compare(destination, files)
+      if (result.status === 'missing' && !explicit) { console.log(`not installed ${agent} ${skillName}`); continue }
+      found += 1
+      console.log(`${result.status} ${agent} ${skillName}: ${destination}${result.issues.length ? ` (${result.issues.join(', ')})` : ''}`)
+      if (result.status !== 'verified') failed = true
+    }
   }
+  if (!explicit && found === 0) { console.log('no bundled skills are installed on the selected surfaces'); failed = true }
   if (failed) process.exitCode = 1
+}
+
+function semverLess(a: string, b: string): boolean {
+  const parse = (value: string) => value.split('-')[0]!.split('.').map(part => Number.parseInt(part, 10) || 0)
+  const [aMajor = 0, aMinor = 0, aPatch = 0] = parse(a)
+  const [bMajor = 0, bMinor = 0, bPatch = 0] = parse(b)
+  if (aMajor !== bMajor) return aMajor < bMajor
+  if (aMinor !== bMinor) return aMinor < bMinor
+  return aPatch < bPatch
 }
 
 async function latestPublishedVersion(): Promise<string | null> {
@@ -335,34 +409,56 @@ async function latestPublishedVersion(): Promise<string | null> {
 }
 
 async function removeSkill(options: Options) {
+  const skillName = await requireSkill(options)
   const choice = await prompt(options)
+  const base = baseFor(choice.mode, options.dir)
+  const agents = resolveAgents(choice.agent, choice.mode)
+  if (!options.dryRun) return withInstallLock(base, () => removeLocked(options, skillName, agents, base))
+  return removeLocked(options, skillName, agents, base)
+}
+
+async function removeLocked(options: Options, skillName: string, agents: Agent[], base: string) {
   let removed = 0
-  for (const target of destinations(choice.agent, choice.mode, options.dir)) {
-    if (!await exists(target.destination)) { console.log(`not installed ${target.agent}: ${target.destination}`); continue }
-    await assertNoSymlink(target.destination, false)
+  for (const agent of agents) {
+    const destination = join(base, surfaces[agent], skillName)
+    if (!await exists(destination)) { console.log(`not installed ${agent}: ${destination}`); continue }
+    await assertNoSymlink(destination, false)
     if (!options.force) {
-      const { manifest } = await loadSource()
-      const comparison = await compare(target.destination, manifest)
-      if (comparison.status === 'drifted') throw new Error(`Installation differs from the bundled skill (possibly locally modified); re-run with --force to remove anyway: ${target.destination}`)
+      const { files } = await loadSource(skillName)
+      const comparison = await compare(destination, files)
+      if (comparison.status === 'drifted') throw new Error(`Installation differs from the bundled skill (possibly locally modified); re-run with --force to remove anyway: ${destination}`)
     }
-    if (options.dryRun) { console.log(`would remove ${target.agent}: ${target.destination}`); continue }
-    await rm(target.destination, { recursive: true, force: true })
+    if (options.dryRun) { console.log(`would remove ${agent}: ${destination}`); continue }
+    await rm(destination, { recursive: true, force: true })
     removed += 1
-    console.log(`removed ${target.agent}: ${target.destination}`)
+    console.log(`removed ${agent}: ${destination}`)
   }
   if (!removed && !options.dryRun) process.exitCode = 1
 }
 
+async function list() {
+  const manifest = await loadManifest()
+  for (const skillName of await bundledSkills()) {
+    const skill = await readFile(join(bundleRoot, skillName, 'SKILL.md'), 'utf8')
+    const description = skill.match(/^description: (.+)$/m)?.[1] ?? ''
+    const fileCount = Object.keys(manifest.skills[skillName]?.files ?? {}).length
+    console.log(`${skillName} (${fileCount} files)`)
+    console.log(`  ${description.length > 160 ? `${description.slice(0, 157)}...` : description}`)
+  }
+}
+
 async function doctor(options: Options) {
-  const base = options.mode === 'global' ? homedir() : resolve(options.dir ?? process.cwd())
+  const base = baseFor(options.mode ?? 'project', options.dir)
   await access(base, fsConstants.R_OK | fsConstants.W_OK)
   await assertNoSymlink(base, false)
   let failed = false
   // Canonical profile name first; legacy .yaml-named JSON still accepted with a notice.
   const profileCandidates = [join(base, '.vegastack', 'architecture.json'), join(base, '.vegastack', 'architecture.yaml')]
+  let profileFound = false
   if (options.mode !== 'global') {
     let profile: string | null = null
     for (const candidate of profileCandidates) if (await exists(candidate)) { profile = candidate; break }
+    profileFound = Boolean(profile)
     if (profile) {
       if (profile.endsWith('.yaml')) console.log(`notice: ${profile} uses the legacy .yaml name for a JSON document; rename to architecture.json`)
       try {
@@ -374,31 +470,38 @@ async function doctor(options: Options) {
         failed = true
       }
     } else {
-      console.log(`missing architecture profile: ${profileCandidates[0]}`)
-      failed = true
+      console.log(`missing architecture profile: ${profileCandidates[0]} (only needed for arch-guardian checks)`)
     }
   }
   console.log(`ok runtime: Node ${process.versions.node}`)
   // The only network call the CLI ever makes: one npm version check so stale installs are visible.
   const latest = await latestPublishedVersion()
-  if (latest && latest !== packageVersion) console.log(`update available: installed ${packageVersion}, latest ${latest} — run: npx @vegastack/skills@latest add ${skillName} --force`)
+  if (latest && semverLess(packageVersion, latest)) console.log(`update available: installed ${packageVersion}, latest ${latest} — run: npx @vegastack/skills@latest add <skill> --force`)
+  else if (latest && semverLess(latest, packageVersion)) console.log(`ok installer version: ${packageVersion} (ahead of registry latest ${latest})`)
   else if (latest) console.log(`ok installer version: ${packageVersion} (latest)`)
   else console.log(`skipped installer version check (npmjs.org unreachable); installed ${packageVersion}`)
-  const { manifest } = await loadSource()
+
   let installations = 0
-  let checkScript = ''
-  for (const agent of ['codex', 'claude'] as Agent[]) {
-    const destination = join(base, surfaces[agent], skillName)
-    if (!await exists(destination)) { console.log(`missing ${agent} guardian installation`); continue }
-    installations += 1
-    const result = await compare(destination, manifest)
-    console.log(`${result.status === 'verified' ? 'ok' : 'invalid'} ${agent} guardian installation${result.issues.length ? ` (${result.issues.join(', ')})` : ''}`)
-    if (result.status !== 'verified') failed = true
-    if (!checkScript) checkScript = join(destination, 'scripts', 'architecture-check.mjs')
+  const checkScripts: string[] = []
+  for (const skillName of await bundledSkills()) {
+    const { files } = await loadSource(skillName)
+    for (const agent of ['codex', 'claude', 'hermes'] as Agent[]) {
+      const destination = join(agent === 'hermes' ? homedir() : base, surfaces[agent], skillName)
+      if (!await exists(destination)) continue
+      installations += 1
+      const result = await compare(destination, files)
+      console.log(`${result.status === 'verified' ? 'ok' : 'invalid'} ${agent} ${skillName} installation${result.issues.length ? ` (${result.issues.join(', ')})` : ''}`)
+      if (result.status !== 'verified') failed = true
+      const candidate = join(destination, 'scripts', 'architecture-check.mjs')
+      if (await exists(candidate)) checkScripts.push(candidate)
+    }
   }
-  if (!installations) failed = true
-  if (options.mode !== 'global' && checkScript && !failed) {
-    const result = spawnSync(process.execPath, [checkScript, base, '--json'], { encoding: 'utf8' })
+  if (!installations) { console.log('no bundled skills installed on any surface'); failed = true }
+  // Architecture invariants are only meaningful once a profile exists; running the checker
+  // without one would fail every fresh install and contradict the advisory posture.
+  const firstCheckScript = checkScripts[0]
+  if (options.mode !== 'global' && firstCheckScript && profileFound && !failed) {
+    const result = spawnSync(process.execPath, [firstCheckScript, base, '--json'], { encoding: 'utf8' })
     if (result.status === 0) console.log('ok architecture invariants')
     else { console.log(`invalid architecture invariants: ${result.stdout.trim() || result.stderr.trim()}`); failed = true }
   }
@@ -409,6 +512,7 @@ async function main() {
   const options = parse(process.argv.slice(2))
   if (options.command === 'help') return console.log(usage())
   if (options.command === 'version') return console.log(packageVersion)
+  if (options.command === 'list') return list()
   if (options.command === 'add') return install(options)
   if (options.command === 'verify') return verify(options)
   if (options.command === 'remove') return removeSkill(options)

@@ -17,7 +17,7 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 | Path | What it is |
 |---|---|
 | `skills/` | Authored skill content — the single source of truth. Edit here. |
-| `skills/vegastack-arch-guardian/` | The arch-guardian skill: `SKILL.md`, references, deterministic check scripts, tests. |
+| `skills/arch-guardian/` | The arch-guardian skill: `SKILL.md`, references, deterministic check scripts, tests. |
 | `skills/*/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
 | `docs/policies/` | Release/rollback and content-versioning policies. |
@@ -41,7 +41,7 @@ Every skill lives at `skills/<name>/` and is self-contained:
 | `refresh/sources.json` + `refresh/REFRESH.md` | yes | Freshness contract for the weekly refresh automation |
 | `agents/openai.yaml` | for Codex | Codex interface metadata |
 
-Then: add the skill's packaged files to the allowlist in `packages/cli/scripts/sync-skill.mjs` (the build fails loudly on unlisted files), add a row to the root README skills table, and note that the installer's multi-skill generalization is tracked for the second skill — coordinate before shipping it.
+Then: add the skill's packaged files to the allowlist in `packages/cli/scripts/sync-skill.mjs` (the build fails loudly on unlisted files), add a row to the root README skills table, and add a per-skill packaging allowlist entry — the installer is multi-skill and bundles every listed skill automatically.
 
 ## Adding or modifying rules
 
@@ -56,7 +56,7 @@ Branches named `refresh/**` are reserved for the automated freshness loop and ar
 
 ## Dependency note: jsdom and mermaid
 
-The root devDependencies `jsdom` and `mermaid` look unused by the app code, but they are loaded by `skills/vegastack-arch-guardian/scripts/verify-corpus.mjs` for formal Mermaid diagram parsing during `bun run check`. Do not remove them in a dependency cleanup — `check` will break.
+The root devDependencies `jsdom` and `mermaid` look unused by the app code, but they are loaded by `skills/arch-guardian/scripts/verify-corpus.mjs` for formal Mermaid diagram parsing during `bun run check`. Do not remove them in a dependency cleanup — `check` will break.
 
 ## Releases
 

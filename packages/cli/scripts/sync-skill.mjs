@@ -5,35 +5,55 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(here, '..')
-const source = resolve(packageRoot, '../../skills/vegastack-arch-guardian')
-const destination = join(packageRoot, 'skill', 'vegastack-arch-guardian')
+const skillsRoot = resolve(packageRoot, '../../skills')
+const bundleRoot = join(packageRoot, 'skill')
 
-const runtimeFiles = [
-  'SKILL.md',
-  'agents/openai.yaml',
-  'assets/adr-template.md',
-  'assets/answers-example.json',
-  'assets/architecture-profile.schema.json',
-  'assets/architecture-profile.json',
-  'assets/deployment-review-template.md',
-  'assets/service-design-template.md',
-  'assets/threat-model-template.md',
-  ...['agent-product', 'ai-cost', 'ai-data-boundaries', 'ai-evals', 'connectors-sandbox', 'data-memory', 'delivery-operations', 'durable-execution', 'flutter', 'foundation', 'hosting-reliability', 'identity-tenancy', 'model-lifecycle', 'models-observability', 'realtime-channels', 'security-privacy', 'topology-monorepo', 'web'].map(name => `references/architecture/${name}.md`),
-  'references/foundation-compatibility.json',
-  'references/control-catalog.json',
-  'references/rule-model.json',
-  'references/workflows.md',
-  'references/profile-governance.md',
-  'references/golden-patterns.md',
-  'refresh/REFRESH.md',
-  'refresh/sources.json',
-  ...['architecture-check.mjs', 'lib.mjs', 'profile-tool.mjs', 'refresh-evidence.mjs', 'schema-validate.mjs', 'validate-profile.mjs', 'verify-corpus.mjs'].map(name => `scripts/${name}`),
-]
-
-// Paths in the authored tree that are deliberately NOT packaged. README.md is the repo-side
-// walkthrough (its relative links target repo paths that do not exist in an installed copy);
-// SKILL.md is the installed entry point.
+// Explicit per-skill packaging allowlists. Anything authored that is neither listed here nor in
+// unpackagedPrefixes fails the build loudly — a forgotten entry must never ship a silently
+// incomplete skill. README.md is repo-side only (its relative links target repo paths); tests are
+// never packaged.
 const unpackagedPrefixes = ['tests/', 'README.md']
+const packagedSkills = {
+  'arch-guardian': [
+    'SKILL.md',
+    'agents/openai.yaml',
+    'assets/adr-template.md',
+    'assets/answers-example.json',
+    'assets/architecture-profile.schema.json',
+    'assets/architecture-profile.json',
+    'assets/deployment-review-template.md',
+    'assets/service-design-template.md',
+    'assets/threat-model-template.md',
+    ...['agent-product', 'ai-cost', 'ai-data-boundaries', 'ai-evals', 'connectors-sandbox', 'data-memory', 'delivery-operations', 'durable-execution', 'flutter', 'foundation', 'hosting-reliability', 'identity-tenancy', 'model-lifecycle', 'models-observability', 'realtime-channels', 'security-privacy', 'topology-monorepo', 'web'].map(name => `references/architecture/${name}.md`),
+    'references/foundation-compatibility.json',
+    'references/control-catalog.json',
+    'references/rule-model.json',
+    'references/workflows.md',
+    'references/profile-governance.md',
+    'references/golden-patterns.md',
+    'refresh/REFRESH.md',
+    'refresh/sources.json',
+    ...['architecture-check.mjs', 'lib.mjs', 'profile-tool.mjs', 'refresh-evidence.mjs', 'schema-validate.mjs', 'validate-profile.mjs', 'verify-corpus.mjs'].map(name => `scripts/${name}`),
+  ],
+  'skill-maintainer': [
+    'SKILL.md',
+    'agents/openai.yaml',
+    'references/standards.md',
+    'references/release-ops.md',
+    'refresh/REFRESH.md',
+    'refresh/sources.json',
+  ],
+  'skillify': [
+    'SKILL.md',
+    'agents/openai.yaml',
+    'references/authoring.md',
+    'references/eval-playbook.md',
+    ...['SKILL.md.template', 'README.md.template', 'sources.json.template', 'REFRESH.md.template', 'openai.yaml.template', 'skill.test.ts.template'].map(name => `assets/templates/${name}`),
+    'scripts/scaffold-skill.mjs',
+    'refresh/REFRESH.md',
+    'refresh/sources.json',
+  ],
+}
 
 async function files(root) {
   const output = []
@@ -49,31 +69,45 @@ async function files(root) {
   return output.sort()
 }
 
-// Reject symlinks anywhere in the canonical skill, and fail loudly on any authored file that is
-// neither allowlisted nor deliberately unpackaged — a forgotten allowlist entry must never ship a
-// silently incomplete skill.
-const authored = (await files(source)).map(path => relative(source, path).split(sep).join('/'))
-const allowlisted = new Set(runtimeFiles)
-const unlisted = authored.filter(key => !allowlisted.has(key) && !unpackagedPrefixes.some(prefix => key.startsWith(prefix)))
-if (unlisted.length) throw new Error(`Authored skill files are neither allowlisted for packaging nor listed as deliberately unpackaged: ${unlisted.join(', ')}`)
-const missing = runtimeFiles.filter(key => !authored.includes(key))
-if (missing.length) throw new Error(`Allowlisted runtime files are missing from the authored skill: ${missing.join(', ')}`)
+// Every authored skill must have a packaging allowlist, and vice versa.
+const authoredSkills = (await readdir(skillsRoot, { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
+const listedSkills = Object.keys(packagedSkills).sort()
+const unlistedSkills = authoredSkills.filter(name => !listedSkills.includes(name))
+if (unlistedSkills.length) throw new Error(`Authored skills without a packaging allowlist in sync-skill.mjs: ${unlistedSkills.join(', ')}`)
+const missingSkills = listedSkills.filter(name => !authoredSkills.includes(name))
+if (missingSkills.length) throw new Error(`Packaging allowlist names skills that do not exist: ${missingSkills.join(', ')}`)
 
-await rm(join(packageRoot, 'skill'), { recursive: true, force: true })
-for (const key of runtimeFiles) {
-  const from = join(source, key)
-  if (!(await lstat(from)).isFile()) throw new Error(`Runtime allowlist entry is not a regular file: ${key}`)
-  const to = join(destination, key)
-  await mkdir(dirname(to), { recursive: true })
-  await copyFile(from, to)
+await rm(bundleRoot, { recursive: true, force: true })
+const manifest = { schemaVersion: 2, skills: {} }
+
+for (const skillName of listedSkills) {
+  const source = join(skillsRoot, skillName)
+  const destination = join(bundleRoot, skillName)
+  const runtimeFiles = packagedSkills[skillName]
+
+  const authored = (await files(source)).map(path => relative(source, path).split(sep).join('/'))
+  const allowlisted = new Set(runtimeFiles)
+  const unlisted = authored.filter(key => !allowlisted.has(key) && !unpackagedPrefixes.some(prefix => key.startsWith(prefix)))
+  if (unlisted.length) throw new Error(`${skillName}: authored files neither allowlisted for packaging nor deliberately unpackaged: ${unlisted.join(', ')}`)
+  const missing = runtimeFiles.filter(key => !authored.includes(key))
+  if (missing.length) throw new Error(`${skillName}: allowlisted runtime files missing from the authored skill: ${missing.join(', ')}`)
+
+  for (const key of runtimeFiles) {
+    const from = join(source, key)
+    if (!(await lstat(from)).isFile()) throw new Error(`${skillName}: runtime allowlist entry is not a regular file: ${key}`)
+    const to = join(destination, key)
+    await mkdir(dirname(to), { recursive: true })
+    await copyFile(from, to)
+  }
+
+  const skillManifest = { files: {} }
+  for (const path of await files(destination)) {
+    const key = relative(destination, path).split(sep).join('/')
+    skillManifest.files[key] = createHash('sha256').update(await readFile(path)).digest('hex')
+  }
+  if (Object.keys(skillManifest.files).length !== runtimeFiles.length) throw new Error(`${skillName}: packaged inventory differs from the explicit allowlist`)
+  manifest.skills[skillName] = skillManifest
+  await stat(join(destination, 'SKILL.md'))
 }
 
-const manifest = { schemaVersion: 1, skill: 'vegastack-arch-guardian', files: {} }
-for (const path of await files(destination)) {
-  const key = relative(destination, path).split(sep).join('/')
-  const body = await readFile(path)
-  manifest.files[key] = createHash('sha256').update(body).digest('hex')
-}
-if (Object.keys(manifest.files).length !== runtimeFiles.length) throw new Error('Packaged runtime file inventory differs from the explicit allowlist')
 await writeFile(join(packageRoot, 'skill-integrity.json'), `${JSON.stringify(manifest, null, 2)}\n`)
-await stat(join(destination, 'SKILL.md'))

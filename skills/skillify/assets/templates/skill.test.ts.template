@@ -1,0 +1,40 @@
+import { describe, expect, test } from 'bun:test'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
+
+const skillRoot = resolve(import.meta.dir, '..')
+
+describe('{{name}} contract', () => {
+  test('SKILL.md passes repo validation', () => {
+    const result = validateSkill(skillRoot)
+    expect(result.message).toBe('Skill is valid!')
+    expect(result.ok).toBe(true)
+  })
+
+  test('frontmatter carries only name and description', () => {
+    const content = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const frontmatter = /^---\n([\s\S]*?)\n---/.exec(content)
+    expect(frontmatter).not.toBeNull()
+    const keys = (frontmatter as RegExpExecArray)[1]
+      .split('\n')
+      .filter(line => /^[A-Za-z]/.test(line))
+      .map(line => line.split(':')[0])
+    expect(keys.sort()).toEqual(['description', 'name'])
+  })
+
+  test('relative markdown links resolve', () => {
+    for (const file of ['SKILL.md', 'README.md']) {
+      const body = readFileSync(join(skillRoot, file), 'utf8')
+      for (const match of body.matchAll(/\]\(([^)#\s]+)\)/g)) {
+        const target = match[1]
+        if (/^[a-z][a-z0-9+.-]*:/.test(target)) continue
+        expect(`${file} -> ${target}: ${existsSync(join(skillRoot, target))}`).toBe(`${file} -> ${target}: true`)
+      }
+    }
+  })
+
+  // TODO: add unit tests for every deterministic branch of scripts/, plus the
+  // consistency test (prose, scripts, templates, and registry agree). Lock in
+  // eval-proven behavior only AFTER the behavioral eval passes (skillify Phase 4).
+})

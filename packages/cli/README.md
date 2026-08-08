@@ -1,30 +1,50 @@
 # @vegastack/skills
 
-Installer for VegaStack Agent Skills. Installs the **vegastack-arch-guardian** skill — an architecture advisor with stable normative rules and deterministic checks — into Claude Code (`.claude/skills`) and Codex (`.agents/skills`).
+Installer for VegaStack Agent Skills — a family of self-contained skills for Claude Code, Codex, and Hermes, shipped in one integrity-checked package.
 
 ```sh
-npx @vegastack/skills add vegastack-arch-guardian
+npx @vegastack/skills list
+npx @vegastack/skills add arch-guardian
 ```
+
+## Skills in this package
+
+| Skill | What it does |
+|---|---|
+| `arch-guardian` | Architecture advisor: capability-scoped normative rules, deterministic checks against a committed profile, exception/ADR governance |
+| `skill-maintainer` | Encodes the Agent Skills standards (Claude Code, Codex, Hermes, agentskills.io) for creating, updating, and releasing skills in a skills repo |
+| `skillify` | Turns a feature or workflow into a complete skill conforming to the VegaStack skills contract, or audits an existing one |
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `add <skill>` | Install (or upgrade) the skill into the selected agent directories |
-| `verify <skill>` | Check an installed copy against the bundled checksum manifest |
-| `doctor` | Diagnose an install: integrity, profile presence, installed-vs-latest version |
-| `remove <skill>` | Uninstall the skill from the selected agent directories |
+| `list` | Show the bundled skills |
+| `add <skill>` | Install (or upgrade) a skill into the selected agent directories |
+| `verify [skill]` | Check installed copies against the bundled checksum manifest (all bundled skills when no name given) |
+| `doctor` | Diagnose an install: integrity across all skills, profile presence, installed-vs-latest version |
+| `remove <skill>` | Uninstall a skill from the selected agent directories |
 
 ## Flags
 
 | Flag | Meaning |
 |---|---|
 | `--project` / `--global` | Install into the current project (default) or the user's home directory |
-| `--agent codex\|claude\|both` | Target agent runtime(s) |
+| `--agent codex\|claude\|hermes\|both\|all` | Target agent runtime(s); `both` = codex+claude |
 | `--dir PATH` | Operate on a different project directory |
 | `--dry-run` | Show what would change without writing |
 | `--force` | Overwrite a modified installed copy |
 | `--non-interactive` | Skip prompts and use defaults: `--agent both`, project-local (for automation) |
+
+## Agent surfaces
+
+| Agent | Project install | Global install |
+|---|---|---|
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Codex | `.agents/skills/` | `~/.agents/skills/` |
+| Hermes | — (Hermes discovers skills globally only) | `~/.hermes/skills/` |
+
+`--agent hermes` therefore requires `--global`; `--agent all` on a project install covers codex+claude and prints a notice about hermes.
 
 ## Integrity model
 

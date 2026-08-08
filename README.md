@@ -1,20 +1,22 @@
 # VegaStack Skills
 
-Authored Agent Skills for Claude Code and Codex, plus the `@vegastack/skills` npm installer that ships them. Each skill is self-contained: its own entry point, references, deterministic scripts, freshness contract, and walkthrough README.
+Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/skills` npm installer that ships them. Each skill is self-contained: its own entry point, references, deterministic scripts, freshness contract, and walkthrough README.
 
 ## Skills
 
 | Skill | What it does | Docs |
 |---|---|---|
-| [vegastack-arch-guardian](skills/vegastack-arch-guardian/) | Opinionated senior-architect advisor: capability-scoped normative rules (107 rules, 18 references), deterministic architecture checks against a committed profile, exception/ADR governance, and a source-freshness contract | [Walkthrough](skills/vegastack-arch-guardian/README.md) · [SKILL.md](skills/vegastack-arch-guardian/SKILL.md) |
+| [arch-guardian](skills/arch-guardian/) | Opinionated senior-architect advisor: capability-scoped normative rules (107 rules, 18 references), deterministic architecture checks against a committed profile, exception/ADR governance, and a source-freshness contract | [Walkthrough](skills/arch-guardian/README.md) · [SKILL.md](skills/arch-guardian/SKILL.md) |
+| [skill-maintainer](skills/skill-maintainer/) | Encodes the verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create/update/rename/release of a skill in this repo runs through its workflows and hard limits | [Walkthrough](skills/skill-maintainer/README.md) · [SKILL.md](skills/skill-maintainer/SKILL.md) |
+| [skillify](skills/skillify/) | Repo-local skill factory and auditor: gates whether something should be a skill at all, scaffolds the full per-skill contract, and scores existing skills against a 13-item completeness checklist with behavioral-eval-before-tests discipline | [Walkthrough](skills/skillify/README.md) · [SKILL.md](skills/skillify/SKILL.md) |
 
 Install any skill by name:
 
 ```sh
-npx @vegastack/skills add vegastack-arch-guardian
+npx @vegastack/skills add arch-guardian
 ```
 
-Requires Node >= 20.11. Project installs target `.claude/skills` (Claude Code) and `.agents/skills` (Codex); `--global` uses the home directory. `verify` re-checks installed bytes against the shipped checksum manifest; `remove` uninstalls; `doctor` diagnoses. All commands and flags: [installer README](packages/cli/README.md).
+Requires Node >= 20.11. Project installs target `.claude/skills` (Claude Code) and `.agents/skills` (Codex); `--global` additionally supports `--agent hermes` (`~/.hermes/skills` — Hermes discovers skills globally only). `list` shows bundled skills; `verify` re-checks installed bytes against the shipped checksum manifest; `remove` uninstalls; `doctor` diagnoses. All commands and flags: [installer README](packages/cli/README.md).
 
 The installer is fully offline with one exception: `doctor` checks npmjs.org for a newer release. No telemetry.
 

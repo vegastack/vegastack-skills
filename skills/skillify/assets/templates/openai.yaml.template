@@ -1,0 +1,4 @@
+interface:
+  display_name: "{{name}}"
+  short_description: "TODO: imperative, under 60 characters"
+  default_prompt: "Use ${{name}} to TODO."
