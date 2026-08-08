@@ -5,9 +5,9 @@ Applies to `@vegastack/skills` published from this repository.
 ## Release flow (tag-driven)
 
 1. Changes land on `main` with a changeset (`bunx changeset`) describing the semver impact — see [content-versioning.md](content-versioning.md) for how skill-content changes map to semver.
-2. When releasing, a maintainer runs `bunx changeset version` (applies pending changesets to `packages/cli/package.json` and the changelog), then `bun install` so `bun.lock` does not go stale, and commits.
+2. When releasing, a maintainer runs `bunx changeset version` (applies pending changesets to `packages/cli/package.json` and the changelog), then `bun install` so `bun.lock` does not go stale, and commits. The root [CHANGELOG.md](../../CHANGELOG.md) is the human-readable release record — every release gets an entry.
 3. Tag the release commit `v<version>` and push the tag.
-4. `.github/workflows/release.yml` runs on the tag: `bun run check`, `npm publish` via trusted publishing (OIDC, token-free, provenance by default), SBOM generation, and a GitHub release with the SBOM attached.
+4. `.github/workflows/release.yml` runs on the tag: `bun run check`, tag↔version guard, `npm publish` via trusted publishing (OIDC, token-free, provenance by default; skipped idempotently if the version is already on the registry), SBOM generation, and a GitHub release with generated notes and the SBOM attached.
 
 ## First-publish bootstrap
 
