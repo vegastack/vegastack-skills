@@ -42,12 +42,24 @@ jobs:
           RUNNER=skills/arch-guardian/scripts/refresh-evidence.mjs
           SCRATCH=$(mktemp -d)
           mkdir -p "$SCRATCH/reports"
+          # Vendor hosts occasionally refuse a datacenter IP for one request;
+          # retry before letting fail-closed kill a scheduled run.
           for REGISTRY in skills/*/refresh/sources.json; do
             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
             echo "== $SKILL"
-            node "$RUNNER" --registry "$REGISTRY" --accept-baselines \
-              --cache "$SCRATCH/cache-$SKILL.json" \
-              --report "$SCRATCH/reports/$SKILL.json"
+            for ATTEMPT in 1 2 3; do
+              if node "$RUNNER" --registry "$REGISTRY" --accept-baselines \
+                --cache "$SCRATCH/cache-$SKILL.json" \
+                --report "$SCRATCH/reports/$SKILL.json"; then
+                break
+              elif [ "$ATTEMPT" = "3" ]; then
+                echo "::error::$SKILL refresh failed after 3 attempts"
+                exit 1
+              else
+                echo "attempt $ATTEMPT failed; retrying in 30s"
+                sleep 30
+              fi
+            done
           done
           echo "SCRATCH=$SCRATCH" >> "$GITHUB_ENV"
 
