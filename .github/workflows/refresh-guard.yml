@@ -10,10 +10,16 @@
 # pull_request `branches:` filters on the BASE branch, so head-branch matching
 # is done with a job-level `if:` on github.head_ref.
 
+# NOTE: PRs opened by the weekly refresh workflow's default token do not
+# trigger pull_request workflows (GitHub recursion prevention) — those runs
+# self-verify inside refresh.yml instead. This guard fires on human-pushed
+# refresh/** branches, and can be dispatched manually against any branch.
+
 name: Refresh guard
 
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -46,7 +52,7 @@ jobs:
           echo "Scope OK."
 
   re-verify:
-    if: startsWith(github.head_ref, 'refresh/')
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'refresh/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

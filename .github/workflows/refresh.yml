@@ -51,6 +51,24 @@ jobs:
           done
           echo "SCRATCH=$SCRATCH" >> "$GITHUB_ENV"
 
+      # PRs opened with the default workflow token never trigger pull_request
+      # workflows (GitHub recursion prevention), so refresh-guard will NOT run
+      # on the standing PR automatically. The same deterministic re-verification
+      # therefore runs here, in the run that produced the baselines: a fresh
+      # scratch-cache pass against the just-written registries must reproduce
+      # with no critical drift.
+      - name: Re-verify accepted baselines (self-guard)
+        run: |
+          set -euo pipefail
+          RUNNER=skills/arch-guardian/scripts/refresh-evidence.mjs
+          VERIFY=$(mktemp -d)
+          for REGISTRY in skills/*/refresh/sources.json; do
+            SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
+            node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
+              --cache "$VERIFY/cache-$SKILL.json" \
+              --report "$VERIFY/report-$SKILL.json"
+          done
+
       - name: Open or update the standing refresh PR
         env:
           GH_TOKEN: ${{ github.token }}
