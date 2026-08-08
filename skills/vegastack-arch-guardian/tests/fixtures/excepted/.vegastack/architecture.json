@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 3,
+  "profileStatus": "confirmed",
+  "foundation": { "version": "0.3.0", "baseline": "vs-2026-08-07", "adoption": "supported" },
+  "project": { "name": "excepted-critical-risk", "kind": "platform-service", "lifecycle": "migration", "access": "internal", "tenancy": "single-tenant" },
+  "environments": { "production": { "hosting": "self-hosted" }, "localDevelopment": { "trusted": true, "allowances": [] } },
+  "capabilities": {
+    "webControlPlane": { "status": "disabled", "ownership": "not-applicable" },
+    "flutter": { "status": "disabled", "ownership": "not-applicable" },
+    "agents": { "status": "disabled", "ownership": "not-applicable" },
+    "jobs": { "status": "disabled", "ownership": "not-applicable" },
+    "sandbox": { "status": "disabled", "ownership": "not-applicable" },
+    "connectors": { "status": "disabled", "ownership": "not-applicable" },
+    "knowledge": { "status": "disabled", "ownership": "not-applicable" },
+    "modelRouting": { "status": "disabled", "ownership": "not-applicable" },
+    "enterpriseIdentity": { "status": "disabled", "ownership": "not-applicable" },
+    "realtime": { "status": "disabled", "ownership": "not-applicable" },
+    "notifications": { "status": "disabled", "ownership": "not-applicable" },
+    "secrets": { "status": "enabled", "ownership": "owned", "versions": { "openbao": "2.3.2" }, "placement": "external-service", "sourceRoots": ["infra/secrets"], "controls": { "provider": "openbao" } }
+  },
+  "exceptions": [{
+    "id": "EXC-201", "ruleId": "SEC-002", "controls": ["secret.plaintext"], "paths": [".env"], "adr": "docs/adr-201.md", "projectOwner": "fixture-project-owner", "status": "active", "verificationType": "static-sentinel", "rationale": "temporary migration fixture", "decision": "accept the scoped risk", "risks": ["credential disclosure"], "compensatingControls": ["restricted fixture environment"], "verification": ["static secret sentinel"], "rollbackOrMigration": "move the key to OpenBao and delete the file", "review": { "date": "2099-01-01" }, "foundationDeviationAcknowledged": true
+  }]
+}

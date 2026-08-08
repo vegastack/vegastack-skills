@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 3,
+  "profileStatus": "confirmed",
+  "foundation": { "version": "0.3.0", "baseline": "vs-2026-08-07", "adoption": "supported" },
+  "project": { "name": "compliant-web", "kind": "saas-product", "lifecycle": "brownfield", "access": "authenticated", "tenancy": "multi-tenant-shared-schema" },
+  "environments": { "production": { "hosting": "cloudflare-opennext" }, "localDevelopment": { "trusted": true, "allowances": [] } },
+  "capabilities": {
+    "webControlPlane": { "status": "enabled", "ownership": "owned", "versions": { "bun": "1.3.14", "node": "24.18.0", "next": "16.3.0", "openNext": "1.20.2", "betterAuth": "1.6.26" }, "placement": "open-next-worker", "sourceRoots": ["src"], "controls": { "secureCookies": true } },
+    "flutter": { "status": "disabled", "ownership": "not-applicable" },
+    "agents": { "status": "disabled", "ownership": "not-applicable" },
+    "jobs": { "status": "disabled", "ownership": "not-applicable" },
+    "sandbox": { "status": "disabled", "ownership": "not-applicable" },
+    "connectors": { "status": "disabled", "ownership": "not-applicable" },
+    "knowledge": { "status": "disabled", "ownership": "not-applicable" },
+    "modelRouting": { "status": "disabled", "ownership": "not-applicable" },
+    "enterpriseIdentity": { "status": "disabled", "ownership": "not-applicable" },
+    "realtime": { "status": "disabled", "ownership": "not-applicable" },
+    "notifications": { "status": "disabled", "ownership": "not-applicable" },
+    "secrets": { "status": "enabled", "ownership": "owned", "versions": { "openbao": "2.3.2" }, "placement": "external-service", "sourceRoots": ["infra/secrets"], "controls": { "provider": "openbao" } }
+  },
+  "data": { "classes": [{ "name": "confidential", "owner": "fixture" }] },
+  "objectives": { "availability": "fixture-defined", "rpoMinutes": 15, "rtoMinutes": 60 },
+  "exceptions": []
+}

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 3,
+  "profileStatus": "confirmed",
+  "foundation": { "version": "0.3.0", "baseline": "vs-2026-08-07", "adoption": "supported" },
+  "project": { "name": "violating", "kind": "saas-product", "lifecycle": "brownfield", "access": "authenticated", "tenancy": "multi-tenant-shared-schema" },
+  "environments": { "production": { "hosting": "cloudflare-opennext" }, "localDevelopment": { "trusted": true, "allowances": [] } },
+  "capabilities": {
+    "webControlPlane": { "status": "enabled", "ownership": "owned", "versions": { "bun": "1.3.14", "node": "24.18.0", "next": "16.3.0", "openNext": "1.20.2", "betterAuth": "1.6.26" }, "placement": "node", "sourceRoots": ["src"], "controls": { "secureCookies": false } },
+    "flutter": { "status": "disabled", "ownership": "not-applicable" },
+    "agents": { "status": "enabled", "ownership": "owned", "versions": { "eve": "0.29.5", "workflowWorldContract": "5.0.0-beta.23", "workflowLocal": "5.0.0-beta.32", "workflowPostgres": "5.0.0-beta.30", "node": "24.18.0" }, "placement": "open-next-worker", "sourceRoots": ["apps/eve"], "controls": { "workflowWorld": "local", "agentRun": false, "admission": "pg-boss", "untrustedExecution": true } },
+    "jobs": { "status": "enabled", "ownership": "owned", "versions": { "pgBoss": "12.27.0", "postgres": "17.10" }, "placement": "open-next-worker", "sourceRoots": ["apps/jobs"], "controls": { "roles": ["ordinary-jobs"] } },
+    "sandbox": { "status": "enabled", "ownership": "owned", "versions": { "sandbox": "1.0.0" }, "placement": "worker", "sourceRoots": ["src"], "controls": { "provider": "local", "egress": "allow-all", "databaseCredentials": true, "trustedBroker": false } },
+    "connectors": { "status": "disabled", "ownership": "not-applicable" },
+    "knowledge": { "status": "disabled", "ownership": "not-applicable" },
+    "modelRouting": { "status": "disabled", "ownership": "not-applicable" },
+    "enterpriseIdentity": { "status": "enabled", "ownership": "owned", "versions": { "scim": "1.0.0" }, "placement": "web", "sourceRoots": ["src"], "controls": { "scim": true, "organizationMapping": false, "deprovisioning": false } },
+    "realtime": { "status": "disabled", "ownership": "not-applicable" },
+    "notifications": { "status": "disabled", "ownership": "not-applicable" },
+    "secrets": { "status": "enabled", "ownership": "owned", "versions": { "local": "1.0.0" }, "placement": "environment", "sourceRoots": ["src"], "controls": { "provider": "environment" } }
+  },
+  "exceptions": [{
+    "id": "EXC-999", "ruleId": "SEC-002", "controls": ["secret.plaintext"], "paths": ["src/unsafe-auth.ts"], "adr": "docs/missing.md", "projectOwner": "owner", "status": "active", "verificationType": "static-sentinel", "rationale": "fixture", "decision": "accept", "risks": ["secret disclosure"], "compensatingControls": ["none"], "verification": ["static"], "rollbackOrMigration": "remove", "review": { "date": "2099-01-01" }, "foundationDeviationAcknowledged": true
+  }]
+}

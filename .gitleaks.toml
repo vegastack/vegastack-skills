@@ -1,0 +1,18 @@
+# Gitleaks configuration for vegastack-skills.
+#
+# The skill's test fixtures deliberately contain fake credentials so the
+# deterministic checks have something to detect, e.g.:
+#   - tests/fixtures/excepted/.env            -> API_KEY=supersecretvalue123
+#   - tests/fixtures/violating/**             -> postgres://admin:unsafe-password@... URLs
+# These are intentional test fixtures, never real secrets, and are excluded from
+# the published npm package. Allowlist them so secret scanning stays useful for
+# everything else (and forks don't trip push protection on them).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentional fake secrets in skill test fixtures"
+paths = [
+  '''skills/.*/tests/fixtures/.*''',
+]

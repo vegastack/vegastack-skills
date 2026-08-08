@@ -1,0 +1,35 @@
+{
+  "name": "@vegastack/skills",
+  "version": "0.1.0",
+  "description": "Installer and verifier for VegaStack Agent Skills (Claude Code and Codex)",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vegastack/vegastack-skills.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/vegastack/vegastack-skills#readme",
+  "bugs": "https://github.com/vegastack/vegastack-skills/issues",
+  "author": "VegaStack",
+  "keywords": [
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "skill",
+    "architecture",
+    "vegastack"
+  ],
+  "bin": { "vegastack-skills": "dist/index.js" },
+  "files": ["dist", "skill", "skill-integrity.json", "README.md", "LICENSE"],
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "sync": "bun scripts/sync-skill.mjs",
+    "build": "bun run sync && bun build src/index.ts --target=node --outfile dist/index.js && chmod +x dist/index.js",
+    "lint": "bun scripts/lint.mjs",
+    "typecheck": "bunx tsc -p tsconfig.json --noEmit",
+    "test": "bun test test",
+    "prepack": "bun run build",
+    "pack:local": "mkdir -p ../../work/packed && npm pack --pack-destination ../../work/packed"
+  }
+}

@@ -1,0 +1,1159 @@
+{
+  "schemaVersion": 1,
+  "retrievalBaseline": "2026-08-05T18:05:56+05:30",
+  "timezone": "Asia/Kolkata",
+  "policy": {
+    "criticalTopics": [
+      "security",
+      "auth",
+      "tenancy",
+      "durability",
+      "deployment"
+    ],
+    "defaultChecksumScope": "html-text-v1",
+    "offline": "Use cached metadata only; fail closed when a critical entry is missing or older than thresholdDays.",
+    "drift": "Map changed versions/checksums to affected rule IDs, references, and profiles; open a refresh PR for human review without automatically expiring ADRs.",
+    "copyright": "Store claim metadata, URLs, hashes, headers, and concise excerpts only; never archive whole third-party documentation corpora.",
+    "cadence": "weekly automated refresh; thresholdDays must be >= 14 (2x cadence) so a single missed run never breaches a threshold"
+  },
+  "sources": [
+    {
+      "id": "EVE-PINNED",
+      "service": "EVE",
+      "kind": "pinned-source-package",
+      "pinnedVersion": "0.29.5",
+      "currentVersion": "0.31.2",
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z",
+      "commit": "8988139097d1e1a1f1aca9b2828e63408848fccf",
+      "stability": "beta-protocol-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://raw.githubusercontent.com/vercel/eve/8988139097d1e1a1f1aca9b2828e63408848fccf/docs/concepts/execution-model-and-durability.mdx",
+        "docsIndex": "https://github.com/vercel/eve/tree/8988139097d1e1a1f1aca9b2828e63408848fccf/docs",
+        "package": "https://www.npmjs.com/package/eve/v/0.29.5",
+        "repository": "https://github.com/vercel/eve/tree/8988139097d1e1a1f1aca9b2828e63408848fccf",
+        "security": "https://github.com/vercel/eve/security"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "eve",
+        "pin": "0.29.5"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "5318b2a16bcdb53698ca54816c7318e54b97dc93d5985e689e052099544dec0f",
+      "checksumScope": "http-body",
+      "packageSha256": "2193a174b167c273f6b32b6152999a31fc2d24ffa0ad455c2b95653d2a49abd4",
+      "topics": [
+        "durability",
+        "agents",
+        "deployment"
+      ],
+      "affected": [
+        "rule:RUN-001",
+        "rule:DUR-002",
+        "ref:topology-monorepo",
+        "ref:durable-execution",
+        "profile:capabilities.agents.versions"
+      ]
+    },
+    {
+      "id": "WORKFLOW-PG",
+      "service": "Workflow Postgres World",
+      "kind": "package-and-current-docs",
+      "pinnedVersion": "5.0.0-beta.30",
+      "currentVersion": "5.0.0-beta.32",
+      "versionCheckedAt": "2026-08-06T18:06:20+05:30",
+      "stability": "beta-contested-readiness",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://registry.npmjs.org/@workflow/world-postgres/-/world-postgres-5.0.0-beta.30.tgz",
+        "docsIndex": "https://workflow-sdk.dev/worlds/postgres",
+        "package": "https://www.npmjs.com/package/@workflow/world-postgres/v/5.0.0-beta.30",
+        "repository": "https://github.com/vercel/workflow"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "@workflow/world-postgres",
+        "tag": "beta",
+        "pin": "5.0.0-beta.30",
+        "compatibleWorld": "5.0.0-beta.23",
+        "compatibleLocal": "5.0.0-beta.32"
+      },
+      "retrievedAt": "2026-08-05T18:05:56+05:30",
+      "checksum": "f93065d37f1ece1bf109ba9da5b5a8afa2e8f4bd48246b3772dc8a5fba641e4c",
+      "checksumScope": "http-body",
+      "readmeChecksum": "df9073335178866f69d24464291bd800194b0a4e0e8032b6c2903793b21b3eb9",
+      "topics": [
+        "durability",
+        "deployment"
+      ],
+      "affected": [
+        "rule:RUN-001",
+        "rule:DUR-001",
+        "rule:DUR-002",
+        "ref:durable-execution",
+        "profile:capabilities.agents.versions"
+      ]
+    },
+    {
+      "id": "PGBOSS-1227",
+      "service": "pg-boss",
+      "kind": "pinned-source-package",
+      "pinnedVersion": "12.27.0",
+      "currentVersion": "12.27.0",
+      "commit": "aa1ce16c9258dceeed23545e6e04adc33ce027f3",
+      "stability": "critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://raw.githubusercontent.com/timgit/pg-boss/aa1ce16c9258dceeed23545e6e04adc33ce027f3/README.md",
+        "docsIndex": "https://github.com/timgit/pg-boss/tree/aa1ce16c9258dceeed23545e6e04adc33ce027f3/docs",
+        "package": "https://www.npmjs.com/package/pg-boss/v/12.27.0",
+        "repository": "https://github.com/timgit/pg-boss/tree/aa1ce16c9258dceeed23545e6e04adc33ce027f3",
+        "security": "https://github.com/timgit/pg-boss/security"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "pg-boss",
+        "pin": "12.27.0"
+      },
+      "retrievedAt": "2026-08-05T18:05:56+05:30",
+      "checksum": "16c4e2859956063c4a00eadd59d315b2ff3a27a1f7368681768dd3b730b19787",
+      "previousRetrievalChecksum": "5f950ff31fc9c11421ec69b2a20054169ff870effed6173c2ae859a69a1a501b",
+      "packageSha256": "b7084f1c384880608e2d94b54016383fe0190635f11b95447a1c1843b4cf8eaf",
+      "topics": [
+        "durability",
+        "jobs"
+      ],
+      "affected": [
+        "rule:DUR-003",
+        "rule:DUR-005",
+        "rule:DUR-006",
+        "ref:durable-execution",
+        "profile:capabilities.jobs.versions"
+      ],
+      "checksumScope": "http-body"
+    },
+    {
+      "id": "NEXT-1630",
+      "service": "Next.js",
+      "kind": "package-docs",
+      "pinnedVersion": "16.x",
+      "currentVersion": "16.3.0",
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z",
+      "commit": "d73f5622e226358dcef8cf7a8a373333ff265ae7",
+      "stability": "framework",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://nextjs.org/docs/app/guides/upgrading/version-16",
+        "docsIndex": "https://nextjs.org/docs",
+        "changelog": "https://github.com/vercel/next.js/releases",
+        "package": "https://www.npmjs.com/package/next/v/16.3.0",
+        "repository": "https://github.com/vercel/next.js/tree/d73f5622e226358dcef8cf7a8a373333ff265ae7",
+        "security": "https://github.com/vercel/next.js/security"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "next",
+        "range": "16.x"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "0abc8a48ea10caaedc73e108e36092f38c5d4e293c52f12b5ebff301c0b12c62",
+      "previousRetrievalChecksum": "47044e069d714d965602509d298850594db7c0a53d9d2a1ab28ff60512d3b797",
+      "packageSha256": "1eced922c89460eeb4a2bc1bb1998a9df1d13320444785f53259b0f534c79dd9",
+      "topics": [
+        "web",
+        "deployment"
+      ],
+      "affected": [
+        "rule:API-001",
+        "ref:web",
+        "profile:capabilities.webControlPlane.versions"
+      ]
+    },
+    {
+      "id": "OPENNEXT-1202",
+      "service": "OpenNext Cloudflare",
+      "kind": "package-docs",
+      "pinnedVersion": "1.20.2",
+      "currentVersion": "1.20.2",
+      "commit": "da4b7fc8c89441a6f96205635fa70e329d1f0df7",
+      "stability": "deployment-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://opennext.js.org/cloudflare",
+        "docsIndex": "https://opennext.js.org/cloudflare",
+        "changelog": "https://github.com/opennextjs/opennextjs-cloudflare/releases",
+        "package": "https://www.npmjs.com/package/@opennextjs/cloudflare/v/1.20.2",
+        "repository": "https://github.com/opennextjs/opennextjs-cloudflare/tree/da4b7fc8c89441a6f96205635fa70e329d1f0df7"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "@opennextjs/cloudflare",
+        "pin": "1.20.2"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "0682cbf05c75111c938b9d9286e0c51ef5d6992565286cc207cc354822612d5c",
+      "packageSha256": "4e66f3599aa86135f0766c7fbc81d2a4c944990e9f9d5402fbf95a9a06e25c36",
+      "topics": [
+        "web",
+        "deployment"
+      ],
+      "affected": [
+        "rule:RUN-001",
+        "rule:HOST-004",
+        "rule:API-001",
+        "ref:web",
+        "ref:hosting-reliability",
+        "profile:capabilities.webControlPlane+environments.production"
+      ],
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z"
+    },
+    {
+      "id": "CF-WORKERS",
+      "service": "Cloudflare Workers",
+      "kind": "official-docs",
+      "pinnedVersion": "compatibility-date-profile",
+      "currentVersion": "retrieved-2026-08-06",
+      "stability": "deployment-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://developers.cloudflare.com/workers/runtime-apis/nodejs/",
+        "docsIndex": "https://developers.cloudflare.com/workers/",
+        "api": "https://developers.cloudflare.com/api/",
+        "changelog": "https://developers.cloudflare.com/changelog/",
+        "security": "https://www.cloudflare.com/trust-hub/"
+      },
+      "versionDetection": {
+        "type": "http-hash-and-changelog"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "969aa28b85ce515357c0c383a61bdd7ec3bc823c21df07a700828171f783790b",
+      "previousRetrievalChecksum": "fa1c44147ec0795be4e5e8caffcabf596124ef98214f81002d9c3cd3894ed34e",
+      "topics": [
+        "deployment",
+        "security"
+      ],
+      "affected": [
+        "rule:RUN-001",
+        "rule:HOST-004",
+        "ref:topology-monorepo",
+        "ref:hosting-reliability",
+        "profile:capabilities.webControlPlane+environments.production"
+      ]
+    },
+    {
+      "id": "CF-SANDBOX",
+      "service": "Cloudflare Sandbox",
+      "kind": "official-docs-package",
+      "pinnedVersion": "0.12.4",
+      "currentVersion": "0.12.5",
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z",
+      "commit": "798afcf33ead69fdbfb6598ca345f396deb4d6b2",
+      "stability": "security-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://developers.cloudflare.com/sandbox/concepts/security/",
+        "docsIndex": "https://developers.cloudflare.com/sandbox/",
+        "api": "https://developers.cloudflare.com/sandbox/api/",
+        "changelog": "https://developers.cloudflare.com/changelog/",
+        "package": "https://www.npmjs.com/package/@cloudflare/sandbox/v/0.12.4",
+        "repository": "https://github.com/cloudflare/sandbox-sdk/tree/798afcf33ead69fdbfb6598ca345f396deb4d6b2",
+        "security": "https://github.com/cloudflare/sandbox-sdk/security"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "@cloudflare/sandbox",
+        "pin": "0.12.4"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "35ec021400dbea722c90eb6be48fad74b5fc98bdad075b8730786be7c3608f6b",
+      "previousRetrievalChecksum": "c86f91663ba3707081b6bee6edea68607e0bc4d63a149946baba977590a2334d",
+      "outboundChecksum": "0c2f5e69ca4470b61a07392d503fbd61a9863fd8570789e05a5fbe628a91bc8a",
+      "topics": [
+        "sandbox",
+        "security",
+        "deployment"
+      ],
+      "affected": [
+        "rule:SBX-001",
+        "rule:SBX-003",
+        "rule:SBX-005",
+        "ref:connectors-sandbox",
+        "profile:capabilities.sandbox"
+      ]
+    },
+    {
+      "id": "HYPERDRIVE",
+      "service": "Cloudflare Hyperdrive",
+      "kind": "official-docs",
+      "pinnedVersion": "profile-capability",
+      "currentVersion": "retrieved-2026-08-06",
+      "stability": "tenancy-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://developers.cloudflare.com/hyperdrive/concepts/connection-pooling/",
+        "docsIndex": "https://developers.cloudflare.com/hyperdrive/",
+        "api": "https://developers.cloudflare.com/api/resources/hyperdrive/",
+        "changelog": "https://developers.cloudflare.com/changelog/"
+      },
+      "versionDetection": {
+        "type": "http-hash-and-changelog"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "e7b15a5a3975969261a619b6fb6e0e144a3497a71a8dfe5b3de48170fa9655a9",
+      "previousRetrievalChecksum": "ddbed8389ee37ee7b029960ff1f45fa01d80b533f0d178421f30a883d2ff4d6c",
+      "topics": [
+        "tenancy",
+        "deployment",
+        "database"
+      ],
+      "affected": [
+        "rule:TEN-003",
+        "rule:API-004",
+        "rule:HOST-004",
+        "ref:identity-tenancy",
+        "ref:hosting-reliability"
+      ]
+    },
+    {
+      "id": "AI-GATEWAY",
+      "service": "Cloudflare AI Gateway",
+      "kind": "official-docs",
+      "pinnedVersion": "profile-capability",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "privacy-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://developers.cloudflare.com/ai-gateway/observability/logging/",
+        "docsIndex": "https://developers.cloudflare.com/ai-gateway/",
+        "api": "https://developers.cloudflare.com/api/resources/ai-gateway/",
+        "changelog": "https://developers.cloudflare.com/changelog/",
+        "security": "https://www.cloudflare.com/trust-hub/"
+      },
+      "versionDetection": {
+        "type": "http-hash-and-changelog"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "04779265d3ccf53291b2db82e5df46ebe18d0efc2d41e6e87ca58a553386840c",
+      "topics": [
+        "models",
+        "privacy",
+        "security"
+      ],
+      "affected": [
+        "rule:MODEL-001",
+        "rule:MODEL-003",
+        "ref:models-observability"
+      ]
+    },
+    {
+      "id": "MODAL-SANDBOX",
+      "service": "Modal Sandbox",
+      "kind": "official-docs-package",
+      "pinnedVersion": "1.5.3",
+      "currentVersion": "1.5.3",
+      "commit": "e8454377aa7c94e562d525c700a95a23b3d8838a",
+      "stability": "security-critical-mixed",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://modal.com/docs/guide/sandbox-networking",
+        "docsIndex": "https://modal.com/docs/guide/sandboxes",
+        "api": "https://modal.com/docs/reference/modal.Sandbox",
+        "changelog": "https://modal.com/docs/reference/changelog",
+        "package": "https://pypi.org/project/modal/1.5.3/",
+        "repository": "https://github.com/modal-labs/modal-client/tree/e8454377aa7c94e562d525c700a95a23b3d8838a",
+        "security": "https://modal.com/security"
+      },
+      "versionDetection": {
+        "type": "pypi",
+        "package": "modal",
+        "pin": "1.5.3"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "cc33722e4745880bdeaa6b6f56995d962a48ef9bd3a45924d48271b3f7e42783",
+      "previousRetrievalChecksum": "6618a2cacd57b2d95aeeea44229b5d8107d452f9ef000b353f6cbe5398a3901b",
+      "lifecycleChecksum": "f1ea5e8c3d1a30ff3e528424affe08e6aec50a517b6f12d9c1019e96758a03b8",
+      "topics": [
+        "sandbox",
+        "security",
+        "deployment"
+      ],
+      "affected": [
+        "rule:SBX-001",
+        "rule:SBX-003",
+        "rule:SBX-005",
+        "ref:connectors-sandbox",
+        "profile:capabilities.sandbox"
+      ],
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z"
+    },
+    {
+      "id": "BETTERAUTH-OAUTH",
+      "service": "Better Auth OAuth Provider",
+      "kind": "official-docs-package",
+      "pinnedVersion": "1.6.26",
+      "currentVersion": "1.6.26",
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z",
+      "commit": "a16b30e8437927c08350194000178073b06af8cf",
+      "stability": "auth-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://better-auth.com/docs/plugins/oauth-provider",
+        "docsIndex": "https://better-auth.com/docs",
+        "api": "https://better-auth.com/docs/reference",
+        "changelog": "https://better-auth.com/changelog",
+        "package": "https://www.npmjs.com/package/better-auth/v/1.6.26",
+        "repository": "https://github.com/better-auth/better-auth/tree/a16b30e8437927c08350194000178073b06af8cf",
+        "security": "https://github.com/better-auth/better-auth/blob/a16b30e8437927c08350194000178073b06af8cf/SECURITY.md"
+      },
+      "versionDetection": {
+        "type": "npm-suite",
+        "packages": [
+          "better-auth",
+          "@better-auth/oauth-provider",
+          "@better-auth/sso",
+          "@better-auth/scim",
+          "@better-auth/api-key"
+        ],
+        "pin": "1.6.26"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "cbc3c5655588d1eaf5cf828df7352b77d7c70a5d7dd884add87beb856cb6e63c",
+      "previousRetrievalChecksum": "e3e928bb5738fba0deadb09cb7aa2595a5aea07ff186bb6b98698faa65db7739",
+      "packageSha256": "fb649cb9573024eb40bf17db3a38214a9cda824133b257ed379c0df5688426bc",
+      "topics": [
+        "auth",
+        "security"
+      ],
+      "affected": [
+        "rule:AUTH-004",
+        "rule:MOB-001",
+        "ref:identity-tenancy",
+        "ref:flutter",
+        "profile:identity"
+      ]
+    },
+    {
+      "id": "BETTERAUTH-ORG",
+      "service": "Better Auth Organization",
+      "kind": "official-docs",
+      "pinnedVersion": "1.6.26",
+      "currentVersion": "1.6.26",
+      "stability": "tenancy-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://better-auth.com/docs/plugins/organization",
+        "docsIndex": "https://better-auth.com/docs",
+        "changelog": "https://better-auth.com/changelog",
+        "repository": "https://github.com/better-auth/better-auth/tree/a16b30e8437927c08350194000178073b06af8cf"
+      },
+      "versionDetection": {
+        "type": "parent",
+        "source": "BETTERAUTH-OAUTH"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "30edf1b6658a473a00005153a3eafc07de5c3decd6b8f09fc6c32f3a21c4db1c",
+      "previousRetrievalChecksum": "e1835e9780cd6f420b5e65d186969d1f3d8b07bf4783320e8051c1d6dbf699fa",
+      "topics": [
+        "auth",
+        "tenancy"
+      ],
+      "affected": [
+        "rule:AUTH-001",
+        "rule:AUTH-002",
+        "ref:identity-tenancy",
+        "profile:tenancy"
+      ]
+    },
+    {
+      "id": "BETTERAUTH-SESSIONS",
+      "service": "Better Auth Sessions",
+      "kind": "official-docs",
+      "pinnedVersion": "1.6.26",
+      "currentVersion": "1.6.26",
+      "stability": "auth-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://better-auth.com/docs/concepts/session-management",
+        "docsIndex": "https://better-auth.com/docs",
+        "security": "https://better-auth.com/docs/reference/security"
+      },
+      "versionDetection": {
+        "type": "parent",
+        "source": "BETTERAUTH-OAUTH"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "7f35f28bcd57116f0c8b178e77e6c0eba0a2002c0cf397b991712bac2295adb0",
+      "previousRetrievalChecksum": "346123f4e1839c2ea4da36d2f7cdab97c3f37045ff13883677d799477aeefe1e",
+      "topics": [
+        "auth",
+        "security"
+      ],
+      "affected": [
+        "rule:AUTH-003",
+        "ref:identity-tenancy",
+        "profile:identity"
+      ]
+    },
+    {
+      "id": "BETTERAUTH-SSO",
+      "service": "Better Auth SSO",
+      "kind": "official-docs",
+      "pinnedVersion": "1.6.26",
+      "currentVersion": "1.6.26",
+      "stability": "enterprise-auth",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://better-auth.com/docs/plugins/sso",
+        "docsIndex": "https://better-auth.com/docs",
+        "package": "https://www.npmjs.com/package/@better-auth/sso/v/1.6.26"
+      },
+      "versionDetection": {
+        "type": "parent",
+        "source": "BETTERAUTH-OAUTH"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "f0ac5aa15987b94cf343791b4639ca79a54479b849dbab6662459c077ada54a9",
+      "previousRetrievalChecksum": "6a8648286147b877dc97d58c4ea385ed2111f9cd7998f531e7dbdcb5747b5cda",
+      "topics": [
+        "auth",
+        "security"
+      ],
+      "affected": [
+        "rule:AUTH-006",
+        "ref:identity-tenancy",
+        "profile:identity"
+      ]
+    },
+    {
+      "id": "BETTERAUTH-SCIM",
+      "service": "Better Auth SCIM",
+      "kind": "official-docs",
+      "pinnedVersion": "1.6.26",
+      "currentVersion": "1.6.26",
+      "stability": "enterprise-auth",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://better-auth.com/docs/plugins/scim",
+        "docsIndex": "https://better-auth.com/docs",
+        "package": "https://www.npmjs.com/package/@better-auth/scim/v/1.6.26"
+      },
+      "versionDetection": {
+        "type": "parent",
+        "source": "BETTERAUTH-OAUTH"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "7812c635bdc13fd864076bd5cae1637fa927f17c9e22628e999230125fd2bd2a",
+      "previousRetrievalChecksum": "52cf09c74a70249088a246bed4ca795f713340eeecca4b3f923a6f5c3740f87f",
+      "topics": [
+        "auth",
+        "tenancy",
+        "security"
+      ],
+      "affected": [
+        "rule:AUTH-006",
+        "ref:identity-tenancy",
+        "profile:identity"
+      ]
+    },
+    {
+      "id": "BETTERAUTH-APIKEY",
+      "service": "Better Auth API Key",
+      "kind": "official-docs",
+      "pinnedVersion": "1.6.26",
+      "currentVersion": "1.6.26",
+      "stability": "auth-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://better-auth.com/docs/plugins/api-key",
+        "docsIndex": "https://better-auth.com/docs",
+        "package": "https://www.npmjs.com/package/@better-auth/api-key/v/1.6.26"
+      },
+      "versionDetection": {
+        "type": "parent",
+        "source": "BETTERAUTH-OAUTH"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "219ee544346992ab2e0858e505ef006e4ea15cdfa2e1d20034fc76f4591e6c0b",
+      "previousRetrievalChecksum": "74fb8bd2cfcfc280af70e42434cf648b7888a5f1fe120893bff161f44d6c6bf0",
+      "topics": [
+        "auth",
+        "security"
+      ],
+      "affected": [
+        "rule:AUTH-005",
+        "ref:identity-tenancy",
+        "profile:identity"
+      ]
+    },
+    {
+      "id": "BETTERAUTH-SECURITY",
+      "service": "Better Auth Security",
+      "kind": "official-security-policy",
+      "pinnedVersion": "1.6.26",
+      "currentVersion": "1.6.26",
+      "stability": "security-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://raw.githubusercontent.com/better-auth/better-auth/a16b30e8437927c08350194000178073b06af8cf/SECURITY.md",
+        "docsIndex": "https://better-auth.com/docs/reference/security",
+        "changelog": "https://better-auth.com/changelog",
+        "security": "https://github.com/better-auth/better-auth/security"
+      },
+      "versionDetection": {
+        "type": "parent",
+        "source": "BETTERAUTH-OAUTH"
+      },
+      "retrievedAt": "2026-08-05T18:05:56+05:30",
+      "checksum": "bee696c39b00975b88353316574aeabd0c851c47f019973013eb865034d7474f",
+      "topics": [
+        "auth",
+        "security"
+      ],
+      "affected": [
+        "rule:AUTH-003",
+        "ref:identity-tenancy",
+        "profile:identity"
+      ],
+      "checksumScope": "http-body"
+    },
+    {
+      "id": "TURBO-DOCS",
+      "service": "Turborepo",
+      "kind": "official-docs",
+      "pinnedVersion": "2.5.6",
+      "currentVersion": "2.10.8",
+      "stability": "tooling",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://turborepo.dev/docs",
+        "docsIndex": "https://turborepo.dev/docs",
+        "changelog": "https://github.com/vercel/turborepo/releases",
+        "package": "https://www.npmjs.com/package/turbo",
+        "repository": "https://github.com/vercel/turborepo",
+        "security": "https://github.com/vercel/turborepo/security"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "turbo"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "a70f2a8dd4d1902acd23768b84fa82ae529fa84615942c924e025112f2515e34",
+      "topics": [
+        "monorepo",
+        "ci"
+      ],
+      "affected": [
+        "rule:PKG-001",
+        "rule:PKG-002",
+        "ref:topology-monorepo"
+      ],
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z"
+    },
+    {
+      "id": "FLUTTER-DOCS",
+      "service": "Flutter",
+      "kind": "official-docs",
+      "pinnedVersion": "profile-version",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "client",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://docs.flutter.dev/",
+        "docsIndex": "https://docs.flutter.dev/",
+        "api": "https://api.flutter.dev/",
+        "changelog": "https://docs.flutter.dev/release/release-notes",
+        "repository": "https://github.com/flutter/flutter",
+        "security": "https://github.com/flutter/flutter/security"
+      },
+      "versionDetection": {
+        "type": "release-index"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "dbbe947f8305391f249227177288abbbcc86baeee35837d0e49543ea3f8870a6",
+      "topics": [
+        "flutter",
+        "client"
+      ],
+      "affected": [
+        "rule:MOB-002",
+        "ref:flutter"
+      ]
+    },
+    {
+      "id": "RIVERPOD-DOCS",
+      "service": "Riverpod",
+      "kind": "official-docs",
+      "pinnedVersion": "profile-version",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "client-library",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://riverpod.dev/",
+        "docsIndex": "https://riverpod.dev/",
+        "package": "https://pub.dev/packages/flutter_riverpod",
+        "repository": "https://github.com/rrousselGit/riverpod"
+      },
+      "versionDetection": {
+        "type": "pub",
+        "package": "flutter_riverpod"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "f60fef50634df37d2c6b81ad3691a05e76347210f52d20345c08bd543bee3a71",
+      "topics": [
+        "flutter",
+        "client"
+      ],
+      "affected": [
+        "ref:flutter"
+      ]
+    },
+    {
+      "id": "APP-AUTH",
+      "service": "AppAuth",
+      "kind": "canonical-source",
+      "pinnedVersion": "d3efe1735b6e69a6c85bd379fec6a3998254996e",
+      "currentVersion": "retrieved-2026-08-05",
+      "commit": "d3efe1735b6e69a6c85bd379fec6a3998254996e",
+      "stability": "auth-client",
+      "thresholdDays": 30,
+      "critical": true,
+      "urls": {
+        "primary": "https://raw.githubusercontent.com/openid/AppAuth-iOS/d3efe1735b6e69a6c85bd379fec6a3998254996e/README.md",
+        "docsIndex": "https://openid.github.io/AppAuth-iOS/",
+        "repository": "https://github.com/openid/AppAuth-iOS/tree/d3efe1735b6e69a6c85bd379fec6a3998254996e",
+        "security": "https://github.com/openid/AppAuth-iOS/security"
+      },
+      "versionDetection": {
+        "type": "github-release"
+      },
+      "retrievedAt": "2026-08-05T18:16:00+05:30",
+      "checksum": "884c1834ce1b538fd96c90ce8fa76a9e513f939b17fdcb595c0dc2be0ee9ef92",
+      "topics": [
+        "flutter",
+        "auth"
+      ],
+      "affected": [
+        "rule:MOB-001",
+        "ref:flutter"
+      ],
+      "checksumScope": "http-body"
+    },
+    {
+      "id": "FCM-DOCS",
+      "service": "Firebase Cloud Messaging",
+      "kind": "official-docs",
+      "pinnedVersion": "platform-service",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "channel",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://firebase.google.com/docs/cloud-messaging",
+        "docsIndex": "https://firebase.google.com/docs",
+        "api": "https://firebase.google.com/docs/reference",
+        "changelog": "https://firebase.google.com/support/release-notes"
+      },
+      "versionDetection": {
+        "type": "http-hash-and-changelog"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "a8e45e4fda04b32279f1a82bd0afa7380b70f738cc1b5ee42ab178945d7dd1fe",
+      "previousRetrievalChecksum": "d8117a391c5875a7b4d352a3f8b8b89ad12e6617a91038228f7279c732d0cd98",
+      "topics": [
+        "notifications",
+        "flutter"
+      ],
+      "affected": [
+        "ref:flutter",
+        "ref:realtime-channels"
+      ]
+    },
+    {
+      "id": "APNS-DOCS",
+      "service": "Apple Push Notification service",
+      "kind": "official-docs",
+      "pinnedVersion": "platform-service",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "channel",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://developer.apple.com/documentation/usernotifications/setting-up-a-remote-notification-server",
+        "docsIndex": "https://developer.apple.com/documentation/usernotifications",
+        "api": "https://developer.apple.com/documentation/usernotifications"
+      },
+      "versionDetection": {
+        "type": "http-hash"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "535fb47b48c87ba759e0ce95a7d7625bc489f31188832ea725279ccdc816cc1c",
+      "topics": [
+        "notifications",
+        "flutter"
+      ],
+      "affected": [
+        "ref:flutter",
+        "ref:realtime-channels"
+      ]
+    },
+    {
+      "id": "POSTGRES-DOCS",
+      "service": "PostgreSQL",
+      "kind": "official-docs",
+      "pinnedVersion": "17.10",
+      "currentVersion": "17.10",
+      "stability": "database-critical",
+      "thresholdDays": 30,
+      "critical": true,
+      "urls": {
+        "primary": "https://www.postgresql.org/docs/current/",
+        "docsIndex": "https://www.postgresql.org/docs/",
+        "changelog": "https://www.postgresql.org/docs/release/",
+        "security": "https://www.postgresql.org/support/security/",
+        "repository": "https://git.postgresql.org/gitweb/?p=postgresql.git"
+      },
+      "versionDetection": {
+        "type": "major-profile-and-security"
+      },
+      "retrievedAt": "2026-08-05T18:16:00+05:30",
+      "checksum": "01ac3291ea8f18f192c2a170646232ea43c3463897f6e66c7e6dbd366c53e5a8",
+      "previousRetrievalChecksum": "7ae3900ffe60bbc163078452e7aca1bb0a9a29270a6bef23041be855c6f08b1e",
+      "topics": [
+        "database",
+        "tenancy",
+        "durability"
+      ],
+      "affected": [
+        "rule:TEN-001",
+        "rule:TEN-002",
+        "rule:DATA-001",
+        "ref:identity-tenancy",
+        "ref:data-memory",
+        "profile:versions"
+      ]
+    },
+    {
+      "id": "PGVECTOR",
+      "service": "pgvector",
+      "kind": "canonical-source",
+      "pinnedVersion": "1102b6269a74f6c576065fffe7e8da558f8a49e1",
+      "currentVersion": "retrieved-2026-08-05",
+      "commit": "1102b6269a74f6c576065fffe7e8da558f8a49e1",
+      "stability": "database-extension",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://raw.githubusercontent.com/pgvector/pgvector/1102b6269a74f6c576065fffe7e8da558f8a49e1/README.md",
+        "docsIndex": "https://github.com/pgvector/pgvector#readme",
+        "repository": "https://github.com/pgvector/pgvector/tree/1102b6269a74f6c576065fffe7e8da558f8a49e1",
+        "security": "https://github.com/pgvector/pgvector/security"
+      },
+      "versionDetection": {
+        "type": "github-release"
+      },
+      "retrievedAt": "2026-08-05T18:16:00+05:30",
+      "checksum": "15bd90b75711a296756e19ce4d3565227189f8e6012530164e280047c7862921",
+      "topics": [
+        "database",
+        "knowledge"
+      ],
+      "affected": [
+        "rule:DATA-002",
+        "ref:data-memory"
+      ],
+      "checksumScope": "http-body"
+    },
+    {
+      "id": "S3-SPEC",
+      "service": "Amazon S3 API",
+      "kind": "official-api-docs",
+      "pinnedVersion": "provider-contract",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "storage-contract",
+      "thresholdDays": 90,
+      "critical": false,
+      "urls": {
+        "primary": "https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html",
+        "docsIndex": "https://docs.aws.amazon.com/s3/",
+        "api": "https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html",
+        "changelog": "https://aws.amazon.com/about-aws/whats-new/storage/"
+      },
+      "versionDetection": {
+        "type": "http-hash"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "81b2ad955490d58e27e051a34223386f2b45de23751fc1ac32a04cb49b0e4bea",
+      "topics": [
+        "storage",
+        "portability"
+      ],
+      "affected": [
+        "rule:DATA-002",
+        "ref:data-memory"
+      ]
+    },
+    {
+      "id": "OTEL-DOCS",
+      "service": "OpenTelemetry",
+      "kind": "official-spec",
+      "pinnedVersion": "profile-version",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "observability-contract",
+      "thresholdDays": 60,
+      "critical": false,
+      "urls": {
+        "primary": "https://opentelemetry.io/docs/specs/otel/",
+        "docsIndex": "https://opentelemetry.io/docs/",
+        "api": "https://opentelemetry.io/docs/specs/otel/",
+        "changelog": "https://github.com/open-telemetry/opentelemetry-specification/releases",
+        "repository": "https://github.com/open-telemetry/opentelemetry-specification",
+        "security": "https://github.com/open-telemetry/opentelemetry-specification/security"
+      },
+      "versionDetection": {
+        "type": "spec-release"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "2835dcf274e1f9e8b0921419be0896e66266d37b7f37688c59d363c958b437fa",
+      "topics": [
+        "observability",
+        "security"
+      ],
+      "affected": [
+        "rule:OBS-001",
+        "ref:models-observability"
+      ]
+    },
+    {
+      "id": "OPENBAO-DOCS",
+      "service": "OpenBao",
+      "kind": "official-docs",
+      "pinnedVersion": "profile-version",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "secrets-critical",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://openbao.org/docs/",
+        "docsIndex": "https://openbao.org/docs/",
+        "api": "https://openbao.org/api-docs/",
+        "changelog": "https://github.com/openbao/openbao/releases",
+        "repository": "https://github.com/openbao/openbao",
+        "security": "https://github.com/openbao/openbao/security"
+      },
+      "versionDetection": {
+        "type": "github-release"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "b7dc50030336f1659ba889f8fafd43bc0e659e0767477783c97d306119d3a191",
+      "previousRetrievalChecksum": "9d46dc3fed10687260834f1e887de003bde0a8658db5cdd6a1e59a6fbe957727",
+      "topics": [
+        "security",
+        "secrets",
+        "deployment"
+      ],
+      "affected": [
+        "rule:AUTH-005",
+        "rule:SEC-002",
+        "ref:identity-tenancy",
+        "ref:security-privacy"
+      ]
+    },
+    {
+      "id": "BUN-DOCS",
+      "service": "Bun",
+      "kind": "official-docs",
+      "pinnedVersion": "1.3.14",
+      "currentVersion": "1.3.14",
+      "stability": "tooling-runtime",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://bun.sh/docs",
+        "docsIndex": "https://bun.sh/docs",
+        "api": "https://bun.sh/docs/api",
+        "changelog": "https://bun.sh/blog",
+        "repository": "https://github.com/oven-sh/bun",
+        "security": "https://github.com/oven-sh/bun/security"
+      },
+      "versionDetection": {
+        "type": "runtime-and-github-release"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "d55c7e8db810ecd87dda9f8a3e8462cddf4bbdc6db7a63e7fb059c0ebd3281c4",
+      "topics": [
+        "monorepo",
+        "ci"
+      ],
+      "affected": [
+        "rule:RUN-004",
+        "rule:PKG-003",
+        "ref:topology-monorepo",
+        "profile:versions"
+      ]
+    },
+    {
+      "id": "MCP-SPEC",
+      "service": "Model Context Protocol",
+      "kind": "official-spec",
+      "pinnedVersion": "2026-07-28",
+      "currentVersion": "retrieved-2026-08-05",
+      "stability": "protocol",
+      "thresholdDays": 30,
+      "critical": true,
+      "urls": {
+        "primary": "https://modelcontextprotocol.io/specification/2026-07-28",
+        "docsIndex": "https://modelcontextprotocol.io/docs",
+        "changelog": "https://modelcontextprotocol.io/specification/versioning",
+        "repository": "https://github.com/modelcontextprotocol/modelcontextprotocol",
+        "security": "https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices"
+      },
+      "versionDetection": {
+        "type": "spec-version"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "cd2c48105ad3207ceb71de2b4e668ef30e5154c8f7a51576b0ba84f247b7b071",
+      "topics": [
+        "connectors",
+        "security"
+      ],
+      "affected": [
+        "rule:CONN-004",
+        "ref:connectors-sandbox"
+      ]
+    },
+    {
+      "id": "AI-SDK-7",
+      "service": "AI SDK",
+      "kind": "official-docs-package",
+      "pinnedVersion": "7.x",
+      "currentVersion": "7.0.57",
+      "stability": "model-library",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://ai-sdk.dev/docs/introduction",
+        "docsIndex": "https://ai-sdk.dev/docs",
+        "api": "https://ai-sdk.dev/docs/reference",
+        "changelog": "https://github.com/vercel/ai/releases",
+        "package": "https://www.npmjs.com/package/ai",
+        "repository": "https://github.com/vercel/ai",
+        "security": "https://github.com/vercel/ai/security"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "ai",
+        "range": "7.x"
+      },
+      "retrievedAt": "2026-08-07T18:47:48.335Z",
+      "checksum": "f8cdf8dad1fa596cb01bd20bddd6e6ad4975cab70ec51b79a274dfecf58505f4",
+      "topics": [
+        "models",
+        "api"
+      ],
+      "affected": [
+        "rule:MODEL-001",
+        "ref:models-observability"
+      ],
+      "versionCheckedAt": "2026-08-07T18:47:48.335Z"
+    },
+    {
+      "id": "ANTHROPIC-MODELS",
+      "service": "Anthropic model catalog",
+      "kind": "vendor-model-catalog",
+      "stability": "vendor-managed",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "docsIndex": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "models"
+      ],
+      "affected": [
+        "rule:MLIFE-001",
+        "rule:MLIFE-002",
+        "ref:model-lifecycle",
+        "ref:models-observability"
+      ],
+      "checksum": "aa53b28de12bcee073e9150421602f6ab5ac845aa64bbe7f62ef800297999eab",
+      "retrievedAt": "2026-08-07T18:48:42.931Z"
+    },
+    {
+      "id": "OPENAI-MODELS",
+      "service": "OpenAI model catalog",
+      "kind": "vendor-model-catalog",
+      "stability": "vendor-managed",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://developers.openai.com/api/docs/models",
+        "docsIndex": "https://developers.openai.com/api/docs/deprecations"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "models"
+      ],
+      "affected": [
+        "rule:MLIFE-001",
+        "rule:MLIFE-002",
+        "ref:model-lifecycle",
+        "ref:models-observability"
+      ],
+      "checksum": "cf8a355a4937a94c266e1d476293b64bee0bcacffe2d482c495a87ec9d824d44",
+      "retrievedAt": "2026-08-07T18:48:42.931Z"
+    },
+    {
+      "id": "GOOGLE-MODELS",
+      "service": "Google Gemini model catalog",
+      "kind": "vendor-model-catalog",
+      "stability": "vendor-managed",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://ai.google.dev/gemini-api/docs/models",
+        "docsIndex": "https://ai.google.dev/gemini-api/docs/changelog"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "models"
+      ],
+      "affected": [
+        "rule:MLIFE-001",
+        "rule:MLIFE-002",
+        "ref:model-lifecycle",
+        "ref:models-observability"
+      ],
+      "checksum": "379866ba1eef7fa6ed14b14f7961fb3f58989e02dc1e54d12c4a8293d87667fd",
+      "retrievedAt": "2026-08-07T19:12:27.794Z"
+    }
+  ]
+}
