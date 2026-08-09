@@ -32,7 +32,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20.11"
+    "node": ">=24"
   },
   "scripts": {
     "sync": "bun scripts/sync-skill.mjs",

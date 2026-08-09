@@ -2,7 +2,7 @@
 
 ## Dev setup
 
-Requirements: [Bun](https://bun.sh) 1.3.14 (pinned in `packageManager`) and Node >= 20.11.
+Requirements: [Bun](https://bun.sh) 1.3.14 (pinned in `packageManager`) and Node >= 24.
 
 ```sh
 bun install --frozen-lockfile
@@ -10,7 +10,7 @@ bun run check      # validate:skill + test + lint + typecheck
 bun run build      # builds the CLI and syncs the skill copy into packages/cli
 ```
 
-`bun run check` must pass before every PR. CI runs it on a Node 20.11/22/24 matrix plus a packed-tarball install smoke test.
+`bun run check` must pass before every PR. CI runs it on Node 24 plus a packed-tarball install smoke test.
 
 ## Repo layout
 
