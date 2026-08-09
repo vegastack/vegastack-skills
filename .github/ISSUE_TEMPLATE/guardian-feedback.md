@@ -16,7 +16,7 @@ labels: guardian-feedback
 ## Context
 
 - Rule ID(s) (e.g. `AUTH-003`):
-- Where it fired (`architecture-check`, SKILL.md advice, review workflow):
+- Where it fired (advisory report, SKILL.md advice, review workflow):
 - Your stack, if relevant to the finding:
 
 ## What you expected instead

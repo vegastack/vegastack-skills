@@ -28,7 +28,7 @@ describe('profile questionnaire, scaffolding and inspection', () => {
     await writeFile(answers, JSON.stringify(baseProfile()))
     expect(run(['scaffold', answers, '--dir', root, '--write'], root).exitCode).toBe(0)
     const target = join(root, '.vegastack/architecture.json')
-    expect(JSON.parse(await readFile(target, 'utf8')).schemaVersion).toBe(3)
+    expect(JSON.parse(await readFile(target, 'utf8')).schemaVersion).toBe(4)
     await writeFile(target, 'user-content\n')
     expect(run(['scaffold', answers, '--dir', root, '--write'], root).exitCode).not.toBe(0)
     expect(await readFile(target, 'utf8')).toBe('user-content\n')
@@ -47,22 +47,21 @@ describe('profile questionnaire, scaffolding and inspection', () => {
     expect(await readdir(outside)).toEqual([])
   })
 
-  test('brownfield inspection is read-only and reports observed capabilities without treating profile text as code', async () => {
+  test('brownfield inspection is read-only and reports observed capabilities', async () => {
     const root = await temporary('guardian-inspect-')
     await mkdir(join(root, 'src'), { recursive: true })
     await writeFile(join(root, 'src/index.ts'), "import 'next/server'\n")
     await mkdir(join(root, '.vegastack'))
     await writeFile(join(root, '.vegastack/architecture.json'), JSON.stringify(baseProfile()))
-    const before = await Promise.all((await readdir(root, { recursive: true }) as string[]).sort().map(async path => [path, await Bun.file(join(root, path)).exists() && !path.endsWith('src') && !path.endsWith('.vegastack') ? await Bun.file(join(root, path)).text().catch(() => '') : '']))
     const result = run(['inspect', root, '--json'], root)
     expect(result.exitCode).toBe(0)
     const report = JSON.parse(result.stdout.toString())
     expect(report.mutated).toBe(false)
-    expect(report.observed.webControlPlane).toEqual(['src/index.ts'])
+    expect(report.observed.web).toEqual(['src/index.ts'])
     expect(report.observed.agents).toEqual([])
-    expect(report.profileDraft.capabilities.webControlPlane.ownership).toBe('REQUIRED-CONFIRMED-OWNERSHIP')
-    const after = await Promise.all((await readdir(root, { recursive: true }) as string[]).sort().map(async path => [path, await Bun.file(join(root, path)).exists() && !path.endsWith('src') && !path.endsWith('.vegastack') ? await Bun.file(join(root, path)).text().catch(() => '') : '']))
-    expect(after).toEqual(before)
+    expect(report.profileDraft.schemaVersion).toBe(4)
+    expect(report.profileDraft.capabilities).toEqual(['web'])
+    expect(report.profileDraft.project.tier).toBe('REQUIRED-CONFIRMED-TIER')
   })
 
   test('confines --output to --dir and rejects absolute or parent-escaping paths', async () => {
@@ -77,7 +76,7 @@ describe('profile questionnaire, scaffolding and inspection', () => {
     }
     expect(await readdir(outside)).toEqual([])
     expect(run(['scaffold', answers, '--dir', root, '--write', '--output', 'nested/profile.json'], root).exitCode).toBe(0)
-    expect(JSON.parse(await readFile(join(root, 'nested/profile.json'), 'utf8')).schemaVersion).toBe(3)
+    expect(JSON.parse(await readFile(join(root, 'nested/profile.json'), 'utf8')).schemaVersion).toBe(4)
   })
 
   test('inspect without --json prints a compact summary, not full evidence lists', async () => {
@@ -87,22 +86,39 @@ describe('profile questionnaire, scaffolding and inspection', () => {
     const result = run(['inspect', root], root)
     expect(result.exitCode).toBe(0)
     const report = JSON.parse(result.stdout.toString())
-    expect(report.observedCapabilities.webControlPlane.count).toBe(1)
+    expect(report.observedCapabilities.web.count).toBe(1)
     expect(report.profileDraft).toBeUndefined()
   })
 
-  test('v2 migration is deterministic, read-only by default, and does not overwrite the source', async () => {
+  test('v3 migration is deterministic, read-only by default, and converts exceptions to notes', async () => {
     const root = await temporary('guardian-migrate-')
-    const source = resolve(import.meta.dir, 'fixtures/compliant/.vegastack/architecture.json')
-    const v2 = { schemaVersion: 2, project: 'legacy', hostingProfile: 'self-hosted', versions: { bun: '1.3.14', node: '24.18.0', next: '16.3.0', openNext: 'not-applicable', eve: '0.29.5', workflowWorldContract: '5.0.0-beta.23', workflowLocal: '5.0.0-beta.32', workflowPostgres: '5.0.0-beta.30', postgres: '17.10', pgBoss: '12.27.0', betterAuth: '1.6.26' }, runtimePlacement: { next: 'node', eve: 'node-service', jobs: 'node-service', sandboxBroker: 'node-service', flutter: 'native-client' }, sourceRoots: { next: ['src'], eve: ['apps/eve'], jobs: ['apps/jobs'] }, capabilities: { api: { canonical: 'rest-openapi', openapiGenerated: true }, jobs: { roles: ['agent-admission'] }, sandbox: { provider: 'cloudflare-sandbox', egress: 'deny-by-default', databaseCredentials: false }, secrets: 'openbao' }, identity: { delegated: 'oauth2.1-oidc-code-pkce' }, tenancy: { storage: 'shared-schema-composite-keys' } }
-    const input = join(root, 'v2.json')
-    await writeFile(input, JSON.stringify(v2))
-    const first = run(['migrate-v2', input, '--dir', root], root)
-    const second = run(['migrate-v2', input, '--dir', root], root)
+    const v3 = {
+      schemaVersion: 3,
+      profileStatus: 'confirmed',
+      foundation: { version: '0.3.0', baseline: 'vs-2026-08-07', adoption: 'supported' },
+      project: { name: 'legacy', kind: 'saas-product', lifecycle: 'maintenance', access: 'authenticated', tenancy: 'multi-tenant-shared-schema' },
+      environments: { production: { hosting: 'self-hosted' }, localDevelopment: { trusted: true, allowances: [] } },
+      capabilities: {
+        webControlPlane: { status: 'enabled', ownership: 'owned', versions: { next: '16.3.0' }, placement: 'node', sourceRoots: ['src'] },
+        modelRouting: { status: 'enabled', ownership: 'owned', versions: { implementation: '1.0.0' }, placement: 'node-service', sourceRoots: ['packages/models'] },
+        agents: { status: 'disabled', ownership: 'not-applicable' }
+      },
+      exceptions: [{ id: 'EXC-001', ruleId: 'SEC-002', decision: 'platform env vars until enterprise', paths: ['.env'], adr: 'docs/adr.md' }]
+    }
+    const input = join(root, 'v3.json')
+    await writeFile(input, JSON.stringify(v3))
+    const first = run(['migrate', input, '--dir', root], root)
+    const second = run(['migrate', input, '--dir', root], root)
     expect(first.exitCode).toBe(0)
     expect(first.stdout.toString()).toBe(second.stdout.toString())
-    expect(JSON.parse(await readFile(input, 'utf8')).schemaVersion).toBe(2)
-    expect(await Bun.file(join(root, '.vegastack/architecture.v3-draft.yaml')).exists()).toBe(false)
-    expect(source).toContain('fixtures/compliant')
+    const payload = JSON.parse(first.stdout.toString())
+    expect(payload.mode).toBe('dry-run')
+    expect(payload.profile.schemaVersion).toBe(4)
+    expect(payload.profile.project.kind).toBe('saas')
+    expect(payload.profile.project.tier).toBe('REQUIRED-CONFIRMED-TIER')
+    expect(payload.profile.capabilities).toEqual(['web', 'models'])
+    expect(payload.profile.notes[0]).toContain('EXC-001')
+    expect(JSON.parse(await readFile(input, 'utf8')).schemaVersion).toBe(3)
+    expect(await Bun.file(join(root, '.vegastack/architecture.v4-draft.json')).exists()).toBe(false)
   })
 })

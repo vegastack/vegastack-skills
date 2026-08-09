@@ -2,32 +2,30 @@
 
 ## Operating model
 
-VegaStack projects may be SaaS, internal/public products, platform services or shared packages; single- or multi-tenant; web-only, Flutter-enabled, agentic or non-agentic. Activate only declared or observed capabilities. Resolve decisions in this order: security/correctness; recovery; ownership; contracts; operability; delivery; optional optimization.
+VegaStack projects — internal or client — declare confirmed facts in a slim committed profile: kind, **tier**, tenancy, hosting, and the enabled capability list. The guardian is an advisor: it interviews, observes, recommends, and reviews. It never gates, and it has no exception or suppression machinery — a team that departs from a recommendation records the decision (profile note or ADR) and the guardian reports it as visible accepted risk. Review output follows the [advisory report contract](../advisory-report.md).
 
-- **FOUND-001 — Confirmed profile.** For architecture conformance checks, a project **MUST** commit a confirmed v3 `.vegastack/architecture.json` containing only applicable, confirmed facts (legacy `.yaml`-named JSON is accepted with a deprecation notice). [invariant; activation: CI/profile work; verification: structural+semantic; waiver: project ADR]
-- **FOUND-002 — Project exceptions.** A project exception **MUST** use exact rule/control/path scope and a contained accepted ADR with project owner, rationale/decision, risks, controls, verification, rollback/migration, review date or event, and foundation-deviation acknowledgement. [invariant; activation: exception declared; verification: semantic+filesystem; waiver: project ADR]
-- **FOUND-003 — Honest outcomes.** The guardian **MUST NOT** represent accepted risk as safe or foundation-compliant: report `PASS`, `FAIL`, `EXCEPTED`, and `NOT VERIFIED` exactly, and keep a rejection recommendation when warranted. [invariant; activation: every decision/review; verification: output review; waiver: project ADR]
-- **FOUND-004 — Capability alignment.** Declared capability status, ownership, versions, placement, roots and contracts **MUST** match project intent and repository evidence; removal **MUST** clean durable data, credentials, queues and contracts. [invariant; activation: capability declared/observed/removed; verification: static+semantic+runtime; waiver: project ADR]
+Tiers gate concerns, never tools:
 
-Every project architecture rule is waivable by an active project-owner ADR. A valid ADR changes a matching violation to `EXCEPTED` and may allow CI success, but it never proves safety. Invalid, expired or mismatched exceptions fail. Foundation changes and project accepted risks remain distinct.
+| Tier | Rigor floor |
+|---|---|
+| `prototype` | irreversibles only: no plaintext secrets in code, no cross-tenant access where tenancy exists, no auth bypass, reversible data decisions |
+| `production` | full correctness, security, and recovery concerns for enabled capabilities, in minimal viable form |
+| `enterprise` | adds immutable audit, supply-chain attestation, SCIM/deprovisioning depth, formal threat models, and eval/cost gates |
 
-Prefer reproduced behavior over prose and official primary sources over secondary material. Apply pinned claims to the pinned baseline; current documentation describes current capability. Source drift requests scoped review and does not automatically expire ADRs.
+Rules apply at tier `production` and above unless tagged `[tier: all]` (applies from prototype up) or `[tier: enterprise]`. Resolve decisions in this order: security/correctness; recovery; ownership; contracts; operability; delivery; optional optimization.
+
+- **FOUND-001 — Confirmed profile.** A project **MUST** commit a confirmed v4 `.vegastack/architecture.json` containing only confirmed facts: name, kind, tier, tenancy, hosting, and enabled capabilities (legacy names are accepted with a deprecation notice; versions live in lockfiles, never the profile). [tier: all]
+- **FOUND-003 — Honest outcomes.** The guardian **MUST NOT** represent unverified behavior as verified or accepted risk as recommended: findings follow the advisory evidence discipline, unverified claims are labeled, and a deliberate team decision the guardian disagrees with is reported as accepted risk with the reason — visibly, without suppression. [tier: all]
+- **FOUND-004 — Capability alignment.** The declared capability list **MUST** match project intent and repository evidence, and removing a capability **MUST** clean durable data, credentials, queues, and contracts. [tier: all]
+
+Prefer reproduced behavior over prose and official primary sources over secondary material. Apply pinned claims to the pinned baseline; current documentation describes current capability. Source drift requests scoped review.
+
+## Minimum viable architecture
+
+Never add a moving service without a named trigger. Every infra addition states the trigger it satisfies and the simpler option it replaces; every capability reference names its default and its escalation triggers. Libraries and standards with no operational cost are standing defaults when their capability applies: Better Auth, PostgreSQL, REST/OpenAPI, OCI, S3-compatible objects, OpenTelemetry, OAuth/OIDC, provider-neutral sandbox/model interfaces. Operational services are trigger-gated: OpenBao, Valkey, Kubernetes, WebSockets, regional cells, extracted services. Provider features must not become hidden correctness dependencies.
 
 ## Ownership and portability
 
-Product-owned enabled capabilities are the default. Shared-managed and external-managed services are explicit exceptions to ownership, not compliance exceptions; require the complete service contract in the profile. A consumer of shared EVE or another shared service does not contain the provider's source roots.
+Product-owned enabled capabilities are the default. Shared-managed and external-managed services are explicit ownership exceptions recorded in the profile notes with their contract; a consumer of a shared service does not contain the provider's source roots. The foundation excludes billing, pricing, and Stripe.
 
-Use PostgreSQL, REST/OpenAPI, OCI, S3-compatible objects, OpenTelemetry, OAuth/OIDC and provider-neutral sandbox/model interfaces when their capabilities apply. Provider features must not become hidden correctness dependencies.
-
-The foundation excludes billing, pricing and Stripe. Usage, quota, capacity, token, sandbox and storage accounting remain applicable when those resources exist. Add optional infrastructure only after the trigger in its reference is met.
-
-## Enforcement
-
-| Class | Treatment |
-|---|---|
-| invariant / forbidden design | CI failure when detectable; otherwise manual qualification |
-| preferred default | warning with evidence-backed reason to vary |
-| permitted option | supported only inside declared activation and ownership boundaries |
-| valid project ADR | visible `EXCEPTED`; CI may pass; recommendation remains unmet |
-
-Choose the smallest design meeting current requirements and measured objectives. Challenge a foundation default when project evidence shows it does not fit; use an ADR to record the project decision.
+Retired rule IDs are never reused: `FOUND-002` (exception governance) was retired in foundation 0.4.0 together with the enforcement machinery.

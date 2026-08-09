@@ -5,8 +5,8 @@ Apply test and release boundaries only to enabled capabilities and declared depl
 - **DEL-001 — Boundary verification.** Tests **MUST** cover every applicable enabled boundary—contracts/code generation, RLS/tenant negatives, EVE replay/evals, pg-boss crash/retry, sandbox egress/secrets, web/mobile E2E, performance, restore, and dependency failure. Static sentinels never substitute for runtime qualification.
 - **DEL-002 — Compatible migrations.** Migrations **MUST** use expand, migrate, and contract: add backward-compatible schema, deploy compatible code, backfill idempotently with progress, verify, switch reads/writes, and remove only after the rollback window.
 - **DEL-003 — Migration safety.** Destructive migrations **MUST NOT** run as unreviewed application startup side effects. Estimate locks/rewrites, bound batches, verify backup/restore, expose progress, and define rollback or forward-fix.
-- **DEL-004 — Release identity.** Release artifacts **MUST** record source/lock/toolchain digests, exact dependencies, generated outputs, tests and skips, package/container digests, SBOM, provenance, signatures, migrations, profile/ADR identity, target, and rollback artifact.
-- **DEL-005 — Relevant freshness.** Refresh official evidence only for affected rules/topics. Critical security, auth, tenancy, durability, secrets, and deployment evidence **MUST** fail closed when stale or unavailable; unrelated work stays on the fast path.
+- **DEL-004 — Release identity.** Release artifacts **MUST** record source/lock/toolchain digests, exact dependencies, generated outputs, tests and skips, package/container digests, SBOM, provenance, signatures, migrations, profile/ADR identity, target, and rollback artifact. [tier: enterprise]
+- **DEL-005 — Relevant freshness.** For design reviews and recommendations leaning on pinned claims, stale or unavailable critical security, auth, tenancy, durability, secrets, and deployment evidence **MUST** be reported as not verified rather than asserted; plain questions answer from the shipped snapshot with a staleness caveat, and unrelated work stays on the fast path.
 - **DEL-006 — Honest verification.** Environment-bound replay, isolation, failover, restore, and provider tests **MUST** be reported as `NOT RUN` when not executed, with reason, risk, owner, and next action.
 
 ## Required test boundaries
@@ -27,8 +27,8 @@ CI fails on hard-rule violations, nondeterministic generated output, broken refe
 
 Roll out by profile, cell, or cohort with health gates; preserve protocol compatibility during mixed versions; drain long-running workers; and keep code/config rollback independent where schema permits.
 
-Bootstrap by creating the profile, choosing an exact hosting profile, linking exceptions, validating placement/versions, refreshing affected sources, checking generated contracts, running architecture checks, and completing threat/deployment review.
+Bootstrap by creating the slim profile, declaring the tier and hosting, validating the profile, refreshing affected sources, checking generated contracts, and completing threat/deployment review at the tier's depth.
 
-Doctor verifies Node availability, profile structure, installed-skill integrity, and deterministic static invariants. It does not prove database connectivity/extensions, source freshness, OpenBao identity, generated-contract drift, or live object/sandbox/model behavior.
+Doctor verifies Node availability, profile structure, and installed-skill integrity. It does not prove database connectivity/extensions, source freshness, secret-store identity, generated-contract drift, or live object/sandbox/model behavior.
 
-Use the bundled ADR, threat-model, service-design, and deployment-review templates when relevant. Maintain applicable runbooks and review exceptions regularly; setup scripts never create paid or cloud resources implicitly.
+Use the bundled ADR, threat-model, service-design, and deployment-review templates when relevant. Maintain incident documentation at the tier's depth and revisit recorded deviations on their declared triggers; setup scripts never create paid or cloud resources implicitly.

@@ -17,8 +17,8 @@ Target MCP spec revision `2026-07-28`: each request declares its protocol versio
 ## Sandbox boundary
 
 - **SBX-001 — Untrusted execution.** Production untrusted code **MUST** use a provider sandbox uniquely bound to workspace, run, and trust class. Local execution is trusted-development only.
-- **SBX-002 — Credential-free sandbox.** A sandbox **MUST NOT** receive database, OpenBao, model-provider, connector-refresh, or ambient object-store credentials. Trusted broker code MAY inject an upstream credential only after validating a short-lived capability and must never return it.
-- **SBX-003 — Default-deny egress.** Egress **MUST** default deny. Trusted policy **MUST** constrain destination, method, path, headers, redirects, body, and response; discard sandbox-provided `Authorization`, cookies, and `Host` before reconstructing the request.
+- **SBX-002 — Credential-free sandbox.** A sandbox **MUST NOT** receive database, secret-store, model-provider, connector-refresh, or ambient object-store credentials. Trusted broker code MAY inject an upstream credential only after validating a short-lived capability and must never return it. [tier: all]
+- **SBX-003 — Default-deny egress.** Egress **MUST** default deny. Trusted policy **MUST** constrain destination, method, path, headers, redirects, body, and response; discard sandbox-provided `Authorization`, cookies, and `Host` before reconstructing the request. [tier: all]
 - **SBX-004 — Disposable execution.** Enforce CPU, memory, disk, process, network, output, and time quotas plus cleanup and sweeper reconciliation. Correctness and durable state **MUST NOT** depend on sandbox process or filesystem survival.
 - **SBX-005 — Provider contract.** A provider **MUST** declare isolation, lifecycle, quotas, network controls, file transfer, streaming, cleanup, region/jurisdiction, and capability stability; conformance tests determine support.
 

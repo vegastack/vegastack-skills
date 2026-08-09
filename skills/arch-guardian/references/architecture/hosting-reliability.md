@@ -22,7 +22,7 @@ Profile changes require an ADR, deployment review, data/secret migration, contra
 - **REL-001 — Measured objectives.** Each production profile **MUST** define measured objectives for its applicable enabled boundaries (such as API latency, admission age, EVE continuation, SSE freshness, dependency success or notification delivery), with RPO/RTO only where durable data and recovery requirements exist.
 - **REL-002 — Reproduced recovery.** Recovery plans **MUST** use encrypted PostgreSQL backups plus WAL/PITR, object versioning/replication where required, OpenBao recovery procedures, and independent restore verification. A successful backup job is not restore evidence.
 - **REL-003 — Regional ownership.** Add cells only for measured capacity, residency, or blast-radius needs. A workspace and its authoritative business/workflow state **MUST** have one home cell; moves use quiescence, copy, validation, cutover, and rollback.
-- **REL-004 — Incident ownership.** Teams **MUST** maintain owned runbooks for cross-tenant exposure, credential theft, workflow/job stalls, database loss, sandbox egress/escape, model data incidents, connector abuse, provider/cell loss, and deletion failure.
+- **REL-004 — Incident ownership.** Teams **MUST** maintain owned incident documentation at their tier's depth: production — one runbook covering the top three realistic failures for enabled capabilities (typically database loss, workflow/job stalls, credential theft); enterprise — the full set including cross-tenant exposure, sandbox egress/escape, model data incidents, connector abuse, provider/cell loss, and deletion failure.
 
 | Failure | Expected recovery evidence |
 |---|---|

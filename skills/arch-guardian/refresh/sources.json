@@ -153,7 +153,8 @@
         "changelog": "https://github.com/vercel/next.js/releases",
         "package": "https://www.npmjs.com/package/next/v/16.3.0",
         "repository": "https://github.com/vercel/next.js/tree/d73f5622e226358dcef8cf7a8a373333ff265ae7",
-        "security": "https://github.com/vercel/next.js/security"
+        "security": "https://github.com/vercel/next.js/security",
+        "llms": "https://nextjs.org/docs/llms.txt"
       },
       "versionDetection": {
         "type": "npm",
@@ -227,7 +228,8 @@
         "docsIndex": "https://developers.cloudflare.com/workers/",
         "api": "https://developers.cloudflare.com/api/",
         "changelog": "https://developers.cloudflare.com/changelog/",
-        "security": "https://www.cloudflare.com/trust-hub/"
+        "security": "https://www.cloudflare.com/trust-hub/",
+        "llms": "https://developers.cloudflare.com/llms.txt"
       },
       "versionDetection": {
         "type": "http-hash-and-changelog"
@@ -265,7 +267,8 @@
         "changelog": "https://developers.cloudflare.com/changelog/",
         "package": "https://www.npmjs.com/package/@cloudflare/sandbox/v/0.12.4",
         "repository": "https://github.com/cloudflare/sandbox-sdk/tree/798afcf33ead69fdbfb6598ca345f396deb4d6b2",
-        "security": "https://github.com/cloudflare/sandbox-sdk/security"
+        "security": "https://github.com/cloudflare/sandbox-sdk/security",
+        "llms": "https://developers.cloudflare.com/llms.txt"
       },
       "versionDetection": {
         "type": "npm",
@@ -302,7 +305,8 @@
         "primary": "https://developers.cloudflare.com/hyperdrive/concepts/connection-pooling/",
         "docsIndex": "https://developers.cloudflare.com/hyperdrive/",
         "api": "https://developers.cloudflare.com/api/resources/hyperdrive/",
-        "changelog": "https://developers.cloudflare.com/changelog/"
+        "changelog": "https://developers.cloudflare.com/changelog/",
+        "llms": "https://developers.cloudflare.com/llms.txt"
       },
       "versionDetection": {
         "type": "http-hash-and-changelog"
@@ -337,7 +341,8 @@
         "docsIndex": "https://developers.cloudflare.com/ai-gateway/",
         "api": "https://developers.cloudflare.com/api/resources/ai-gateway/",
         "changelog": "https://developers.cloudflare.com/changelog/",
-        "security": "https://www.cloudflare.com/trust-hub/"
+        "security": "https://www.cloudflare.com/trust-hub/",
+        "llms": "https://developers.cloudflare.com/llms.txt"
       },
       "versionDetection": {
         "type": "http-hash-and-changelog"
@@ -372,7 +377,8 @@
         "changelog": "https://modal.com/docs/reference/changelog",
         "package": "https://pypi.org/project/modal/1.5.3/",
         "repository": "https://github.com/modal-labs/modal-client/tree/e8454377aa7c94e562d525c700a95a23b3d8838a",
-        "security": "https://modal.com/security"
+        "security": "https://modal.com/security",
+        "llms": "https://modal.com/llms.txt"
       },
       "versionDetection": {
         "type": "pypi",
@@ -415,7 +421,8 @@
         "changelog": "https://better-auth.com/changelog",
         "package": "https://www.npmjs.com/package/better-auth/v/1.6.26",
         "repository": "https://github.com/better-auth/better-auth/tree/a16b30e8437927c08350194000178073b06af8cf",
-        "security": "https://github.com/better-auth/better-auth/blob/a16b30e8437927c08350194000178073b06af8cf/SECURITY.md"
+        "security": "https://github.com/better-auth/better-auth/blob/a16b30e8437927c08350194000178073b06af8cf/SECURITY.md",
+        "llms": "https://better-auth.com/llms.txt"
       },
       "versionDetection": {
         "type": "npm-suite",
@@ -649,7 +656,8 @@
         "changelog": "https://github.com/vercel/turborepo/releases",
         "package": "https://www.npmjs.com/package/turbo",
         "repository": "https://github.com/vercel/turborepo",
-        "security": "https://github.com/vercel/turborepo/security"
+        "security": "https://github.com/vercel/turborepo/security",
+        "llms": "https://turborepo.dev/llms.txt"
       },
       "versionDetection": {
         "type": "npm",
@@ -683,7 +691,8 @@
         "api": "https://api.flutter.dev/",
         "changelog": "https://docs.flutter.dev/release/release-notes",
         "repository": "https://github.com/flutter/flutter",
-        "security": "https://github.com/flutter/flutter/security"
+        "security": "https://github.com/flutter/flutter/security",
+        "llms": "https://docs.flutter.dev/llms.txt"
       },
       "versionDetection": {
         "type": "release-index"
@@ -994,7 +1003,8 @@
         "api": "https://bun.sh/docs/api",
         "changelog": "https://bun.sh/blog",
         "repository": "https://github.com/oven-sh/bun",
-        "security": "https://github.com/oven-sh/bun/security"
+        "security": "https://github.com/oven-sh/bun/security",
+        "llms": "https://bun.sh/llms.txt"
       },
       "versionDetection": {
         "type": "runtime-and-github-release"
@@ -1026,7 +1036,8 @@
         "docsIndex": "https://modelcontextprotocol.io/docs",
         "changelog": "https://modelcontextprotocol.io/specification/versioning",
         "repository": "https://github.com/modelcontextprotocol/modelcontextprotocol",
-        "security": "https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices"
+        "security": "https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices",
+        "llms": "https://modelcontextprotocol.io/llms.txt"
       },
       "versionDetection": {
         "type": "spec-version"
@@ -1058,7 +1069,8 @@
         "changelog": "https://github.com/vercel/ai/releases",
         "package": "https://www.npmjs.com/package/ai",
         "repository": "https://github.com/vercel/ai",
-        "security": "https://github.com/vercel/ai/security"
+        "security": "https://github.com/vercel/ai/security",
+        "llms": "https://ai-sdk.dev/llms.txt"
       },
       "versionDetection": {
         "type": "npm",

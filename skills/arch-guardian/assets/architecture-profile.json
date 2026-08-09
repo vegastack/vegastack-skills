@@ -1,25 +1,13 @@
 {
-  "schemaVersion": 3,
-  "profileStatus": "draft",
-  "foundation": { "version": "0.3.0", "baseline": "vs-2026-08-07", "adoption": "supported" },
-  "project": { "name": "REQUIRED-CONFIRMED-PROJECT-NAME", "kind": "REQUIRED-CONFIRMED-PROJECT-KIND", "lifecycle": "REQUIRED-CONFIRMED-LIFECYCLE", "access": "REQUIRED-CONFIRMED-ACCESS", "tenancy": "REQUIRED-CONFIRMED-TENANCY" },
-  "environments": {
-    "production": { "hosting": "REQUIRED-CONFIRMED-PRODUCTION-TARGET" },
-    "localDevelopment": { "trusted": true, "allowances": [] }
+  "schemaVersion": 4,
+  "foundationVersion": "0.4.0",
+  "project": {
+    "name": "REQUIRED-CONFIRMED-PROJECT-NAME",
+    "kind": "REQUIRED-CONFIRMED-KIND",
+    "tier": "REQUIRED-CONFIRMED-TIER",
+    "tenancy": "REQUIRED-CONFIRMED-TENANCY"
   },
-  "capabilities": {
-    "webControlPlane": { "status": "disabled", "ownership": "not-applicable" },
-    "flutter": { "status": "disabled", "ownership": "not-applicable" },
-    "agents": { "status": "disabled", "ownership": "not-applicable" },
-    "jobs": { "status": "disabled", "ownership": "not-applicable" },
-    "sandbox": { "status": "disabled", "ownership": "not-applicable" },
-    "connectors": { "status": "disabled", "ownership": "not-applicable" },
-    "knowledge": { "status": "disabled", "ownership": "not-applicable" },
-    "modelRouting": { "status": "disabled", "ownership": "not-applicable" },
-    "enterpriseIdentity": { "status": "disabled", "ownership": "not-applicable" },
-    "realtime": { "status": "disabled", "ownership": "not-applicable" },
-    "notifications": { "status": "disabled", "ownership": "not-applicable" },
-    "secrets": { "status": "disabled", "ownership": "not-applicable" }
-  },
-  "exceptions": []
+  "hosting": "REQUIRED-CONFIRMED-HOSTING",
+  "capabilities": [],
+  "notes": []
 }

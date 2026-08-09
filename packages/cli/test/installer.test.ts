@@ -153,7 +153,7 @@ describe('@vegastack/skills installer', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('ok architecture profile')
     expect(result.stdout.toString()).toContain('ok codex arch-guardian installation')
-    expect(result.stdout.toString()).toContain('ok architecture invariants')
+    expect(result.stdout.toString()).toContain('ok profile validation')
   })
 
   test('lists bundled skills with descriptions', async () => {

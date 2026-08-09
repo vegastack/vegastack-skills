@@ -22,7 +22,7 @@ Next.js 16 and the reviewed OpenNext adapter support the selected App Router req
 | validation | shared Zod contract; server authoritative |
 | optimistic update | idempotency key, rollback, authoritative reconciliation, no privilege escalation |
 
-Store UTC instants and IANA timezone identifiers. Support localized templates, pluralization, locale-aware formatting, RTL, keyboard navigation, focus management, reduced motion, and screen readers from the first implementation.
+Store UTC instants and IANA timezone identifiers from the first implementation — retrofitting time handling is expensive. Accessibility and localization scale by tier and by what the product actually targets: production — keyboard navigation, focus management, and locale-aware formatting for supported locales; enterprise or an explicitly international audience — full localization templates, pluralization, RTL, reduced motion, and screen-reader coverage.
 
 ## Extraction trigger
 

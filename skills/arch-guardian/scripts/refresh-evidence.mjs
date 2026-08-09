@@ -13,7 +13,7 @@ const defaultRegistry = join(skillRoot, 'refresh', 'sources.json')
 const maximumBytes = 5 * 1024 * 1024
 // Every host referenced by refresh/sources.json must appear here; loadRegistry enforces the
 // consistency so the allowlist cannot silently drift from the registry.
-const approvedHosts = new Set(['agentskills.io', 'ai-sdk.dev', 'ai.google.dev', 'api.flutter.dev', 'aws.amazon.com', 'better-auth.com', 'bun.sh', 'code.claude.com', 'developer.apple.com', 'developers.cloudflare.com', 'developers.openai.com', 'docs.aws.amazon.com', 'docs.flutter.dev', 'firebase.google.com', 'git.postgresql.org', 'github.com', 'hermes-agent.nousresearch.com', 'learn.chatgpt.com', 'modal.com', 'modelcontextprotocol.io', 'nextjs.org', 'openbao.org', 'openid.github.io', 'opennext.js.org', 'opentelemetry.io', 'platform.claude.com', 'pub.dev', 'pypi.org', 'raw.githubusercontent.com', 'registry.npmjs.org', 'riverpod.dev', 'turborepo.dev', 'workflow-sdk.dev', 'www.cloudflare.com', 'www.npmjs.com', 'www.postgresql.org'])
+const approvedHosts = new Set(['agentskills.io', 'ai-sdk.dev', 'ai.google.dev', 'api.flutter.dev', 'api.osv.dev', 'aws.amazon.com', 'better-auth.com', 'bun.sh', 'code.claude.com', 'developer.apple.com', 'developers.cloudflare.com', 'developers.openai.com', 'docs.aws.amazon.com', 'docs.flutter.dev', 'firebase.google.com', 'git.postgresql.org', 'github.com', 'hermes-agent.nousresearch.com', 'learn.chatgpt.com', 'modal.com', 'modelcontextprotocol.io', 'nextjs.org', 'openbao.org', 'openid.github.io', 'opennext.js.org', 'opentelemetry.io', 'platform.claude.com', 'pub.dev', 'pypi.org', 'raw.githubusercontent.com', 'registry.npmjs.org', 'riverpod.dev', 'turborepo.dev', 'workflow-sdk.dev', 'www.cloudflare.com', 'www.npmjs.com', 'www.postgresql.org'])
 
 function flagValue(argv, flag) {
   const value = argv.shift()
@@ -22,7 +22,7 @@ function flagValue(argv, flag) {
 }
 
 function args(argv) {
-  const result = { registry: defaultRegistry, cache: '.vegastack/evidence-cache.json', report: '.vegastack/evidence-drift.json', topics: [], offline: false, acceptBaselines: false, now: new Date().toISOString() }
+  const result = { registry: defaultRegistry, cache: '.vegastack/evidence-cache.json', report: '.vegastack/evidence-drift.json', topics: [], offline: false, acceptBaselines: false, now: new Date().toISOString(), compatibility: join(skillRoot, 'references', 'foundation-compatibility.json') }
   while (argv.length) {
     const flag = argv.shift()
     if (flag === '--registry') result.registry = resolve(flagValue(argv, flag))
@@ -33,9 +33,29 @@ function args(argv) {
     else if (flag === '--accept-baselines') result.acceptBaselines = true
     else if (flag === '--verify-baselines') { /* explicit alias for the default online verification run */ }
     else if (flag === '--now') result.now = flagValue(argv, flag)
+    else if (flag === '--compatibility') result.compatibility = resolve(flagValue(argv, flag))
     else throw new Error(`Unknown option: ${flag}`)
   }
   return result
+}
+
+// Security-advisory watch: query OSV.dev for every pinned npm/PyPI package. Advisories against a
+// pinned version are the highest-value freshness signal — they surface in the weekly report and
+// fail closed for critical sources so a vulnerable pin is never silently kept.
+async function osvAdvisories(source, allowHttpLocalhost) {
+  const detection = source.versionDetection ?? {}
+  const ecosystem = { npm: 'npm', 'npm-suite': 'npm', pypi: 'PyPI' }[detection.type]
+  const version = String(source.pinnedVersion ?? '')
+  if (!ecosystem || !/^\d/.test(version)) return []
+  const packages = detection.type === 'npm-suite' ? detection.packages : [detection.package]
+  const findings = []
+  for (const name of packages) {
+    const response = await safeFetch('https://api.osv.dev/v1/query', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ package: { name, ecosystem }, version }) }, allowHttpLocalhost)
+    if (!response.ok) throw new Error(`OSV HTTP ${response.status} for ${name}`)
+    const data = JSON.parse(new TextDecoder().decode(await readBounded(response)))
+    for (const vuln of data.vulns ?? []) findings.push({ package: name, version, id: vuln.id, summary: vuln.summary ?? null })
+  }
+  return findings
 }
 
 function privateAddress(address) {
@@ -240,7 +260,17 @@ export async function refreshEvidence(options) {
   const now = new Date(options.now)
   if (Number.isNaN(now.getTime())) throw new Error(`Invalid --now timestamp: ${options.now}`)
   const selected = registry.sources.filter(source => !options.topics.length || source.topics.some(topic => options.topics.includes(topic)))
-  const report = { schemaVersion: 1, generatedAt: now.toISOString(), offline: options.offline, acceptBaselines: options.acceptBaselines, selected: selected.map(source => source.id), drift: [], versionDrift: [], stale: [], unavailable: [], unaffected: [], manualVersionReview: [], acceptedBaselines: [] }
+  const report = { schemaVersion: 1, generatedAt: now.toISOString(), offline: options.offline, acceptBaselines: options.acceptBaselines, selected: selected.map(source => source.id), drift: [], versionDrift: [], stale: [], unavailable: [], unaffected: [], manualVersionReview: [], acceptedBaselines: [], advisories: [], advisoryCheckFailed: [], reviewOverdue: [] }
+  // Baseline-adoption nags: a reviewBy date that passed without a human decision, or a critical
+  // pin lagging a known-newer current version, is how pins rot politely — surface both on every
+  // run (warning, never fail-closed).
+  if (options.compatibility && await pathExists(options.compatibility)) {
+    const compatibility = JSON.parse(await readFile(options.compatibility, 'utf8'))
+    for (const [name, baseline] of Object.entries(compatibility.baselines ?? {})) {
+      if (baseline.reviewBy && Date.parse(`${baseline.reviewBy}T23:59:59Z`) < now.getTime()) report.reviewOverdue.push({ baseline: name, reviewBy: baseline.reviewBy, state: baseline.state })
+    }
+  }
+  report.pinLag = registry.sources.filter(source => source.critical && /^\d/.test(String(source.pinnedVersion ?? '')) && /^\d/.test(String(source.currentVersion ?? '')) && source.pinnedVersion !== source.currentVersion).map(source => ({ id: source.id, pinned: source.pinnedVersion, current: source.currentVersion }))
   const baselineUpdates = new Map()
   for (const source of selected) {
     const prior = cache.sources[source.id]
@@ -260,6 +290,11 @@ export async function refreshEvidence(options) {
         if (!prior || !Number.isFinite(ageDays) || ageDays > source.thresholdDays) report.stale.push(item(source, { ageDays: Number.isFinite(ageDays) ? Math.floor(ageDays) : null }))
         else report.unaffected.push(source.id)
         continue
+      }
+      try {
+        for (const advisory of await osvAdvisories(source, options.allowHttpLocalhost)) report.advisories.push(item(source, advisory))
+      } catch (error) {
+        report.advisoryCheckFailed.push(item(source, { error: error.message }))
       }
       const detectedVersion = await detectVersion(source, options.allowHttpLocalhost)
       if (detectedVersion && detectedVersion !== source.currentVersion) {
@@ -316,13 +351,16 @@ export async function refreshEvidence(options) {
   }
   await atomicJson(options.cache, cache)
   await atomicJson(options.report, report)
-  const failClosed = [...report.stale, ...report.unavailable, ...report.drift, ...report.versionDrift, ...report.manualVersionReview.filter(entry => entry.due)].some(entry => entry.critical || entry.integrityFailure)
+  const failClosed = [...report.stale, ...report.unavailable, ...report.drift, ...report.versionDrift, ...report.advisories, ...report.manualVersionReview.filter(entry => entry.due)].some(entry => entry.critical || entry.integrityFailure)
   return { report, failClosed }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const options = args(process.argv.slice(2))
   const { report, failClosed } = await refreshEvidence(options)
-  console.log(`refresh-evidence: selected=${report.selected.length} drift=${report.drift.length} version-drift=${report.versionDrift.length} stale=${report.stale.length} unavailable=${report.unavailable.length}${report.acceptedBaselines.length ? ` accepted=${report.acceptedBaselines.length}` : ''}`)
+  console.log(`refresh-evidence: selected=${report.selected.length} drift=${report.drift.length} version-drift=${report.versionDrift.length} stale=${report.stale.length} unavailable=${report.unavailable.length} advisories=${report.advisories.length}${report.reviewOverdue.length ? ` review-overdue=${report.reviewOverdue.length}` : ''}${report.acceptedBaselines.length ? ` accepted=${report.acceptedBaselines.length}` : ''}`)
+  for (const overdue of report.reviewOverdue) console.error(`warning: baseline ${overdue.baseline} (${overdue.state}) passed its reviewBy ${overdue.reviewBy} — a human adoption decision is overdue`)
+  for (const lag of report.pinLag ?? []) console.error(`warning: critical source ${lag.id} pin ${lag.pinned} lags current ${lag.current} — review adoption or record the deliberate hold`)
+  for (const advisory of report.advisories) console.error(`advisory: ${advisory.package}@${advisory.version} — ${advisory.id}${advisory.summary ? `: ${advisory.summary}` : ''}`)
   if (failClosed) process.exitCode = 1
 }

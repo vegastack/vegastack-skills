@@ -25,8 +25,8 @@ Installer/CLI changes follow ordinary semver on the same package version; the re
 
 | Identity | Current | Lives in | Governs |
 |---|---|---|---|
-| Package version | `0.1.0` | `packages/cli/package.json` (changesets) | npm releases of installer + content snapshot |
-| Foundation version | `0.3.0` | profile schema const, `profile-tool.mjs` default, `references/foundation-compatibility.json` | the profile/schema contract that deployed `.vegastack/architecture` profiles are validated against |
+| Package version | see `packages/cli/package.json` | `packages/cli/package.json` (changesets) | npm releases of installer + content snapshot |
+| Foundation version | `0.4.0` | `profile-tool.mjs` draft default, `references/foundation-compatibility.json` | the profile/schema contract that deployed `.vegastack/architecture` profiles are validated against (profile schema v4; `foundationVersion` optional in profiles) |
 
 They move independently and must never be conflated:
 

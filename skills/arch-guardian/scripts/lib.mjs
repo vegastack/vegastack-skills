@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto'
 import { lstat, readFile, readdir } from 'node:fs/promises'
-import { join, relative, sep } from 'node:path'
+import { join, relative } from 'node:path'
 
-export const LABELS = ['OBSERVED', 'DOCUMENTED', 'REPRODUCED', 'INFERRED', 'RECOMMENDED', 'NOT VERIFIED']
 export const sha256 = body => createHash('sha256').update(body).digest('hex')
 
 // Canonical profile basename first; legacy name accepted with a deprecation notice at call sites.
@@ -47,11 +46,3 @@ export async function listFiles(root, predicate = () => true) {
   return output.sort((a, b) => relative(root, a).localeCompare(relative(root, b)))
 }
 
-export function slashRelative(root, path) {
-  return relative(root, path).split(sep).join('/')
-}
-
-export function issue(status, rule, control, message, evidence, extra = {}) {
-  const severity = status === 'FAIL' ? 'fail' : status === 'EXCEPTED' ? 'accepted-risk' : status === 'NOT_VERIFIED' ? 'warning' : 'pass'
-  return { status, severity, rule, control, message, verificationType: extra.verificationType ?? 'static-sentinel', ...(evidence ? { evidence, path: evidence.path } : {}), ...extra }
-}

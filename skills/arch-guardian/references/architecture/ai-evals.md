@@ -4,6 +4,8 @@ Apply this reference only when agents, prompts, or other model-backed behavior s
 
 An eval is a versioned golden dataset plus a scoring method plus an explicit pass threshold, run against a pinned model and prompt. A demo transcript, a vibe check, or an unpinned notebook run is not an eval and produces no evidence.
 
+Minimum viable form by tier — prototype: none required. Production: one golden dataset and threshold for the main model-backed behavior, run before promoting prompt/model changes. Enterprise: the full regime below, including online sampling policy.
+
 - **EVAL-001 — Eval definition.** Every evaluated behavior **MUST** define a golden dataset with provenance and tenant-safe sourcing, a deterministic scoring method or declared judge configuration, and numeric pass/regression thresholds recorded before the run, not chosen after it.
 - **EVAL-002 — Promotion gate.** Changes to agent instructions, prompts, model policy, routed model, tool schemas, or knowledge policy **MUST** pass offline regression evals against the golden datasets before publish or promote. A threshold regression blocks promotion; overriding it is a project-owner accepted risk, not a pass.
 - **EVAL-003 — Versioned datasets.** Eval datasets, scoring configuration, and thresholds **MUST** be versioned alongside the prompts and agent versions they gate, so any historical eval result can be reproduced from its exact inputs. Dataset edits that change pass rates are behavior changes and go through the same review as prompt changes.

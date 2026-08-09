@@ -6,7 +6,7 @@ Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/s
 
 | Skill | What it does | Docs |
 |---|---|---|
-| [arch-guardian](skills/arch-guardian/) | Opinionated senior-architect advisor: capability-scoped normative rules (107 rules, 18 references), deterministic architecture checks against a committed profile, exception/ADR governance, and a source-freshness contract | [Walkthrough](skills/arch-guardian/README.md) · [SKILL.md](skills/arch-guardian/SKILL.md) |
+| [arch-guardian](skills/arch-guardian/) | Opinionated senior-architect advisor: tier-scoped normative rules (106 rules, 18 references) activated by declared capabilities, evidence-backed advisory reports, a slim committed profile, and a source-freshness contract with OSV advisory watch | [Walkthrough](skills/arch-guardian/README.md) · [SKILL.md](skills/arch-guardian/SKILL.md) |
 | [skill-maintainer](skills/skill-maintainer/) | Encodes the verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create/update/rename/release of a skill in this repo runs through its workflows and hard limits | [Walkthrough](skills/skill-maintainer/README.md) · [SKILL.md](skills/skill-maintainer/SKILL.md) |
 | [skillify](skills/skillify/) | Repo-local skill factory and auditor: gates whether something should be a skill at all, scaffolds the full per-skill contract, and scores existing skills against a 13-item completeness checklist with behavioral-eval-before-tests discipline | [Walkthrough](skills/skillify/README.md) · [SKILL.md](skills/skillify/SKILL.md) |
 
@@ -35,7 +35,7 @@ Skill content cites external sources (specs, vendor docs, package versions) trac
 
 ## Advisory by design
 
-Skill checks inform review; they do not gate anyone's CI by default. Findings use an honest outcome vocabulary (`PASS` / `FAIL` / `EXCEPTED` / `NOT VERIFIED`) and accepted risk stays visible instead of disappearing. Product repos may opt in to gating on check exit codes if they choose.
+Skills advise; they never gate. Reviews produce evidence-backed advisory reports with honest severities (`critical` / `production-gate` / `enterprise-gate` / `consider`), unverified claims are labeled rather than asserted, and deliberately accepted risk stays visible in every review instead of disappearing behind suppression machinery.
 
 ## Develop
 

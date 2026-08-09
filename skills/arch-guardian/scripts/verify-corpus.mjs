@@ -26,7 +26,6 @@ const chapters = await listFiles(architectureRoot, path => path.endsWith('.md'))
 const registry = await readJsonYaml(join(skillRoot, 'refresh', 'sources.json'))
 const sourceIds = new Set(registry.sources.map(source => source.id))
 const ruleIds = await canonicalRuleIds()
-const controlCatalog = await readJsonYaml(join(references, 'control-catalog.json'))
 const ruleModel = await readJsonYaml(join(references, 'rule-model.json'))
 const errors = []
 let diagrams = 0
@@ -86,15 +85,6 @@ for (const source of registry.sources) {
   }
 }
 
-const catalogKeys = new Set()
-for (const control of controlCatalog.controls ?? []) {
-  if (!ruleIds.has(control.rule)) errors.push(`control catalog maps unknown rule ${control.rule}`)
-  if ((!control.id && !control.idPattern) || (control.id && control.idPattern)) errors.push(`control catalog entry for ${control.rule} must have exactly one id or idPattern`)
-  const key = `${control.rule}/${control.id ?? control.idPattern}`
-  if (catalogKeys.has(key)) errors.push(`duplicate control catalog entry ${key}`)
-  catalogKeys.add(key)
-  for (const required of ['classification', 'activation', 'verification', 'waiver']) if (!control[required]) errors.push(`control catalog ${key} missing ${required}`)
-}
 const modeledRules = new Set()
 for (const group of ruleModel.groups ?? []) {
   for (const required of ['activation', 'verification', 'rationale']) if (!group[required]) errors.push(`rule model group missing ${required}`)
@@ -107,9 +97,7 @@ for (const group of ruleModel.groups ?? []) {
 for (const rule of ruleIds) if (!modeledRules.has(rule)) errors.push(`canonical rule ${rule} has no activation/verification/rationale model`)
 for (const override of ruleModel.overrides ?? []) if (!modeledRules.has(override.rule)) errors.push(`rule model override names unknown rule ${override.rule}`)
 
-for (const match of (await readFile(join(skillRoot, 'scripts', 'architecture-check.mjs'), 'utf8')).matchAll(/issue\([^,]+,\s*['"]([A-Z]+-[0-9]{3})['"]/g)) if (!ruleIds.has(match[1])) errors.push(`architecture-check emits unknown rule ${match[1]}`)
-
-const bannedNames = ['golden-architecture.md', 'evidence-manifest.json', 'coverage-matrix.md', 'verification-ledger.md', '23-evidence-comparisons.md', '24-roadmap.md', 'compile-guide.mjs']
+const bannedNames = ['golden-architecture.md', 'evidence-manifest.json', 'coverage-matrix.md', 'verification-ledger.md', '23-evidence-comparisons.md', '24-roadmap.md', 'compile-guide.mjs', 'architecture-check.mjs', 'control-catalog.json']
 const allFiles = await listFiles(skillRoot)
 for (const path of allFiles) if (bannedNames.includes(basename(path))) errors.push(`forbidden runtime artifact remains: ${relative(skillRoot, path)}`)
 const runtimeText = (await Promise.all((await listFiles(skillRoot, path => /\.(?:md|json|yaml|yml|mjs)$/.test(path) && !path.includes('/tests/'))).map(path => readFile(path, 'utf8')))).join('\n')

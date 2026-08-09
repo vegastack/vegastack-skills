@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "foundationVersion": "0.3.0",
+  "foundationVersion": "0.4.0",
   "baselines": {
     "vs-2026-08-07": {
       "state": "supported",

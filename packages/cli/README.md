@@ -11,7 +11,7 @@ npx @vegastack/skills add arch-guardian
 
 | Skill | What it does |
 |---|---|
-| `arch-guardian` | Architecture advisor: capability-scoped normative rules, deterministic checks against a committed profile, exception/ADR governance |
+| `arch-guardian` | Architecture advisor: tier-scoped normative rules activated by declared capabilities, evidence-backed advisory reports, slim committed profile, source-freshness contract |
 | `skill-maintainer` | Encodes the Agent Skills standards (Claude Code, Codex, Hermes, agentskills.io) for creating, updating, and releasing skills in a skills repo |
 | `skillify` | Turns a feature or workflow into a complete skill conforming to the VegaStack skills contract, or audits an existing one |
 

@@ -5,18 +5,21 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { pathToFileURL } from 'node:url'
 import { pathExists, readJsonYaml } from './lib.mjs'
 
-const capabilityNames = ['webControlPlane', 'flutter', 'agents', 'jobs', 'sandbox', 'connectors', 'knowledge', 'modelRouting', 'enterpriseIdentity', 'realtime', 'notifications', 'secrets']
+const capabilityNames = ['web', 'flutter', 'agents', 'jobs', 'sandbox', 'connectors', 'knowledge', 'models', 'enterprise-identity', 'realtime', 'notifications']
 const observedListCap = 25
+// Observation patterns are heuristic evidence, never proof. `secrets` is observed as advisory
+// evidence but is not a declarable capability — secret custody guidance activates whenever
+// production secrets exist.
 const patterns = {
-  webControlPlane: /(?:next|@opennextjs\/cloudflare)/i,
+  web: /(?:next|@opennextjs\/cloudflare)/i,
   flutter: /(?:pubspec\.yaml|package:flutter)/i,
   agents: /(?:\beve\b|@workflow\/world|AgentRun)/i,
   jobs: /(?:pg-boss|PgBoss)/i,
   sandbox: /(?:@cloudflare\/sandbox|SandboxProvider|enableInternet)/i,
   connectors: /(?:\bMCP\b|webhook|connector)/i,
   knowledge: /(?:pgvector|embedding|\bknowledge\b)/i,
-  modelRouting: /(?:ai-gateway|generateText|streamText|BYOK)/i,
-  enterpriseIdentity: /(?:\bSCIM\b|\bSSO\b|saml)/i,
+  models: /(?:ai-gateway|generateText|streamText|BYOK)/i,
+  'enterprise-identity': /(?:\bSCIM\b|\bSSO\b|saml)/i,
   realtime: /(?:EventSource|text\/event-stream|WebSocket)/i,
   notifications: /(?:firebase_messaging|APNs|notification)/i,
   secrets: /(?:OPENBAO|VAULT_ADDR|CLIENT_SECRET|DATABASE_URL)/i
@@ -40,18 +43,17 @@ async function inspectableFiles(root) {
 
 function baseDraft() {
   return {
-    schemaVersion: 3,
-    profileStatus: 'draft',
-    foundation: { version: '0.3.0', baseline: 'vs-2026-08-07', adoption: 'supported' },
-    project: { name: 'REQUIRED-CONFIRMED-PROJECT-NAME', kind: 'REQUIRED-CONFIRMED-PROJECT-KIND', lifecycle: 'brownfield', access: 'REQUIRED-CONFIRMED-ACCESS', tenancy: 'REQUIRED-CONFIRMED-TENANCY' },
-    environments: { production: { hosting: 'REQUIRED-CONFIRMED-PRODUCTION-TARGET' }, localDevelopment: { trusted: true, allowances: [] } },
-    capabilities: Object.fromEntries(capabilityNames.map(name => [name, { status: 'disabled', ownership: 'not-applicable' }])),
-    exceptions: []
+    schemaVersion: 4,
+    foundationVersion: '0.4.0',
+    project: { name: 'REQUIRED-CONFIRMED-PROJECT-NAME', kind: 'REQUIRED-CONFIRMED-KIND', tier: 'REQUIRED-CONFIRMED-TIER', tenancy: 'REQUIRED-CONFIRMED-TENANCY' },
+    hosting: 'REQUIRED-CONFIRMED-HOSTING',
+    capabilities: [],
+    notes: []
   }
 }
 
 // Only literally exact versions are recorded as facts; ranges ("^1.2.3") are not laundered into
-// exact pins — the draft records them as unconfirmed instead.
+// exact pins — they stay observational.
 function exact(value) {
   const normalized = String(value ?? '').trim().replace(/^v/, '')
   return /^\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(normalized) ? normalized : null
@@ -69,7 +71,7 @@ async function inspect(root) {
       for (const [name, value] of Object.entries({ ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) })) if (exact(value)) packageVersions[name] = exact(value)
     } catch { /* malformed manifests remain observational unknowns */ }
   }
-  const observed = Object.fromEntries(capabilityNames.map(name => [name, []]))
+  const observed = Object.fromEntries(Object.keys(patterns).map(name => [name, []]))
   for (const path of files.filter(path => !/[\\/]\.vegastack[\\/]/.test(path) && (['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.yaml', '.yml', '.toml', '.sql', '.dart'].includes(extname(path)) || basename(path) === 'pubspec.yaml'))) {
     const rel = relative(root, path).split(sep).join('/')
     let body = ''
@@ -77,27 +79,14 @@ async function inspect(root) {
     for (const [name, pattern] of Object.entries(patterns)) if (pattern.test(`${rel}\n${body}`)) observed[name].push(rel)
   }
   const profile = baseDraft()
-  for (const [name, evidence] of Object.entries(observed)) if (evidence.length) {
-    const sourceRoot = evidence[0].includes('/') ? evidence[0].split('/').slice(0, -1).join('/') : '.'
-    const versions = {}
-    const candidates = {
-      webControlPlane: [['next', 'next'], ['openNext', '@opennextjs/cloudflare']],
-      agents: [['eve', 'eve'], ['workflowPostgres', '@workflow/world-postgres']],
-      jobs: [['pgBoss', 'pg-boss']],
-      sandbox: [['cloudflareSandbox', '@cloudflare/sandbox']]
-    }[name] ?? []
-    for (const [key, pkg] of candidates) if (packageVersions[pkg]) versions[key] = packageVersions[pkg]
-    profile.capabilities[name] = { status: 'enabled', ownership: 'REQUIRED-CONFIRMED-OWNERSHIP', versions: Object.keys(versions).length ? versions : { unconfirmed: 'REQUIRED-EXACT-VERSION' }, placement: 'REQUIRED-CONFIRMED-PLACEMENT', sourceRoots: [sourceRoot], controls: { observedSourceRoots: evidence } }
-  }
+  profile.capabilities = capabilityNames.filter(name => observed[name].length)
   const artifacts = ['.vegastack/architecture.json']
-  if (Object.values(profile.capabilities).some(item => item.status === 'enabled')) artifacts.push('docs/architecture/service-design.md')
-  if (profile.environments.production.hosting !== 'none') artifacts.push('docs/architecture/deployment-review.md')
-  if (['connectors', 'sandbox', 'agents'].some(name => profile.capabilities[name].status === 'enabled')) artifacts.push('docs/architecture/threat-model.md')
+  if (['connectors', 'sandbox', 'agents'].some(name => observed[name].length)) artifacts.push('docs/architecture/threat-model.md')
   const after = await inspectableFiles(root)
   let changed = after.length !== before.size
   for (const path of after) if (!before.has(path) || before.get(path) !== (await lstat(path)).mtimeMs) changed = true
   if (changed) throw new Error('inspection mutation guard detected a changed file inventory')
-  return { mode: 'brownfield-observed', mutated: false, observed, packageVersions, profileDraft: profile, relevantArtifacts: artifacts, caveats: ['Detection is heuristic and does not prove absence, ownership, placement, compliance, runtime behavior, or project intent. Every REQUIRED field must be confirmed before use.'] }
+  return { mode: 'brownfield-observed', mutated: false, observed, packageVersions, profileDraft: profile, relevantArtifacts: artifacts, caveats: ['Detection is heuristic and does not prove absence, placement, compliance, runtime behavior, or project intent. Every REQUIRED field must be confirmed before use.'] }
 }
 
 // Compact context-friendly view for interactive agent use; --json prints the full result.
@@ -117,26 +106,31 @@ function capObserved(result) {
 }
 
 function fromAnswers(answers) {
-  if (answers.schemaVersion === 3) return answers
+  if (answers.schemaVersion === 4) return answers
   const profile = baseDraft()
-  for (const key of ['profileStatus', 'project', 'environments', 'capabilities', 'data', 'objectives', 'exceptions']) if (answers[key] !== undefined) profile[key] = answers[key]
+  for (const key of ['project', 'hosting', 'capabilities', 'notes', 'foundationVersion']) if (answers[key] !== undefined) profile[key] = answers[key]
   return profile
 }
 
-function migrateV2(old) {
-  if (old.schemaVersion !== 2) throw new Error('migrate-v2 requires a schemaVersion 2 profile')
+// Deterministic v3 -> v4 migration: exceptions are dropped (the advisor records deliberate
+// deviations in notes/ADR documents, never as suppression machinery), capability detail collapses
+// to the enabled list, and versions return to lockfiles.
+const v3CapabilityMap = { webControlPlane: 'web', flutter: 'flutter', agents: 'agents', jobs: 'jobs', sandbox: 'sandbox', connectors: 'connectors', knowledge: 'knowledge', modelRouting: 'models', enterpriseIdentity: 'enterprise-identity', realtime: 'realtime', notifications: 'notifications' }
+const v3KindMap = { 'saas-product': 'saas', 'internal-product': 'internal-tool', 'public-product': 'saas', 'platform-service': 'api', 'shared-package': 'package' }
+
+function migrateV3(old) {
+  if (old.schemaVersion !== 3) throw new Error('migrate requires a schemaVersion 3 profile; older versions need a fresh v4 profile from answers')
   const profile = baseDraft()
-  profile.project = { name: old.project ?? 'REQUIRED-CONFIRMED-PROJECT-NAME', kind: 'saas-product', lifecycle: 'migration', access: 'authenticated', tenancy: old.tenancy?.storage === 'shared-schema-composite-keys' ? 'multi-tenant-shared-schema' : 'REQUIRED-CONFIRMED-TENANCY' }
-  profile.environments.production.hosting = old.hostingProfile ?? 'REQUIRED-CONFIRMED-HOSTING'
-  const owned = (versions, placement, sourceRoots, controls = {}) => ({ status: 'enabled', ownership: 'owned', versions, placement, sourceRoots, controls })
-  profile.capabilities.webControlPlane = owned({ bun: old.versions?.bun, node: old.versions?.node, next: old.versions?.next, ...(old.versions?.openNext !== 'not-applicable' ? { openNext: old.versions?.openNext } : {}), betterAuth: old.versions?.betterAuth }, old.runtimePlacement?.next, old.sourceRoots?.next, { canonicalApi: old.capabilities?.api?.canonical, openapiGenerated: old.capabilities?.api?.openapiGenerated, secureCookies: true })
-  profile.capabilities.flutter = owned({ flutter: 'REQUIRED-EXACT-VERSION' }, old.runtimePlacement?.flutter, ['REQUIRED-CONFIRMED-FLUTTER-ROOT'], { delegatedOAuthPkce: old.identity?.delegated === 'oauth2.1-oidc-code-pkce', generatedRestClient: old.capabilities?.api?.openapiGenerated === true })
-  profile.capabilities.agents = owned({ eve: old.versions?.eve, workflowWorldContract: old.versions?.workflowWorldContract, workflowLocal: old.versions?.workflowLocal, workflowPostgres: old.versions?.workflowPostgres, node: old.versions?.node }, old.runtimePlacement?.eve, old.sourceRoots?.eve, { workflowWorld: 'postgres', agentRun: true, admission: 'pg-boss' })
-  profile.capabilities.jobs = owned({ pgBoss: old.versions?.pgBoss, postgres: old.versions?.postgres }, old.runtimePlacement?.jobs, old.sourceRoots?.jobs, { roles: old.capabilities?.jobs?.roles ?? [] })
-  profile.capabilities.sandbox = owned({ provider: 'REQUIRED-EXACT-VERSION' }, old.runtimePlacement?.sandboxBroker, ['REQUIRED-CONFIRMED-SANDBOX-ROOT'], { provider: old.capabilities?.sandbox?.provider, egress: old.capabilities?.sandbox?.egress, databaseCredentials: old.capabilities?.sandbox?.databaseCredentials, trustedBroker: true })
-  if (old.capabilities?.secrets === 'openbao') profile.capabilities.secrets = owned({ openbao: 'REQUIRED-EXACT-VERSION' }, 'external-service', ['REQUIRED-CONFIRMED-SECRETS-CONFIG-ROOT'], { provider: 'openbao' })
-  profile.exceptions = []
-  return { profile, guidance: ['The v2 format implied a full platform, so all implied capabilities are enabled in this draft.', 'Confirm project kind/access/tenancy, Flutter and sandbox roots/versions, controls, capability ownership, data/objectives, and migrate each exception to exact v3 rule/control/path scope.', 'No source file or old profile was changed.'] }
+  profile.project = {
+    name: old.project?.name ?? 'REQUIRED-CONFIRMED-PROJECT-NAME',
+    kind: v3KindMap[old.project?.kind] ?? 'REQUIRED-CONFIRMED-KIND',
+    tier: 'REQUIRED-CONFIRMED-TIER',
+    tenancy: old.project?.tenancy ?? 'REQUIRED-CONFIRMED-TENANCY'
+  }
+  profile.hosting = old.environments?.production?.hosting ?? 'REQUIRED-CONFIRMED-HOSTING'
+  profile.capabilities = Object.entries(old.capabilities ?? {}).filter(([, value]) => value?.status === 'enabled').map(([name]) => v3CapabilityMap[name]).filter(Boolean)
+  profile.notes = (old.exceptions ?? []).map(exception => `migrated deviation (was exception ${exception.id} on ${exception.ruleId}): ${exception.decision ?? exception.rationale ?? 'see original ADR'}`)
+  return { profile, guidance: ['Confirm the tier deliberately — it decides which concerns apply, not which tools.', 'v3 exceptions were converted to notes; the advisor has no suppression machinery.', 'Versions now come from lockfiles at advice time.', 'No source file or old profile was changed.'] }
 }
 
 async function assertNoSymlink(path) {
@@ -199,18 +193,18 @@ function confinedOutput(dir, output) {
 
 async function main() {
   const options = parse(process.argv.slice(2))
-  if (options.command === 'help') return console.log('Usage: profile-tool.mjs inspect [DIR] [--json] | scaffold ANSWERS.json --dir DIR [--write] [--force] [--output PATH] | migrate-v2 PROFILE --dir DIR [--write] [--force] [--output PATH]\n\ninspect prints a compact summary by default; --json prints the full draft and evidence.\nscaffold answers format: see assets/answers-example.json next to this skill.\nWrites are atomic, refuse symlinks, stay inside --dir, and require --force to replace differing content.')
+  if (options.command === 'help') return console.log('Usage: profile-tool.mjs inspect [DIR] [--json] | scaffold ANSWERS.json --dir DIR [--write] [--force] [--output PATH] | migrate PROFILE --dir DIR [--write] [--force] [--output PATH]\n\ninspect prints a compact summary by default; --json prints the full draft and evidence.\nscaffold answers format: see assets/answers-example.json next to this skill.\nmigrate converts a v3 profile to a v4 draft (exceptions become notes).\nWrites are atomic, refuse symlinks, stay inside --dir, and require --force to replace differing content.')
   if (options.command === 'inspect') {
     const root = resolve(options.input ?? options.dir)
     const result = await inspect(root)
     return console.log(JSON.stringify(options.json ? capObserved(result) : summarizeInspection(result), null, 2))
   }
-  if (!['scaffold', 'migrate-v2'].includes(options.command) || !options.input) throw new Error('A supported command and input file are required')
+  if (!['scaffold', 'migrate'].includes(options.command) || !options.input) throw new Error('A supported command and input file are required')
   const source = resolve(options.input)
   const parsed = await readJsonYaml(source)
-  const result = options.command === 'migrate-v2' ? migrateV2(parsed) : { profile: fromAnswers(parsed), guidance: ['Generated only from supplied answers; confirm draft facts before CI.'] }
+  const result = options.command === 'migrate' ? migrateV3(parsed) : { profile: fromAnswers(parsed), guidance: ['Generated only from supplied answers; confirm draft facts before relying on them.'] }
   const body = `${JSON.stringify(result.profile, null, 2)}\n`
-  const defaultOutput = options.command === 'migrate-v2' ? '.vegastack/architecture.v3-draft.json' : '.vegastack/architecture.json'
+  const defaultOutput = options.command === 'migrate' ? '.vegastack/architecture.v4-draft.json' : '.vegastack/architecture.json'
   const output = confinedOutput(options.dir, options.output ?? defaultOutput)
   const payload = { mode: options.write ? 'authorized-write' : 'dry-run', output, profile: result.profile, guidance: result.guidance }
   if (!options.write) return console.log(JSON.stringify(payload, null, 2))
@@ -220,4 +214,4 @@ async function main() {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main().catch(error => { console.error(`error: ${error.message}`); process.exitCode = 1 })
 
-export { inspect, migrateV2, fromAnswers, atomicWrite }
+export { inspect, migrateV3, fromAnswers, atomicWrite }

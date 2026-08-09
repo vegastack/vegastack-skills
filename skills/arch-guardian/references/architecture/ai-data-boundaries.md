@@ -2,6 +2,8 @@
 
 Apply this reference when personal data, knowledge ingestion, external model calls, or public-facing AI output exists. It concretizes `SEC-003` and `DATA-003` at the AI trust boundary: personal data moving outward, untrusted content moving inward.
 
+`PII-004` (injection quarantine) applies at every tier untrusted content reaches a prompt; `PII-001`/`PII-002` bind from production tier; `PII-003` moderation depth scales from a basic unsafe-content pass at production to full policy classes at enterprise.
+
 - **PII-001 — Ingestion redaction.** PII detection and classification **MUST** run before content enters embedding, chunking, or knowledge storage; detected PII is redacted, tokenized, or explicitly admitted under the data class policy of the target store. Record the classifier version and decision as provenance so re-scanning after a classifier upgrade is possible. Embeddings of unredacted PII are copies of it and inherit deletion propagation (`DATA-004`).
 - **PII-002 — Prompt boundary.** Before a prompt crosses the trust boundary to an external model provider, PII **MUST** be minimized to what the feature needs and stripped or masked where policy requires; the route's retention and region policy (`MODEL-001`) governs what may cross at all. Memory writes and eval/telemetry sampling are prompt-boundary crossings too — the same redaction applies.
 - **PII-003 — Output moderation.** Public-facing products **MUST** pass model output through a moderation policy before delivery: unsafe-content classes, PII leakage from context or memory, and impersonation of the platform. Internal tools MAY relax categories by declared policy, never by omission. Moderation outcomes are audited metadata; blocked output fails visibly, not silently.

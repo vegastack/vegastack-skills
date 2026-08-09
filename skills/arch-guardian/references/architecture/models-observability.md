@@ -16,7 +16,7 @@ Record route decision, policy version, provider/model, key source, region, laten
 
 - **OBS-001 — Vendor-neutral telemetry.** Services **MUST** emit OpenTelemetry-compatible traces, metrics, and logs with W3C propagation and stable tenant-safe correlation. [OTEL-DOCS]
 - **OBS-002 — Metadata-only default.** Telemetry **MUST** default to metadata. Cookies, authorization headers, tokens, keys, prompts, restricted content, and unbounded tool output **MUST NOT** enter logs or traces.
-- **OBS-003 — Immutable audit.** Security and product audit events **MUST** be append-only, tenant-scoped, access-controlled, tamper-evident, retention-managed, and exportable to WORM storage where policy requires.
+- **OBS-003 — Immutable audit.** Security and product audit events **MUST** be append-only, tenant-scoped, and access-controlled; tamper evidence, managed retention, and WORM export bind at enterprise tier.
 
 Run history MAY expose inputs/outputs allowed by data policy, steps, tool calls, approvals, model decisions, usage, errors, and replay lineage. Do not store hidden chain-of-thought; retain structured reasons, decisions, and evidence references.
 

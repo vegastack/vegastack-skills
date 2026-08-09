@@ -1,213 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/vegastack/vegastack-skills/main/skills/arch-guardian/assets/architecture-profile.schema.json",
-  "title": "VegaStack Architecture Profile v3",
+  "title": "VegaStack Architecture Profile v4",
+  "description": "Slim advisor memory: confirmed project facts, the declared tier, and the enabled capability list. Versions are read from lockfiles and manifests at advice time, never duplicated here.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "profileStatus", "foundation", "project", "environments", "capabilities", "exceptions"],
-  "$defs": {
-    "exactVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
-    "relativePath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$" },
-    "nonEmptyStrings": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-    "serviceContract": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["ownerService", "contract", "version", "tenantSecurityBoundary", "identityAudience", "dataResidency", "sloRecovery", "incidentOwner", "compatibility", "migrationExit"],
-      "properties": {
-        "ownerService": { "type": "string", "minLength": 1 },
-        "contract": { "type": "string", "minLength": 1 },
-        "version": { "$ref": "#/$defs/exactVersion" },
-        "tenantSecurityBoundary": { "type": "string", "minLength": 1 },
-        "identityAudience": { "type": "string", "minLength": 1 },
-        "dataResidency": { "type": "string", "minLength": 1 },
-        "sloRecovery": { "type": "string", "minLength": 1 },
-        "incidentOwner": { "type": "string", "minLength": 1 },
-        "compatibility": { "type": "string", "minLength": 1 },
-        "migrationExit": { "type": "string", "minLength": 1 }
-      }
-    },
-    "removal": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["durableData", "credentials", "queues", "contracts", "owner", "verification", "rollback"],
-      "properties": {
-        "durableData": { "type": "string", "minLength": 1 },
-        "credentials": { "type": "string", "minLength": 1 },
-        "queues": { "type": "string", "minLength": 1 },
-        "contracts": { "type": "string", "minLength": 1 },
-        "owner": { "type": "string", "minLength": 1 },
-        "verification": { "type": "string", "minLength": 1 },
-        "rollback": { "type": "string", "minLength": 1 }
-      }
-    },
-    "capability": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["status", "ownership"],
-      "properties": {
-        "status": { "enum": ["enabled", "disabled"] },
-        "ownership": { "enum": ["owned", "shared-managed", "external-managed", "not-applicable"] },
-        "versions": {
-          "type": "object",
-          "minProperties": 1,
-          "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
-          "additionalProperties": { "$ref": "#/$defs/exactVersion" }
-        },
-        "placement": { "type": "string", "minLength": 1 },
-        "sourceRoots": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/relativePath" } },
-        "contract": { "$ref": "#/$defs/serviceContract" },
-        "controls": { "type": "object", "additionalProperties": { "type": ["string", "boolean", "number", "array"], "items": { "type": "string" } } },
-        "transitionFrom": { "enum": ["enabled", "disabled"] },
-        "removal": { "$ref": "#/$defs/removal" }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "status": { "const": "enabled" } }, "required": ["status"] },
-          "then": { "required": ["versions", "placement"], "properties": { "ownership": { "enum": ["owned", "shared-managed", "external-managed"] } } }
-        },
-        {
-          "if": { "properties": { "status": { "const": "disabled" } }, "required": ["status"] },
-          "then": { "properties": { "ownership": { "const": "not-applicable" } } }
-        },
-        {
-          "if": { "properties": { "status": { "const": "enabled" }, "ownership": { "const": "owned" } }, "required": ["status", "ownership"] },
-          "then": { "required": ["sourceRoots"] }
-        },
-        {
-          "if": { "properties": { "ownership": { "enum": ["shared-managed", "external-managed"] } }, "required": ["ownership"] },
-          "then": { "required": ["contract"], "not": { "required": ["sourceRoots"] } }
-        },
-        {
-          "if": { "properties": { "status": { "const": "disabled" }, "transitionFrom": { "const": "enabled" } }, "required": ["status", "transitionFrom"] },
-          "then": { "required": ["removal"] }
-        }
-      ]
-    },
-    "exception": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "ruleId", "paths", "adr", "projectOwner", "status", "verificationType", "rationale", "decision", "risks", "compensatingControls", "verification", "rollbackOrMigration", "review", "foundationDeviationAcknowledged"],
-      "properties": {
-        "id": { "type": "string", "pattern": "^EXC-[0-9]{3,}$" },
-        "ruleId": { "type": "string", "pattern": "^[A-Z]+-[0-9]{3}$" },
-        "controls": { "$ref": "#/$defs/nonEmptyStrings" },
-        "paths": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/relativePath" } },
-        "adr": { "$ref": "#/$defs/relativePath" },
-        "projectOwner": { "type": "string", "minLength": 1 },
-        "status": { "enum": ["active", "withdrawn"] },
-        "verificationType": { "enum": ["static-sentinel", "manual-qualification"] },
-        "rationale": { "type": "string", "minLength": 1 },
-        "decision": { "type": "string", "minLength": 1 },
-        "risks": { "$ref": "#/$defs/nonEmptyStrings" },
-        "compensatingControls": { "$ref": "#/$defs/nonEmptyStrings" },
-        "verification": { "$ref": "#/$defs/nonEmptyStrings" },
-        "rollbackOrMigration": { "type": "string", "minLength": 1 },
-        "review": {
-          "oneOf": [
-            { "type": "object", "additionalProperties": false, "required": ["date"], "properties": { "date": { "type": "string", "format": "date" } } },
-            { "type": "object", "additionalProperties": false, "required": ["event"], "properties": { "event": { "type": "string", "minLength": 1 } } }
-          ]
-        },
-        "foundationDeviationAcknowledged": { "const": true }
-      }
-    }
-  },
+  "required": ["schemaVersion", "project", "hosting", "capabilities"],
   "properties": {
-    "schemaVersion": { "const": 3 },
-    "profileStatus": { "enum": ["draft", "confirmed"] },
-    "foundation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["version", "baseline", "adoption"],
-      "properties": {
-        "version": { "const": "0.3.0" },
-        "baseline": { "type": "string", "minLength": 1 },
-        "adoption": { "enum": ["supported", "candidate", "deprecated"] }
-      }
-    },
+    "schemaVersion": { "const": 4 },
+    "foundationVersion": { "type": "string", "minLength": 1 },
     "project": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "kind", "lifecycle", "access", "tenancy"],
+      "required": ["name", "kind", "tier", "tenancy"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
-        "kind": { "enum": ["saas-product", "internal-product", "public-product", "platform-service", "shared-package"] },
-        "lifecycle": { "enum": ["greenfield", "brownfield", "migration", "maintenance"] },
-        "access": { "enum": ["public", "authenticated", "internal", "mixed"] },
+        "kind": { "enum": ["saas", "internal-tool", "client-site", "api", "package"] },
+        "tier": { "enum": ["prototype", "production", "enterprise"] },
         "tenancy": { "enum": ["none", "single-tenant", "multi-tenant-shared-schema", "multi-tenant-isolated"] }
       }
     },
-    "environments": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["production", "localDevelopment"],
-      "properties": {
-        "production": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["hosting"],
-          "properties": { "hosting": { "enum": ["self-hosted", "vercel", "cloudflare-opennext", "external", "none"] }, "region": { "type": "string", "minLength": 1 } }
-        },
-        "localDevelopment": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["trusted", "allowances"],
-          "properties": { "trusted": { "const": true }, "allowances": { "type": "array", "uniqueItems": true, "items": { "enum": ["local-workflow-world", "local-secrets", "local-unsandboxed-code", "single-process"] } } }
-        }
-      }
-    },
+    "hosting": { "enum": ["self-hosted", "vercel", "cloudflare-opennext", "external", "none"] },
     "capabilities": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["webControlPlane", "flutter", "agents", "jobs", "sandbox", "connectors", "knowledge", "modelRouting", "enterpriseIdentity", "realtime", "notifications", "secrets"],
-      "properties": {
-        "webControlPlane": { "$ref": "#/$defs/capability" },
-        "flutter": { "$ref": "#/$defs/capability" },
-        "agents": { "$ref": "#/$defs/capability" },
-        "jobs": { "$ref": "#/$defs/capability" },
-        "sandbox": { "$ref": "#/$defs/capability" },
-        "connectors": { "$ref": "#/$defs/capability" },
-        "knowledge": { "$ref": "#/$defs/capability" },
-        "modelRouting": { "$ref": "#/$defs/capability" },
-        "enterpriseIdentity": { "$ref": "#/$defs/capability" },
-        "realtime": { "$ref": "#/$defs/capability" },
-        "notifications": { "$ref": "#/$defs/capability" },
-        "secrets": { "$ref": "#/$defs/capability" }
-      }
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["web", "flutter", "agents", "jobs", "sandbox", "connectors", "knowledge", "models", "realtime", "notifications", "enterprise-identity"] }
     },
-    "data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["classes"],
-      "properties": {
-        "classes": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["name"],
-            "properties": {
-              "name": { "enum": ["public", "internal", "confidential", "restricted"] },
-              "residency": { "type": "string", "minLength": 1 },
-              "retention": { "type": "string", "minLength": 1 },
-              "owner": { "type": "string", "minLength": 1 }
-            }
-          }
-        }
-      }
-    },
-    "objectives": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "availability": { "type": "string", "minLength": 1 },
-        "latency": { "type": "string", "minLength": 1 },
-        "rpoMinutes": { "type": "number", "minimum": 0 },
-        "rtoMinutes": { "type": "number", "minimum": 0 }
-      },
-      "minProperties": 1
-    },
-    "exceptions": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/exception" } }
+    "notes": { "type": "array", "items": { "type": "string", "minLength": 1 } }
   }
 }

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "defaults": { "classification": "invariant", "waiver": "project-owner-adr", "authority": "canonical prose in references/architecture" },
+  "defaults": { "classification": "invariant", "tierFloor": "production", "authority": "canonical prose in references/architecture; tier tags on rule lines override the default floor" },
   "groups": [
-    { "rules": ["FOUND-001", "FOUND-002", "FOUND-003", "FOUND-004"], "activation": "profile, governance, or any guardian output", "verification": "structural, semantic, output review", "rationale": "Keep project facts, accepted risk, and capability applicability honest." },
+    { "rules": ["FOUND-001", "FOUND-003", "FOUND-004"], "activation": "profile, governance, or any guardian output", "verification": "structural, semantic, output review", "rationale": "Keep project facts, accepted risk, and capability applicability honest." },
     { "rules": ["API-001", "API-002", "API-003", "API-004", "WEB-001"], "activation": "web control plane or public/generated API enabled or observed", "verification": "static, generated-contract, runtime", "rationale": "Keep one portable control-plane contract and safe request boundary." },
     { "rules": ["MOB-001", "MOB-002", "MOB-003", "MOB-004"], "activation": "Flutter enabled or observed", "verification": "semantic, generated-contract, mobile runtime", "rationale": "Keep delegated mobile identity, wire contracts, local secrets, push, and links safe." },
     { "rules": ["AUTH-001", "AUTH-002", "AUTH-003", "AUTH-004", "AUTH-005", "AUTH-006", "AUTH-007"], "activation": "the corresponding authenticated, delegated, service, enterprise, or support access exists", "verification": "static, semantic, identity integration", "rationale": "Bind identity and authorization to current durable project state." },

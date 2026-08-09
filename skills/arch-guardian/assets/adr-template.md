@@ -1,15 +1,12 @@
 # ADR-NNN: Decision title
 
+An ADR is an optional decision record for consequential architecture choices — including deliberate departures from a guardian recommendation. Nothing gates on it; it exists so future readers know the decision was deliberate, who owns it, and when to revisit it.
+
 - Status: proposed | accepted | superseded | rejected
 - Date: YYYY-MM-DD
-- Project-Owner: accountable person
-- Scope-Paths: comma-separated exact repository-relative paths
-- Rule-ID: canonical rule identifier or `none`
-- Control-IDs: comma-separated exact checker/manual control IDs, or `all` for a rule-level exception that omits the profile controls list
-- Exception-ID: profile exception ID or `none`
-- Foundation-Deviation-Acknowledged: true | false
-- Review-Date: YYYY-MM-DD | none
-- Review-Event: concrete event | none
+- Owner: accountable person
+- Related-Principles: canonical rule IDs this decision touches, or `none`
+- Revisit: YYYY-MM-DD or a concrete event, or `none`
 
 ## Context and facts
 
@@ -17,24 +14,12 @@ Separate observed facts, constraints, assumptions, preferences and prior accepte
 
 ## Decision and rationale
 
-State the primary decision, ownership, boundaries and why it fits. State the rejected alternative and reason.
+State the primary decision, ownership, boundaries and why it fits. State the rejected alternative and the reason — including, for any new moving service, the trigger that justifies it.
 
-## Risks and accepted deviation
+## Risks
 
-Describe each risk, who accepts it, affected paths/tenants/data, and why the foundation recommendation remains unmet.
+Describe each accepted risk, who accepts it, and what is affected. If this departs from a guardian recommendation, say so plainly; the guardian will keep reporting it as accepted risk in reviews.
 
-## Compensating controls
+## Verification and rollback
 
-Map preventive, detective and recovery controls to each risk. Do not claim an untested control works.
-
-## Verification
-
-List static sentinels, declared controls, reproduced tests, and `NOT VERIFIED` environment behavior with reason, risk, owner and next action.
-
-## Rollback or migration
-
-Describe rollback, migration/exit behavior, compatibility window, irreversible steps and cleanup.
-
-## Review trigger
-
-Give an expiry date or concrete event. Missing, expired or malformed exception ADRs fail validation.
+What evidence supports the decision (label unverified claims honestly), how it would be rolled back or migrated away from, and any irreversible steps.

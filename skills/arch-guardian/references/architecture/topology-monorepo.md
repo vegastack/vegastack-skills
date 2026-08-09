@@ -42,6 +42,6 @@ Use a Bun/Turborepo workspace for JavaScript/TypeScript and Flutter orchestratio
 - **PKG-001 — Directed package graph.** Apps **MUST NOT** import another app's internals. Domain packages **MUST NOT** depend on Next.js, Flutter, UI, or provider SDKs; adapters depend on provider-neutral contracts.
 - **PKG-002 — Generated contracts.** Zod is editable API source; OpenAPI, Flutter/public clients, schema snapshots, and the packaged skill copy **MUST** be deterministic outputs with source and tool digests.
 - **PKG-003 — Dependency qualification.** Security, runtime, and durability protocol families **MUST** be pinned and upgraded atomically with compatibility, migration, replay, and rollback tests.
-- **PKG-004 — Production graph qualification.** CI **MUST** validate the install graph and every pruned production graph, public exports, dependency cycles, registry integrity, SBOM/provenance, and lockfile consistency.
+- **PKG-004 — Production graph qualification.** CI **MUST** validate the install graph and every pruned production graph, public exports, dependency cycles, and lockfile consistency; registry integrity and SBOM/provenance attestation bind at enterprise tier.
 
 Commit generated public contracts needed by consumers. [TURBO-DOCS] [BUN-DOCS]

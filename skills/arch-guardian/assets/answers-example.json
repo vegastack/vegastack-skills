@@ -1,20 +1,10 @@
 {
-  "profileStatus": "draft",
-  "project": { "name": "example-product", "kind": "saas-product", "lifecycle": "greenfield", "access": "authenticated", "tenancy": "multi-tenant-shared-schema" },
-  "environments": { "production": { "hosting": "cloudflare-opennext" }, "localDevelopment": { "trusted": true, "allowances": ["local-secrets"] } },
-  "capabilities": {
-    "webControlPlane": { "status": "enabled", "ownership": "owned", "versions": { "next": "16.3.0", "node": "24.18.0", "bun": "1.3.14", "openNext": "1.20.2", "betterAuth": "1.6.26" }, "placement": "open-next-worker", "sourceRoots": ["apps/web"], "controls": { "canonicalApi": "rest-openapi", "openapiGenerated": true, "secureCookies": true } },
-    "flutter": { "status": "disabled", "ownership": "not-applicable" },
-    "agents": { "status": "disabled", "ownership": "not-applicable" },
-    "jobs": { "status": "disabled", "ownership": "not-applicable" },
-    "sandbox": { "status": "disabled", "ownership": "not-applicable" },
-    "connectors": { "status": "disabled", "ownership": "not-applicable" },
-    "knowledge": { "status": "disabled", "ownership": "not-applicable" },
-    "modelRouting": { "status": "disabled", "ownership": "not-applicable" },
-    "enterpriseIdentity": { "status": "disabled", "ownership": "not-applicable" },
-    "realtime": { "status": "disabled", "ownership": "not-applicable" },
-    "notifications": { "status": "disabled", "ownership": "not-applicable" },
-    "secrets": { "status": "enabled", "ownership": "owned", "versions": { "openbao": "2.3.2" }, "placement": "external-service", "sourceRoots": ["infra/secrets"], "controls": { "provider": "openbao" } }
-  },
-  "exceptions": []
+  "project": { "name": "example-product", "kind": "saas", "tier": "production", "tenancy": "multi-tenant-shared-schema" },
+  "hosting": "cloudflare-opennext",
+  "capabilities": ["web", "jobs"],
+  "notes": [
+    "Better Auth is the identity library",
+    "PostgreSQL is the system of record; RLS forced on tenant tables",
+    "Secrets live in the platform's managed secret store (trigger review before enterprise tier)"
+  ]
 }

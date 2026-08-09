@@ -1,54 +1,40 @@
 # Profile and governance
 
-The v3 profile declares project facts without assuming a full-stack product. `capabilities` is authoritative intent; repository detection is evidence for drift, not a reason to silently enable anything.
+The v4 profile is slim advisor memory — roughly a dozen lines of confirmed facts. `capabilities` is authoritative intent; repository detection is evidence for drift, never a reason to silently enable anything. Versions are read from lockfiles and manifests at advice time and are never duplicated into the profile.
 
-## Capability ownership
+| Field | Meaning |
+|---|---|
+| `project.tier` | `prototype` / `production` / `enterprise` — decides which concerns apply (see foundation) |
+| `project.kind`, `tenancy` | confirmed project facts |
+| `hosting` | production hosting target (`none` for a non-deployable package) |
+| `capabilities` | enabled list: `web`, `flutter`, `agents`, `jobs`, `sandbox`, `connectors`, `knowledge`, `models`, `realtime`, `notifications`, `enterprise-identity` |
+| `notes` | free-form confirmed facts and recorded deviations |
 
-- `owned`: the project owns source, deployment, operations and migration. Enabled owned capabilities declare exact versions, placement and source roots.
-- `shared-managed`: another VegaStack owner runs the capability for this project.
-- `external-managed`: a third party runs it behind a project-approved contract.
-- `not-applicable`: use only for disabled capabilities.
+## Tier declaration
 
-Enabled shared/external capabilities declare owner/service, contract name/version, tenant/security boundary, identity/audience, data/residency, SLO/recovery dependency, incident ownership, compatibility and migration/exit behavior. They do not require provider source roots in the consumer repository.
-
-Owned durable capabilities declare concrete owners in `controls`: agents name `workflowDatabaseOwner` and `agentRunOwner`; jobs name `databaseOwner`; owned knowledge names `postgresOwner` and, when `binaryObjects` is true, `objectStorageOwner`; notifications name `durableIntentOwner`. Credential-bearing connectors/model routing set `credentialBearing: true`, and SCIM activates production secret custody. These are confirmed project facts, never generated placeholders.
-
-Never invent owner, SLO, retention, residency, compliance or version values. Missing material facts remain validation errors or `NOT VERIFIED` evidence.
+Choosing the tier is a deliberate product decision, not a guess: prototype means the team accepts that only irreversibles are guarded; production means real users depend on it; enterprise means compliance-grade posture. Raising the tier is a review event — the guardian re-reviews enabled capabilities against the new floor and reports the gap as `production-gate`/`enterprise-gate` findings, not failures.
 
 ## Capability activation
 
-Apply rules only when activated by declared intent or observed drift. Key implications:
+Apply rules only when a capability is enabled in the profile or observed in the repository, at or below the declared tier. Key implications:
 
-- Flutter requires delegated OAuth/OIDC code with S256 PKCE and generated REST/OpenAPI client consumption.
-- Agents require qualified EVE/Postgres World plus AgentRun.
-- Owned agent admission requires pg-boss; shared admission requires an explicit qualified contract.
-- Untrusted execution requires a sandbox and trusted capability broker.
-- SCIM requires organization mapping and complete deprovisioning.
-- Cloudflare/OpenNext plus owned agents/jobs requires external long-running Node/OCI placement.
-- Removing a capability requires a cleanup/migration plan for durable data, credentials, queues and contracts.
-- Production secrets activate OpenBao unless an explicit shared/external secrets contract is declared.
+- Flutter activates delegated OAuth/PKCE and generated-client rules.
+- Agents activate durable-execution ownership rules; at prototype tier a simpler loop is acceptable with a named migration path (see durable execution).
+- Untrusted execution activates the sandbox boundary.
+- Shared-schema multi-tenancy activates `TEN-*` at every tier.
+- Production secrets activate secret-custody guidance — the mechanism is tier- and trigger-dependent (see security and privacy), never automatically OpenBao.
+- Removing a capability requires a cleanup/migration plan for durable data, credentials, queues, and contracts.
 
-## Exceptions
+## Deviations
 
-Every project rule is waivable by the project owner. A valid exception declares an exact single rule, exact repository-relative evidence paths, project owner, rationale/decision, risks, compensating controls, verification, rollback/migration, review date or event, and acknowledgement of foundation deviation. `controls` is optional: an exception that omits it covers all controls under its single rule; one that declares control IDs suppresses only the controls it lists. Its contained ADR repeats the identity and decision.
+There is no exception or suppression machinery. When the team deliberately departs from a recommendation:
 
-Static exceptions match only when rule and exact evidence path match and, when `controls` is declared, the control ID also matches. Wildcards and directory-prefix suppression are forbidden. An exception that lists controls never suppresses a finding for a control it does not list, and no exception covers a second rule. Manual exceptions declare `verificationType: manual-qualification` and remain visibly accepted risk.
-
-Outcome semantics:
-
-| Outcome | Meaning | CI |
-|---|---|---|
-| `PASS` | recommendation satisfied | pass |
-| `FAIL` | violation or invalid/expired/mismatched exception | fail |
-| `EXCEPTED` | valid active project-owner accepted risk; recommendation remains unmet | pass |
-| `NOT VERIFIED` | environment behavior not reproduced; reason/risk/owner/next action required | configurable warning |
-
-The guardian may still state `GUARDIAN VERDICT: REJECT` when an accepted risk is unsafe. Foundation evolution changes the recommended baseline; project exceptions remain distinguishable and do not silently expire on source drift.
+1. Record it — one line in `notes` for small departures; an ADR ([template](../assets/adr-template.md)) for consequential ones (owner, decision, revisit trigger).
+2. The guardian keeps reporting it in reviews as `accepted risk — guardian recommends revisiting`, with the reason. Recording a decision makes it visible and deliberate; it never silences the advisor and nothing gates on it.
 
 ## Governance operations
 
-- Evidence labels are optional; they are reserved for review and drift reports and never affect exception matching.
-- Drift PRs from the automated source refresh are reviewed by whoever merges them; drift policy has no per-topic owners.
-- Source staleness thresholds are a minimum of 14 days, aligned to the weekly automated refresh; shorter thresholds only produce false staleness between refreshes.
-- Profiles pin the foundation version (currently `0.3.0`); it is decoupled from the installer npm package version, so installer upgrades never change a project's pinned foundation.
-- `DUR-007`-style full qualification matrices are required before the first paying tenant, not before every merge; interim merges record `NOT VERIFIED` with reason, owner, and next action.
+- Drift PRs from the automated source refresh are reviewed by whoever merges them.
+- Source staleness thresholds are a minimum of 14 days, aligned to the weekly automated refresh.
+- Profiles may pin `foundationVersion` (currently `0.4.0`); it is decoupled from the installer npm package version, so installer upgrades never change a project's pinned foundation.
+- Full qualification matrices (e.g. `DUR-007`) are required before the production tier, not before every merge; interim reviews record the gap under `notVerified`.
