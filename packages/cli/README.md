@@ -56,7 +56,7 @@ Zero telemetry. The only network call in the tool is `doctor`'s single version c
 
 ## Requirements
 
-- Node >= 20.11
+- Node >= 24
 - macOS or Linux. Windows is not yet supported (path handling; tracked in the repo issues).
 
 ## Docs
