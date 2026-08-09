@@ -88,18 +88,42 @@ async function requireSkill(options: Options): Promise<string> {
   return options.skill
 }
 
+// skills.sh-style flow: detect which agents the user actually has and install to them without
+// asking. Only when nothing is detectable does an interactive numbered picker appear; --agent
+// always overrides, and --non-interactive keeps the old defaults.
+const agentLabels: Record<Agent, string> = { claude: 'Claude Code', codex: 'Codex', hermes: 'Hermes' }
+
+async function detectAgents(): Promise<Agent[]> {
+  const detected: Agent[] = []
+  // Order matches install output; detection = the agent's home config dir exists.
+  if (await exists(join(homedir(), '.claude'))) detected.push('claude')
+  if (await exists(join(homedir(), '.codex')) || await exists(join(homedir(), '.agents'))) detected.push('codex')
+  if (await exists(join(homedir(), '.hermes'))) detected.push('hermes')
+  return detected
+}
+
 async function prompt(options: Options): Promise<{ agent: AgentChoice; mode: Mode }> {
-  if (options.agent && options.mode) return { agent: options.agent, mode: options.mode }
-  if (options.nonInteractive || !process.stdin.isTTY) {
-    return { agent: options.agent ?? 'both', mode: options.mode ?? 'project' }
+  const mode: Mode = options.mode ?? 'project'
+  if (options.agent) return { agent: options.agent, mode }
+  if (options.nonInteractive || !process.stdin.isTTY) return { agent: 'both', mode }
+
+  const detected = (await detectAgents()).filter(agent => mode === 'global' || agent !== 'hermes')
+  if (detected.length) {
+    console.log(`Detected: ${detected.map(agent => agentLabels[agent]).join(', ')} (override with --agent)`)
+    if (detected.length === 1) return { agent: detected[0]!, mode }
+    return { agent: detected.includes('hermes') ? 'all' : 'both', mode }
   }
+
+  // Nothing detected: one numbered question with a sensible default.
+  console.log('Where should this skill be installed?')
+  console.log('  1) Claude Code  (.claude/skills)')
+  console.log('  2) Codex        (.agents/skills)')
+  console.log('  3) Both  (recommended)')
   const rl = createInterface({ input: process.stdin, output: process.stdout })
-  const agentAnswer = options.agent ?? await rl.question('Install for codex, claude, hermes, both (codex+claude), or all? [both] ')
-  const modeAnswer = options.mode ?? await rl.question('Install project-local or user-global? [project] ')
+  const answer = (await rl.question('Select 1-3 [3]: ')).trim()
   rl.close()
-  const agent = (agentAnswer || 'both') as AgentChoice
-  const mode = (modeAnswer === 'global' ? 'global' : 'project') as Mode
-  if (!['codex', 'claude', 'hermes', 'both', 'all'].includes(agent)) throw new Error(`Invalid agent choice: ${agent}`)
+  const agent = ({ '1': 'claude', '2': 'codex', '3': 'both', '': 'both' } as Record<string, AgentChoice>)[answer]
+  if (!agent) throw new Error(`Invalid selection: ${answer} (expected 1, 2, or 3)`)
   return { agent, mode }
 }
 

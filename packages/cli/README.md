@@ -36,6 +36,8 @@ npx @vegastack/skills add arch-guardian
 | `--force` | Overwrite a modified installed copy |
 | `--non-interactive` | Skip prompts and use defaults: `--agent both`, project-local (for automation) |
 
+Agent targeting is automatic: the CLI detects which agents you have (`~/.claude`, `~/.codex`/`~/.agents`, `~/.hermes`) and targets them without asking — `--agent` overrides. A numbered picker appears only when nothing is detected. Installs are project-local by default; pass `--global` for the home directory (required for Hermes).
+
 ## Agent surfaces
 
 | Agent | Project install | Global install |
