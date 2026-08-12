@@ -4,14 +4,14 @@ Installer for VegaStack Agent Skills — a family of self-contained skills for C
 
 ```sh
 npx @vegastack/skills list
-npx @vegastack/skills add arch-guardian
+npx @vegastack/skills add architect
 ```
 
 ## Skills in this package
 
 | Skill | What it does |
 |---|---|
-| `arch-guardian` | Architecture advisor: tier-scoped normative rules activated by declared capabilities, evidence-backed advisory reports, slim committed profile, source-freshness contract |
+| `architect` | Architecture advisor: the locked stack and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts, a per-project `.vegastack/arch.md` profile with repo-wins drift detection, and an advisory-only review discipline |
 | `skill-maintainer` | Encodes the Agent Skills standards (Claude Code, Codex, Hermes, agentskills.io) for creating, updating, and releasing skills in a skills repo |
 | `skillify` | Turns a feature or workflow into a complete skill conforming to the VegaStack skills contract, or audits an existing one |
 

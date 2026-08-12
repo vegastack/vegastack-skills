@@ -42,10 +42,9 @@ jobs:
           echo "$CHANGED"
           OUT_OF_SCOPE=$(echo "$CHANGED" | grep -Ev \
             -e '^skills/[^/]+/refresh/' \
-            -e '^skills/[^/]+/references/foundation-compatibility\.json$' \
             || true)
           if [ -n "$OUT_OF_SCOPE" ]; then
-            echo "::error::Refresh PRs may only touch skills/*/refresh/ and skills/*/references/foundation-compatibility.json. Out of scope:"
+            echo "::error::Refresh PRs may only touch skills/*/refresh/. Out of scope:"
             echo "$OUT_OF_SCOPE"
             exit 1
           fi
@@ -69,9 +68,9 @@ jobs:
       - name: Deterministic re-verification
         run: |
           set -euo pipefail
-          # The runner is repo-shared (hosted in arch-guardian); every skill's
+          # The runner is repo-shared (tooling/refresh); every skill's
           # registry is re-verified.
-          RUNNER=skills/arch-guardian/scripts/refresh-evidence.mjs
+          RUNNER=tooling/refresh/refresh-evidence.mjs
           SCRATCH=$(mktemp -d)
           for REGISTRY in skills/*/refresh/sources.json; do
             echo "== $REGISTRY"

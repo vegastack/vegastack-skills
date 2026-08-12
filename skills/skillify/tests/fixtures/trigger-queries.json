@@ -2,7 +2,7 @@
   { "query": "skillify this release-notes workflow I keep re-running by hand every Friday", "should_trigger": true },
   { "query": "make this a skill - the deploy checklist we pasted above, it should live in skills/", "should_trigger": true },
   { "query": "turn this workflow into a skill: the prompt + script combo in docs/runbooks/triage.md", "should_trigger": true },
-  { "query": "audit skills/arch-guardian and tell me exactly what's missing from the contract", "should_trigger": true },
+  { "query": "audit skills/architect and tell me exactly what's missing from the contract", "should_trigger": true },
   { "query": "is this skill complete? score it before I open the PR", "should_trigger": true },
   { "query": "check skill completeness for the new invoice-parser skill", "should_trigger": true },
   { "query": "scaffold a new skill called invoice-parser in this repo", "should_trigger": true },
@@ -10,10 +10,10 @@
   { "query": "our new skill never triggers when people ask casually - fix the description", "should_trigger": true },
   { "query": "install the anthropic pdf skill into my project", "should_trigger": false },
   { "query": "write a SKILL.md for my blog repo at ~/code/blog so codex picks it up there", "should_trigger": false },
-  { "query": "use arch-guardian to review the tenancy design in this service", "should_trigger": false },
-  { "query": "bun test skills/arch-guardian is failing on the corpus test, fix it", "should_trigger": false },
-  { "query": "add a new caching rule to arch-guardian's references", "should_trigger": false },
+  { "query": "use architect to review the tenancy design in this service", "should_trigger": false },
+  { "query": "bun test skills/architect is failing on the corpus test, fix it", "should_trigger": false },
+  { "query": "add a new caching rule to architect's references", "should_trigger": false },
   { "query": "how do Claude Code skills get discovered from .claude/skills?", "should_trigger": false },
   { "query": "bump the changeset and cut a release of @vegastack/skills", "should_trigger": false },
-  { "query": "run the weekly refresh for arch-guardian's sources", "should_trigger": false }
+  { "query": "run the weekly refresh for architect's sources", "should_trigger": false }
 ]

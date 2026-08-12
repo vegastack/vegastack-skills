@@ -28,11 +28,10 @@ Do not pass `--provenance` explicitly anywhere — it is the default under trust
 2. **Deprecate the bad version:** `npm deprecate @vegastack/skills@<bad-version> "Broken — use <new-version>"` so installs of it warn.
 3. If the bad version leaked secrets or is actively harmful and it is still within 72 hours, unpublish it *in addition to* steps 1–2, never instead of them.
 
-## Version identities
+## Version identity
 
-Two versions live in this repo and move independently:
-
-- **Package version** (`packages/cli/package.json`, changesets-managed) — the npm release identity.
-- **Foundation version** (currently `0.3.0`; in the profile schema and `foundation-compatibility.json`) — the skill-content contract deployed profiles are validated against.
-
-Bumping the package must never invalidate deployed profiles. Details in [content-versioning.md](content-versioning.md).
+One version lives in this repo: the **package version** (`packages/cli/package.json`,
+changesets-managed) — the npm release identity for the installer and every bundled skill's
+content snapshot. Nothing else tracks a separate version; per-project profiles (e.g.
+`.vegastack/arch.md`) are not validated against any schema/contract version. Details in
+[content-versioning.md](content-versioning.md).

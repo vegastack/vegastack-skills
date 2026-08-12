@@ -14,5 +14,4 @@
 
 - [ ] `bun run check` passes locally
 - [ ] No generated files committed (`dist/`, `packages/cli/skill/`, `skill-integrity.json`, `work/`)
-- [ ] Rule IDs are stable — no rule renamed or renumbered (content changes only)
-- [ ] Semver impact considered per the content versioning policy (content changes only)
+- [ ] Semver impact considered per the content versioning policy (content changes only): new reference/section or changed recorded decision = minor, factual refresh/wording = patch, skill removal/rename or profile-format break = major

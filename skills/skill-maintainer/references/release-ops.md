@@ -4,26 +4,22 @@ Condensed operational playbook. The authoritative policies live at the repo root
 
 ## Semver for skill content
 
-Consumers depend on rule IDs and rule strength, not an API surface.
+Content is advisory prose and decision tables — no rule IDs, no machine-extracted rule format.
 
 | Bump | Content change |
 |---|---|
-| MAJOR | Removing or renaming a rule ID (IDs are stable and permanent — never renumber or reuse). Changing a `MUST`/`MUST NOT` so it permits something previously forbidden. Removing or renaming a skill. |
-| MINOR | New rules or rule IDs. New references or reference sections. New skill. Loosening ceremony without weakening a `MUST`. Tightening a `SHOULD` to a `MUST`. |
-| PATCH | Factual refreshes: version pins, vendor mechanism names, URLs, registry checksums. Typos and non-normative wording. Test/fixture-only changes. |
+| MAJOR | Removing or renaming a skill. A breaking change to a per-project profile format (e.g. `.vegastack/arch.md`) that invalidates existing committed profiles. |
+| MINOR | New reference file or reference section. New or changed recorded decision (e.g. a new "use/not/why" row, a new red line). New skill. |
+| PATCH | Factual refreshes: pinned-fact updates, version pins, vendor mechanism names, URLs, registry checksums. Wording clarifications that don't change the recorded decision. Test/fixture-only changes. |
 
 Installer/CLI changes follow ordinary semver on the same package version; a release takes the highest bump either side requires.
 
-## Two version identities — never conflate
+## One version identity
 
-| Identity | Lives in | Governs |
-|---|---|---|
-| Package version | `packages/cli/package.json` (changesets) | npm releases of installer + content snapshot |
-| Foundation version | profile schema const, `profile-tool.mjs` default, `foundation-compatibility.json` | the profile/schema contract deployed `.vegastack/architecture` profiles validate against |
-
-- Bumping the **package** (even MAJOR) must never invalidate a deployed profile — profiles bind to the foundation version.
-- Bumping the **foundation** version is a content-contract event: it requires a compatibility entry describing how existing baselines are treated, and at minimum a MINOR package release.
-- Each identity has one source of truth; never introduce additional copies of either number.
+There is a single source of truth: the **package version** (`packages/cli/package.json`,
+changesets-managed) — the npm release identity for the installer and every bundled skill's
+content snapshot. No skill tracks a separate content-contract version, and no per-project
+profile carries a schema version to validate against.
 
 ## Release flow (tag-driven)
 
@@ -44,7 +40,7 @@ Contributors do not bump versions in PRs; releases are maintainer-driven.
 
 ## Rename a skill
 
-Derived from the stable-ID logic in content-versioning (skill names are consumer-facing identifiers like rule IDs):
+Skill names are consumer-facing identifiers — treat a rename as a stable-ID break:
 
 1. Rename the directory and the frontmatter `name` in the same commit — they must always stay equal.
 2. Update every wiring point in the same PR: the packaging allowlist in `packages/cli/scripts/sync-skill.mjs`, the root README skills table row, and any cross-skill or docs links.
@@ -60,4 +56,4 @@ Derived from the stable-ID logic in content-versioning (skill names are consumer
 
 ## Refresh branches
 
-Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/` and `skills/*/references/foundation-compatibility.json`. Human content changes go on normal branches. Never hand-edit checksums/versions/timestamps anywhere — CI re-fetches claimed baselines, so hand-edited values cannot merge.
+Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/`. Human content changes go on normal branches. Never hand-edit checksums/versions/timestamps anywhere — CI re-fetches claimed baselines, so hand-edited values cannot merge.

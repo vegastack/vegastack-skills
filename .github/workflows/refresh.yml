@@ -39,7 +39,7 @@ jobs:
       - name: Accept verified baselines for every skill registry
         run: |
           set -euo pipefail
-          RUNNER=skills/arch-guardian/scripts/refresh-evidence.mjs
+          RUNNER=tooling/refresh/refresh-evidence.mjs
           SCRATCH=$(mktemp -d)
           mkdir -p "$SCRATCH/reports"
           # Vendor hosts occasionally refuse a datacenter IP for one request;
@@ -72,7 +72,7 @@ jobs:
       - name: Re-verify accepted baselines (self-guard)
         run: |
           set -euo pipefail
-          RUNNER=skills/arch-guardian/scripts/refresh-evidence.mjs
+          RUNNER=tooling/refresh/refresh-evidence.mjs
           VERIFY=$(mktemp -d)
           for REGISTRY in skills/*/refresh/sources.json; do
             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")

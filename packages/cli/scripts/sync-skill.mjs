@@ -14,26 +14,14 @@ const bundleRoot = join(packageRoot, 'skill')
 // never packaged.
 const unpackagedPrefixes = ['tests/', 'README.md']
 const packagedSkills = {
-  'arch-guardian': [
+  architect: [
     'SKILL.md',
     'agents/openai.yaml',
+    'assets/arch-template.md',
     'assets/adr-template.md',
-    'assets/answers-example.json',
-    'assets/architecture-profile.schema.json',
-    'assets/architecture-profile.json',
-    'assets/deployment-review-template.md',
-    'assets/service-design-template.md',
-    'assets/threat-model-template.md',
-    ...['agent-product', 'ai-cost', 'ai-data-boundaries', 'ai-evals', 'connectors-sandbox', 'data-memory', 'delivery-operations', 'durable-execution', 'flutter', 'foundation', 'hosting-reliability', 'identity-tenancy', 'model-lifecycle', 'models-observability', 'realtime-channels', 'security-privacy', 'topology-monorepo', 'web'].map(name => `references/architecture/${name}.md`),
-    'references/foundation-compatibility.json',
-    'references/rule-model.json',
-    'references/workflows.md',
-    'references/profile-governance.md',
-    'references/golden-patterns.md',
-    'references/advisory-report.md',
+    ...['principles', 'stack', 'pinned-facts', 'project-profile', 'web', 'data', 'infra', 'ai-agents', 'security', 'mobile', 'advisory'].map(name => `references/${name}.md`),
     'refresh/REFRESH.md',
     'refresh/sources.json',
-    ...['lib.mjs', 'profile-tool.mjs', 'refresh-evidence.mjs', 'schema-validate.mjs', 'validate-profile.mjs', 'verify-corpus.mjs'].map(name => `scripts/${name}`),
   ],
   'skill-maintainer': [
     'SKILL.md',

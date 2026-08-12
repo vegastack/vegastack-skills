@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "criticalTopics": [
+      "hyperdrive-postgres",
+      "better-auth",
+      "eve-deploy"
+    ],
+    "defaultChecksumScope": "html-text-v1",
+    "offline": "Use cached metadata only; fail closed when a critical entry is missing or older than thresholdDays.",
+    "drift": "Any drift requires reading the changed page and a human-reviewed PR updating references/pinned-facts.md (and version claims in references/stack.md / references/mobile.md); never auto-apply.",
+    "copyright": "Store claim metadata, URLs, hashes, and concise excerpts only; never archive third-party documentation corpora.",
+    "cadence": "weekly scheduled-agent refresh; thresholdDays must be >= 14 (2x cadence) so a single missed run never breaches a threshold"
+  },
+  "sources": [
+    {
+      "id": "CF-HYPERDRIVE-VERSIONS",
+      "service": "Cloudflare Hyperdrive supported databases",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://developers.cloudflare.com/hyperdrive/reference/supported-databases-and-features/"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "hyperdrive-postgres"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/stack.md",
+        "references/data.md"
+      ],
+      "checksum": "fda2870b95deffce48dca7f3df3707325b1bc4a2d58a17708ee9220bfba5eba1",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    },
+    {
+      "id": "CF-R2-PRICING",
+      "service": "Cloudflare R2 pricing",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://developers.cloudflare.com/r2/pricing/"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "r2-economics"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/stack.md"
+      ],
+      "checksum": "bd5e8d26f7bbf2f92182ad4ac1a59ae9b1d90695120062adaf54c281bd88e81f",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    },
+    {
+      "id": "CF-WORKFLOWS-PRICING",
+      "service": "Cloudflare Workflows limits and pricing",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://developers.cloudflare.com/workflows/reference/limits/"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "workflows"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/ai-agents.md"
+      ],
+      "checksum": "64e10ca4ced4edc042d12a9a24f2e165ea71cb9481c30ac5f067f2f6c9218cda",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    },
+    {
+      "id": "BETTER-AUTH-DOCS",
+      "service": "Better Auth documentation",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://better-auth.com/docs/plugins/organization"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "better-auth"
+      },
+      "topics": [
+        "better-auth"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/security.md",
+        "references/stack.md"
+      ],
+      "currentVersion": "1.6.27",
+      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "checksum": "30edf1b6658a473a00005153a3eafc07de5c3decd6b8f09fc6c32f3a21c4db1c",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    },
+    {
+      "id": "EVE-DOCS",
+      "service": "Vercel eve agent framework",
+      "kind": "official-docs",
+      "stability": "beta",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://vercel.com/docs/eve"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "eve"
+      },
+      "topics": [
+        "eve-deploy"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/ai-agents.md",
+        "references/stack.md"
+      ],
+      "currentVersion": "0.33.2",
+      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "checksum": "a777f9da0cb3966a9c7cc06a3c12be34b2928800b370e966e8b6e0f5a5622915",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    },
+    {
+      "id": "WORKFLOW-SDK-POSTGRES",
+      "service": "Workflow SDK Postgres world deployment constraints",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://workflow-sdk.dev/worlds/postgres"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "@workflow/world-postgres"
+      },
+      "topics": [
+        "eve-deploy"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/ai-agents.md"
+      ],
+      "currentVersion": "4.3.3",
+      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "checksum": "3eca56b5ec9668638d4e00b290c157383dfe8ceaaa334de13bb6244b32fa6839",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    },
+    {
+      "id": "NEXTJS-BLOG",
+      "service": "Next.js release blog",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://nextjs.org/blog"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "next"
+      },
+      "topics": [
+        "nextjs"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/web.md",
+        "references/stack.md"
+      ],
+      "currentVersion": "16.3.0",
+      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "checksum": "9d5d2503e2e8aa7ed1c3f0cb972c78e64b2e3aae5f3ad264bb0a79bd179708f0",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    },
+    {
+      "id": "PG-BOSS-NPM",
+      "service": "pg-boss job queue",
+      "kind": "package-registry",
+      "stability": "stable",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://registry.npmjs.org/pg-boss/latest"
+      },
+      "versionDetection": {
+        "type": "npm",
+        "package": "pg-boss"
+      },
+      "topics": [
+        "jobs"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/ai-agents.md"
+      ],
+      "currentVersion": "12.27.0",
+      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "checksumScope": "http-body",
+      "checksum": "abf4bc2795e2df03181a21dfd29c7b9234c933a9dcafa72b4583d590cad609da",
+      "retrievedAt": "2026-08-12T14:33:41.513Z"
+    },
+    {
+      "id": "FLUTTER-RELEASES",
+      "service": "Flutter release notes",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 30,
+      "critical": false,
+      "urls": {
+        "primary": "https://docs.flutter.dev/release/release-notes"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "flutter"
+      ],
+      "affected": [
+        "references/pinned-facts.md",
+        "references/mobile.md"
+      ],
+      "checksum": "94f9df6f67615ee05d826995f9709309c5453d0d8e4be11232ca5d463929ed2b",
+      "retrievedAt": "2026-08-12T14:33:11.062Z"
+    }
+  ]
+}

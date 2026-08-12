@@ -17,7 +17,7 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 | Path | What it is |
 |---|---|
 | `skills/` | Authored skill content — the single source of truth. Edit here. |
-| `skills/arch-guardian/` | The arch-guardian skill: `SKILL.md`, references, deterministic check scripts, tests. |
+| `skills/architect/` | The architect skill: `SKILL.md`, decision-table references, per-project profile template, tests. |
 | `skills/*/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
 | `docs/policies/` | Release/rollback and content-versioning policies. |
@@ -43,20 +43,22 @@ Every skill lives at `skills/<name>/` and is self-contained:
 
 Then: add the skill's packaged files to the allowlist in `packages/cli/scripts/sync-skill.mjs` (the build fails loudly on unlisted files), add a row to the root README skills table, and add a per-skill packaging allowlist entry — the installer is multi-skill and bundles every listed skill automatically.
 
-## Adding or modifying rules
+## Adding or modifying content
 
-- **Rule IDs are stable and permanent.** Never renumber or reuse an ID. Removing or renaming a rule ID is a MAJOR content change — see [docs/policies/content-versioning.md](docs/policies/content-versioning.md).
-- Rules use `MUST` / `MUST NOT` / `SHOULD` / `MAY` and are written in the machine-extracted format the check scripts and `rule-model.json` rely on — follow the existing entries exactly; the corpus tests will fail on format drift.
-- New rules are MINOR; changing a `MUST` to permit what it previously forbade is MAJOR.
-- Keep volatile facts (version pins, vendor mechanism names) in their tagged locations so the refresh system can track them.
+Skill content is advisory prose and decision tables, not a rule corpus — there are no rule IDs
+and no machine-extracted rule format to follow.
+
+- New reference files or reference sections, and new/changed recorded decisions (e.g. a new
+  "use/not/why" row, a new red line) are MINOR content changes — see
+  [docs/policies/content-versioning.md](docs/policies/content-versioning.md).
+- Factual refreshes and non-normative wording clarifications are PATCH.
+- Removing or renaming a skill, or a breaking change to a per-project profile format, is MAJOR.
+- Keep volatile facts (version pins, vendor mechanism names) in `pinned-facts.md`-style dated
+  entries so the refresh system can track them.
 
 ## Refresh PRs
 
-Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/` and `skills/*/references/foundation-compatibility.json`. Human content changes go on normal branches.
-
-## Dependency note: jsdom and mermaid
-
-The root devDependencies `jsdom` and `mermaid` look unused by the app code, but they are loaded by `skills/arch-guardian/scripts/verify-corpus.mjs` for formal Mermaid diagram parsing during `bun run check`. Do not remove them in a dependency cleanup — `check` will break.
+Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/`. Human content changes go on normal branches.
 
 ## Releases
 

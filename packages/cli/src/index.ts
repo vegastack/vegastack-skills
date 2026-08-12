@@ -6,7 +6,6 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
-import { spawnSync } from 'node:child_process'
 
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
@@ -476,25 +475,19 @@ async function doctor(options: Options) {
   await access(base, fsConstants.R_OK | fsConstants.W_OK)
   await assertNoSymlink(base, false)
   let failed = false
-  // Canonical profile name first; legacy .yaml-named JSON still accepted with a notice.
-  const profileCandidates = [join(base, '.vegastack', 'architecture.json'), join(base, '.vegastack', 'architecture.yaml')]
-  let foundProfilePath: string | null = null
+  // The architect skill's per-project profile is plain markdown; the repo, not this file,
+  // is the source of truth, so doctor only checks presence and basic shape.
+  const profilePath = join(base, '.vegastack', 'arch.md')
   if (options.mode !== 'global') {
-    let profile: string | null = null
-    for (const candidate of profileCandidates) if (await exists(candidate)) { profile = candidate; break }
-    foundProfilePath = profile
-    if (profile) {
-      if (profile.endsWith('.yaml')) console.log(`notice: ${profile} uses the legacy .yaml name for a JSON document; rename to architecture.json`)
-      try {
-        const parsed = JSON.parse(await readFile(profile, 'utf8'))
-        if (parsed.schemaVersion !== 4 || !parsed.project?.name || !parsed.project?.tier || !Array.isArray(parsed.capabilities)) throw new Error('required identity fields are absent or profile is not schema v4 (run profile-tool.mjs migrate for v3 profiles)')
-        console.log(`ok architecture profile: ${profile}`)
-      } catch (error) {
-        console.log(`invalid architecture profile: ${profile} (${(error as Error).message})`)
+    if (await exists(profilePath)) {
+      const content = await readFile(profilePath, 'utf8')
+      if (content.includes('hosting:')) console.log(`ok architecture profile: ${profilePath}`)
+      else {
+        console.log(`invalid architecture profile: ${profilePath} (no "hosting:" line; regenerate from the architect skill's template)`)
         failed = true
       }
     } else {
-      console.log(`missing architecture profile: ${profileCandidates[0]} (only needed for arch-guardian checks)`)
+      console.log(`missing architecture profile: ${profilePath} (only needed once the architect skill is used in this project)`)
     }
   }
   console.log(`ok runtime: Node ${process.versions.node}`)
@@ -506,7 +499,6 @@ async function doctor(options: Options) {
   else console.log(`skipped installer version check (npmjs.org unreachable); installed ${packageVersion}`)
 
   let installations = 0
-  const checkScripts: string[] = []
   for (const skillName of await bundledSkills()) {
     const { files } = await loadSource(skillName)
     for (const agent of ['codex', 'claude', 'hermes'] as Agent[]) {
@@ -516,19 +508,9 @@ async function doctor(options: Options) {
       const result = await compare(destination, files)
       console.log(`${result.status === 'verified' ? 'ok' : 'invalid'} ${agent} ${skillName} installation${result.issues.length ? ` (${result.issues.join(', ')})` : ''}`)
       if (result.status !== 'verified') failed = true
-      const candidate = join(destination, 'scripts', 'validate-profile.mjs')
-      if (await exists(candidate)) checkScripts.push(candidate)
     }
   }
   if (!installations) { console.log('no bundled skills installed on any surface'); failed = true }
-  // Profile validation is only meaningful once a profile exists; the guardian itself is
-  // advisory-only and ships no architecture checker.
-  const firstCheckScript = checkScripts[0]
-  if (options.mode !== 'global' && firstCheckScript && foundProfilePath && !failed) {
-    const result = spawnSync(process.execPath, [firstCheckScript, foundProfilePath], { encoding: 'utf8' })
-    if (result.status === 0) console.log('ok profile validation')
-    else { console.log(`invalid profile: ${result.stdout.trim() || result.stderr.trim()}`); failed = true }
-  }
   if (failed) process.exitCode = 1
 }
 

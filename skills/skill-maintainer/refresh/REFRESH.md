@@ -10,13 +10,13 @@ Instructions for the scheduled refresh agent (and any human running a manual ref
 
 ## How to refresh
 
-The deterministic runner is repo-shared and hosted in arch-guardian for now. Run from the repo root:
+The deterministic runner is repo-shared, hosted at `tooling/refresh/`. Run from the repo root:
 
 1. **Deterministic pass first** (no LLM judgment):
-   `node skills/arch-guardian/scripts/refresh-evidence.mjs --registry skills/skill-maintainer/refresh/sources.json`
+   `node tooling/refresh/refresh-evidence.mjs --registry skills/skill-maintainer/refresh/sources.json`
    drift/stale/unavailable results are the work-list. Exit 1 with a critical entry means fail-closed: the run must not be silently skipped. All four sources here are critical.
 2. **Accept verified changes** in the same code path:
-   `node skills/arch-guardian/scripts/refresh-evidence.mjs --registry skills/skill-maintainer/refresh/sources.json --accept-baselines`
+   `node tooling/refresh/refresh-evidence.mjs --registry skills/skill-maintainer/refresh/sources.json --accept-baselines`
    This writes registry, cache, and drift report together — never hand-edit checksums, versions, or timestamps; they must always come from a run. Baselines are runner-seeded; when a new source is added or a verified change is accepted, this accept-baselines invocation is the only sanctioned way to update them.
 3. **Semantic verification** for every source the deterministic pass flagged: read the changed page (fetch the registry URL), decide whether any `<!-- source: X -->` marked sentence in `references/standards.md` (or the mirrored SKILL.md hard-limits row) is now wrong, and propose the minimal edit. Unlike version-pin registries, checksum drift here is presumed meaningful until a human reads the diff — these pages define the standards themselves. Editorial churn may be accepted silently only after that read.
 4. **One standing refresh PR**, branch `refresh/weekly`, force-updated on every run (never stacked duplicates; the weekly workflow .github/workflows/refresh.yml maintains it). PR body lists: each changed source, old→new checksum, links to the evidence, and which marked sentences changed and why. A maintainer review is mandatory before merge.

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { cp, mkdir, mkdtemp, readFile, realpath, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -21,29 +21,29 @@ describe('publishable package', () => {
     expect(install.exitCode).toBe(0)
     const cli = join(installRoot, 'node_modules/.bin/vegastack-skills')
     const project = join(temporary, 'packed-project')
-    const compliant = resolve(packageRoot, '../../skills/arch-guardian/tests/fixtures/compliant')
-    await cp(compliant, project, { recursive: true })
-    const add = Bun.spawnSync([cli, 'add', 'arch-guardian', '--agent', 'both', '--dir', project, '--non-interactive'], { cwd: temporary, env: { ...process.env, HOME: temporary } })
+    await mkdir(project, { recursive: true })
+    const add = Bun.spawnSync([cli, 'add', 'architect', '--agent', 'both', '--dir', project, '--non-interactive'], { cwd: temporary, env: { ...process.env, HOME: temporary } })
     expect(add.exitCode).toBe(0)
-    expect(await readFile(join(project, '.agents/skills/arch-guardian/SKILL.md'), 'utf8')).toContain('name: arch-guardian')
-    expect(await readFile(join(project, '.claude/skills/arch-guardian/SKILL.md'), 'utf8')).toContain('name: arch-guardian')
-    const installed = join(project, '.agents/skills/arch-guardian')
+    expect(await readFile(join(project, '.agents/skills/architect/SKILL.md'), 'utf8')).toContain('name: architect')
+    expect(await readFile(join(project, '.claude/skills/architect/SKILL.md'), 'utf8')).toContain('name: architect')
+    const installed = join(project, '.agents/skills/architect')
     const installedFiles = await walk(installed)
-    for (const forbidden of ['golden-architecture.md', 'evidence-manifest.json', 'coverage-matrix.md', 'verification-ledger.md', '23-evidence-comparisons.md', '24-roadmap.md', 'compile-guide.mjs']) expect(installedFiles.some(path => path.endsWith(forbidden))).toBe(false)
-    expect((await readFile(join(installed, 'SKILL.md'), 'utf8')).split('\n').length).toBeLessThanOrEqual(120)
-    for (const required of ['references/workflows.md', 'references/profile-governance.md', 'references/golden-patterns.md', 'references/advisory-report.md', 'references/foundation-compatibility.json', 'references/rule-model.json', 'scripts/profile-tool.mjs', 'scripts/schema-validate.mjs']) expect(installedFiles.some(path => path.endsWith(required))).toBe(true)
-    expect(installedFiles.some(path => path.endsWith('architecture-check.mjs') || path.endsWith('control-catalog.json'))).toBe(false)
+    // Repo-side-only files must never ship in the packaged skill.
+    for (const forbidden of ['README.md', 'architect.test.ts']) expect(installedFiles.some(path => path.endsWith(forbidden))).toBe(false)
     expect(installedFiles.some(path => path.includes('/tests/'))).toBe(false)
-    const profile = Bun.spawnSync(['node', join(installed, 'scripts/validate-profile.mjs'), join(project, '.vegastack/architecture.json')], { cwd: project })
-    expect(profile.exitCode).toBe(0)
-    const corpus = Bun.spawnSync(['node', join(installed, 'scripts/verify-corpus.mjs')], { cwd: project })
-    expect(corpus.exitCode).toBe(0)
-    expect(corpus.stdout.toString()).toContain('Mermaid mode=structural-fallback')
-    const refresh = Bun.spawnSync(['node', join(installed, 'scripts/refresh-evidence.mjs'), '--topics', 'unrelated-fast-path', '--offline', '--cache', join(project, '.vegastack/packed-cache.json'), '--report', join(project, '.vegastack/packed-report.json')], { cwd: project })
-    expect(refresh.exitCode).toBe(0)
-    const inspect = Bun.spawnSync(['node', join(installed, 'scripts/profile-tool.mjs'), 'inspect', project, '--json'], { cwd: project })
-    expect(inspect.exitCode).toBe(0)
-    expect(JSON.parse(inspect.stdout.toString()).mutated).toBe(false)
+    expect(installedFiles.some(path => path.includes('/scripts/'))).toBe(false)
+    expect((await readFile(join(installed, 'SKILL.md'), 'utf8')).split('\n').length).toBeLessThanOrEqual(150)
+    for (const required of [
+      'references/principles.md', 'references/stack.md', 'references/pinned-facts.md',
+      'references/project-profile.md', 'references/web.md', 'references/data.md',
+      'references/infra.md', 'references/ai-agents.md', 'references/security.md',
+      'references/mobile.md', 'references/advisory.md',
+      'assets/arch-template.md', 'assets/adr-template.md', 'refresh/REFRESH.md', 'refresh/sources.json', 'agents/openai.yaml',
+    ]) expect(installedFiles.some(path => path.endsWith(required))).toBe(true)
+    // The shipped refresh registry parses and carries populated baselines.
+    const registry = JSON.parse(await readFile(join(installed, 'refresh/sources.json'), 'utf8'))
+    expect(registry.sources.length).toBeGreaterThan(0)
+    for (const source of registry.sources) expect(typeof source.checksum).toBe('string')
   }, 30_000)
 })
 

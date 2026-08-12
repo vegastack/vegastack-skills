@@ -26,7 +26,7 @@ One authored tree must run on three harnesses. The load-bearing facts, in one br
 
 ## Freshness
 
-The four source pages (agentskills.io spec, Claude Code, Codex, Hermes skills docs) are tracked in [refresh/sources.json](refresh/sources.json) with `thresholdDays: 14` and `critical: true` — they are the product's compliance basis. Volatile sentences in the standards reference carry `source:` markers; any drift requires a human-reviewed PR, never an automatic edit. The registry ships with runner-seeded checksum baselines; after any standards change, re-seed them with the shared deterministic runner (`skills/arch-guardian/scripts/refresh-evidence.mjs --accept-baselines`) — see [refresh/REFRESH.md](refresh/REFRESH.md).
+The four source pages (agentskills.io spec, Claude Code, Codex, Hermes skills docs) are tracked in [refresh/sources.json](refresh/sources.json) with `thresholdDays: 14` and `critical: true` — they are the product's compliance basis. Volatile sentences in the standards reference carry `source:` markers; any drift requires a human-reviewed PR, never an automatic edit. The registry ships with runner-seeded checksum baselines; after any standards change, re-seed them with the shared deterministic runner (`tooling/refresh/refresh-evidence.mjs --registry skills/skill-maintainer/refresh/sources.json --accept-baselines`) — see [refresh/REFRESH.md](refresh/REFRESH.md).
 
 ## Self-test
 
