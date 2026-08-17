@@ -105,8 +105,8 @@
         "references/security.md",
         "references/stack.md"
       ],
-      "currentVersion": "1.6.27",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "currentVersion": "1.6.29",
+      "versionCheckedAt": "2026-08-17T06:12:36.937Z",
       "checksum": "30edf1b6658a473a00005153a3eafc07de5c3decd6b8f09fc6c32f3a21c4db1c",
       "retrievedAt": "2026-08-12T14:33:11.062Z"
     },
@@ -132,8 +132,8 @@
         "references/ai-agents.md",
         "references/stack.md"
       ],
-      "currentVersion": "0.33.2",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "currentVersion": "0.38.3",
+      "versionCheckedAt": "2026-08-17T06:12:36.937Z",
       "checksum": "a777f9da0cb3966a9c7cc06a3c12be34b2928800b370e966e8b6e0f5a5622915",
       "retrievedAt": "2026-08-12T14:33:11.062Z"
     },
@@ -160,8 +160,8 @@
       ],
       "currentVersion": "4.3.3",
       "versionCheckedAt": "2026-08-12T14:33:11.062Z",
-      "checksum": "3eca56b5ec9668638d4e00b290c157383dfe8ceaaa334de13bb6244b32fa6839",
-      "retrievedAt": "2026-08-12T14:33:11.062Z"
+      "checksum": "fa5976b2615228cf87f7d6883aa1ab1049ce706513c0233281ce08cf945794f4",
+      "retrievedAt": "2026-08-17T06:12:36.937Z"
     },
     {
       "id": "NEXTJS-BLOG",
@@ -185,8 +185,8 @@
         "references/web.md",
         "references/stack.md"
       ],
-      "currentVersion": "16.3.0",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "currentVersion": "16.3.1",
+      "versionCheckedAt": "2026-08-17T06:12:36.937Z",
       "checksum": "9d5d2503e2e8aa7ed1c3f0cb972c78e64b2e3aae5f3ad264bb0a79bd179708f0",
       "retrievedAt": "2026-08-12T14:33:11.062Z"
     },
@@ -237,8 +237,8 @@
         "references/pinned-facts.md",
         "references/mobile.md"
       ],
-      "checksum": "94f9df6f67615ee05d826995f9709309c5453d0d8e4be11232ca5d463929ed2b",
-      "retrievedAt": "2026-08-12T14:33:11.062Z"
+      "checksum": "833a60e3142d8944af96eb33a6266fb27cdbfedb3f72db9765098f81bdabfa9d",
+      "retrievedAt": "2026-08-17T06:12:36.937Z"
     }
   ]
 }
