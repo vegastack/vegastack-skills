@@ -9,5 +9,5 @@ Instructions for the scheduled refresh agent (and any human running a manual ref
 
 ## How to refresh
 
-1. Run the shared runner against this registry; on drift, read the changed page and propose edits to the marked sentences in `references/harness-facts.md` (and the two mechanism-named tool references in SKILL.md Step 2/Step 3, which mirror it) in the same PR as the registry update.
+1. Run the shared runner against this registry; on drift, read the changed page and propose edits to the marked sentences in `references/harness-facts.md` — and to the three harness-mechanism mentions in SKILL.md that mirror it (the two question tools in Step 2, the `@AGENTS.md` import in Step 3) — in the same PR as the registry update.
 2. Never auto-apply harness behavior changes; a human reviews — these facts change what dev-setup writes into user projects.

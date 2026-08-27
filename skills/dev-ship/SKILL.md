@@ -1,6 +1,6 @@
 ---
 name: dev-ship
-description: Create the pull request and merge for a finished issue, each only on the user's explicit word. Use when the user says "make the PR", "open a pull request for #12", "ship it", "merge it", "merge #12", or asks to close out a reviewed issue. Verifies the issue is at for-you with evidence, links the PR to the issue, and squash-merges on the separate merge instruction. Not for implementing issues (dev-implement) or writing and approving them (dev-intake).
+description: Create the pull request and merge for a finished issue, each only on the user's explicit word. Use when the user says "make the PR", "open a pull request" for an issue, "ship it", "merge it", "merge issue 12", or asks to close out a reviewed issue. Verifies the issue is at for-you with evidence, links the PR to the issue, and squash-merges on the separate merge instruction. Not for implementing issues (dev-implement) or writing and approving them (dev-intake).
 ---
 
 # dev-ship
@@ -17,14 +17,16 @@ On the user's PR instruction:
 - `gh pr create` from the task branch: title from the issue, body is `Closes #<n>` plus a link to the evidence comment — the issue holds the report; the PR links it rather than duplicating it.
 - No draft PRs unless the user asks for one.
 - If required checks fail on the PR, that's implement work: hand the failures to the corrections loop, update the evidence comment, and tell the user.
+- User corrections left on the PR itself flow through the same corrections loop on the same branch — the PR updates with the push; nothing gets recreated.
 
 ## Gate 2 — the merge
 
 On the user's separate merge instruction:
 
 - Re-check that the PR head is still the revision the evidence comment names and checks are green — a branch that moved since review gets re-verified before it lands.
+- A merge conflict with the default branch is corrections work: update the branch, re-verify what the update touched, and the standing merge instruction holds once checks are green again — unless the update changed behavior, which goes back to the user.
 - Merge per the dev.md `merge` knob (default `gh pr merge --squash`). `Closes #<n>` closes the issue; confirm both happened.
-- If the issue recorded a material decision, append its one dated line to `docs/decisions.md` now — the register is append-only and this is its moment.
+- If the issue carries a `Decision:` comment (the dev-intake convention), append its one dated line to the register dev.md names (`decisions:` knob) now — the register is append-only and this is its moment.
 
 ## Report
 

@@ -43,7 +43,7 @@ Contributors do not bump versions in PRs; releases are maintainer-driven.
 Skill names are consumer-facing identifiers — treat a rename as a stable-ID break:
 
 1. Rename the directory and the frontmatter `name` in the same commit — they must always stay equal.
-2. Update every wiring point in the same PR: the packaging allowlist in `packages/cli/scripts/sync-skill.mjs`, the root README skills table row, and any cross-skill or docs links.
+2. Update every wiring point in the same PR: the skill's entry in `packages/cli/packaging.json`, the root README skills table row, and any cross-skill or docs links.
 3. Changeset: MAJOR. Note the migration in `CHANGELOG.md`: copies installed under the old name are orphaned, and installer operations addressed to the old name stop resolving once the shipped manifest no longer knows it.
 4. Registry source IDs inside `refresh/sources.json` are skill-internal and unaffected, but every `affected` ref must still resolve to a real reference in the renamed tree.
 5. Re-run `node packages/cli/scripts/validate-skill.mjs skills/<new-name>` and the skill's tests — name/directory equality is validated.

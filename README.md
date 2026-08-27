@@ -28,7 +28,7 @@ The installer is fully offline with one exception: `doctor` checks npmjs.org for
 
 | Path | Purpose |
 |---|---|
-| `skills/<name>/` | Authored skill content — the source of truth. Every skill carries `SKILL.md` (agent entry), `README.md` (human/agent walkthrough), `references/`, `scripts/`, `assets/`, `tests/`, and `refresh/` (freshness contract) |
+| `skills/<name>/` | Authored skill content — the source of truth. Every skill carries `SKILL.md` (agent entry), `README.md` (human/agent walkthrough), `tests/`, and `refresh/` (freshness contract), plus `references/`, `scripts/`, and `assets/` where the skill needs them |
 | `tooling/refresh/` | Repo-shared deterministic refresh runner (checksum/version verification), used by every skill's `refresh/sources.json` and both refresh workflows |
 | `packages/cli/` | The `@vegastack/skills` installer. Its skill copy and checksum manifest are generated at build time and are never committed |
 | `docs/policies/` | [Release and rollback](docs/policies/release-and-rollback.md) · [Content versioning](docs/policies/content-versioning.md) |
@@ -38,9 +38,9 @@ The installer is fully offline with one exception: `doctor` checks npmjs.org for
 
 Skill content cites external sources (specs, vendor docs, package versions) tracked per skill in `skills/*/refresh/sources.json`, with per-skill agent instructions in `refresh/REFRESH.md`. A weekly automated refresh (.github/workflows/refresh.yml) re-verifies every registry deterministically and maintains one standing evidence-linked PR; a human reviews and merges. CI restricts refresh branches to refresh metadata only and re-fetches claimed versions/checksums so hand-edited or hallucinated values cannot merge. Old installs degrade gracefully: `doctor` reports installed-vs-latest, and advice leaning on a stale critical source is marked not verified rather than asserted.
 
-## Advisory by design
+## Advisory reviews, user-held gates
 
-Skills advise; they never gate. Reviews produce evidence-backed advisory reports with honest severities (`critical` / `production-gate` / `enterprise-gate` / `consider`), unverified claims are labeled rather than asserted, and deliberately accepted risk stays visible in every review instead of disappearing behind suppression machinery.
+Architecture review (`architect`) is advisory by design: evidence-backed reports with honest severities (`critical` / `production-gate` / `enterprise-gate` / `consider`), unverified claims labeled rather than asserted, and deliberately accepted risk kept visible instead of suppressed. The dev workflow skills are the complement: their gates are real, and every one of them is held by the user — agents can never approve, ship, or merge on their own authority.
 
 ## Develop
 

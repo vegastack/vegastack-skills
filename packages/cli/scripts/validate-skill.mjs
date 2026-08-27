@@ -90,6 +90,11 @@ export function validateSkill(skillDir) {
   if (description.includes('<') || description.includes('>')) {
     return { ok: false, message: 'Description cannot contain angle brackets (< or >)' };
   }
+  // Real YAML parsers treat " #" in an unquoted scalar as a comment start, silently
+  // truncating the description in the harness skill listing.
+  if (/\s#/.test(description)) {
+    return { ok: false, message: "Description contains ' #', which YAML parses as a comment start and silently truncates (write 'issue 12', not 'issue #12')" };
+  }
   if (description.length > MAX_DESCRIPTION_LENGTH) {
     return { ok: false, message: `Description is too long (${description.length} characters). Maximum is ${MAX_DESCRIPTION_LENGTH} characters.` };
   }

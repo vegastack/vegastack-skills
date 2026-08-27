@@ -54,7 +54,7 @@ Everything else — merge style, branch naming, the stop-and-ask list — takes 
 | `AGENTS.md` | create it, or insert/replace only the block between `<!-- vsk-dev:start -->` and `<!-- vsk-dev:end -->` using the [agents-section template](assets/agents-section.md.template); content outside the markers is the user's and stays untouched |
 | `CLAUDE.md` | ensure its first line is `@AGENTS.md` — Claude Code does not read AGENTS.md natively and needs this import ([harness-facts](references/harness-facts.md)); create the file when absent |
 | labels | `gh label create <name> --color <hex> --description "<text>"`, skipping ones that exist: `needs-you` FBCA04 (waiting on the user) · `ready` 0E8A16 (approved, agent may start) · `working` 1D76DB (claimed by an agent) · `for-you` 5319E7 (result awaiting user review) · `risky` B60205 (security, money, data, or production) |
-| `docs/decisions.md` | create with a two-line header and one example entry, when missing |
+| decision register | create the file the `decisions:` knob names (default `docs/decisions.md`) with a two-line header and one example entry, when missing; a project with an existing register keeps it and the knob points there |
 
 ## Step 4 — Report
 

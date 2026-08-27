@@ -9,7 +9,7 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 
 ## Operating rules
 
-1. Skill content lives only in `skills/<name>/`. Wiring lives outside it: the packaging allowlist in `packages/cli/scripts/sync-skill.mjs`, the root `README.md` skills table, and `CHANGELOG.md` (via changesets).
+1. Skill content lives only in `skills/<name>/`. Wiring lives outside it: the per-skill packaging allowlist in `packages/cli/packaging.json`, the root `README.md` skills table, and `CHANGELOG.md` (via changesets). The skillify scaffolder writes all three when creating a skill.
 2. Frontmatter is exactly two keys: `name` and `description`. The open spec also allows `license`, `compatibility`, and `metadata`, but this repo defaults to the minimal two; adding any other key is a policy exception needing maintainer sign-off.
 3. `name` must equal the directory name. Grammar: starts with a lowercase letter, then only lowercase letters, digits, and hyphens; no leading/trailing hyphen, no consecutive hyphens; at most 64 chars.
 4. `description`: at most 1024 chars, third person, states WHAT the skill does and WHEN to load it, trigger words front-loaded, no angle brackets. Never summarize the workflow in it — agents follow the summary and skip the body. Err slightly pushy: agents under-trigger.
@@ -23,29 +23,28 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 | Need | Read |
 |---|---|
 | tri-harness standards: discovery paths, frontmatter rules, context budgets, install surfaces, portability rules, unverified items | [standards](references/standards.md) |
+| new skill: should-it-exist gate, scaffolding, the 8-item contract audit, behavioral evals | the `skillify` skill |
 | release, rename, deprecate, rollback mechanics | [release ops](references/release-ops.md) |
 | this skill's own freshness contract | [REFRESH](refresh/REFRESH.md), [sources](refresh/sources.json) |
 | authoritative repo policy | `CONTRIBUTING.md`, `docs/policies/content-versioning.md`, `docs/policies/release-and-rollback.md` at the repo root |
 
 ## Workflow: scaffold a new skill
 
-1. Create `skills/<name>/` with the full per-skill contract: `SKILL.md` (agent entry), `README.md` (repo-side walkthrough, never packaged), `references/`, `tests/` (bun tests, never packaged), `refresh/sources.json` + `refresh/REFRESH.md` (freshness contract), `agents/openai.yaml` (Codex interface metadata); `scripts/` and `assets/` only if the skill needs them.
-2. Write frontmatter and body per operating rules 2–6; the body routes to references, it does not inline them.
-3. Wire it in: add every packaged file to the allowlist in `packages/cli/scripts/sync-skill.mjs` (the build fails loudly on unlisted files); add a row to the root README skills table; add a changeset (a new skill is MINOR).
-4. The installer is multi-skill: every authored skill needs a packaging allowlist entry in packages/cli/scripts/sync-skill.mjs (the build fails loudly on unlisted files).
-5. Seed refresh baselines with the deterministic runner, never by hand — invocation in [REFRESH](refresh/REFRESH.md).
-6. Run the checks in operating rule 8.
+1. Run skillify's `scripts/scaffold-skill.mjs` — it creates the contract tree (`SKILL.md`, `README.md`, `refresh/`, `agents/openai.yaml`, tests and the trigger fixture) and performs the repo wiring itself: the `packages/cli/packaging.json` entry, the root README row, and the changeset (a new skill is MINOR). Fill in the README row description and changeset text it leaves as TODOs; files added after scaffolding go into the skill's `packaging.json` entry by hand (the build fails loudly on unlisted files).
+2. Write frontmatter and body per operating rules 2–6; the body routes to references, it does not inline them. `skillify` owns the full authoring and eval discipline.
+3. Seed refresh baselines with the deterministic runner, never by hand — invocation in [REFRESH](refresh/REFRESH.md).
+4. Run the checks in operating rule 8.
 
 ## Workflow: update or maintain
 
-- **Stable IDs are permanent.** Never renumber or reuse a rule ID; removing or renaming one is a MAJOR content change (`docs/policies/content-versioning.md`). New rules/references are MINOR; weakening a MUST is MAJOR; factual refreshes (pins, URLs, checksums) are PATCH.
+- **Content versioning.** New rules/references and new recorded decisions are MINOR; weakening a normative rule, removing or renaming a skill, or breaking a per-project profile format is MAJOR; factual refreshes (pins, URLs, checksums) are PATCH (`docs/policies/content-versioning.md`).
 - **Tag volatile claims.** Any sentence carrying a vendor version, mechanism name, or numeric budget gets a source marker comment mapping to an ID in that skill's `refresh/sources.json`, and the registry entry's `affected` list must name the reference it lives in. Untagged volatile facts rot silently.
 - **Description budgets.** Stay within 1024 chars and keep triggers in the first sentence: Codex truncates its skill list at 2% of the context window / 8,000 chars, Claude Code truncates a skill's always-loaded listing at 1,536 chars — the tail of a long description is the first thing lost.
-- **Packaged-file changes.** Any add/remove/rename of a packaged file must update the `sync-skill.mjs` allowlist in the same PR.
+- **Packaged-file changes.** Any add/remove/rename of a packaged file must update that skill's `packages/cli/packaging.json` entry in the same PR.
 
 ## Workflow: rename, deprecate, or remove
 
-Full playbook in [release ops](references/release-ops.md). Short form: a rename changes the directory and the frontmatter `name` in the same commit (they must stay equal), updates allowlist + root README table + CHANGELOG, and is MAJOR. Deprecation is announced in README/CHANGELOG before removal. Removal deletes the tree, unwires it, and is MAJOR.
+Full playbook in [release ops](references/release-ops.md). Short form: a rename changes the directory and the frontmatter `name` in the same commit (they must stay equal), updates the packaging.json entry + root README table + CHANGELOG, and is MAJOR. Deprecation is announced in README/CHANGELOG before removal. Removal deletes the tree, unwires it, and is MAJOR.
 
 ## Workflow: release
 

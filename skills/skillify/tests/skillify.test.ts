@@ -98,6 +98,22 @@ describe('skillify contract', () => {
   })
 })
 
+describe('validator YAML-comment guard', () => {
+  test("rejects a description containing ' #' (YAML comment start truncates it in real harnesses)", async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'skillify-hash-'))
+    try {
+      const dir = join(repo, 'demo-skill')
+      await mkdir(dir)
+      await writeFile(join(dir, 'SKILL.md'), '---\nname: demo-skill\ndescription: Use for "do issue #12" requests.\n---\n\n# demo\n')
+      const result = validateSkill(dir)
+      expect(result.ok).toBe(false)
+      expect(result.message).toContain('comment start')
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('scaffold-skill consistency', () => {
   test('every template on disk is wired into the scaffolder, and vice versa', async () => {
     const onDisk = (await readdir(join(skillRoot, 'assets/templates'))).sort()
