@@ -1,0 +1,11 @@
+[
+  { "query": "make the PR for issue #12", "should_trigger": true },
+  { "query": "open a pull request for the export work", "should_trigger": true },
+  { "query": "ship it", "should_trigger": true },
+  { "query": "looks good, merge #12", "should_trigger": true },
+  { "query": "yes merge the invoice PR and close the issue", "should_trigger": true },
+  { "query": "implement issue #12 on a branch", "should_trigger": false, "ambiguous_with": ["dev-implement"] },
+  { "query": "approve issue #14 and mark it ready", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
+  { "query": "bump the changeset and cut a release of @vegastack/skills", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] },
+  { "query": "why is CI failing on main", "should_trigger": false }
+]

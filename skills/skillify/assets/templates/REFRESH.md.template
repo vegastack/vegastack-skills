@@ -4,18 +4,13 @@ Instructions for the scheduled refresh agent (and any human running a manual ref
 
 ## What this skill claims
 
-TODO: classify before shipping (see skillify references/authoring.md):
+TODO: apply the volatile-facts rule (skillify references/authoring.md) before shipping:
 
 - **Durable rules**: versionless principles in this skill's prose. The refresh agent NEVER edits these; if a source change invalidates one, open an issue quoting the evidence.
-- **Mechanism-coupled claims**: sentences marked with a source comment naming a SOURCE-ID from `sources.json`. The agent may propose edits to these marked sentences only, in the same PR as the registry update that evidences the change.
-- **Volatile layer**: `refresh/sources.json` itself (checksums, versions, retrieval times) — the only file the agent edits freely.
+- **Volatile facts**: version pins, model names, numeric vendor limits, URLs, dated claims. Each lives in a refresh-tracked file named here, evidenced by a `sources.json` entry. A sentence leaning on one vendor mechanism may be marked `<!-- source: SOURCE-ID -->`.
+
+TODO: name the refresh-tracked files and the sections the refresh agent may edit.
 
 ## Evergreen waiver
 
-TODO: if this skill has NO mechanism-coupled or volatile claims, replace the sources TODO in `sources.json` with this waiver, filled in: "This skill's content is evergreen: it asserts no version pins, vendor mechanism names, numeric vendor limits, or dated facts. Rationale: ... Revisit if a future edit introduces any." Then delete the refresh steps below. Otherwise delete this section.
-
-## How to refresh
-
-1. TODO: deterministic pass (which command, which registry).
-2. TODO: what may be auto-accepted vs what needs human review.
-3. One PR per refresh, evidence-linked; refresh branches touch only `refresh/` metadata.
+TODO: if this skill states no volatile facts, replace everything above with one line — "Evergreen: this skill asserts no version pins, vendor mechanism names, numeric vendor limits, or dated facts. Revisit if a future edit introduces any." — and keep `sources: []`.

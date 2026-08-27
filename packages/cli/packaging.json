@@ -18,6 +18,34 @@
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
+  "dev-implement": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
+  "dev-intake": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/brief-template.md",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
+  "dev-setup": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/harness-facts.md",
+    "assets/dev-profile.md.template",
+    "assets/agents-section.md.template",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
+  "dev-ship": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
   "skill-maintainer": [
     "SKILL.md",
     "agents/openai.yaml",

@@ -1,0 +1,4 @@
+interface:
+  display_name: "dev-implement"
+  short_description: "Implement an approved issue end to end, dark"
+  default_prompt: "Use $dev-implement to build this issue end to end."
