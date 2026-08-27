@@ -13,6 +13,7 @@ gates: 3                    # 3 = approve/PR/merge · 2 = approve/ship
 tests: required             # required | logic-only
 merge: squash
 branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor
+decisions: docs/decisions.md
 
 ## Stop and ask
 

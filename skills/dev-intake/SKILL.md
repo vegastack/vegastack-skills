@@ -37,6 +37,7 @@ Every issue body follows [brief-template](references/brief-template.md): Outcome
 - A new issue starts at `needs-you`. Add `risky` when it touches security, money, user data, or production.
 - Approval is only the user's explicit words — "approved", "go ahead", clearly tied to this issue, in chat or on the issue. Labels, silence, or the passage of time never create approval.
 - Record it once: comment `Approved by <user> on <date>: "<their words>"`, then swap `needs-you` → `ready`. That comment is what dev-implement's preflight looks for.
+- An issue that settles a material cross-cutting decision records it as one comment starting `Decision:` — dev-ship appends that line to the project's decision register at merge.
 - The user edits or corrects a draft → apply, and summarize what changed since they last read it.
 
 ## After approval

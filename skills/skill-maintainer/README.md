@@ -39,4 +39,4 @@ The tests eat the skill's own dog food: structural validation via the repo valid
 
 ## For agents: how to behave
 
-Follow [SKILL.md](SKILL.md). The short version: repo policy docs win over this skill on conflict; wiring (sync-skill allowlist, root README table, changesets) travels in the same PR as the content change; never hand-edit refresh checksums; and finish nothing without the validator and the skill's tests passing.
+Follow [SKILL.md](SKILL.md). The short version: repo policy docs win over this skill on conflict; wiring (the packaging.json entry, root README table, changesets) travels in the same PR as the content change; never hand-edit refresh checksums; and finish nothing without the validator and the skill's tests passing.

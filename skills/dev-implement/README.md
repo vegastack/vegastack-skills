@@ -15,7 +15,7 @@ npx @vegastack/skills add dev-implement
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point: preflight, claim, dark-mode bounds, verify, review modes, evidence contract, corrections loop |
-| [refresh/REFRESH.md](refresh/REFRESH.md) | Evergreen waiver |
+| [refresh/REFRESH.md](refresh/REFRESH.md) + [refresh/sources.json](refresh/sources.json) | Evergreen waiver and its deliberately empty registry |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |
 

@@ -34,7 +34,7 @@ async function files(root) {
 const authoredSkills = (await readdir(skillsRoot, { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
 const listedSkills = Object.keys(packagedSkills).sort()
 const unlistedSkills = authoredSkills.filter(name => !listedSkills.includes(name))
-if (unlistedSkills.length) throw new Error(`Authored skills without a packaging allowlist in sync-skill.mjs: ${unlistedSkills.join(', ')}`)
+if (unlistedSkills.length) throw new Error(`Authored skills without an entry in packages/cli/packaging.json: ${unlistedSkills.join(', ')}`)
 const missingSkills = listedSkills.filter(name => !authoredSkills.includes(name))
 if (missingSkills.length) throw new Error(`Packaging allowlist names skills that do not exist: ${missingSkills.join(', ')}`)
 

@@ -5,5 +5,5 @@ Read `.vegastack/dev.md` for this project's stack, commands, and workflow knobs.
 
 Work flows through GitHub issues. An issue labeled `ready` carries the user's recorded approval and a complete brief — implement it end to end per the `dev-implement` skill, post the evidence in the issue, and hand it back with `for-you`. Start only on `ready` issues. These five labels are the whole workflow vocabulary — use them and no others: `needs-you` (waiting on the user) → `ready` (approved) → `working` (claimed by an agent) → `for-you` (result awaiting user review); `risky` flags security, money, data, or production work.
 
-The user holds the gates: they approve the issue, say the word for a PR, and say a separate word to merge (see `gates` in dev.md). Material decisions get one dated line in `docs/decisions.md`.
+The user holds the gates: they approve the issue, say the word for a PR, and say a separate word to merge (see `gates` in dev.md). Material decisions get one dated line in the decision register dev.md names (`decisions:` knob).
 <!-- vsk-dev:end -->

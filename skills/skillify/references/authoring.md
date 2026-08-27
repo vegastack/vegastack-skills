@@ -12,6 +12,7 @@ The description is the primary triggering mechanism: it is always in context, an
 - **Cover the ways users actually ask.** Exact phrases in quotes, symptoms, file types, adjacent phrasings, casual variants. Include the situations where the skill competes with a neighbor and should win.
 - **Name the boundary.** One clause on what the skill is NOT for prevents over-triggering ("Only for skills inside this repository...").
 - **No angle brackets** — the repo validator rejects them.
+- **No `#` after a space.** The description is an unquoted YAML scalar, and real harness parsers treat ` #` as a comment start — everything after it silently vanishes from the skill listing. Write "issue 12", never "issue #12"; the repo validator rejects it.
 
 Bad: `Helps with skills.` (no triggers, no boundary)
 Bad: `Audits a skill by scoring checklist items, then scaffolds, evals, and wires it.` (workflow summary — the body will be skipped)
@@ -59,7 +60,7 @@ Three loading levels; spend accordingly:
 2. **SKILL.md body** — loaded on every trigger. Keep the workflow, one excellent example, and a routing table; push everything else down a level. One great example beats five mediocre ones.
 3. **references/ / scripts/ / assets/** — loaded or executed on demand; effectively unlimited, but give each reference a clear routing condition so agents read only what the task needs.
 
-Cross-reference other skills by name (`skill-maintainer`) instead of restating their content. Don't document a script's flags in prose beyond what routing needs — the script's own `--help`/usage error is the source of truth, and the consistency test keeps the two honest.
+Cross-reference other skills by name (`skill-maintainer`) instead of restating their content. Don't document a script's flags in prose beyond what routing needs — the script's own `--help`/usage error is the source of truth.
 
 ## Scripts vs instructions
 
