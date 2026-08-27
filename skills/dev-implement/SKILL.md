@@ -18,7 +18,8 @@ The gates exist to stop agent-invented authority, never to slow the user down. W
 - `gh auth status` works and the issue's repo matches dev.md.
 - The issue is open, labeled `ready`, and carries the recorded approval comment (`Approved by … : "…"`). A label without the comment is not approval.
 - No open blockers (issue dependencies) and no other assignee — an assigned or `working` issue belongs to someone else. A claim from a dead session is released only by the user: take over a `working` issue only when they explicitly hand it to you.
-- Read the complete brief, plus parent issue and milestone for context. If the brief leaves a material decision open, do not start: label `needs-you`, comment the smallest question that unblocks it, stop.
+- Read the complete brief, plus parent issue and milestone for context. If the brief leaves a material decision open — including an unresolved Assumptions entry — do not start: label `needs-you`, comment the smallest question that unblocks it, stop.
+- Re-verify the brief against reality before coding: its cited touch points against the current code (things drift between approval and execution), and volatile dependency claims when stale or version-sensitive. Reality contradicting the brief is a stop — label `needs-you` with the discrepancy; an approved brief is never a license to improvise past what's actually there.
 
 ## Claim and branch
 
@@ -26,7 +27,7 @@ Assign yourself, swap `ready` → `working`. Branch from the default branch: `<t
 
 ## Build — dark
 
-No progress updates, no questions. Decide routine things yourself: file layout, helpers, fixtures, and root-cause fixes inside the issue's change areas. The brief's out-of-scope section and the dev.md stop-list bound you; hitting a stop condition (scope change, new dependency, spending, destructive/production action, unresolvable blocker) ends dark mode — post one `needs-you` comment stating the smallest decision needed with your recommendation, and stop.
+No progress updates, no questions. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Decide routine things yourself: file layout, helpers, fixtures, and root-cause fixes inside the issue's change areas. The brief's out-of-scope section and the dev.md stop-list bound you; hitting a stop condition (scope change, new dependency, spending, destructive/production action, unresolvable blocker) ends dark mode — post one `needs-you` comment stating the smallest decision needed with your recommendation, and stop.
 
 Honesty over green: a failing test gets fixed at the root or reported as failing. Weakening a test, an assertion, or acceptance to pass is a cover-up, and cover-ups surface at review with interest.
 

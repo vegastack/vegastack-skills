@@ -9,9 +9,14 @@ Requirements come in as the user's brainstorm, feature thought, or SOW; issues g
 
 Nearest neighbor: `dev-implement` consumes what this produces — intake writes and gets approval, implement builds. If `.vegastack/dev.md` is missing, run `dev-setup` first, then continue here.
 
-## Read first, ask second
+## Ground before you ask
 
-Read the source material completely — the document, the conversation, the codebase where it clarifies feasibility. The source can be one sentence in chat; thinner material just means the interview carries more weight. Extract every answer that is findable; questions are only for genuine decisions. Finding facts is your job, never the user's.
+Finding facts is your job, never the user's — and a brief built on unverified facts is a confident mistake waiting for dark mode. The source can be one sentence in chat; thinner material just means the grounding and interview carry more weight. Before the first question:
+
+- **Read the touched code.** Open the actual paths the feature would change: current behavior, existing patterns to reuse, where the new work plugs in. The brief cites these real paths later — a brief naming no files is a sign this step was skipped.
+- **Verify dependencies.** Any library, service, or API capability the approach leans on gets checked against current official docs (docs tools or web search), noted with the date. Consult `architect`'s pinned facts for stack questions before re-researching; re-verify a pinned fact older than 60 days; skip lookups for long-stable basics — judgment, not ritual.
+- **Cross-check the request** against product docs and current behavior. A contradiction is pushback, never a silent resolution: "you asked for X; the code/docs currently do Y — which wins?" Push back on cost the same way: when a simpler version covers most of the need, name it.
+- **Triage every unknown** into exactly three bins: *findable* → find it now, yourself; *only-the-user-knows* → ask, with a recommendation; *only-running-code-can-tell* → flag it as a spike that becomes the issue's first step. Guessing is not a bin.
 
 ## The interview
 
@@ -41,13 +46,14 @@ These are the brief template's sections in interview form — a question exists 
 
 ## The brief
 
-Every issue body follows [brief-template](references/brief-template.md): Outcome · Out of scope · Rules and edge cases · UI states (when there is UI) · Approach and touch points · Tests and acceptance · Risks and stop conditions. Write the sections that apply and delete the ones that don't — an empty "N/A" section is noise, not diligence. Details live inline in the issue; links to docs are supporting material, never a substitute for the brief.
+Every issue body follows [brief-template](references/brief-template.md): Outcome · Out of scope · Rules and edge cases · UI states (when there is UI) · Approach and touch points · Tests and acceptance · Risks and stop conditions · Assumptions. Write the sections that apply and delete the ones that don't — an empty "N/A" section is noise, not diligence. Details live inline in the issue; links to docs are supporting material, never a substitute for the brief. Evidence over confidence: touch points name real paths, dependency claims carry their check date, and anything material the grounding could not verify goes in **Assumptions — confirm or correct**, never asserted as fact.
 
 ## Labels and approval
 
 - A new issue starts at `needs-you`. Add `risky` when it touches security, money, user data, or production.
 - Approval is only the user's explicit words — "approved", "go ahead", clearly tied to this issue, in chat or on the issue. Labels, silence, or the passage of time never create approval.
 - Record it once: comment `Approved by <user> on <date>: "<their words>"`, then swap `needs-you` → `ready`. That comment is what dev-implement's preflight looks for.
+- An issue with an unconfirmed entry in its Assumptions section cannot go `ready` — the recorded approval covers the ledger the user saw, so resolve every entry (confirmed, corrected, or moved to a spike) first.
 - An issue that settles a material cross-cutting decision records it as one comment starting `Decision:` — dev-ship appends that line to the project's decision register at merge.
 - The user edits or corrects a draft → apply, and summarize what changed since they last read it.
 
