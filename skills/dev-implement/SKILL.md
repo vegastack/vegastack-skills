@@ -1,13 +1,13 @@
 ---
 name: dev-implement
-description: Implement an approved GitHub issue end to end without further user input. Use when given an issue to build - "do issue 12", "implement" plus an issue URL or number, "pick up the next ready issue", "go dark on" an issue - when returning to apply corrections the user left on a for-you issue, or when the user directly asks in chat for a quick fix or small change. Runs preflight, claims the issue, builds on a task branch, tests, gets independent review, and posts one evidence comment in the issue. Not for writing or approving issues (dev-intake), not for creating PRs or merging (dev-ship).
+description: Implement an approved GitHub issue end to end without further user input. Use when given an issue to build - "do issue 12", "implement" plus an issue URL or number, "pick up the next ready issue", "go dark on" an issue - when returning to apply corrections the user left on a for-operator issue, or when the user directly asks in chat for a quick fix or small change. Runs preflight, claims the issue, builds on a task branch, tests, gets independent review, and posts one evidence comment in the issue. Not for writing or approving issues (dev-intake), not for creating PRs or merging (dev-ship).
 ---
 
 # dev-implement
 
 One issue, one session, end to end: preflight → claim → build dark → verify → review → evidence in the issue → stop. The user reads the result in the issue on their own time; nothing here creates a PR or merges — those are `dev-ship`, on the user's word.
 
-Nearest neighbor: `dev-intake` writes the brief this skill executes; if the issue turns out to need decisions, that's intake work — hand it back via `needs-you`, don't guess. `.vegastack/dev.md` missing → run `dev-setup` first. Read dev.md before anything; its knobs (review, ui-evidence, tests, branch, stop-list) govern this whole skill.
+Nearest neighbor: `dev-intake` writes the brief this skill executes; if the issue turns out to need decisions, that's intake work — hand it back via `needs-operator`, don't guess. `.vegastack/dev.md` missing → run `dev-setup` first. Read dev.md before anything; its knobs (review, ui-evidence, tests, branch, stop-list) govern this whole skill.
 
 ## Direct requests
 
@@ -18,8 +18,8 @@ The gates exist to stop agent-invented authority, never to slow the user down. W
 - `gh auth status` works and the issue's repo matches dev.md.
 - The issue is open, labeled `ready`, and carries the recorded approval comment (`Approved by … : "…"`). A label without the comment is not approval.
 - No open blockers (issue dependencies) and no other assignee — an assigned or `working` issue belongs to someone else. A claim from a dead session is released only by the user: take over a `working` issue only when they explicitly hand it to you.
-- Read the complete brief, plus parent issue and milestone for context. If the brief leaves a material decision open — including an unresolved Assumptions entry — do not start: label `needs-you`, comment the smallest question that unblocks it, stop.
-- Re-verify the brief against reality before coding: its cited touch points against the current code (things drift between approval and execution), and volatile dependency claims when stale or version-sensitive. Reality contradicting the brief is a stop — label `needs-you` with the discrepancy; an approved brief is never a license to improvise past what's actually there.
+- Read the complete brief, plus parent issue and milestone for context. If the brief leaves a material decision open — including an unresolved Assumptions entry — do not start: label `needs-operator`, comment the smallest question that unblocks it, stop.
+- Re-verify the brief against reality before coding: its cited touch points against the current code (things drift between approval and execution), and volatile dependency claims when stale or version-sensitive. Reality contradicting the brief is a stop — label `needs-operator` with the discrepancy; an approved brief is never a license to improvise past what's actually there.
 
 ## Claim and branch
 
@@ -27,7 +27,7 @@ Assign yourself, swap `ready` → `working`. Branch from the default branch: `<t
 
 ## Build — dark
 
-No progress updates, no questions. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Decide routine things yourself: file layout, helpers, fixtures, and root-cause fixes inside the issue's change areas. The brief's out-of-scope section and the dev.md stop-list bound you; hitting a stop condition (scope change, new dependency, spending, destructive/production action, unresolvable blocker) ends dark mode — post one `needs-you` comment stating the smallest decision needed with your recommendation, and stop.
+No progress updates, no questions. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Decide routine things yourself: file layout, helpers, fixtures, and root-cause fixes inside the issue's change areas. The brief's out-of-scope section and the dev.md stop-list bound you; hitting a stop condition (scope change, new dependency, spending, destructive/production action, unresolvable blocker) ends dark mode — post one `needs-operator` comment stating the smallest decision needed with your recommendation, and stop.
 
 Honesty over green: a failing test gets fixed at the root or reported as failing. Weakening a test, an assertion, or acceptance to pass is a cover-up, and cover-ups surface at review with interest.
 
@@ -35,6 +35,7 @@ Honesty over green: a failing test gets fixed at the root or reported as failing
 
 - Run the tests dev.md requires (`tests: required` → every changed behavior has a test that runs and passes; `logic-only` → content/config tweaks may skip). Record commands and results for the evidence comment.
 - A `risky` issue gets focused security, failure, and recovery checks on top of the required tests.
+- When dev.md has a `## Verify` runbook, follow it — run the app and smoke-check the flows it names; that live result belongs in the evidence comment alongside the test output.
 - UI changed and `ui-evidence: playwright` → capture screenshots of the key states and flows, push them to the evidence repo (dev.md `evidence-repo`) under `<repo>/<issue-number>/`, and link them. Links, not embeds — private-repo images don't render inline in issues. Evidence repo missing or unreachable → name the local file paths in the evidence comment and say so; the hand-back never blocks on it.
 
 ## Independent review — per the dev.md knob
@@ -55,8 +56,8 @@ Honesty over green: a failing test gets fixed at the root or reported as failing
 Branch: <name> @ <short-sha>
 ```
 
-Post it, swap `working` → `for-you`, unassign nothing, stop. Later corrections update this same comment — a stack of stale result comments hides the current truth.
+Post it, swap `working` → `for-operator`, unassign nothing, stop. Later corrections update this same comment — a stack of stale result comments hides the current truth.
 
 ## Corrections loop
 
-The user's comments on a `for-you` issue are the new frontier: apply them, re-verify what they touch, update the evidence comment, back to `for-you`. Their corrections never need re-approval ceremony unless they change scope — then it's `needs-you` and dev-intake's recording rule.
+The user's comments on a `for-operator` issue are the new frontier: apply them, re-verify what they touch, update the evidence comment, back to `for-operator`. Their corrections never need re-approval ceremony unless they change scope — then it's `needs-operator` and dev-intake's recording rule.

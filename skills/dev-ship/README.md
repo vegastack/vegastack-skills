@@ -21,4 +21,4 @@ npx @vegastack/skills add dev-ship
 
 ## Behavior contract
 
-Green checks and PR permissions authorize nothing by themselves — only the user's instruction does, and each instruction covers exactly its own gate. Missing preconditions (no `for-you`, no evidence, moved head, failing checks) produce a plain statement of what's missing, never a workaround.
+Green checks and PR permissions authorize nothing by themselves — only the user's instruction does, and each instruction covers exactly its own gate. Missing preconditions (no `for-operator`, no evidence, moved head, failing checks) produce a plain statement of what's missing, never a workaround.

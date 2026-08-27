@@ -1,3 +1,5 @@
+# vegastack-skills — agent guide
+
 <!-- vsk-dev:start -->
 ## Dev workflow
 
@@ -9,3 +11,8 @@ The user holds the gates: they approve the issue, say the word for a PR, and say
 
 dev.md is the project's self-maintained handbook: when a gotcha, surprise, or repeated instruction surfaces in any run, propose one line for the right dev.md section that would have prevented it — fold into existing lines, never append a log — and add it on the user's yes.
 <!-- vsk-dev:end -->
+
+## Repo specifics
+
+- CONTRIBUTING.md and docs/policies/ win over anything else on repo process.
+- Skill authoring runs through the `skillify` skill; repo standards live in `skill-maintainer`.
