@@ -50,13 +50,13 @@ Every issue body follows [brief-template](references/brief-template.md): Outcome
 
 ## Labels and approval
 
-- A new issue starts at `needs-you`. Add `risky` when it touches security, money, user data, or production.
+- A new issue starts at `needs-operator`. Add `risky` when it touches security, money, user data, or production.
 - Approval is only the user's explicit words — "approved", "go ahead", clearly tied to this issue, in chat or on the issue. Labels, silence, or the passage of time never create approval.
-- Record it once: comment `Approved by <user> on <date>: "<their words>"`, then swap `needs-you` → `ready`. That comment is what dev-implement's preflight looks for.
+- Record it once: comment `Approved by <user> on <date>: "<their words>"`, then swap `needs-operator` → `ready`. That comment is what dev-implement's preflight looks for.
 - An issue with an unconfirmed entry in its Assumptions section cannot go `ready` — the recorded approval covers the ledger the user saw, so resolve every entry (confirmed, corrected, or moved to a spike) first.
 - An issue that settles a material cross-cutting decision records it as one comment starting `Decision:` — dev-ship appends that line to the project's decision register at merge.
 - The user edits or corrects a draft → apply, and summarize what changed since they last read it.
 
 ## After approval
 
-An approved issue that later needs a material change flips back to `needs-you` with one comment naming what changed; the new approval is recorded the same way. Small wording fixes that change no behavior don't reopen anything.
+An approved issue that later needs a material change flips back to `needs-operator` with one comment naming what changed; the new approval is recorded the same way. Small wording fixes that change no behavior don't reopen anything.

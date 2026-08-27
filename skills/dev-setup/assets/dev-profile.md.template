@@ -1,5 +1,7 @@
 # Dev profile — {{owner/repo}}
 
+This file is the project's handbook: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log.
+
 repo: {{owner/repo}} · default branch {{branch}}
 stack: {{one line, or "see .vegastack/arch.md"}}
 commands: test `{{test}}` · build `{{build}}` · dev `{{dev}}`
@@ -14,10 +16,33 @@ tests: required             # required | logic-only
 merge: squash
 branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor
 decisions: docs/decisions.md
+release: on-request         # per-merge = Ship runbook runs as part of shipping · on-request = only when the operator says "release"
+
+## Ship — what happens after merge, in order
+
+Each line starts `auto:` (agent just does it) or `ask:` (needs the operator's word first).
+
+- {{e.g. "auto: bunx changeset version && bun install, commit as chore: release"}}
+- {{e.g. "ask: git tag v<version> && git push origin main v<version> — tag triggers the publish pipeline"}}
+- {{delete this section's placeholders; "Ship: merge only" is a valid runbook}}
+
+## Verify — how to see it working
+
+- {{start: command · URL}}
+- {{the flows worth smoke-checking after a change}}
+
+## Environments
+
+- {{environments and their targets; which the agent may touch}}
+- {{where secret NAMES are defined — values never appear in this file}}
+
+## Design
+
+- {{pointers: design system / component rules / .vegastack/arch.md / UI conventions}}
 
 ## Stop and ask
 
-Dark execution ends and the user decides when work would involve: a change of scope or product behavior, a significant new dependency or runtime, spending money, anything destructive or touching production, or a blocker the brief cannot resolve.
+Dark execution ends and the operator decides when work would involve: a change of scope or product behavior, a significant new dependency or runtime, spending money, anything destructive or touching production, or a blocker the brief cannot resolve.
 
 ## Project rules
 

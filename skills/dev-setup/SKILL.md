@@ -19,6 +19,8 @@ Facts are your job; decisions are the user's. Gather these silently and present 
 | gh authenticated | `gh auth status` |
 | stack and commands | package.json scripts, lockfiles, framework configs |
 | web app (UI evidence relevant) | framework dependencies (next, react, vue, …) |
+| release/deploy machinery | changesets config, publish or deploy workflows, wrangler/Docker/compose files, registry configs — these draft the `## Ship` runbook |
+| environments and run commands | CI/deploy configs, env examples (names only), dev/start scripts — these draft `## Environments` and `## Verify` |
 | existing files | AGENTS.md, CLAUDE.md, `.vegastack/dev.md`, `.vegastack/arch.md`, docs/decisions.md |
 | existing labels | `gh label list` |
 
@@ -39,6 +41,8 @@ Ask with your harness's question tool — AskUserQuestion in Claude Code, `reque
 
 **Round C — only when the situation exists:**
 
+- Release/deploy machinery detected → show the drafted `## Ship` runbook (each step `auto:` or `ask:`) and the `release:` knob (per-merge or on-request) for confirmation; no machinery → "Ship: merge only" and move on
+- Environments or run commands detected → confirm the drafted `## Environments` and `## Verify` bullets
 - AGENTS.md already has content → append the marked section (default) or show a merge proposal first
 - CLAUDE.md already has content → add the `@AGENTS.md` import as its first line (default) or move its content into AGENTS.md and leave only the import
 - Evidence repo for UI screenshots → default `<owner>/dev-review-assets`; offer to create it (`gh repo create --private`) if missing
@@ -50,10 +54,10 @@ Everything else — merge style, branch naming, the stop-and-ask list — takes 
 
 | Target | Action |
 |---|---|
-| `.vegastack/dev.md` | render [dev-profile template](assets/dev-profile.md.template) with the answers |
+| `.vegastack/dev.md` | render [dev-profile template](assets/dev-profile.md.template) with the answers — it is the project's self-maintained handbook (short directional bullets; Ship/Verify/Environments/Design sections drafted from detection, placeholders deleted) |
 | `AGENTS.md` | create it, or insert/replace only the block between `<!-- vsk-dev:start -->` and `<!-- vsk-dev:end -->` using the [agents-section template](assets/agents-section.md.template); content outside the markers is the user's and stays untouched |
 | `CLAUDE.md` | ensure its first line is `@AGENTS.md` — Claude Code does not read AGENTS.md natively and needs this import ([harness-facts](references/harness-facts.md)); create the file when absent |
-| labels | `gh label create <name> --color <hex> --description "<text>"`, skipping ones that exist: `needs-you` FBCA04 (waiting on the user) · `ready` 0E8A16 (approved, agent may start) · `working` 1D76DB (claimed by an agent) · `for-you` 5319E7 (result awaiting user review) · `risky` B60205 (security, money, data, or production) |
+| labels | `gh label create <name> --color <hex> --description "<text>"`, skipping ones that exist: `needs-operator` FBCA04 (waiting on the user) · `ready` 0E8A16 (approved, agent may start) · `working` 1D76DB (claimed by an agent) · `for-operator` 5319E7 (result awaiting user review) · `risky` B60205 (security, money, data, or production) |
 | decision register | create the file the `decisions:` knob names (default `docs/decisions.md`) with a two-line header and one example entry, when missing; a project with an existing register keeps it and the knob points there |
 
 ## Step 4 — Report

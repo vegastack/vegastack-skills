@@ -1,6 +1,6 @@
 # dev-intake
 
-Turns requirements — a brainstorm, a feature thought, an SOW — into GitHub issues complete enough that a fresh agent needs nothing but the URL. All questions happen here, in grilling-style rounds where every question ships with a recommended answer; once an issue is approved and `ready`, dark implementation needs no further input. Also records the user's approval (their quoted words, dated, in one comment) and manages the `needs-you` → `ready` labels.
+Turns requirements — a brainstorm, a feature thought, an SOW — into GitHub issues complete enough that a fresh agent needs nothing but the URL. All questions happen here, in grilling-style rounds where every question ships with a recommended answer; once an issue is approved and `ready`, dark implementation needs no further input. Also records the user's approval (their quoted words, dated, in one comment) and manages the `needs-operator` → `ready` labels.
 
 The agent entry point is [SKILL.md](SKILL.md).
 
