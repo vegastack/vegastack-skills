@@ -1,0 +1,5 @@
+---
+"@vegastack/skills": minor
+---
+
+skillify v2 — lean contract. The checklist shrinks from 13 to 8 items with stable additive numbering: unit tests are now required only for bundled scripts' deterministic branches (a prose-only skill's quality bar is the behavioral eval), the per-skill consistency test becomes a repo-wide relative-link check inside validate-skill.mjs, and the claim-classification taxonomy collapses to one volatile-facts rule with a one-line evergreen waiver default. New: a "sharp boundary" item requiring each skill to name its nearest-neighbor skill and the axis of difference; trigger-query fixtures become ~10 hard queries with `ambiguous_with`; authoring.md gains writing-style doctrine (prompt the positive, hunt no-ops and sediment, 50–150-line body budget). The scaffolder now performs repo wiring itself — packaging entry (moved from sync-skill.mjs code into packaging.json data), root README row, and changeset — idempotently, degrading to explicit skipped statuses outside the monorepo.

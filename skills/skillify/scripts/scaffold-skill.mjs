@@ -4,10 +4,11 @@
 //   node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--write] [--json]
 //
 // Dry-run by default: prints the plan (files that would be created plus the
-// remaining manual wiring steps) and creates nothing. --write stages the tree
-// in a temporary sibling inside skills/ and renames it into place, refusing
-// existing directories and symlinks. Exit codes: 0 ok, 1 refusal or failure,
-// 2 usage error.
+// wiring actions that would be performed) and creates nothing. --write stages
+// the tree in a temporary sibling inside skills/ and renames it into place,
+// refusing existing directories and symlinks, then performs the repo wiring
+// itself: packaging.json entry, root README row, changeset. Exit codes: 0 ok,
+// 1 refusal or failure, 2 usage error.
 import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,8 +23,13 @@ export const templateFiles = [
   ['sources.json.template', 'refresh/sources.json'],
   ['REFRESH.md.template', 'refresh/REFRESH.md'],
   ['openai.yaml.template', 'agents/openai.yaml'],
+  // Scaffolded empty so the shape test stays red until real queries are written.
+  ['trigger-queries.json.template', 'tests/fixtures/trigger-queries.json'],
   ['skill.test.ts.template', null],
 ]
+
+// The scaffolded files that ship to installers (README and tests never package).
+const defaultPackagedFiles = ['SKILL.md', 'agents/openai.yaml', 'refresh/REFRESH.md', 'refresh/sources.json']
 
 // Full grammar shared by the repo validator and every target harness: starts
 // with a lowercase letter, then lowercase letters/digits/hyphens, no
@@ -38,20 +44,72 @@ export function validateName(name) {
   return null
 }
 
-export function wiringSteps(name) {
-  return [
-    `Add skills/${name}/ packaged files to the allowlist in packages/cli/scripts/sync-skill.mjs (the build fails loudly on unlisted files)`,
-    `Add a ${name} row to the Skills table in the root README.md`,
-    `Add a CHANGELOG entry (changeset) introducing ${name}`,
-  ]
-}
-
 async function entryAt(path) {
   try {
     return await lstat(path)
   } catch {
     return null
   }
+}
+
+async function writeAtomic(path, body) {
+  const staging = `${path}.scaffold-tmp`
+  await writeFile(staging, body)
+  await rename(staging, path)
+}
+
+// Adds the new skill's entry to packages/cli/packaging.json with the default
+// scaffolded runtime files. Extra authored files added later must be appended
+// there by hand — sync-skill.mjs still fails loudly on anything unlisted.
+async function wirePackaging(repoRoot, name, write) {
+  const path = join(repoRoot, 'packages/cli/packaging.json')
+  if (!(await entryAt(path))?.isFile()) return { step: 'packaging.json entry', status: 'skipped: packages/cli/packaging.json not found' }
+  const packaged = JSON.parse(await readFile(path, 'utf8'))
+  if (name in packaged) return { step: 'packaging.json entry', status: 'skipped: entry already exists' }
+  if (!write) return { step: 'packaging.json entry', status: 'planned' }
+  packaged[name] = defaultPackagedFiles
+  const sorted = Object.fromEntries(Object.keys(packaged).sort().map(key => [key, packaged[key]]))
+  await writeAtomic(path, `${JSON.stringify(sorted, null, 2)}\n`)
+  return { step: 'packaging.json entry', status: 'done' }
+}
+
+// Inserts a row for the new skill at the end of the root README's Skills table.
+async function wireReadme(repoRoot, name, write) {
+  const path = join(repoRoot, 'README.md')
+  if (!(await entryAt(path))?.isFile()) return { step: 'root README row', status: 'skipped: README.md not found' }
+  const body = await readFile(path, 'utf8')
+  if (body.includes(`](skills/${name}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
+  const lines = body.split('\n')
+  const header = lines.findIndex(line => /^\| *Skill *\|/.test(line))
+  if (header < 0 || !/^\|[ -]*---/.test(lines[header + 1] ?? '')) {
+    return { step: 'root README row', status: 'skipped: Skills table not found' }
+  }
+  let last = header + 1
+  while (lines[last + 1]?.startsWith('|')) last += 1
+  if (!write) return { step: 'root README row', status: 'planned' }
+  const row = `| [${name}](skills/${name}/) | TODO: one-line description | [Walkthrough](skills/${name}/README.md) · [SKILL.md](skills/${name}/SKILL.md) |`
+  lines.splice(last + 1, 0, row)
+  await writeAtomic(path, lines.join('\n'))
+  return { step: 'root README row', status: 'done' }
+}
+
+// Writes the changeset introducing the skill (content versioning: new skill = minor).
+async function wireChangeset(repoRoot, name, write) {
+  const directory = join(repoRoot, '.changeset')
+  if (!(await entryAt(directory))?.isDirectory()) return { step: 'changeset', status: 'skipped: .changeset/ not found' }
+  const path = join(directory, `add-${name}.md`)
+  if (await entryAt(path)) return { step: 'changeset', status: 'skipped: changeset already exists' }
+  if (!write) return { step: 'changeset', status: 'planned' }
+  await writeAtomic(path, `---\n"@vegastack/skills": minor\n---\n\nAdd the ${name} skill.\n`)
+  return { step: 'changeset', status: 'done' }
+}
+
+export async function wireSkill({ name, repoRoot, write = false }) {
+  return [
+    await wirePackaging(repoRoot, name, write),
+    await wireReadme(repoRoot, name, write),
+    await wireChangeset(repoRoot, name, write),
+  ]
 }
 
 export async function scaffoldSkill({ name, dir, write = false, now = new Date() }) {
@@ -69,8 +127,8 @@ export async function scaffoldSkill({ name, dir, write = false, now = new Date()
   if (await entryAt(target)) throw new Error(`Refusing to scaffold: ${target} already exists`)
 
   const outputs = templateFiles.map(([source, output]) => [source, output ?? `tests/${name}.test.ts`])
-  const plan = { name, target, files: outputs.map(([, output]) => output), wiring: wiringSteps(name), wrote: false }
-  if (!write) return plan
+  const plan = { name, target, files: outputs.map(([, output]) => output), wrote: false }
+  if (!write) return { ...plan, wiring: await wireSkill({ name, repoRoot }) }
 
   const date = now.toISOString().slice(0, 10)
   const staging = await mkdtemp(join(skillsRoot, `.${name}.scaffold-`))
@@ -88,7 +146,7 @@ export async function scaffoldSkill({ name, dir, write = false, now = new Date()
     await rm(staging, { recursive: true, force: true })
     throw error
   }
-  return { ...plan, wrote: true }
+  return { ...plan, wrote: true, wiring: await wireSkill({ name, repoRoot, write: true }) }
 }
 
 function parseArguments(argv) {
@@ -128,8 +186,8 @@ if (invokedDirectly) {
     } else {
       console.log(result.wrote ? `Created ${result.target}` : `Dry run - pass --write to create ${result.target}`)
       for (const file of result.files) console.log(`  ${file}`)
-      console.log('Remaining manual wiring:')
-      for (const step of result.wiring) console.log(`  - ${step}`)
+      console.log('Wiring:')
+      for (const { step, status } of result.wiring) console.log(`  - ${step}: ${status}`)
     }
   } catch (error) {
     console.error(String(error.message ?? error))

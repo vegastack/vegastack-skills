@@ -34,14 +34,14 @@ Every skill lives at `skills/<name>/` and is self-contained:
 |---|---|---|
 | `SKILL.md` | yes | Agent entry point — valid frontmatter (`name`, `description`), progressive routing to references |
 | `README.md` | yes | Human/agent walkthrough of the whole skill (repo-side only; not packaged) |
-| `references/` | yes | Normative content, loaded on demand |
+| `references/` | if applicable | Normative content, loaded on demand (a self-contained skill may have none) |
 | `scripts/` | if applicable | Deterministic, dependency-free Node scripts |
 | `assets/` | if applicable | Templates, schemas, examples |
-| `tests/` | yes | Bun tests (never packaged) |
-| `refresh/sources.json` + `refresh/REFRESH.md` | yes | Freshness contract for the weekly refresh automation |
+| `tests/` | yes | Bun tests and the trigger-query fixture (never packaged); unit tests are required for scripts' deterministic branches, not for prose |
+| `refresh/sources.json` + `refresh/REFRESH.md` | yes | Freshness contract for the weekly refresh automation, or a one-line evergreen waiver |
 | `agents/openai.yaml` | for Codex | Codex interface metadata |
 
-Then: add the skill's packaged files to the allowlist in `packages/cli/scripts/sync-skill.mjs` (the build fails loudly on unlisted files), add a row to the root README skills table, and add a per-skill packaging allowlist entry — the installer is multi-skill and bundles every listed skill automatically.
+The skillify scaffolder creates this tree and performs the repo wiring itself: the per-skill packaging allowlist entry in `packages/cli/packaging.json` (the build fails loudly on authored files that are neither allowlisted nor deliberately unpackaged), the root README skills-table row, and the changeset. Files added to a skill after scaffolding must be appended to its `packaging.json` entry by hand.
 
 ## Adding or modifying content
 

@@ -14,8 +14,18 @@ The description is the primary triggering mechanism: it is always in context, an
 - **No angle brackets** — the repo validator rejects them.
 
 Bad: `Helps with skills.` (no triggers, no boundary)
-Bad: `Audits a skill by scoring 13 checklist items, then scaffolds, evals, and wires it.` (workflow summary — the body will be skipped)
+Bad: `Audits a skill by scoring checklist items, then scaffolds, evals, and wires it.` (workflow summary — the body will be skipped)
 Good: `Use when asked to "skillify this", "make this a skill", audit a skill's completeness, or decide whether a workflow should become a skill. Only for skills inside this repository.`
+
+## Writing style
+
+Rules for the prose itself — they exist because agents pay attention (and tokens) for every sentence, and because rule corpora rot in predictable ways:
+
+- **Prompt the positive.** Steering by prohibition drags the forbidden behavior into context and invites a wall of NEVERs that only ever grows. State the rule you want followed, once, with the reason it matters. Reserve negation for genuinely dangerous acts.
+- **Explain why, not ALL-CAPS what.** Modern models have good theory of mind; a rule with its reason generalizes, a bare MUST gets pattern-matched and misapplied. Reaching for caps or bold on every rule is a sign the rule needs a reason, not emphasis.
+- **Hunt no-ops and sediment.** A no-op is an instruction the model already obeys by default — it pays load to say nothing. Sediment is case law: a clause added for one past failure that never gets removed. When a failure exposes a gap, rewrite the existing rule in place; do not append an exception. Prune by deleting whole sentences, not trimming words.
+- **Budget the body.** Target 50–150 lines for a SKILL.md; treat 300 as the ceiling (the spec's 500 is a far bound, not a budget). One great example beats five mediocre ones. Anything only some invocations need goes behind a routed reference.
+- **Name the nearest neighbor.** One sentence in the body stating which existing skill is closest and the axis of difference. It keeps trigger families sharp better than any linter, and forces the merge conversation before a near-duplicate ships.
 
 ## Numeric limits
 
@@ -32,10 +42,11 @@ Good: `Use when asked to "skillify this", "make this a skill", audit a skill's c
 
 ## Trigger query sets
 
-Every skill ships `tests/fixtures/trigger-queries.json`: an array of `{"query": "...", "should_trigger": true|false}`.
+Every skill ships `tests/fixtures/trigger-queries.json`: an array of `{"query": "...", "should_trigger": true|false}`, with an optional `"ambiguous_with": ["skill-name"]` on entries where a neighboring skill competes for the query.
 
-- 8–10 should-trigger: different phrasings of the same intent — formal, casual, typo-ridden; cases that never name the skill but clearly need it; cases where a neighboring skill competes and this one should win.
-- 8–10 should-NOT-trigger: **near-misses only.** Queries sharing keywords or domain with the skill but needing something else — adjacent intents, ambiguous phrasing a naive keyword match would catch. "Write a fibonacci function" as a negative for a PDF skill tests nothing.
+- About 10 queries total: 5–6 should-trigger, 4–5 should-NOT-trigger. A small set of hard queries beats a long set of easy ones.
+- Should-trigger: different phrasings of the same intent — formal, casual, typo-ridden; cases that never name the skill but clearly need it; at least one `ambiguous_with` case this skill should win against its nearest neighbor.
+- Should-NOT-trigger: **near-misses only.** Queries sharing keywords or domain with the skill but needing something else — adjacent intents, ambiguous phrasing a naive keyword match would catch. "Write a fibonacci function" as a negative for a PDF skill tests nothing.
 - Queries must be realistic: concrete detail, file paths, a little backstory — what a user would actually type, not abstract category labels.
 
 The set is both a design artifact (it forces the description to draw a real boundary) and eval input (see the [eval playbook](eval-playbook.md)).
@@ -59,14 +70,8 @@ Cross-reference other skills by name (`skill-maintainer`) instead of restating t
 - Repo conventions for bundled scripts: dependency-free Node (`.mjs`), runnable from the skill dir with plain relative paths, `--json` for machine-readable output, documented exit codes (0 ok / 1 finding-or-refusal / 2 usage), atomic writes (stage then rename), symlink refusal, and an explicit `--write` gate for anything mutating — dry-run is the default.
 - Do NOT script judgment: descriptions, verdicts, review prose. A script that fakes judgment produces confident garbage.
 
-## Claim classification for refresh
+## Volatile facts and refresh
 
-Classify every factual claim while writing, not after:
+One rule: **version pins, model names, numeric limits, URLs, and anything with a date live in refresh-tracked files — never inline in SKILL.md.** Everything else is plain prose that refresh automation never touches.
 
-| Class | Test | Treatment |
-|---|---|---|
-| **Durable** | still true if every vendor renames everything | plain prose; refresh automation never touches it |
-| **Mechanism-coupled** | durable intent expressed through a vendor-named mechanism (an option name, an API shape) | mark the sentence `<!-- source: SOURCE-ID -->`; editable only alongside registry evidence for that source |
-| **Volatile** | version pins, numeric limits, model names, URLs, anything with a date | lives in `refresh/sources.json` entries or other refresh-tracked files — never inline in SKILL.md |
-
-The refresh contract falls out of this table: each distinct SOURCE-ID becomes a registry entry with URLs, checksum, threshold; REFRESH.md states which files the refresh agent may edit (the volatile layer), which sentences it may propose edits to (marked ones), and which it must only flag (durable). A skill with no mechanism-coupled or volatile claims declares an **evergreen waiver** in REFRESH.md — one paragraph stating why nothing decays — and keeps `sources: []`.
+A volatile fact gets a `refresh/sources.json` entry (URL, checksum, threshold) and lives in a section the REFRESH.md names as editable; marking an individual sentence `<!-- source: SOURCE-ID -->` remains available when a durable rule leans on one vendor-named mechanism. A skill with no volatile facts of its own declares an **evergreen waiver** in REFRESH.md — one line stating why nothing decays — and keeps `sources: []`. Facts whose source of truth already lives in another skill's registry are mirrored with a `<!-- mirrored -->` marker, not duplicated as a second registry entry.

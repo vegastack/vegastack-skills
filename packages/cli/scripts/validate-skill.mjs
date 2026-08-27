@@ -94,7 +94,36 @@ export function validateSkill(skillDir) {
     return { ok: false, message: `Description is too long (${description.length} characters). Maximum is ${MAX_DESCRIPTION_LENGTH} characters.` };
   }
 
+  const brokenLinks = findBrokenLinks(skillDir);
+  if (brokenLinks.length > 0) {
+    return { ok: false, message: `Broken relative link(s): ${brokenLinks.join(', ')}` };
+  }
+
   return { ok: true, message: 'Skill is valid!' };
+}
+
+// Repo-wide consistency check: every relative markdown link in a skill's prose must resolve.
+// This replaces per-skill link tests — written once here instead of once per skill.
+function findBrokenLinks(skillDir) {
+  const proseFiles = ['SKILL.md', 'README.md'];
+  const referencesDir = join(skillDir, 'references');
+  if (existsSync(referencesDir) && statSync(referencesDir).isDirectory()) {
+    for (const entry of readdirSync(referencesDir)) {
+      if (entry.endsWith('.md')) proseFiles.push(join('references', entry));
+    }
+  }
+  const broken = [];
+  for (const file of proseFiles) {
+    const path = join(skillDir, file);
+    if (!existsSync(path)) continue;
+    const body = readFileSync(path, 'utf8');
+    for (const match of body.matchAll(/\]\(([^)\s]+)\)/g)) {
+      const target = match[1].split('#')[0];
+      if (target === '' || /^[a-z][a-z0-9+.-]*:/.test(target)) continue;
+      if (!existsSync(join(dirname(path), target))) broken.push(`${file} -> ${target}`);
+    }
+  }
+  return broken;
 }
 
 function discoverSkillDirs(skillsRoot) {

@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { existsSync, readFileSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, rm, symlink } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
-import { scaffoldSkill, templateFiles, validateName, wiringSteps } from '../scripts/scaffold-skill.mjs'
+import { scaffoldSkill, templateFiles, validateName, wireSkill } from '../scripts/scaffold-skill.mjs'
 
 const skillRoot = resolve(import.meta.dir, '..')
 
@@ -14,8 +14,21 @@ async function makeRepo(): Promise<string> {
   return root
 }
 
+// A repo with the three wiring targets present, as in the real monorepo.
+async function makeWiredRepo(): Promise<string> {
+  const root = await makeRepo()
+  await mkdir(join(root, 'packages/cli'), { recursive: true })
+  await writeFile(join(root, 'packages/cli/packaging.json'), '{\n  "architect": ["SKILL.md"]\n}\n')
+  await writeFile(
+    join(root, 'README.md'),
+    '# Repo\n\n## Skills\n\n| Skill | What it does | Docs |\n|---|---|---|\n| [architect](skills/architect/) | advisor | [SKILL.md](skills/architect/SKILL.md) |\n\nAfter the table.\n',
+  )
+  await mkdir(join(root, '.changeset'))
+  return root
+}
+
 describe('skillify contract', () => {
-  test('SKILL.md passes repo validation', () => {
+  test('SKILL.md passes repo validation (including link resolution)', () => {
     const result = validateSkill(skillRoot)
     expect(result.message).toBe('Skill is valid!')
     expect(result.ok).toBe(true)
@@ -45,27 +58,15 @@ describe('skillify contract', () => {
     expect(description.toLowerCase()).not.toContain('checklist')
   })
 
-  test('SKILL.md stays under the 300-line budget', () => {
+  test('SKILL.md stays under the 300-line ceiling', () => {
     const lines = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8').split('\n').length
     expect(lines).toBeLessThan(300)
   })
 
-  test('relative markdown links resolve in SKILL.md, README.md, and references', () => {
-    for (const file of ['SKILL.md', 'README.md', 'references/authoring.md', 'references/eval-playbook.md']) {
-      const body = readFileSync(join(skillRoot, file), 'utf8')
-      for (const match of body.matchAll(/\]\(([^)#\s]+)\)/g)) {
-        const target = match[1]
-        if (/^[a-z][a-z0-9+.-]*:/.test(target)) continue
-        const base = file.includes('/') ? join(skillRoot, file, '..') : skillRoot
-        expect(`${file} -> ${target}: ${existsSync(join(base, target))}`).toBe(`${file} -> ${target}: true`)
-      }
-    }
-  })
-
-  test('the checklist has exactly 13 scored items and the three verdicts', () => {
+  test('the checklist has exactly 8 scored items and the three verdicts', () => {
     const content = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     const items = content.match(/^\d+\. \*\*/gm) ?? []
-    expect(items.length).toBe(13)
+    expect(items.length).toBe(8)
     expect(content).toContain('properly skilled')
     expect(content).toContain('close — create:')
     expect(content).toContain('needs skillify')
@@ -79,13 +80,21 @@ describe('skillify contract', () => {
     expect(readFileSync(join(skillRoot, 'refresh/REFRESH.md'), 'utf8')).toContain('skill-maintainer')
   })
 
-  test('trigger query fixture has realistic positives and near-miss negatives', () => {
+  test('trigger query fixture is a small hard set with near-miss negatives and an ambiguous case', () => {
     const queries = JSON.parse(readFileSync(join(skillRoot, 'tests/fixtures/trigger-queries.json'), 'utf8'))
     const positives = queries.filter((entry: { should_trigger: boolean }) => entry.should_trigger)
     const negatives = queries.filter((entry: { should_trigger: boolean }) => !entry.should_trigger)
-    expect(positives.length).toBeGreaterThanOrEqual(8)
-    expect(negatives.length).toBeGreaterThanOrEqual(8)
-    for (const entry of queries) expect(typeof entry.query).toBe('string')
+    expect(positives.length).toBeGreaterThanOrEqual(5)
+    expect(negatives.length).toBeGreaterThanOrEqual(4)
+    expect(queries.length).toBeLessThanOrEqual(12)
+    for (const entry of queries) {
+      expect(typeof entry.query).toBe('string')
+      if ('ambiguous_with' in entry) {
+        expect(Array.isArray(entry.ambiguous_with)).toBe(true)
+        for (const neighbor of entry.ambiguous_with) expect(typeof neighbor).toBe('string')
+      }
+    }
+    expect(queries.some((entry: { ambiguous_with?: string[] }) => entry.ambiguous_with?.length)).toBe(true)
   })
 })
 
@@ -94,13 +103,6 @@ describe('scaffold-skill consistency', () => {
     const onDisk = (await readdir(join(skillRoot, 'assets/templates'))).sort()
     const wired = templateFiles.map(([source]: [string, string | null]) => source).sort()
     expect(onDisk).toEqual(wired)
-  })
-
-  test('wiring steps name the three manual integration points', () => {
-    const steps = wiringSteps('demo-skill').join('\n')
-    expect(steps).toContain('sync-skill.mjs')
-    expect(steps).toContain('README.md')
-    expect(steps).toContain('CHANGELOG')
   })
 })
 
@@ -137,7 +139,7 @@ describe('scaffold-skill name grammar', () => {
 
 describe('scaffold-skill runs', () => {
   test('dry run returns the full plan and creates nothing', async () => {
-    const repo = await makeRepo()
+    const repo = await makeWiredRepo()
     try {
       const plan = await scaffoldSkill({ name: 'demo-skill', dir: repo })
       expect(plan.wrote).toBe(false)
@@ -148,22 +150,23 @@ describe('scaffold-skill runs', () => {
         'refresh/REFRESH.md',
         'refresh/sources.json',
         'tests/demo-skill.test.ts',
+        'tests/fixtures/trigger-queries.json',
       ])
-      expect(plan.wiring).toHaveLength(3)
+      expect(plan.wiring.map((entry: { status: string }) => entry.status)).toEqual(['planned', 'planned', 'planned'])
       expect(await readdir(join(repo, 'skills'))).toEqual([])
+      expect(await readdir(join(repo, '.changeset'))).toEqual([])
     } finally {
       await rm(repo, { recursive: true, force: true })
     }
   })
 
-  test('--write creates the contract tree with the name substituted and a valid SKILL.md', async () => {
-    const repo = await makeRepo()
+  test('--write creates the contract tree and performs the repo wiring', async () => {
+    const repo = await makeWiredRepo()
     try {
       const result = await scaffoldSkill({ name: 'demo-skill', dir: repo, write: true, now: new Date('2026-08-08T05:00:00Z') })
       expect(result.wrote).toBe(true)
       const target = join(repo, 'skills', 'demo-skill')
       for (const file of result.files) {
-        expect(`${file}: ${existsSync(join(target, file))}`).toBe(`${file}: true`)
         const body = readFileSync(join(target, file), 'utf8')
         expect(body).not.toContain('{{name}}')
         expect(body).not.toContain('{{date}}')
@@ -179,8 +182,35 @@ describe('scaffold-skill runs', () => {
       expect(validated.ok).toBe(true)
       // No staging leftovers.
       expect(await readdir(join(repo, 'skills'))).toEqual(['demo-skill'])
+
+      // Wiring performed: packaging entry, README row, changeset.
+      expect(result.wiring.map((entry: { status: string }) => entry.status)).toEqual(['done', 'done', 'done'])
+      const packaging = JSON.parse(await readFile(join(repo, 'packages/cli/packaging.json'), 'utf8'))
+      expect(packaging['demo-skill']).toEqual(['SKILL.md', 'agents/openai.yaml', 'refresh/REFRESH.md', 'refresh/sources.json'])
+      expect(Object.keys(packaging)).toEqual(['architect', 'demo-skill'])
+      const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      expect(readme).toContain('| [demo-skill](skills/demo-skill/) |')
+      expect(readme.indexOf('demo-skill')).toBeGreaterThan(readme.indexOf('architect'))
+      expect(readme).toContain('After the table.')
+      expect(await readFile(join(repo, '.changeset/add-demo-skill.md'), 'utf8')).toContain('"@vegastack/skills": minor')
     } finally {
       await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('wiring is idempotent and degrades to skipped in a bare repo', async () => {
+    const wired = await makeWiredRepo()
+    const bare = await makeRepo()
+    try {
+      await wireSkill({ name: 'demo-skill', repoRoot: wired, write: true })
+      const again = await wireSkill({ name: 'demo-skill', repoRoot: wired, write: true })
+      for (const { status } of again) expect(status).toStartWith('skipped:')
+      const bareResult = await scaffoldSkill({ name: 'demo-skill', dir: bare, write: true })
+      expect(bareResult.wrote).toBe(true)
+      for (const { status } of bareResult.wiring) expect(status).toStartWith('skipped:')
+    } finally {
+      await rm(wired, { recursive: true, force: true })
+      await rm(bare, { recursive: true, force: true })
     }
   })
 

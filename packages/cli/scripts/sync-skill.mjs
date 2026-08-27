@@ -8,40 +8,13 @@ const packageRoot = resolve(here, '..')
 const skillsRoot = resolve(packageRoot, '../../skills')
 const bundleRoot = join(packageRoot, 'skill')
 
-// Explicit per-skill packaging allowlists. Anything authored that is neither listed here nor in
-// unpackagedPrefixes fails the build loudly — a forgotten entry must never ship a silently
-// incomplete skill. README.md is repo-side only (its relative links target repo paths); tests are
-// never packaged.
+// Explicit per-skill packaging allowlists live in packaging.json (data, not code) so the
+// skillify scaffolder can wire a new skill automatically. Anything authored that is neither
+// listed there nor in unpackagedPrefixes fails the build loudly — a forgotten entry must never
+// ship a silently incomplete skill. README.md is repo-side only (its relative links target repo
+// paths); tests are never packaged.
 const unpackagedPrefixes = ['tests/', 'README.md']
-const packagedSkills = {
-  architect: [
-    'SKILL.md',
-    'agents/openai.yaml',
-    'assets/arch-template.md',
-    'assets/adr-template.md',
-    ...['principles', 'stack', 'pinned-facts', 'project-profile', 'web', 'data', 'infra', 'ai-agents', 'security', 'mobile', 'advisory'].map(name => `references/${name}.md`),
-    'refresh/REFRESH.md',
-    'refresh/sources.json',
-  ],
-  'skill-maintainer': [
-    'SKILL.md',
-    'agents/openai.yaml',
-    'references/standards.md',
-    'references/release-ops.md',
-    'refresh/REFRESH.md',
-    'refresh/sources.json',
-  ],
-  'skillify': [
-    'SKILL.md',
-    'agents/openai.yaml',
-    'references/authoring.md',
-    'references/eval-playbook.md',
-    ...['SKILL.md.template', 'README.md.template', 'sources.json.template', 'REFRESH.md.template', 'openai.yaml.template', 'skill.test.ts.template'].map(name => `assets/templates/${name}`),
-    'scripts/scaffold-skill.mjs',
-    'refresh/REFRESH.md',
-    'refresh/sources.json',
-  ],
-}
+const packagedSkills = JSON.parse(await readFile(join(packageRoot, 'packaging.json'), 'utf8'))
 
 async function files(root) {
   const output = []
