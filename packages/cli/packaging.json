@@ -1,0 +1,45 @@
+{
+  "architect": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "assets/arch-template.md",
+    "assets/adr-template.md",
+    "references/principles.md",
+    "references/stack.md",
+    "references/pinned-facts.md",
+    "references/project-profile.md",
+    "references/web.md",
+    "references/data.md",
+    "references/infra.md",
+    "references/ai-agents.md",
+    "references/security.md",
+    "references/mobile.md",
+    "references/advisory.md",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
+  "skill-maintainer": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/standards.md",
+    "references/release-ops.md",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
+  "skillify": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/authoring.md",
+    "references/eval-playbook.md",
+    "assets/templates/SKILL.md.template",
+    "assets/templates/README.md.template",
+    "assets/templates/sources.json.template",
+    "assets/templates/REFRESH.md.template",
+    "assets/templates/openai.yaml.template",
+    "assets/templates/trigger-queries.json.template",
+    "assets/templates/skill.test.ts.template",
+    "scripts/scaffold-skill.mjs",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ]
+}

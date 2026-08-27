@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
 
@@ -12,29 +12,16 @@ describe('{{name}} contract', () => {
     expect(result.ok).toBe(true)
   })
 
-  test('frontmatter carries only name and description', () => {
-    const content = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
-    const frontmatter = /^---\n([\s\S]*?)\n---/.exec(content)
-    expect(frontmatter).not.toBeNull()
-    const keys = (frontmatter as RegExpExecArray)[1]
-      .split('\n')
-      .filter(line => /^[A-Za-z]/.test(line))
-      .map(line => line.split(':')[0])
-    expect(keys.sort()).toEqual(['description', 'name'])
+  test('trigger query fixture is a small hard set with near-miss negatives', () => {
+    const queries = JSON.parse(readFileSync(join(skillRoot, 'tests/fixtures/trigger-queries.json'), 'utf8'))
+    const positives = queries.filter((entry: { should_trigger: boolean }) => entry.should_trigger)
+    const negatives = queries.filter((entry: { should_trigger: boolean }) => !entry.should_trigger)
+    expect(positives.length).toBeGreaterThanOrEqual(5)
+    expect(negatives.length).toBeGreaterThanOrEqual(4)
+    for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
-  test('relative markdown links resolve', () => {
-    for (const file of ['SKILL.md', 'README.md']) {
-      const body = readFileSync(join(skillRoot, file), 'utf8')
-      for (const match of body.matchAll(/\]\(([^)#\s]+)\)/g)) {
-        const target = match[1]
-        if (/^[a-z][a-z0-9+.-]*:/.test(target)) continue
-        expect(`${file} -> ${target}: ${existsSync(join(skillRoot, target))}`).toBe(`${file} -> ${target}: true`)
-      }
-    }
-  })
-
-  // TODO: add unit tests for every deterministic branch of scripts/, plus the
-  // consistency test (prose, scripts, templates, and registry agree). Lock in
-  // eval-proven behavior only AFTER the behavioral eval passes (skillify Phase 4).
+  // TODO: if this skill ships scripts/, add unit tests for every deterministic
+  // branch. A prose-only skill needs nothing more here - its quality bar is the
+  // behavioral eval (skillify Phase 4), which runs BEFORE tests lock anything in.
 })

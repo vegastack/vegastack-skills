@@ -4,7 +4,7 @@ Instructions for the scheduled refresh agent (and any human running a manual ref
 
 ## What this skill claims
 
-- **Durable rules** (SKILL.md, most of `references/`): the phase model, checklist structure, eval-before-tests ordering, description doctrine, claim-classification taxonomy. Versionless; the refresh agent NEVER edits these. If external evidence invalidates one, open an issue quoting the evidence — do not edit.
+- **Durable rules** (SKILL.md, most of `references/`): the phase model, checklist structure, eval-before-tests ordering, description doctrine, the volatile-facts rule. Versionless; the refresh agent NEVER edits these. If external evidence invalidates one, open an issue quoting the evidence — do not edit.
 - **Mirrored volatile claims**: skillify does not track its own external sources. Its two volatile spots are marked in place:
   - the numeric limits and harness listing budgets table in `references/authoring.md` (marked `<!-- mirrored -->`);
   - the model guidance section in `references/eval-playbook.md` (marked `<!-- volatile -->`).

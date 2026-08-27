@@ -8,7 +8,7 @@ Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/s
 |---|---|---|
 | [architect](skills/architect/) | VegaStack's senior architecture advisor: the locked stack and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts, a per-project `.vegastack/arch.md` profile with repo-wins drift detection, and an advisory-only review discipline | [Walkthrough](skills/architect/README.md) · [SKILL.md](skills/architect/SKILL.md) |
 | [skill-maintainer](skills/skill-maintainer/) | Encodes the verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create/update/rename/release of a skill in this repo runs through its workflows and hard limits | [Walkthrough](skills/skill-maintainer/README.md) · [SKILL.md](skills/skill-maintainer/SKILL.md) |
-| [skillify](skills/skillify/) | Repo-local skill factory and auditor: gates whether something should be a skill at all, scaffolds the full per-skill contract, and scores existing skills against a 13-item completeness checklist with behavioral-eval-before-tests discipline | [Walkthrough](skills/skillify/README.md) · [SKILL.md](skills/skillify/SKILL.md) |
+| [skillify](skills/skillify/) | Repo-local skill factory and auditor: gates whether something should be a skill at all, scaffolds the per-skill contract with automatic repo wiring, and scores existing skills against an 8-item completeness checklist with behavioral-eval-before-tests discipline | [Walkthrough](skills/skillify/README.md) · [SKILL.md](skills/skillify/SKILL.md) |
 
 Install any skill by name:
 
