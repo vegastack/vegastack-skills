@@ -1,5 +1,15 @@
 # @vegastack/skills
 
+## 0.7.0
+
+### Minor Changes
+
+- 899bb5b: Add the dev-implement skill: implements an approved issue end to end without user input — fail-closed preflight (label plus recorded approval), claim by assignee and working label, dark execution bounded by the brief and the dev.md stop-list, tests, independent review, one in-place evidence comment, hand-back with for-you. Direct user requests in chat bypass the issue machinery on the user's own authority.
+- 899bb5b: Add the dev-intake skill: turns brainstorms, feature requests, and SOWs into agent-ready GitHub issues — grilling-style rounds with recommended answers, vertical-slice briefs from a template, native dependencies/milestones, and quoted-approval recording that flips needs-you to ready.
+- 899bb5b: Add the dev-setup skill: re-runnable project bootstrap for the issue-driven dev workflow — detect-first interview, `.vegastack/dev.md` profile with knobs, marked AGENTS.md section plus CLAUDE.md import, the five workflow labels, and the decision register; degrades to documented defaults marked TODO when no question tool is available.
+- 899bb5b: Add the dev-ship skill: the last two gates, each spent only by the user's words — PR creation linked to the issue's evidence, then a separate merge instruction that re-verifies the reviewed head, squash-merges, and appends recorded decisions to the register.
+- 3b989bb: skillify v2 — lean contract. The checklist shrinks from 13 to 8 items with stable additive numbering: unit tests are now required only for bundled scripts' deterministic branches (a prose-only skill's quality bar is the behavioral eval), the per-skill consistency test becomes a repo-wide relative-link check inside validate-skill.mjs, and the claim-classification taxonomy collapses to one volatile-facts rule with a one-line evergreen waiver default. New: a "sharp boundary" item requiring each skill to name its nearest-neighbor skill and the axis of difference; trigger-query fixtures become ~10 hard queries with `ambiguous_with`; authoring.md gains writing-style doctrine (prompt the positive, hunt no-ops and sediment, 50–150-line body budget). The scaffolder now performs repo wiring itself — packaging entry (moved from sync-skill.mjs code into packaging.json data), root README row, and changeset — idempotently, degrading to explicit skipped statuses outside the monorepo.
+
 ## 0.6.0
 
 ### Minor Changes
