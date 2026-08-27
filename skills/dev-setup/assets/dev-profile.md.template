@@ -1,0 +1,23 @@
+# Dev profile — {{owner/repo}}
+
+repo: {{owner/repo}} · default branch {{branch}}
+stack: {{one line, or "see .vegastack/arch.md"}}
+commands: test `{{test}}` · build `{{build}}` · dev `{{dev}}`
+
+## Knobs
+
+review: subagent            # subagent | cross-agent | cross-agent-risky
+ui-evidence: playwright     # playwright | none
+evidence-repo: {{owner}}/dev-review-assets
+gates: 3                    # 3 = approve/PR/merge · 2 = approve/ship
+tests: required             # required | logic-only
+merge: squash
+branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor
+
+## Stop and ask
+
+Dark execution ends and the user decides when work would involve: a change of scope or product behavior, a significant new dependency or runtime, spending money, anything destructive or touching production, or a blocker the brief cannot resolve.
+
+## Project rules
+
+- {{project-specific rules, one per line; delete this section if none}}

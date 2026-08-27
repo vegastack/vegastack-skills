@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "retrievalBaseline": "2026-08-27",
+  "policy": {
+    "criticalTopics": [
+      "claude-code-memory",
+      "codex-agents-md"
+    ],
+    "defaultChecksumScope": "html-text-v1",
+    "offline": "Use cached metadata only; fail closed when a critical entry is missing or older than thresholdDays.",
+    "drift": "Any drift requires reading the changed page and a human-reviewed PR updating references/harness-facts.md; never auto-apply.",
+    "copyright": "Store claim metadata, URLs, hashes, and concise excerpts only; never archive third-party documentation corpora.",
+    "cadence": "weekly scheduled-agent refresh; thresholdDays must be >= 14 (2x cadence) so a single missed run never breaches a threshold"
+  },
+  "sources": [
+    {
+      "id": "CC-MEMORY",
+      "service": "Claude Code memory files and imports (CLAUDE.md, AGENTS.md, @imports)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://code.claude.com/docs/en/memory.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "claude-code-memory"
+      ],
+      "affected": [
+        "references/harness-facts.md",
+        "SKILL.md"
+      ],
+      "checksum": "e989818335ae45abb756df759d4859aa9daa6764393a3e39c46e505f181a33b6",
+      "retrievedAt": "2026-08-27T08:19:24.132Z"
+    },
+    {
+      "id": "CC-SKILLS",
+      "service": "Claude Code skill discovery locations and frontmatter",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://code.claude.com/docs/en/skills.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "claude-code-skills"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ],
+      "checksum": "8d03177dcc10ffbff5313c43023da15ff1059197c1fff05eb9dba3fe6361c767",
+      "retrievedAt": "2026-08-27T08:19:24.132Z"
+    },
+    {
+      "id": "CC-TOOLS",
+      "service": "Claude Code AskUserQuestion tool behavior",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://code.claude.com/docs/en/tools-reference.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "claude-code-tools"
+      ],
+      "affected": [
+        "references/harness-facts.md",
+        "SKILL.md"
+      ],
+      "checksum": "3bdd8429e76be8213e9263103134ac7b6892f4574820e40bf84032a98c5d0aeb",
+      "retrievedAt": "2026-08-27T08:19:24.132Z"
+    },
+    {
+      "id": "CODEX-AGENTS",
+      "service": "Codex AGENTS.md discovery, merging, and size cap",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": true,
+      "urls": {
+        "primary": "https://learn.chatgpt.com/docs/agent-configuration/agents-md.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "codex-agents-md"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ],
+      "checksum": "9eacb3d812b87be4acc1213af58ded35e8f387bcf1589c203bbb452ead0c4774",
+      "retrievedAt": "2026-08-27T08:19:24.132Z"
+    },
+    {
+      "id": "CODEX-SKILLS",
+      "service": "Codex skills discovery, frontmatter, and request_user_input gating",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://learn.chatgpt.com/docs/build-skills.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "codex-skills"
+      ],
+      "affected": [
+        "references/harness-facts.md",
+        "SKILL.md"
+      ],
+      "checksum": "44aa6d490f4567c0b1fb064deab642bfac590f0e721228e0c53fe738db191026",
+      "retrievedAt": "2026-08-27T08:19:24.132Z"
+    },
+    {
+      "id": "CODEX-EXEC",
+      "service": "Codex non-interactive mode (codex exec)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://learn.chatgpt.com/docs/non-interactive-mode.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "codex-exec"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ],
+      "checksum": "df82c4bbf3b5bffca926a244549222c1235154cfba973b9a0bb1d7a0abd28d66",
+      "retrievedAt": "2026-08-27T08:19:24.132Z"
+    }
+  ]
+}

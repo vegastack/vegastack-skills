@@ -5,7 +5,7 @@ import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
 
 const skillRoot = resolve(import.meta.dir, '..')
 
-describe('{{name}} contract', () => {
+describe('dev-setup contract', () => {
   test('SKILL.md passes repo validation', () => {
     const result = validateSkill(skillRoot)
     expect(result.message).toBe('Skill is valid!')

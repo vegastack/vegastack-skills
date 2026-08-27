@@ -1,0 +1,11 @@
+[
+  { "query": "do issue #12", "should_trigger": true },
+  { "query": "implement https://github.com/vegastack/acme-app/issues/34 end to end", "should_trigger": true },
+  { "query": "pick up the next ready issue and go dark", "should_trigger": true },
+  { "query": "I left corrections on issue #7, apply them", "should_trigger": true },
+  { "query": "issue 21 is ready - build it", "should_trigger": true },
+  { "query": "write an issue for the login timeout bug", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
+  { "query": "merge #12 now", "should_trigger": false, "ambiguous_with": ["dev-ship"] },
+  { "query": "set up the dev workflow in this fresh repo", "should_trigger": false, "ambiguous_with": ["dev-setup"] },
+  { "query": "review this open PR from my teammate and leave comments", "should_trigger": false }
+]

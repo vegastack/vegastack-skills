@@ -1,0 +1,4 @@
+interface:
+  display_name: "dev-intake"
+  short_description: "Turn ideas or SOWs into agent-ready GitHub issues"
+  default_prompt: "Use $dev-intake to turn this into GitHub issues."
