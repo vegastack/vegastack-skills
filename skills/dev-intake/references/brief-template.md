@@ -39,10 +39,18 @@ these passing.
 
 What could go wrong and what should make the agent stop and ask instead of pushing
 through — beyond the standing stop-list in .vegastack/dev.md.
+
+## Assumptions — confirm or correct
+
+Anything material the grounding investigation could not verify, one per line, each
+awaiting the user's confirm/correct. The issue cannot go `ready` while one is
+unconfirmed. Verified facts never appear here — they live in their section with
+their evidence. Delete the section once every entry is resolved.
 ```
 
 ## Writing rules
 
 - Inline over linked: the material details live in the issue itself. A link supports; it never substitutes.
 - Concrete over abstract: "rejects amounts over 10,000 with error E402" beats "validates input".
+- Evidence over confidence: touch points name real file paths; a dependency capability claim carries the doc check and its date; what couldn't be verified goes to Assumptions, never stated as fact.
 - The brief binds the agent, so ambiguity is a bug in the brief — if two readings exist, the interview wasn't done.
