@@ -11,7 +11,7 @@ Nearest neighbor: `dev-implement` consumes what this produces — intake writes 
 
 ## Read first, ask second
 
-Read the source material completely — the document, the conversation, the codebase where it clarifies feasibility. Extract every answer that is findable; questions are only for genuine decisions. Finding facts is your job, never the user's.
+Read the source material completely — the document, the conversation, the codebase where it clarifies feasibility. The source can be one sentence in chat; thinner material just means the interview carries more weight. Extract every answer that is findable; questions are only for genuine decisions. Finding facts is your job, never the user's.
 
 ## The interview
 
@@ -20,6 +20,17 @@ Ask in rounds using your harness's question tool (AskUserQuestion in Claude Code
 - Number the questions. Give each a **recommended answer with a one-line reason**, so the user can reply "all recommended" or override by number.
 - Stop asking when the bar is met: *a fresh agent could implement each issue without asking anything.* Test every brief against that sentence before calling it done.
 - Do not re-ask what the material or an earlier round already settled.
+
+## The angles, in order
+
+Work the design the way a joint product-and-tech review would; each round's answers feed the next:
+
+1. **Product** — who this is for, the observable outcome, what's in and out of scope now, how it splits into slices or phases, priority.
+2. **Behavior** — primary and alternate flows, rules, permissions, validations, edge and failure cases; for UI, the states, components, and copy.
+3. **Technical** — only the choices that are genuinely the user's: approach trade-offs, data and interface implications, integrations, migration; recommend one and say why. Routine implementation stays the implementer's.
+4. **Quality and risk** — what proves it works (test cases, acceptance), what earns the `risky` label, what should stop a dark run beyond the standing stop-list.
+
+These are the brief template's sections in interview form — a question exists only where reading the material, the codebase, and sensible defaults cannot fill a section.
 
 ## Slicing
 
