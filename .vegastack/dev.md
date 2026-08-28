@@ -24,16 +24,13 @@ release: on-request         # releases batch up until the operator says "release
 
 Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position; its release.yml copy is the backstop).
 
-- auto: every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet below); contributors never bump versions
-- On "release":
 - auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main
-- guard: `packages/cli/CHANGELOG.md` has an entry for the version being tagged
-- guard: `v<version>` tag matches `packages/cli/package.json` version
-- auto: `git tag v<version> && git push origin v<version>` — the tag triggers the pipeline (check → guards → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
-- auto: confirm `npm view @vegastack/skills version` matches and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
+- guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
+- ask: tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` — deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
+- auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
 - Publishing is tag-triggered trusted publishing (OIDC, token-free, provenance by default — never pass `--provenance` explicitly, it conflicts with trusted-publishing config)
 - Rollback is roll-forward: revert on main, release previous-good as a new patch, `npm deprecate` the bad version ("Broken — use <new>"); unpublish only for leaked secrets within 72h, in addition to roll-forward, never instead
-- Content semver: new references/sections/recorded decisions = minor · factual refreshes, wording, test-only = patch · removing/renaming a skill, weakening a normative rule, breaking a per-project profile format = major; installer changes follow ordinary semver on the same version, a release takes the higher bump — detail in skill-maintainer's release-ops.md
+- Content semver: new references/sections/recorded decisions = minor · factual refreshes, wording, test-only = patch · removing/renaming a skill, weakening a normative rule, breaking a per-project profile format = major (pre-1.0 with zero deployed profile consumers, a profile-format break may ship minor — recorded decision 28-08-2026); installer changes follow ordinary semver on the same version, a release takes the higher bump — detail in skill-maintainer's release-ops.md
 
 ## Verify — how to see it working (pre-merge)
 
@@ -56,6 +53,7 @@ Dark execution ends and the operator decides when work would involve: a change o
 
 ## Project rules
 
+- Every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet in Ship); contributors never bump versions
 - The single version lives in `packages/cli/package.json` (changesets-managed); the workspace root package.json is versionless — nothing else tracks a version
 - Every skill change goes through skillify's contract (8-item checklist, eval before tests)
 - Never commit generated files: dist/, packages/cli/skill/, skill-integrity.json

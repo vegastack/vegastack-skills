@@ -23,7 +23,7 @@ profile carries a schema version to validate against.
 
 ## Release flow (tag-driven)
 
-1. Every PR that changes released behavior lands with a changeset (`bunx changeset`) whose bump follows the table above.
+1. Every PR that changes released behavior lands with a changeset — a `.changeset/<slug>.md` written directly, since the `changeset` add prompt is interactive (`bunx changeset version` at release time is the only CLI use) — whose bump follows the table above.
 2. Maintainer, at release time: `bunx changeset version` (applies changesets to `packages/cli/package.json` and the changelog), then `bun install` so `bun.lock` does not go stale, commit. The release record is `packages/cli/CHANGELOG.md`, changesets-written — never by hand; the root `CHANGELOG.md` is the frozen pre-0.3.0 record pointing there.
 3. Tag the release commit `v<version>`, push the tag.
 4. The release workflow runs on the tag: `bun run check`, tag↔version guard, `npm publish` via trusted publishing (OIDC, token-free, provenance by default; idempotently skipped if already on the registry), SBOM, GitHub release. Never pass `--provenance` explicitly — it conflicts with trusted-publishing config.

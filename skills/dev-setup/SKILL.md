@@ -41,7 +41,7 @@ Ask with your harness's question tool — AskUserQuestion in Claude Code, `reque
 
 **Round C — only when the situation exists:**
 
-- Playbook matched → show the drafted `## Ship` runbook (each step `auto:`, `ask:`, or `guard:`), the `changelog:` convention, and the `release:` knob (per-merge or on-request) for confirmation; no machinery → "Ship: merge only" and move on
+- Playbook matched → show the drafted `## Ship` runbook (each step `auto:`, `ask:`, or `guard:` — every `guard:` line carries its runnable command inline), the `changelog:` convention, and the `release:` knob (per-merge or on-request) for confirmation; a keep-a-changelog convention with no CHANGELOG.md yet → offer to seed the skeleton; no machinery → "Ship: merge only" and move on
 - Guards drafted → offer to write their CI backstop steps into the project's workflow files (the local `guard:` lines run without CI); each file on the user's yes — release guards only, never general CI
 - Environments or run commands detected → confirm the drafted `## Environments` and `## Verify` bullets
 - Evidence repo (`ui-evidence: playwright`) → default is the owner's **shared** `<owner>/dev-review-evidence`; if it doesn't exist, offer `gh repo create <owner>/dev-review-evidence --private --add-readme` + the layout/retention README — created once, every project points at it. An org naming policy that rejects the name → pick the closest compliant name with the user and record it in the knob (the name is a knob value, not a contract)

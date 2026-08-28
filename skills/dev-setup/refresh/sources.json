@@ -143,7 +143,8 @@
         "claude-code-hooks"
       ],
       "affected": [
-        "references/harness-facts.md"
+        "references/harness-facts.md",
+        "SKILL.md"
       ],
       "checksum": "936bd443066df08a514972673358e102fd23b80bee9a289d3d53a1ed8aca1a64",
       "retrievedAt": "2026-08-27T14:41:39.189Z"
@@ -165,7 +166,8 @@
         "codex-hooks"
       ],
       "affected": [
-        "references/harness-facts.md"
+        "references/harness-facts.md",
+        "SKILL.md"
       ],
       "checksum": "430f2d85a4791dc695bcdc063193c225343104a342e8adf80a544ab87ae4223d",
       "retrievedAt": "2026-08-27T14:41:39.189Z"

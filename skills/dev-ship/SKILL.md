@@ -1,6 +1,6 @@
 ---
 name: dev-ship
-description: Create the pull request and merge for a finished issue, each only on the user's explicit word, then run the project's Ship runbook — releases, guards, deploys. Use when the user says "make the PR", "open a pull request" for an issue, "ship it", "merge it", "merge issue 12", "release", "release everything since the last tag", or asks to close out a reviewed issue or merge a bot PR. Verifies the issue is at for-operator with evidence and its changelog entry, links the PR to the issue, merges on the separate merge instruction, and records approved decisions. Not for implementing issues (dev-implement) or writing and approving them (dev-intake).
+description: Create the pull request and merge for a finished issue, each only on the user's explicit word, then run the project's Ship runbook — releases, guards, deploys. Use when the user says "make the PR", "open a pull request" for an issue, "ship it", "merge it", "merge issue 12", "release", "release everything since the last tag", or asks to close out a reviewed issue, merge a bot PR, or roll back a bad release (roll-forward). Verifies the issue is at for-operator with evidence and its changelog entry, links the PR to the issue, merges on the separate merge instruction, and records approved decisions. Not for implementing issues (dev-implement) or writing and approving them (dev-intake).
 ---
 
 # dev-ship
@@ -14,10 +14,11 @@ Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evi
 On the user's PR instruction:
 
 - Verify the issue is at `for-operator` with the evidence comment present, and the branch is pushed. Not there yet → say what's missing instead of creating a premature PR.
-- Verify the branch carries its changelog entry per dev.md's `changelog:` knob (changesets: a `.changeset/*.md` in the diff; keep-a-changelog: the diff touches the Unreleased section). Missing → corrections loop, not a PR.
+- Verify the changelog state matches the evidence comment's `**Changelog:**` line: a behavior-changing branch carries its entry per dev.md's `changelog:` knob (changesets: a `.changeset/*.md` in the diff; keep-a-changelog: the diff adds lines to CHANGELOG.md), while `none` with a reason that holds up (docs-only, test-only) is fine. An unexplained miss → corrections loop, not a PR.
 - `gh pr create` from the task branch: title from the issue, body is `Closes #<n>` plus a link to the evidence comment — the issue holds the report; the PR links it rather than duplicating it.
 - No draft PRs unless the user asks for one.
-- If required checks fail on the PR, that's implement work: hand the failures to the corrections loop, update the evidence comment, and tell the user.
+- If required checks fail on the PR, that's implement work: hand the failures to the corrections loop, update the evidence comment, and tell the user. Under `gates: 2` the standing ship word holds once checks are green again — unless the fix changed behavior, which goes back to the user (same rule as a merge conflict).
+- A direct chat change (dev-implement's no-issue path) ships on the same words: the chat request stands in for the recorded approval, the PR body carries the evidence instead of linking an issue comment, and the changelog rule applies unchanged.
 - User corrections left on the PR itself flow through the same corrections loop on the same branch — the PR updates with the push; nothing gets recreated.
 
 With `gates: 1` there is no PR: the same verifications run, then the ship word triggers the merge below directly ([runbook](references/runbook.md) has the mechanics).
