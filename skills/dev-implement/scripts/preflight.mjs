@@ -56,8 +56,12 @@ export function gatherAndEvaluate(flags) {
   try {
     blockedBy = ghJson(['api', `repos/${repo}/issues/${issueNumber}/dependencies/blocked_by`])
       .filter((b) => b.state === 'open');
-  } catch {
-    blockedBy = []; // dependencies API absent on this host — no blocker data is "none recorded", not a failure
+  } catch (error) {
+    // Only a missing endpoint (host without the dependencies API) means "none
+    // recorded". Every other failure — auth, network, rate limit — is
+    // unverifiable state and fails closed.
+    if (!/404|Not Found/i.test(error.message)) throw error;
+    blockedBy = [];
   }
   const devMd = readFileSync(flags['dev-md'] || '.vegastack/dev.md', 'utf8');
   const me = flags.me || ghJson(['api', 'user']).login;

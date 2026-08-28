@@ -21,6 +21,7 @@ const cleanFacts = () => ({
   changelogTouched: true,
   allowNoChangelog: undefined,
   checkExit: 0,
+  checkoutMismatch: null,
 })
 
 describe('ship-gate', () => {
@@ -31,11 +32,23 @@ describe('ship-gate', () => {
     const r = evaluateShipGate({ ...cleanFacts(), evidence: null })
     expect(r.blocks[0]).toContain('no evidence comment')
   })
-  test('moved head with stale evidence blocks; postdating Docs update passes', () => {
+  test('moved head blocks until the evidence sha itself is updated — a mere comment edit is not reconciliation', () => {
     const moved = { ...cleanFacts(), headSha: 'fff9999', headCommittedAt: '2026-08-29T12:00:00Z' }
     expect(evaluateShipGate(moved).blocks.some((b) => b.includes('moved past evidence sha'))).toBe(true)
-    const reconciled = { ...moved, evidence: { body: evidenceBody(), updatedAt: '2026-08-29T13:00:00Z' } }
+    const editedButStale = { ...moved, evidence: { body: evidenceBody(), updatedAt: '2026-08-29T13:00:00Z' } }
+    expect(evaluateShipGate(editedButStale).blocks.some((b) => b.includes('moved past evidence sha'))).toBe(true)
+    const reconciled = { ...moved, evidence: { body: evidenceBody('fff9999'), updatedAt: '2026-08-29T13:00:00Z' } }
     expect(evaluateShipGate(reconciled).blocks).toEqual([])
+  })
+  test('missing or invalid evidence sha blocks (never falls open on startsWith(""))', () => {
+    const noSha = { ...cleanFacts(), evidence: { body: evidenceBody().replace(' sha=abc1234', ''), updatedAt: '2026-08-29T10:00:00Z' } }
+    expect(evaluateShipGate(noSha).blocks.some((b) => b.includes('no valid sha='))).toBe(true)
+    const shortSha = { ...cleanFacts(), evidence: { body: evidenceBody().replace('sha=abc1234', 'sha=f'), updatedAt: '2026-08-29T10:00:00Z' } }
+    expect(evaluateShipGate(shortSha).blocks.some((b) => b.includes('no valid sha='))).toBe(true)
+  })
+  test('a checkout that is not the branch under review blocks the fresh-check claim', () => {
+    const r = evaluateShipGate({ ...cleanFacts(), checkoutMismatch: 'the current checkout (1111111) is not the branch under review' })
+    expect(r.blocks.some((b) => b.includes('not the branch under review'))).toBe(true)
   })
   test('missing changelog blocks unless a reason is given', () => {
     const r = evaluateShipGate({ ...cleanFacts(), changelogTouched: false })
@@ -53,9 +66,11 @@ describe('ship-gate', () => {
     expect(evaluateShipGate({ ...cleanFacts(), checkExit: 1 }).blocks.some((b) => b.includes('check command'))).toBe(true)
     expect(evaluateShipGate({ ...cleanFacts(), checkExit: null }).blocks).toEqual([])
   })
-  test('leftover [DEBUG- tags in the diff block', () => {
-    const r = evaluateShipGate({ ...cleanFacts(), diffText: '+console.log("[DEBUG-a4f2] x")' })
-    expect(r.blocks.some((b) => b.includes('[DEBUG-'))).toBe(true)
+  test('leftover [DEBUG- tags block only on ADDED lines — removals and docs context pass', () => {
+    const added = evaluateShipGate({ ...cleanFacts(), diffText: '+console.log("[DEBUG-a4f2] x")' })
+    expect(added.blocks.some((b) => b.includes('[DEBUG-'))).toBe(true)
+    const removedOrContext = evaluateShipGate({ ...cleanFacts(), diffText: '-console.log("[DEBUG-a4f2] x")\n [DEBUG-docs] mention in context\n+++ b/skills/dev-debug/SKILL.md' })
+    expect(removedOrContext.blocks).toEqual([])
   })
   test('rationalization phrases warn, never block', () => {
     const facts = cleanFacts()
