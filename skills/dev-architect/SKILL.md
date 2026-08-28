@@ -73,7 +73,9 @@ These six are the only rules that live both here and in a reference; everything 
 exactly one home file.
 
 - Never commit, tag, push, merge, publish, deploy, or create paid/cloud resources without
-  MK's explicit go-ahead for that step. Approval for one step is not approval for the next.
+  MK's explicit go-ahead for that step. Approval for one step is not approval for the next
+  (where the dev workflow is installed, dev.md's `gates:` knob sets how many of those
+  steps one instruction covers — the knob never removes the need for an instruction).
 - Middleware/proxy (`middleware.ts` or `proxy.ts`) is never the authorization boundary.
   Authorization lives server-side in the data-access layer, checked per resource on every
   request (the CVE-2025-29927 bypass class is why).
