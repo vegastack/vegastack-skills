@@ -16,8 +16,8 @@ describe('dev-plan contract', () => {
     const queries = JSON.parse(readFileSync(join(skillRoot, 'tests/fixtures/trigger-queries.json'), 'utf8'))
     const positives = queries.filter((entry: { should_trigger: boolean }) => entry.should_trigger)
     const negatives = queries.filter((entry: { should_trigger: boolean }) => !entry.should_trigger)
-    expect(positives.length).toBeGreaterThanOrEqual(5)
-    expect(negatives.length).toBeGreaterThanOrEqual(4)
+    expect(positives.length).toBeGreaterThanOrEqual(8)
+    expect(negatives.length).toBeGreaterThanOrEqual(6)
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 

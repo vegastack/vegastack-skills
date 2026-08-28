@@ -42,7 +42,7 @@ Set at intake, applied as a label, announced with its reason (operator can overr
 - **`quick-build`** — small change and the flow being changed already exists in the repo to read. Brief (description) + plan (comment) are drafted in the same conversation; **one approval covers both**; then straight to `ready`.
 - **`full-plan`** — big or new ground. Brief approval → `needs-plan` → a separate, fresh-grounded planning session posts the plan → `needs-operator` → "plan approved" → `ready`. Multi-deliverable work becomes an epic; each sub-issue is classified independently.
 
-**The ratchet is one-way:** work revealed bigger than its label stops and proposes the upgrade (quick-build → full-plan, issue → epic split) via `needs-operator` — never silently powered through. Downgrades only on the operator's explicit yes at plan time.
+Scope calls are revisited through the one-way ratchet, whose rules and mechanics live in the `dev-plan` skill — the one home for upgrade/downgrade behavior.
 
 ## Labels
 
@@ -62,7 +62,7 @@ Modifiers (may coexist with the state label): `risky` · scope `research` / `qui
 
 - **Title prefixes** on issues, branches, and PRs identically: dev.md's `branch:` knob type list (that knob stays the list's one home) plus `research:` for research issues. PR title = issue title.
 - **Native issue types** where the org defines them: Feature (feat) · Bug (fix) · Task (docs/chore/refactor/research) · Epic for parents (label fallback otherwise).
-- **Hierarchy:** epic parent = map only (Destination · Decisions so far as one-line gists · Not clear yet · Out of scope), children attached as native sub-issues; issues = the unit of work (brief in description, own approvals/branch/PR/evidence); tasks = checkboxes **in the plan comment only**. Blockers use native issue dependencies; phases use milestones. Only issues — never epics — get `ready`. A plan approaching GitHub's ~65,536-character comment cap means the issue should have been an epic: propose the split.
+- **Hierarchy:** epic parent = map only (Destination · Decisions so far as one-line gists · Not clear yet · Out of scope), children attached as native sub-issues; issues = the unit of work (brief in description, own approvals/branch/PR/evidence); tasks = checkboxes **in the plan comment only**. Blockers use native issue dependencies; phases use milestones. Only issues — never epics — get `ready`. GitHub caps issue bodies and comments at ~65,536 characters; what a plan nearing that cap means is the `dev-plan` ratchet's call.
 
 ## The ledger
 
