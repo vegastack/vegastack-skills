@@ -5,7 +5,7 @@ description: Bootstrap a project for issue-driven agent development — existing
 
 # dev-setup
 
-Re-runnable bootstrap that gives a project everything the dev workflow needs: a profile file holding the knobs and runbooks, a thin AGENTS.md section that both Claude Code and Codex read, the GitHub labels, and the decision register. The other dev skills call this automatically when `.vegastack/dev.md` is missing, then continue with their original request.
+Re-runnable bootstrap that gives a project everything the dev workflow needs: a profile file holding the knobs and runbooks, a thin AGENTS.md section that both Claude Code and Codex read, the GitHub labels, and the decision register. The other dev skills call this automatically when `.vegastack/dev.md` is missing, then continue with their original request. The workflow-wide artifact spec — comment markers, operator identity, revision markers, scope classes, ledger format, `.vegastack/.tmp/` workspace — lives in [conventions](references/conventions.md); every dev skill cites it rather than restating it.
 
 Nearest neighbor: `dev-architect` consumes dev.md's `## Architecture` section and gives architecture advice; dev-setup detects the facts and writes the section. There is no separate architecture profile — dev.md is the one file.
 
@@ -24,6 +24,8 @@ Facts are your job; decisions are the user's. Gather these silently and present 
 | architecture (app repos) | wrangler files (a `d1_databases` binding with no Postgres driver = the D1-only class), drizzle config, better-auth usage, `@aws-sdk/client-s3`/R2 bindings, pg-boss dependency, `eve`/`ai` packages, Dockerfiles/compose, pubspec.yaml — these draft `## Architecture` |
 | existing files | AGENTS.md, CLAUDE.md, `.vegastack/dev.md`, a legacy `.vegastack/arch.md`, the decision register |
 | existing labels | `gh label list` |
+| native issue types | `gh api orgs/<org>/issue-types` — an `Epic` type routes parents to it; absent endpoint or type → the `epic` label fallback ([conventions](references/conventions.md)) |
+| Codex CLI (cross-agent review) | `command -v codex` — absent → record the gap in dev.md `## Environments` and recommend installing it |
 
 Not a git repo, or no origin remote → this is a **greenfield run, not an error**: follow the greenfield playbook in [stack-playbooks](references/stack-playbooks.md) — interview for the intended stack, offer `git init` and `gh repo create` each on its own yes, and render dev.md from the chosen playbook's conventions with TODO lines where machinery doesn't exist yet. A declined remote skips labels and records the TODO plainly.
 
@@ -62,7 +64,7 @@ Everything else — merge style, branch naming, the stop-and-ask list — takes 
 | `.vegastack/dev.md` | render [dev-profile template](assets/dev-profile.md.template) with the answers — the project's single canonical process doc (short directional bullets; Ship/Verify/Environments/Design drafted from the playbook, Architecture drafted from detection, Decisions test included, placeholders deleted, TODO lines where machinery is absent) |
 | `AGENTS.md` | create it, or insert/replace only the block between `<!-- vsk-dev:start -->` and `<!-- vsk-dev:end -->` using the [agents-section template](assets/agents-section.md.template); content outside the markers is the user's and stays untouched |
 | `CLAUDE.md` | ensure its first line is `@AGENTS.md` — Claude Code does not read AGENTS.md natively and needs this import ([harness-facts](references/harness-facts.md)); create the file when absent |
-| labels | `gh label create <name> --color <hex> --description "<text>"` for the names the `labels:` knob records, skipping ones that exist; default names and creation colors: `needs-operator` FBCA04 (waiting on the user) · `ready` 0E8A16 (approved, agent may start) · `working` 1D76DB (claimed by an agent) · `for-operator` 5319E7 (result awaiting user review) · `risky` B60205 (security, money, data, or production) |
+| labels | `gh label create <name> --color <hex> --description "<text>"` for the names the `labels:` knob records, skipping ones that exist; default names and creation colors ([conventions](references/conventions.md) holds meanings): state `needs-operator` FBCA04 · `needs-plan` E36209 · `ready` 0E8A16 · `working` 1D76DB · `for-operator` 5319E7; modifiers `risky` B60205 · scope `research` C5DEF5 · `quick-build` 76C7C0 · `full-plan` 2A9D8F · `epic` 24292E (only when the org has no native Epic issue type) |
 | decision register | create the file the `decisions:` knob names (default `.vegastack/decisions.md`) when missing, with a two-line header stating the format: `- DD-MM-YYYY (github-username) — the decision` (username via `gh api user -q .login`, fallback `git config user.name`); a project with an existing register keeps it and the knob points there |
 | guard workflows / hook files | only the ones the user said yes to in Round C |
 
