@@ -1,13 +1,84 @@
 [
-  { "query": "do issue #12", "should_trigger": true },
-  { "query": "implement https://github.com/vegastack/acme-app/issues/34 end to end", "should_trigger": true },
-  { "query": "pick up the next ready issue and go dark", "should_trigger": true },
-  { "query": "I left corrections on issue #7, apply them", "should_trigger": true },
-  { "query": "issue 21 is ready - build it", "should_trigger": true },
-  { "query": "implement issue 12, and don't forget the changeset", "should_trigger": true },
-  { "query": "write an issue for the login timeout bug", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
-  { "query": "merge #12 now", "should_trigger": false, "ambiguous_with": ["dev-ship"] },
-  { "query": "write the changelog entries for last month's release", "should_trigger": false, "ambiguous_with": ["dev-ship"] },
-  { "query": "set up the dev workflow in this fresh repo", "should_trigger": false, "ambiguous_with": ["dev-setup"] },
-  { "query": "review this open PR from my teammate and leave comments", "should_trigger": false }
+  {
+    "query": "do issue #12",
+    "should_trigger": true
+  },
+  {
+    "query": "implement https://github.com/vegastack/acme-app/issues/34 end to end",
+    "should_trigger": true
+  },
+  {
+    "query": "pick up the next ready issue and go dark",
+    "should_trigger": true
+  },
+  {
+    "query": "I left corrections on issue #7, apply them",
+    "should_trigger": true
+  },
+  {
+    "query": "issue 21 is ready - build it",
+    "should_trigger": true
+  },
+  {
+    "query": "implement issue 12, and don't forget the changeset",
+    "should_trigger": true
+  },
+  {
+    "query": "write an issue for the login timeout bug",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-intake"
+    ]
+  },
+  {
+    "query": "merge #12 now",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-ship"
+    ]
+  },
+  {
+    "query": "write the changelog entries for last month's release",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-ship"
+    ]
+  },
+  {
+    "query": "set up the dev workflow in this fresh repo",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-setup"
+    ]
+  },
+  {
+    "query": "review this open PR from my teammate and leave comments",
+    "should_trigger": false
+  },
+  {
+    "query": "the last session died mid-build on issue 15 \u2014 pick up where it left off",
+    "should_trigger": true
+  },
+  {
+    "query": "resume issue 15, I'm handing it to you",
+    "should_trigger": true
+  },
+  {
+    "query": "apply my corrections on the for-operator issue",
+    "should_trigger": true
+  },
+  {
+    "query": "review the finished work on issue 15",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-review"
+    ]
+  },
+  {
+    "query": "write the plan for issue 15 first",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-plan"
+    ]
+  }
 ]

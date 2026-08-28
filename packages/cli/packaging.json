@@ -20,6 +20,7 @@
     "scripts/lib/gh.mjs",
     "scripts/preflight.mjs",
     "scripts/evidence-check.mjs",
+    "references/ledger-and-resume.md",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
