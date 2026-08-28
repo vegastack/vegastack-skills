@@ -4,11 +4,17 @@ The issue body a workable issue must have. Write the sections that apply, delete
 
 ```markdown
 <!-- vsk:v1 type=brief rev=1 scope=research|quick-build|full-plan -->
+**Scope:** research | quick-build | full-plan — the announced reason for the call, one line.
+
 ## Outcome
 
 What exists when this is done, in observable terms — what the user can do, what the
-system produces. One paragraph. (research issues: the question, instead — plus a
-"What answered looks like" section in place of everything below except Risks.)
+system produces. One paragraph.
+
+Research issues replace Outcome and the build sections with two headings brief-lint
+expects verbatim in spirit: `## The question` (what this issue resolves) and
+`## What answered looks like` (the evidence that closes it). Risks/stop conditions
+and Assumptions still apply.
 
 ## Out of scope
 
