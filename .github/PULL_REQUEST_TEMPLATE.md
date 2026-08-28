@@ -14,4 +14,4 @@
 
 - [ ] `bun run check` passes locally
 - [ ] No generated files committed (`dist/`, `packages/cli/skill/`, `skill-integrity.json`, `work/`)
-- [ ] Semver impact considered per the content versioning policy (content changes only): new reference/section or changed recorded decision = minor, factual refresh/wording = patch, skill removal/rename or profile-format break = major
+- [ ] Semver impact considered per the content versioning policy (content changes only): new reference/section, changed recorded decision, or skill rename = minor, factual refresh/wording = patch, skill removal or profile-format break = major (the operator may declare any change major)

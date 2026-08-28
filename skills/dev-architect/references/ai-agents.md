@@ -11,7 +11,7 @@
   never the local on-disk workflow files.
 - **pg-boss** owns everything that is *not* an agent session: background jobs, cron,
   scheduled work — dispatcher-only, lease/heartbeat/retry state in our own tables
-  (data.md). EVE and pg-boss share the same Postgres but are logically separate;
+  (stack.md). EVE and pg-boss share the same Postgres but are logically separate;
   `@workflow/world-postgres` is not pg-boss and replaces nothing.
 - Long-running pipelines that are neither (e.g. an hours-long transcription poll) may use
   Cloudflare Workflows when already on Cloudflare — a recorded per-project decision, not

@@ -53,7 +53,8 @@ and no machine-extracted rule format to follow.
   in [.vegastack/dev.md](.vegastack/dev.md) (detail in
   [skill-maintainer's release-ops](skills/skill-maintainer/references/release-ops.md)).
 - Factual refreshes and non-normative wording clarifications are PATCH.
-- Removing or renaming a skill, or a breaking change to a per-project profile format, is MAJOR.
+- Removing a skill, or a breaking change to the per-project profile format, is MAJOR;
+  renaming a skill ships MINOR by default — major only when the operator declares it.
 - Keep volatile facts (version pins, vendor mechanism names) in `pinned-facts.md`-style dated
   entries so the refresh system can track them.
 

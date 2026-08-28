@@ -11,9 +11,9 @@ npx @vegastack/skills add dev-architect
 
 | Skill | What it does |
 |---|---|
-| `dev-architect` | Architecture advisor: the locked stack, recorded rejections, and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts behind a verify-before-you-recommend protocol, reading the `## Architecture` section of `.vegastack/dev.md` |
 | `skill-maintainer` | Encodes the Agent Skills standards (Claude Code, Codex, Hermes, agentskills.io) for creating, updating, and releasing skills in a skills repo |
 | `skillify` | Turns a feature or workflow into a complete skill conforming to the VegaStack skills contract, or audits an existing one |
+| `dev-architect` | Architecture advisor: the locked stack, recorded rejections, and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts behind a verify-before-you-recommend protocol, reading the `## Architecture` section of `.vegastack/dev.md` |
 | `dev-setup` | Bootstraps any project, greenfield included, for the issue-driven dev workflow: stack-playbook-drafted profile, AGENTS.md section, labels, guards, decision register |
 | `dev-intake` | Turns ideas, brainstorms, and SOWs into agent-ready GitHub issues with recorded user approval |
 | `dev-implement` | Implements an approved issue end to end, dark: preflight, claim, build, test, review, evidence in the issue |
@@ -26,7 +26,7 @@ npx @vegastack/skills add dev-architect
 | `list` | Show the bundled skills |
 | `add <skill>` | Install (or upgrade) a skill into the selected agent directories |
 | `verify [skill]` | Check installed copies against the bundled checksum manifest (all bundled skills when no name given) |
-| `doctor` | Diagnose an install: integrity across all skills, profile presence, installed-vs-latest version |
+| `doctor` | Diagnose an install: integrity across all skills, dev profile (`.vegastack/dev.md`) presence, installed-vs-latest version |
 | `remove <skill>` | Uninstall a skill from the selected agent directories |
 
 ## Flags
