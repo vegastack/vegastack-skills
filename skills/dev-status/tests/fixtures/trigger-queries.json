@@ -1,0 +1,76 @@
+[
+  {
+    "query": "status",
+    "should_trigger": true
+  },
+  {
+    "query": "what needs me right now",
+    "should_trigger": true
+  },
+  {
+    "query": "where are we on the board",
+    "should_trigger": true
+  },
+  {
+    "query": "anything stale or stuck?",
+    "should_trigger": true
+  },
+  {
+    "query": "what's in flight across the issues",
+    "should_trigger": true
+  },
+  {
+    "query": "what should I look at next in this repo",
+    "should_trigger": true
+  },
+  {
+    "query": "give me the operator queue",
+    "should_trigger": true
+  },
+  {
+    "query": "what happened while I was away on this repo",
+    "should_trigger": true,
+    "ambiguous_with": [
+      "dev-chronicle"
+    ]
+  },
+  {
+    "query": "catch me up on this project",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-chronicle"
+    ]
+  },
+  {
+    "query": "what did we build here over the months",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-chronicle"
+    ]
+  },
+  {
+    "query": "implement the next ready issue",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-implement"
+    ]
+  },
+  {
+    "query": "review the finished work on issue 42",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-review"
+    ]
+  },
+  {
+    "query": "set up the dev workflow here",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-setup"
+    ]
+  },
+  {
+    "query": "what's the status of the npm outage",
+    "should_trigger": false
+  }
+]

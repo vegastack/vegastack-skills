@@ -75,6 +75,13 @@
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
+  "dev-status": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "scripts/status.mjs",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
   "skill-maintainer": [
     "SKILL.md",
     "agents/openai.yaml",
