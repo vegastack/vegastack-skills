@@ -6,8 +6,8 @@ The project's story, newest first: what got built, why, and how it went — for 
 
 **What:** Every skill's one-line description now says only when to use it and what it's not for — the step-by-step summaries are gone. That matters because agents sometimes follow the summary instead of opening the skill, skipping steps the summary didn't mention. The repo docs now also name all ten workflow skills in one place.
 **Why:** An empirically observed failure mode from the external research: a description that narrates process becomes a shortcut past the process.
-**How it went:** Only two descriptions still had summaries (setup, ship) — the v3 rewrites had already cleaned the rest; the family-wide trigger check passed.
-**Changed:** dev-setup + dev-ship descriptions rewritten · family listing in CONTRIBUTING and the AGENTS.md template.
+**How it went:** Three descriptions still carried summaries (setup, ship, architect). The family-wide trigger check (149 queries) caught one real contradiction — status and chronicle both claiming "what happened while I was away" as a must-win — resolved in chronicle's favor; and stripping setup's summary had silently removed its trigger nouns, restored as proper Use-when phrases.
+**Changed:** dev-setup, dev-ship, and dev-architect descriptions rewritten · one family order across CONTRIBUTING, the AGENTS.md template, and the README rows.
 **Decisions:** none new.
 — approved by operator (kmanojkumar) · built by claude · branch chore/21-descriptions
 
