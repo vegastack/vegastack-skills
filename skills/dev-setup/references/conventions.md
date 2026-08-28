@@ -82,7 +82,7 @@ Maintained by the implement session as one comment, edited in place:
 
 ## `.vegastack/.tmp/` workspace
 
-All transitory artifacts — subagent reports, review packages, plan drafts, extracted diffs — live at `.vegastack/.tmp/<issue-number>-<title-slug>/`, kept out of git by a self-ignoring `.gitignore` (`printf '*\n' > .vegastack/.tmp/.gitignore`, created on first use). Subagents write full reports to files there and return only short status — a dead subagent's findings survive on disk, and the primary session never holds full reports in context. The workspace lives in the working tree (never under `.git/`, which harnesses protect from writes).
+All transitory artifacts — subagent reports, review packages, plan drafts, extracted diffs — live at `.vegastack/.tmp/<issue-number>-<title-slug>/` (pre-issue intake drafts, which have no number yet: `.vegastack/.tmp/intake-<slug>/`), kept out of git by a self-ignoring `.gitignore` (`printf '*\n' > .vegastack/.tmp/.gitignore`, created on first use). Subagents write full reports to files there and return only short status — a dead subagent's findings survive on disk, and the primary session never holds full reports in context. The workspace lives in the working tree (never under `.git/`, which harnesses protect from writes).
 
 ## Verification gate
 
