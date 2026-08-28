@@ -29,7 +29,7 @@
   },
   {
     "query": "what happened while I was away on this repo",
-    "should_trigger": true,
+    "should_trigger": false,
     "ambiguous_with": [
       "dev-chronicle"
     ]
