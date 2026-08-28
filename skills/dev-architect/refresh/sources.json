@@ -8,7 +8,7 @@
     ],
     "defaultChecksumScope": "html-text-v1",
     "offline": "Use cached metadata only; fail closed when a critical entry is missing or older than thresholdDays.",
-    "drift": "Any drift requires reading the changed page and a human-reviewed PR updating references/pinned-facts.md (and version claims in references/stack.md / references/mobile.md); never auto-apply.",
+    "drift": "Any drift requires reading the changed page and a human-reviewed PR updating references/pinned-facts.md (and the version claims in references/mobile.md); never auto-apply.",
     "copyright": "Store claim metadata, URLs, hashes, and concise excerpts only; never archive third-party documentation corpora.",
     "cadence": "weekly scheduled-agent refresh; thresholdDays must be >= 14 (2x cadence) so a single missed run never breaches a threshold"
   },
@@ -31,7 +31,6 @@
       ],
       "affected": [
         "references/pinned-facts.md",
-        "references/stack.md",
         "references/data.md"
       ],
       "checksum": "fda2870b95deffce48dca7f3df3707325b1bc4a2d58a17708ee9220bfba5eba1",
@@ -102,8 +101,7 @@
       ],
       "affected": [
         "references/pinned-facts.md",
-        "references/security.md",
-        "references/stack.md"
+        "references/security.md"
       ],
       "currentVersion": "1.6.27",
       "versionCheckedAt": "2026-08-12T14:33:11.062Z",
@@ -129,8 +127,7 @@
       ],
       "affected": [
         "references/pinned-facts.md",
-        "references/ai-agents.md",
-        "references/stack.md"
+        "references/ai-agents.md"
       ],
       "currentVersion": "0.33.2",
       "versionCheckedAt": "2026-08-12T14:33:11.062Z",
@@ -182,8 +179,7 @@
       ],
       "affected": [
         "references/pinned-facts.md",
-        "references/web.md",
-        "references/stack.md"
+        "references/web.md"
       ],
       "currentVersion": "16.3.0",
       "versionCheckedAt": "2026-08-12T14:33:11.062Z",
@@ -208,8 +204,7 @@
         "jobs"
       ],
       "affected": [
-        "references/pinned-facts.md",
-        "references/ai-agents.md"
+        "references/pinned-facts.md"
       ],
       "currentVersion": "12.27.0",
       "versionCheckedAt": "2026-08-12T14:33:11.062Z",

@@ -14,7 +14,7 @@ labels: bug
 
 ```sh
 # exact command(s), e.g.
-npx @vegastack/skills add architect --agent both --dir .
+npx @vegastack/skills add dev-architect --agent both --dir .
 ```
 
 ## Environment

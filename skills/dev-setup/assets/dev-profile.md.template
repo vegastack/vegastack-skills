@@ -3,7 +3,7 @@
 This file is the project's handbook and its only process document: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log. A section left as TODO because its machinery didn't exist yet: re-run dev-setup detection when the machinery appears.
 
 repo: {{owner/repo}} · default branch {{branch}}
-stack: {{one line, or "see .vegastack/arch.md"}}
+stack: {{one line; the `## Architecture` section below carries the architecture facts}}
 commands: test `{{test}}` · build `{{build}}` · dev `{{dev}}`
 authority: {{ordered — e.g. "CONTRIBUTING.md → this file → skill defaults"; delete the line when this file is the only process doc}}
 
@@ -43,7 +43,24 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 ## Design
 
-- {{pointers: design system / component rules / .vegastack/arch.md / UI conventions}}
+- {{pointers: design system / component rules / UI conventions}}
+
+## Architecture
+
+Facts dev-architect reads before advising — knobs, not prose. Decisions with rationale go
+to the register, never here. The repo wins on drift; dev-architect proposes the one-line
+fix. Delete this whole section for repos with no app architecture (pure tooling, docs, or
+content repos) — the `stack:` line at the top is enough.
+
+hosting: {{cloudflare-workers-opennext | self-managed-server | both | vercel (exception - say why)}}
+database: {{postgres via hyperdrive | postgres self-managed | d1 (recorded exception) | none}}
+auth: {{better-auth | none}}            # orgs plugin when multi-tenant
+storage: {{r2 | s3 | minio | none}}
+jobs: {{none | pg-boss}}
+agents: {{none | eve | ai-features}}    # ai-features = AI SDK calls only, no agent runtime
+stage: {{pre-launch | live}}            # pre-launch = delete-not-migrate applies
+kind: {{internal | client | oss}}
+mobile: {{no | flutter (separate repo)}}
 
 ## Decisions
 

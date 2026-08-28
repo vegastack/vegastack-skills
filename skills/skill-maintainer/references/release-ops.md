@@ -8,8 +8,8 @@ Content is advisory prose and decision tables — no rule IDs, no machine-extrac
 
 | Bump | Content change |
 |---|---|
-| MAJOR | Removing or renaming a skill. A breaking change to a per-project profile format (e.g. `.vegastack/arch.md`) that invalidates existing committed profiles. |
-| MINOR | New reference file or reference section. New or changed recorded decision (e.g. a new "use/not/why" row, a new red line). New skill. |
+| MAJOR | Removing a skill. A breaking change to the per-project profile format (`.vegastack/dev.md`) that invalidates existing committed profiles — the operator may also declare any other change major. |
+| MINOR | Renaming a skill (default — the operator declares major when the break warrants it). New reference file or reference section. New or changed recorded decision (e.g. a new "use/not/why" row, a new red line). New skill. |
 | PATCH | Factual refreshes: pinned-fact updates, version pins, vendor mechanism names, URLs, registry checksums. Wording clarifications that don't change the recorded decision. Test/fixture-only changes. |
 
 Installer/CLI changes follow ordinary semver on the same package version; a release takes the highest bump either side requires.
@@ -44,7 +44,7 @@ Skill names are consumer-facing identifiers — treat a rename as a stable-ID br
 
 1. Rename the directory and the frontmatter `name` in the same commit — they must always stay equal.
 2. Update every wiring point in the same PR: the skill's entry in `packages/cli/packaging.json`, the root README skills table row, and any cross-skill or docs links.
-3. Changeset: MAJOR. Note the migration in `CHANGELOG.md`: copies installed under the old name are orphaned, and installer operations addressed to the old name stop resolving once the shipped manifest no longer knows it.
+3. Changeset: MINOR by default — major only when the operator declares it. Either way, note the migration in `CHANGELOG.md`: copies installed under the old name are orphaned, and installer operations addressed to the old name stop resolving once the shipped manifest no longer knows it.
 4. Registry source IDs inside `refresh/sources.json` are skill-internal and unaffected, but every `affected` ref must still resolve to a real reference in the renamed tree.
 5. Re-run `node packages/cli/scripts/validate-skill.mjs skills/<new-name>` and the skill's tests — name/directory equality is validated.
 

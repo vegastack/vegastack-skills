@@ -1,0 +1,4 @@
+interface:
+  display_name: "VegaStack Dev Architect"
+  short_description: "VegaStack's architecture advisor: house decisions, recorded rejections, and verified platform facts"
+  default_prompt: "Use $dev-architect to make one scoped architecture recommendation for this project, reading the Architecture section of .vegastack/dev.md and the repo before recommending."

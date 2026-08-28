@@ -116,7 +116,7 @@ No git repo or no origin remote is a greenfield run, not an error. Detection has
 
 1. Ask the intended stack (offer the playbook list above) and whether the project will publish, deploy, or neither — this picks the draft conventions up front.
 2. Offer, each on its own yes: `git init` (default branch `main`) · `gh repo create <owner>/<name> --private` + first push · a stack-appropriate `.gitignore`.
-3. Scaffolding the app itself (create-next-app, flutter create, …) is **not** this skill's job — name the conventional command for the chosen stack and leave running it to the user (or `architect` guidance).
+3. Scaffolding the app itself (create-next-app, flutter create, …) is **not** this skill's job — name the conventional command for the chosen stack and leave running it to the user (or `dev-architect` guidance).
 4. Render dev.md from the chosen playbook's conventions; every section whose machinery doesn't exist yet gets its `TODO — re-run dev-setup when it appears` line. Declined remote → skip labels, record the TODO, and say what was skipped.
 
 ## Decision-capture hooks

@@ -1,7 +1,8 @@
 # Pinned platform facts
 
 Dated, source-verified facts that change architecture decisions and that models routinely
-get wrong from stale training data. This is the ONLY file in this skill that goes stale by
+get wrong from stale training data. This file is the verified cache behind SKILL.md's
+verify-before-you-recommend protocol, and the ONLY file in this skill that goes stale by
 itself — the weekly refresh (see refresh/REFRESH.md) re-verifies it. When a recommendation
 leans on a fact older than 60 days, re-verify that one fact against its source first.
 
@@ -38,7 +39,12 @@ All facts below verified 2026-08-12.
 - **PPR flags are gone** — `experimental.ppr` no longer exists; partial prerendering is
   part of `cacheComponents: true` (which also replaced `dynamicIO`). [nextjs.org/blog]
 - **`middleware.ts` is replaced by `proxy.ts` running on Node** — full fs/crypto/native
-  package access in request interception. Remember: proxy is still never the auth boundary.
+  package access in request interception.
+- **`proxy.ts`/Node middleware does NOT work on OpenNext Cloudflare as of 2026-08** (open
+  issues opennextjs-cloudflare#962/#1277, workers-sdk#13755/#13937) — don't design a
+  Cloudflare-hosted feature around `proxy.ts`; re-check the trackers before assuming it
+  shipped. Turbopack is supported since adapter v1.15.0 (the old breakage is fixed;
+  re-verify only on older pins).
 - **The Adapter API is stable since 16.2** — Vercel's adapter and Cloudflare's OpenNext
   adapter share the same public contract, but Cloudflare's still trails on newest features;
   check the deployment feature matrix per feature, don't assume parity.
@@ -57,15 +63,14 @@ All facts below verified 2026-08-12.
 - **1.7.0 is in RC** (rc.5 shipped 2026-08-11, same day as the pinned patch). Stay on
   1.6.x until 1.7 is stable; queued breaking changes include the MCP plugin restructure
   (moves to `@better-auth/mcp`) and SAML IdP-initiated default-off. [github.com/better-auth]
-
 - **The organizations plugin models teams, invitations, and custom RBAC end-to-end**
-  (`teams: { enabled: true }`, `invite-member` with `teamId`, `createAccessControl`) —
-  never hand-roll workspace/membership/groups schema. [better-auth.com/docs]
+  (`teams: { enabled: true }`, `invite-member` with `teamId`, `createAccessControl`).
+  [better-auth.com/docs]
 - **Better Auth ships an apiKey plugin** (docs/plugins/api-key — verified live
   2026-08-12; an older internal note claiming otherwise was wrong). Default to the plugin
-  for new projects; the flagship platform's native implementation (SHA-256 hash-stored,
-  raw shown once) is a recorded project decision, not the house default. The `bearer`
-  plugin covers token session transport (the mobile/Flutter mechanism).
+  for new projects; the flagship platform's native implementation is a recorded project
+  decision, not the house default. The `bearer` plugin covers token session transport
+  (the mobile/Flutter mechanism).
 - **`twoFactor` supports `allowPasswordless: true`** for users without password accounts
   (passkey/OAuth/magic-link signups).
 
@@ -73,16 +78,12 @@ All facts below verified 2026-08-12.
 
 - **EVE (`eve` on npm, github.com/vercel/eve) is Vercel's durable-agent framework —
   v0.33.2, still beta/pre-GA, shipping near-daily.** Filesystem-first agents; every
-  session a durable, resumable workflow. Exactly two production deploy shapes: on Vercel
-  as Vercel Functions with Fluid Compute (a recorded per-project exception to the hosting
-  default), or self-hosted as a long-running Node/OCI service beside Postgres. Never a
-  request-scoped/edge function (a Cloudflare Worker included) in either shape.
-  [vercel.com/docs/eve]
+  session a durable, resumable workflow. [vercel.com/docs/eve]
 - **Self-hosted EVE durability (`@workflow/world-postgres`, stable 4.3.x) explicitly
   requires a long-lived worker process — "not compatible with serverless platforms".**
-  Run EVE as its own Node/OCI service beside Postgres. The 5.0.0-beta channel exists;
-  don't pin it without a documented reason. Internally it uses graphile-worker — it is
-  not pg-boss and doesn't replace it. [workflow-sdk.dev/worlds/postgres]
+  The 5.0.0-beta channel exists; don't pin it without a documented reason. Internally it
+  uses graphile-worker — it is not pg-boss and doesn't replace it.
+  [workflow-sdk.dev/worlds/postgres]
 - **pg-boss is at 12.x** — Postgres-native (`SKIP LOCKED`), no Redis. The right default
   for simple background jobs/cron on this stack; BullMQ only when a genuinely complex job
   graph (flows, dependencies, rate-limited pipelines) demands Redis. [npm: pg-boss]

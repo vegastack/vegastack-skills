@@ -23,32 +23,32 @@ describe('@vegastack/skills installer', () => {
     for (const agent of ['codex', 'claude', 'both']) {
       const project = join(temporary, `project-${agent}`)
       await mkdir(project, { recursive: true })
-      const result = run(temporary, ['add', 'architect', '--agent', agent, '--project', '--dir', project, '--non-interactive'])
+      const result = run(temporary, ['add', 'dev-architect', '--agent', agent, '--project', '--dir', project, '--non-interactive'])
       expect(result.exitCode).toBe(0)
-      if (agent !== 'claude') expect(await readFile(join(project, '.agents/skills/architect/SKILL.md'), 'utf8')).toContain('name: architect')
-      if (agent !== 'codex') expect(await readFile(join(project, '.claude/skills/architect/SKILL.md'), 'utf8')).toContain('name: architect')
+      if (agent !== 'claude') expect(await readFile(join(project, '.agents/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
+      if (agent !== 'codex') expect(await readFile(join(project, '.claude/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
     }
   })
 
   test('installs globally under the isolated HOME', async () => {
     const home = join(temporary, 'global-home')
     await mkdir(home, { recursive: true })
-    const result = run(home, ['add', 'architect', '--agent', 'both', '--global', '--non-interactive'])
+    const result = run(home, ['add', 'dev-architect', '--agent', 'both', '--global', '--non-interactive'])
     expect(result.exitCode).toBe(0)
-    expect(await readFile(join(home, '.agents/skills/architect/SKILL.md'), 'utf8')).toContain('VegaStack Architect')
-    expect(await readFile(join(home, '.claude/skills/architect/SKILL.md'), 'utf8')).toContain('VegaStack Architect')
+    expect(await readFile(join(home, '.agents/skills/dev-architect/SKILL.md'), 'utf8')).toContain('VegaStack Dev Architect')
+    expect(await readFile(join(home, '.claude/skills/dev-architect/SKILL.md'), 'utf8')).toContain('VegaStack Dev Architect')
   })
 
   test('refuses conflicts, force replaces, and verify detects drift', async () => {
     const project = join(temporary, 'conflict')
     await mkdir(project, { recursive: true })
     expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
-    const target = join(project, '.agents/skills/architect/SKILL.md')
+    const target = join(project, '.agents/skills/dev-architect/SKILL.md')
     await writeFile(target, 'different\n')
     expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
     expect(run(temporary, ['verify', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
     expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--force', '--non-interactive']).exitCode).toBe(0)
-    expect(await readFile(target, 'utf8')).toContain('name: architect')
+    expect(await readFile(target, 'utf8')).toContain('name: dev-architect')
     expect(run(temporary, ['verify', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
   })
 
@@ -58,7 +58,7 @@ describe('@vegastack/skills installer', () => {
     const result = run(temporary, ['add', skill(), '--agent', 'both', '--dir', project, '--dry-run', '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('would install')
-    expect(await Bun.file(join(project, '.agents/skills/architect/SKILL.md')).exists()).toBe(false)
+    expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(false)
   })
 
   test('refuses symlinked surfaces and symlinked --dir ancestors', async () => {
@@ -70,7 +70,7 @@ describe('@vegastack/skills installer', () => {
     let result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('symlink')
-    expect(await Bun.file(join(outside, 'skills/architect/SKILL.md')).exists()).toBe(false)
+    expect(await Bun.file(join(outside, 'skills/dev-architect/SKILL.md')).exists()).toBe(false)
 
     const real = join(temporary, 'real-project')
     const alias = join(temporary, 'project-alias')
@@ -87,14 +87,14 @@ describe('@vegastack/skills installer', () => {
     await writeFile(join(project, '.claude/skills'), 'not a directory')
     const result = run(temporary, ['add', skill(), '--agent', 'both', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
-    expect(await Bun.file(join(project, '.agents/skills/architect/SKILL.md')).exists()).toBe(false)
+    expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(false)
   })
 
   test('restores an existing differing target when a forced dual install cannot stage', async () => {
     const project = join(temporary, 'atomic-force-rollback')
     await mkdir(project, { recursive: true })
     expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
-    const target = join(project, '.agents/skills/architect/SKILL.md')
+    const target = join(project, '.agents/skills/dev-architect/SKILL.md')
     await writeFile(target, 'user-owned prior content\n')
     await mkdir(join(project, '.claude'), { recursive: true })
     await writeFile(join(project, '.claude/skills'), 'not a directory')
@@ -142,24 +142,24 @@ describe('@vegastack/skills installer', () => {
     const result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('installation is active')
-    expect(await Bun.file(join(project, '.agents/skills/architect/SKILL.md')).exists()).toBe(false)
+    expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(false)
   })
 
   test('doctor reports profile and installation state', async () => {
     const project = join(temporary, 'doctor')
     await mkdir(join(project, '.vegastack'), { recursive: true })
-    await writeFile(join(project, '.vegastack/arch.md'), '# Architecture profile\n\n- hosting: cloudflare-workers-opennext\n- stage: pre-launch\n')
+    await writeFile(join(project, '.vegastack/dev.md'), '# Dev profile\n\n## Knobs\n\ngates: 3\n')
     expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
     const result = run(temporary, ['doctor', '--dir', project, '--non-interactive'])
     expect(result.exitCode).toBe(0)
-    expect(result.stdout.toString()).toContain('ok architecture profile')
-    expect(result.stdout.toString()).toContain('ok codex architect installation')
+    expect(result.stdout.toString()).toContain('ok dev profile')
+    expect(result.stdout.toString()).toContain('ok codex dev-architect installation')
   })
 
   test('lists bundled skills with descriptions', async () => {
     const result = run(temporary, ['list'])
     expect(result.exitCode).toBe(0)
-    expect(result.stdout.toString()).toContain('architect')
+    expect(result.stdout.toString()).toContain('dev-architect')
   })
 
   test('hermes installs are global-only', async () => {
@@ -173,12 +173,12 @@ describe('@vegastack/skills installer', () => {
     await mkdir(home, { recursive: true })
     const global = run(home, ['add', skill(), '--agent', 'hermes', '--global', '--non-interactive'])
     expect(global.exitCode).toBe(0)
-    expect(await readFile(join(home, '.hermes/skills/architect/SKILL.md'), 'utf8')).toContain('name: architect')
+    expect(await readFile(join(home, '.hermes/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
 
     const all = run(home, ['add', skill(), '--agent', 'all', '--global', '--non-interactive', '--force'])
     expect(all.exitCode).toBe(0)
-    expect(await Bun.file(join(home, '.agents/skills/architect/SKILL.md')).exists()).toBe(true)
-    expect(await Bun.file(join(home, '.claude/skills/architect/SKILL.md')).exists()).toBe(true)
+    expect(await Bun.file(join(home, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(true)
+    expect(await Bun.file(join(home, '.claude/skills/dev-architect/SKILL.md')).exists()).toBe(true)
   })
 
   test('project install with --agent all skips hermes with a notice', async () => {
@@ -187,7 +187,7 @@ describe('@vegastack/skills installer', () => {
     const result = run(temporary, ['add', skill(), '--agent', 'all', '--dir', project, '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('skipping hermes')
-    expect(await Bun.file(join(project, '.agents/skills/architect/SKILL.md')).exists()).toBe(true)
+    expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(true)
     expect(await Bun.file(join(project, '.hermes')).exists()).toBe(false)
   })
 
@@ -252,4 +252,4 @@ describe('@vegastack/skills installer', () => {
   })
 })
 
-function skill() { return 'architect' }
+function skill() { return 'dev-architect' }

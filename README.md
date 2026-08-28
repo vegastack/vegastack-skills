@@ -6,7 +6,7 @@ Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/s
 
 | Skill | What it does | Docs |
 |---|---|---|
-| [architect](skills/architect/) | VegaStack's senior architecture advisor: the locked stack and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts, a per-project `.vegastack/arch.md` profile with repo-wins drift detection, and an advisory-only review discipline | [Walkthrough](skills/architect/README.md) · [SKILL.md](skills/architect/SKILL.md) |
+| [dev-architect](skills/dev-architect/) | VegaStack's architecture advisor: the locked stack, recorded rejections, and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts behind a verify-before-you-recommend protocol, reading the `## Architecture` section of `.vegastack/dev.md` | [Walkthrough](skills/dev-architect/README.md) · [SKILL.md](skills/dev-architect/SKILL.md) |
 | [skill-maintainer](skills/skill-maintainer/) | Encodes the verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create/update/rename/release of a skill in this repo runs through its workflows and hard limits | [Walkthrough](skills/skill-maintainer/README.md) · [SKILL.md](skills/skill-maintainer/SKILL.md) |
 | [skillify](skills/skillify/) | Repo-local skill factory and auditor: gates whether something should be a skill at all, scaffolds the per-skill contract with automatic repo wiring, and scores existing skills against an 8-item completeness checklist with behavioral-eval-before-tests discipline | [Walkthrough](skills/skillify/README.md) · [SKILL.md](skills/skillify/SKILL.md) |
 | [dev-setup](skills/dev-setup/) | Bootstraps any project — greenfield included — for the issue-driven dev workflow: `.vegastack/dev.md` as the single canonical process doc (stack-playbook-drafted release runbook, changelog convention, guards), a marked AGENTS.md section plus the CLAUDE.md import, the workflow labels (names from the `labels:` knob), and the decision register — detect-first, idempotent re-runs, auto-invoked by the other dev skills | [Walkthrough](skills/dev-setup/README.md) · [SKILL.md](skills/dev-setup/SKILL.md) |
@@ -17,7 +17,7 @@ Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/s
 Install any skill by name:
 
 ```sh
-npx @vegastack/skills add architect
+npx @vegastack/skills add dev-architect
 ```
 
 Requires Node >= 24. Project installs target `.claude/skills` (Claude Code) and `.agents/skills` (Codex); `--global` additionally supports `--agent hermes` (`~/.hermes/skills` — Hermes discovers skills globally only). `list` shows bundled skills; `verify` re-checks installed bytes against the shipped checksum manifest; `remove` uninstalls; `doctor` diagnoses. All commands and flags: [installer README](packages/cli/README.md).
@@ -40,7 +40,7 @@ Skill content cites external sources (specs, vendor docs, package versions) trac
 
 ## Advisory reviews, user-held gates
 
-Architecture review (`architect`) is advisory by design: evidence-backed reports with honest severities (`critical` / `production-gate` / `enterprise-gate` / `consider`), unverified claims labeled rather than asserted, and deliberately accepted risk kept visible instead of suppressed. The dev workflow skills are the complement: their gates are real, and every one of them is held by the user — agents can never approve, ship, or merge on their own authority.
+Architecture review (`dev-architect`) is advisory by design: evidence-backed reports with honest severities (`critical` / `production-gate` / `consider`), unverified claims labeled rather than asserted, and deliberately accepted risk kept visible instead of suppressed. The dev workflow skills are the complement: their gates are real, and every one of them is held by the user — agents can never approve, ship, or merge on their own authority.
 
 ## Develop
 
