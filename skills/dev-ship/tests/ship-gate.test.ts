@@ -50,6 +50,14 @@ describe('ship-gate', () => {
     const r = evaluateShipGate({ ...cleanFacts(), checkoutMismatch: 'the current checkout (1111111) is not the branch under review' })
     expect(r.blocks.some((b) => b.includes('not the branch under review'))).toBe(true)
   })
+  test('chronicle: on blocks a diff without a chronicle entry; the same reason excuses both', () => {
+    const missing = evaluateShipGate({ ...cleanFacts(), chronicleOn: true, chronicleTouched: false })
+    expect(missing.blocks.some((b) => b.includes('chronicle'))).toBe(true)
+    const touched = evaluateShipGate({ ...cleanFacts(), chronicleOn: true, chronicleTouched: true })
+    expect(touched.blocks).toEqual([])
+    const excused = evaluateShipGate({ ...cleanFacts(), chronicleOn: true, chronicleTouched: false, allowNoChangelog: 'docs-only' })
+    expect(excused.blocks).toEqual([])
+  })
   test('missing changelog blocks unless a reason is given', () => {
     const r = evaluateShipGate({ ...cleanFacts(), changelogTouched: false })
     expect(r.blocks.some((b) => b.includes('changelog'))).toBe(true)

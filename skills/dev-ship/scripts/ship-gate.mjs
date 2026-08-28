@@ -69,6 +69,10 @@ export function evaluateShipGate(facts) {
     blocks.push('no changelog/changeset entry in the diff and no --allow-no-changelog reason given');
   }
 
+  if (facts.chronicleOn && !facts.chronicleTouched && !allowNoChangelog) {
+    blocks.push('dev.md says chronicle: on but the diff adds no .vegastack/chronicle.md entry (the same --allow-no-changelog reason covers docs/test-only branches)');
+  }
+
   if (reviewVerdict !== 'clean' && !adjudicated) {
     blocks.push(`latest review verdict is ${reviewVerdict ?? 'absent'} and the evidence Review section carries no adjudication`);
   }
@@ -130,6 +134,10 @@ export function gatherFacts(flags) {
       ? /^\+\+\+ b\/\.changeset\/(?!config)/m.test(diffText)
       : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md']) || '');
 
+  const chronicleOn = /^chronicle:\s*on\b/m.test(devMd);
+  const chronicleTouched = /^\+\+\+ b\/\.vegastack\/chronicle\.md/m.test(diffText)
+    || /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md']) || '');
+
   let checkExit = null;
   const checkCmd = (/^commands:.*?check\s+`([^`]+)`/m.exec(devMd) || [])[1];
   if (checkCmd) {
@@ -143,7 +151,8 @@ export function gatherFacts(flags) {
 
   return {
     evidence, reviewVerdict, adjudicated, headSha, diffText,
-    changelogTouched, allowNoChangelog: flags['allow-no-changelog'], checkExit, checkoutMismatch,
+    changelogTouched, chronicleOn, chronicleTouched,
+    allowNoChangelog: flags['allow-no-changelog'], checkExit, checkoutMismatch,
   };
 }
 

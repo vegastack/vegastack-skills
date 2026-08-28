@@ -33,4 +33,4 @@ A bot PR has no issue, no brief, no evidence comment — and merging it is still
 
 ## Guard failure at ship time
 
-A local `guard:` failure (missing changelog entry, tag/version mismatch) means the branch or release prep is incomplete: route it to dev-implement's corrections loop, get the evidence comment updated, then resume at the failed step. Never edit release artifacts inline just to get past a guard.
+A local `guard:` failure (missing changelog entry, tag/version mismatch) means the branch or release prep is incomplete: route it to dev-implement's corrections loop, get the evidence comment updated, then resume at the failed step. Never edit release artifacts inline just to get past a guard. `ship-gate.mjs` speaks the same language: exit 0 pass · 1 pass-with-warnings (read them twice, they never block) · 2 blocked with its reasons printed — a 2 routes to corrections exactly like a failing `guard:` line.
