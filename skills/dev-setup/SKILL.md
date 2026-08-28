@@ -1,6 +1,6 @@
 ---
 name: dev-setup
-description: Bootstrap a project for issue-driven agent development — existing repo or brand-new empty directory. Use when asked to "set up the dev workflow", "bootstrap this project for agents", "install the dev workflow here", "set up this new project", to re-run setup after machinery appeared or knobs changed, or invoked as dev-setup; also run automatically when any dev-family skill finds no .vegastack/dev.md in the project. Not for architecture advice (dev-architect reads the section this skill writes), authoring skills (skillify), or general CI and app scaffolding.
+description: Bootstrap a project for issue-driven agent development — existing repo or brand-new empty directory. Use when asked to "set up the dev workflow", "bootstrap this project for agents", "install the dev workflow here", "set up this new project", "wire the release guards", to re-run setup after machinery appeared or knobs changed, or invoked as dev-setup; also run automatically when any dev-family skill finds no .vegastack/dev.md in the project. Not for architecture advice (dev-architect reads the section this skill writes), authoring skills (skillify), or general CI and app scaffolding.
 ---
 
 # dev-setup
