@@ -28,6 +28,12 @@ The with-skill run must be *materially* better on the dimensions the skill exist
 
 The body eval above assumes the skill got loaded. Separately check the description triggers correctly: walk `tests/fixtures/trigger-queries.json` and judge, for each query, whether an agent seeing only the skill list (name + description) would load this skill. Near-miss negatives are the valuable half — a description that survives them draws a real boundary. Fix failures by editing the *description* (triggers, boundary clause), never by stuffing workflow summary into it.
 
+**Family-level re-run:** whenever the skill family changes — a skill added, renamed, or removed — re-run the trigger eval across the FULL installed set, not just the changed skill: cross-skill collisions (two descriptions both claiming a query) only appear at family level, and the `ambiguous_with` entries in every skill's fixtures are the cases to walk first.
+
+## Workflow skills — multi-turn, state-bearing
+
+A skill whose value lives in a multi-turn, external-state workflow (gh labels, comments, branches) gets only partial proof from single-prompt subagent runs: those cover prose quality and format compliance. Its end-to-end proof is a **sandbox drill** — a throwaway repo walked through the real flow with the real tools — run before release-level claims, not per edit. Single-prompt evals remain the per-change gate; the drill is the workflow-level one.
+
 ## Cycle protocol (at most 3)
 
 ```

@@ -32,7 +32,10 @@ component and token choices inside the UI.
 3. Load only the references the task touches (table below). Do not bulk-read the set.
 4. Separate what is fact, what is assumption, and what is MK's recorded decision. A
    directive tagged "(inferred)" is a researched extrapolation MK has not ratified —
-   confirm on first use; everything untagged is his recorded decision or a verified fact.
+   confirm on first use, and a confirmation is proposed as a register line
+   (`- DD-MM-YYYY operator (<username>) — ratified: <the directive>`); recording it drops
+   the tag from the reference file in the same change, so inferred never lingers as
+   ratified-in-practice. Everything untagged is his recorded decision or a verified fact.
    Never re-litigate a recorded decision to route around a blocker — surface the blocker.
 5. Answer at the right size: a question gets the recommendation plus at most one material
    risk, in plain prose. Reviews and migration plans follow the review discipline in
@@ -72,8 +75,8 @@ skills cite this protocol instead of restating it.
 
 ## Red lines — never cross, regardless of project size
 
-These six are the only rules that live both here and in a reference; everything else has
-exactly one home file.
+The red lines below are the only rules that live both here and in a reference; everything
+else has exactly one home file.
 
 - Never commit, tag, push, merge, publish, deploy, or create paid/cloud resources without
   MK's explicit go-ahead for that step. Approval for one step is not approval for the next
