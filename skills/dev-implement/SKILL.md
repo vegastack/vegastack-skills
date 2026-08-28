@@ -38,7 +38,7 @@ Honesty over green: a failing test gets fixed at the root or reported as failing
 
 ## Changelog and chronicle — before hand-back
 
-Every behavior-changing branch carries its changelog entry per dev.md's `changelog:` knob (`changesets` → write `.changeset/<slug>.md` directly, never the interactive CLI; `keep-a-changelog` / `pubspec+changelog` → one bullet under `## [Unreleased]`, creating CHANGELOG.md with the `# Changelog` + `## [Unreleased]` skeleton in the same branch when absent; `none` → skip) **and**, when dev.md says `chronicle: on`, its story entry prepended to `.vegastack/chronicle.md` (format: the `dev-chronicle` skill; until it lands, the file's existing entries model it) — both on the branch, landing atomically with the merge. Docs the brief names as affected get updated in the same branch.
+Every behavior-changing branch carries its changelog entry per dev.md's `changelog:` knob (`changesets` → write `.changeset/<slug>.md` directly, never the interactive CLI; `keep-a-changelog` / `pubspec+changelog` → one bullet under `## [Unreleased]`, creating CHANGELOG.md with the `# Changelog` + `## [Unreleased]` skeleton in the same branch when absent; `none` → skip) **and**, when dev.md says `chronicle: on`, its story entry prepended to `.vegastack/chronicle.md` (format: the `dev-chronicle` skill) — both on the branch, landing atomically with the merge. Docs the brief names as affected get updated in the same branch.
 
 ## Verify — the gate function
 

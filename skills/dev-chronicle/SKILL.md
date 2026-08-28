@@ -12,12 +12,12 @@ Nearest neighbors: `dev-implement` writes the entries at hand-back (the write ru
 ## The entry — one per behavior-changing branch
 
 ```markdown
-## DD-MM-YYYY — <title: the change as a human outcome, not a mechanism> (#<issue>)
+## DD-MM-YYYY — <title: the change as a human outcome — not a mechanism, not a commit subject> (#<issue>)
 
 **What:** <2–4 plain sentences: what exists now that didn't, from the operator's point of view>
 **Why:** <the need that prompted it>
 **How it went:** <the honest one-liner: smooth / what fought back / what was cut>
-**Changed:** <bullets of user-visible changes, simple words>
+**Changed:** <the user-visible changes, simple words — bullets or one ·-separated line>
 **Decisions:** <register lines it produced, or "none">
 — approved by operator (<username>) · built by <agent> · branch <name>
 ```
