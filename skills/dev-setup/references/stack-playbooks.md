@@ -13,7 +13,7 @@ Each playbook fills the same six slots: **detect** (file signals) · **ship draf
   - `guard: tag matches the package version` · `guard: changelog has an entry for the tagged version`
   - `auto: confirm the registry shows the new version; report old → new`
 - **Changelog:** `changesets`. Per behavior-changing branch, dev-implement writes `.changeset/<slug>.md` **directly** — frontmatter `"<package-name>": <patch|minor|major>` (from the brief's version-impact line) plus a one-paragraph summary. `changeset add` (the bare `changeset` prompt) is interactive; never invoke it in a dark run — `changeset version` at release time is the only CLI use. The release changelog is changesets-written — never hand-edited.
-- **Version identity:** `package.json` `version`, changesets-managed. Monorepos: identity is per-package; changesets handles multiple packages natively — the guard reads the released package's manifest. A private workspace root carries **no** version field (nothing maintains it; delete it rather than let it drift).
+- **Version identity:** `package.json` `version`, changesets-managed. Monorepos: identity is per-package; changesets handles multiple packages natively — the guard reads the released package's manifest. A private workspace root carries no *real* version — pin it at `0.0.0` (some tooling, e.g. `npm sbom` purl generation, requires every package to have one) and never bump it; deleting the field outright breaks such tooling.
 - **Guards:** changeset-presence (PR-time) · tag↔version · changelog-entry.
 - **Rollback:** `Rollback is roll-forward: revert on main, release previous-good as a new patch, deprecate the bad version on the registry.`
 
