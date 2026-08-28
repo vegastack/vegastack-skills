@@ -9,7 +9,7 @@ authority: {{ordered — e.g. "CONTRIBUTING.md → this file → skill defaults"
 
 ## Knobs
 
-review: subagent            # subagent | cross-agent | cross-agent-risky
+review: cross-agent-risky   # subagent (never cross-agent) | cross-agent-risky (other agent on risky) | cross-agent (always) — dev-review maps these
 ui-evidence: playwright     # playwright | none
 evidence-repo: {{owner}}/dev-review-evidence   # shared across projects; this project's folder = repo name; delete the line when ui-evidence is none
 gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main, ship word merges locally and pushes, no PR

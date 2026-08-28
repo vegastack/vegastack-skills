@@ -12,10 +12,11 @@ the constraints below, copied verbatim from the brief/plan:
 
 <constraints block>
 
-Write your FULL report to <report path>. Return only: verdict, per-severity
-counts, and one line per finding. Findings format:
+Write your FULL report to <report path> — complete findings there, each as:
 Finding [N]: <title> — [SEVERITY] (confidence: high|medium|low) path:line,
 issue, why it matters, fix (fenced snippet when code).
+Return only short status: verdict, per-severity counts, and one line per
+finding (title + severity + path:line) — the detail lives in the report file.
 
 You do not dispatch subagents. Do all reading and judging yourself — a reviewer
 you spawn duplicates this review at full cost and its opinion counts for
@@ -85,7 +86,7 @@ violations of documented standards may be [MUST-FIX]; baseline smells are
 
 ## Security axis brief
 
-The method and finding format live in [security-axis](security-axis.md); dispatch that file's brief verbatim when the axis runs.
+Compose the security dispatch from [security-axis](security-axis.md): the shared preamble above, then that file's Method steps, finding format (the three extra lines), severity definitions, and standing red lines, quoted into the prompt — the reviewer must receive them in full, not a pointer it cannot follow.
 
 ## Re-review brief (scoped, every fix round)
 
