@@ -29,8 +29,8 @@ With `gates: 1` there is no PR: the same verifications run, then the ship word t
 On the user's merge instruction:
 
 - Re-check that the PR head is still the revision the evidence comment names and checks are green — a branch that moved since review gets re-verified before it lands.
-- Pending `Decision:` lines exist (issue comments, or the evidence comment's `**Decision:**` line) → name them in the merge confirmation — "merging will record: …" — so the operator's word demonstrably covers them; never append on inferred consent. On the word, append each to the register dev.md names (`decisions:` knob) in its `- DD-MM-YYYY (github-username) — …` format; the register is append-only and this is its moment.
-- A merge conflict with the default branch is corrections work: update the branch, re-verify what the update touched, and the standing merge instruction holds once checks are green again — unless the update changed behavior, which goes back to the user.
+- Pending `Decision:` lines exist (issue comments, or the evidence comment's `**Decision:**` line) → name them in the merge confirmation — "merging will record: …" — so the operator's word demonstrably covers them; never append on inferred consent. On the word, append each to the register dev.md names (`decisions:` knob) in its `- DD-MM-YYYY operator (github-username) — …` format; the register is append-only and this is its moment.
+- A merge conflict with the default branch is corrections work: update the branch, re-verify what the update touched, and the standing merge instruction holds once checks are green again — unless the update changed behavior, or more than 7 days have passed since the word; either way, re-confirm with one sentence rather than acting on a stale instruction.
 - Merge per the dev.md `merge` knob (default `gh pr merge --squash`; `gates: 1` merges locally per the same knob and pushes). `Closes #<n>` closes the issue; confirm both happened.
 - A bot PR (Renovate, Dependabot) has no issue or evidence comment and merging it is still shipping: green checks qualify it, only the operator's explicit word — per PR or per named batch — merges it; majors and security advisories get named before their word is acted on.
 
@@ -42,4 +42,6 @@ Rollback is never a force-push: follow the Ship section's rollback line — roll
 
 ## Report
 
-One short confirmation each gate: what was created or merged, the link, decisions recorded, and anything that still needs the user (failing check, failing guard, moved head, missing evidence or changelog entry). When a gate's condition isn't met, the answer is what's missing — the gate itself never gets skipped to be helpful.
+One short confirmation each gate, in plain language: what was created or merged, the link, decisions recorded, and anything that still needs the operator (failing check, failing guard, moved head, missing evidence or changelog entry). When a gate's condition isn't met, the answer is what's missing — the gate itself never gets skipped to be helpful.
+
+Close every ship with the retro: any bounce, gotcha, or instruction the operator had to repeat during this issue? Propose the ONE dev.md (or runbook) line that would have prevented it — fold into an existing line, never append a log; a directional gotcha becomes a register proposal instead. Each lands only on the operator's yes.

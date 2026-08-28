@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill (lands with issue #17 of the v3 epic; entries before it follow the epic's agreed format).
 
+## 29-08-2026 — Shipping stopped taking anyone's word for it (#16)
+
+**What:** Before any PR, the ship gate now re-runs the project's checks itself, verifies the docs still describe the code, requires the changelog AND the story entry, and refuses review verdicts that weren't clean or openly ruled on. A merge instruction older than a week (or following a behavior-touching rebase) gets one polite re-confirm instead of blind obedience, and every ship ends by asking "what one line would have prevented this issue's friction?"
+**Why:** Self-reported evidence was the last trust gap — claims are now re-proven at the moment they matter.
+**How it went:** Small, surgical; the preflight guard also caught the coordinator claiming an issue before running preflight — order corrected, lesson recorded.
+**Changed:** dev-ship v3 (ship-gate wiring, staleness bound, retro close, operator register format) · ship-gate gains the chronicle presence check.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch feat/16-dev-ship-v3
+
 ## 29-08-2026 — Dark builds got a black box recorder (#15)
 
 **What:** While an agent builds unattended, it now keeps a live ledger on the issue — each finished task, each judgment call with its reasoning and what it costs if wrong, each review round. If the session dies or forgets (context limits), a fresh one reads brief → plan → ledger → git history — nothing else — and resumes at the exact right spot instead of redoing finished work. Tests are written before code at the boundaries the brief fixed, no status is ever claimed without a fresh command proving it, and when you correct something, the docs get corrected in the same breath as the code.
