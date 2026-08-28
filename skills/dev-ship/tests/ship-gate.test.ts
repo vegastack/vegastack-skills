@@ -50,6 +50,18 @@ describe('ship-gate', () => {
     const r = evaluateShipGate({ ...cleanFacts(), checkoutMismatch: 'the current checkout (1111111) is not the branch under review' })
     expect(r.blocks.some((b) => b.includes('not the branch under review'))).toBe(true)
   })
+  test('the chronicle-entry rule is an ADDED heading, not any touch', () => {
+    const headingRule = (fileDiff: string) => /^\+## /m.test(fileDiff)
+    expect(headingRule('+## 29-08-2026 — a new entry (#16)\n+**What:** …')).toBe(true)
+    expect(headingRule('-## 28-08-2026 — deleted entry\n')).toBe(false)
+    expect(headingRule('-**Why:** old\n+**Why:** typo-fixed old entry\n')).toBe(false)
+    expect(headingRule('+++ b/.vegastack/chronicle.md\n@@\n context only')).toBe(false)
+  })
+  test('an exercised excuse warns with what it excused', () => {
+    const r = evaluateShipGate({ ...cleanFacts(), changelogTouched: false, chronicleOn: true, chronicleTouched: false, allowNoChangelog: 'docs-only' })
+    expect(r.blocks).toEqual([])
+    expect(r.warns.some((w) => w.includes('changelog + chronicle'))).toBe(true)
+  })
   test('chronicle: on blocks a diff without a chronicle entry; the same reason excuses both', () => {
     const missing = evaluateShipGate({ ...cleanFacts(), chronicleOn: true, chronicleTouched: false })
     expect(missing.blocks.some((b) => b.includes('chronicle'))).toBe(true)
