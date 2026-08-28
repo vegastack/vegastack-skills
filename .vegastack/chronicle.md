@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — The skills stopped spoiling their own plots (#21)
+
+**What:** Every skill's one-line description now says only when to use it and what it's not for — the step-by-step summaries are gone. That matters because agents sometimes follow the summary instead of opening the skill, skipping steps the summary didn't mention. The repo docs now also name all ten workflow skills in one place.
+**Why:** An empirically observed failure mode from the external research: a description that narrates process becomes a shortcut past the process.
+**How it went:** Only two descriptions still had summaries (setup, ship) — the v3 rewrites had already cleaned the rest; the family-wide trigger check passed.
+**Changed:** dev-setup + dev-ship descriptions rewritten · family listing in CONTRIBUTING and the AGENTS.md template.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch chore/21-descriptions
+
 ## 29-08-2026 — Small honesty fixes in the advisor and the factory (#20)
 
 **What:** Architecture guidance marked "(inferred)" can now actually graduate: confirming one proposes a dated register line and removes the tag — before, nothing ever flipped inferred to ratified. And the skill factory's testing playbook now says out loud what this epic learned by doing: trigger checks must re-run across the whole family when it changes, and workflow skills get their real proof from a sandbox drill, not single prompts.

@@ -17,7 +17,7 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 | Path | What it is |
 |---|---|
 | `skills/` | Authored skill content — the single source of truth. Edit here. |
-| `skills/dev-architect/` | The dev-architect skill: `SKILL.md`, decision-table references, pinned platform facts, tests. |
+| `skills/dev-*/` | The ten dev-workflow skills (setup, intake, plan, architect, implement, review, debug, ship, status, chronicle): each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
 | `skills/*/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
 | `.vegastack/` | The project's own dev workflow instance: `dev.md` (the canonical process doc — release runbook, versioning, rollback) and `decisions.md` (the decision register). |
