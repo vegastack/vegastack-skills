@@ -1,64 +1,67 @@
 ---
 name: dev-intake
-description: Turn ideas, brainstorms, feature requests, or SOW documents into GitHub issues an agent can implement without further questions. Use when asked to "turn this into issues", "create tasks from this SOW", "write up an issue for" a feature or bug, "plan this as issues", "slice this epic", or when the user gives approval on a drafted issue and it needs recording. Produces complete inline build briefs with labels, milestones, and blocker links. Not for implementing issues (dev-implement), creating PRs or merging (dev-ship), or project bootstrap (dev-setup).
+description: Turn ideas, brainstorms, feature requests, bug reports, or SOW documents into GitHub issues an agent can act on without further questions. Use when asked to "turn this into issues", "create tasks from this SOW", "write up an issue for" a feature or bug, "users report X — make an issue", "plan this as issues", "slice this epic", or when the user gives approval on a drafted issue and it needs recording. Not for writing the implementation plan of an approved issue (dev-plan), implementing issues (dev-implement), creating PRs or merging (dev-ship), or project bootstrap (dev-setup).
 ---
 
 # dev-intake
 
-Requirements come in as the user's brainstorm, feature thought, or SOW; issues go out complete enough that a fresh agent needs nothing but the URL. Every question gets asked **here** — once implementation starts, dark mode means no questions, so an under-specified issue becomes either an interruption or a guess. This skill exists to make both impossible.
+Requirements come in as the operator's brainstorm, feature thought, bug report, or SOW; issues go out complete enough that a fresh agent needs nothing but the URL. Every question gets asked **here** — once implementation starts, dark mode means no questions, so an under-specified issue becomes either an interruption or a guess. Artifact formats (markers, operator identity, labels, revisions) follow the `dev-setup` skill's `references/conventions.md`.
 
-Nearest neighbor: `dev-implement` consumes what this produces — intake writes and gets approval, implement builds. If `.vegastack/dev.md` is missing, run `dev-setup` first, then continue here.
+Nearest neighbors: `dev-plan` owns the how once a brief is approved — intake owns the what/why and the approval mechanics; `dev-implement` builds. If `.vegastack/dev.md` is missing → run `dev-setup` first, then continue.
 
 ## Ground before you ask
 
-Finding facts is your job, never the user's — and a brief built on unverified facts is a confident mistake waiting for dark mode. The source can be one sentence in chat; thinner material just means the grounding and interview carry more weight. Before the first question:
+Finding facts is your job, never the operator's — a brief built on unverified facts is a confident mistake waiting for dark mode. Before the first question:
 
-- **Read the touched code.** Open the actual paths the feature would change: current behavior, existing patterns to reuse, where the new work plugs in. The brief cites these real paths later — a brief naming no files is a sign this step was skipped.
-- **Verify dependencies.** Any library, service, or API capability the approach leans on gets checked against current official docs (docs tools or web search), noted with the date. Stack, schema, auth, and infra approach choices route through `dev-architect` — its verify-before-you-recommend protocol governs the check (pinned facts first, live docs on a miss or a fact older than 60 days); skip lookups for long-stable basics — judgment, not ritual.
-- **Cross-check the request** against product docs and current behavior. A contradiction is pushback, never a silent resolution: "you asked for X; the code/docs currently do Y — which wins?" Push back on cost the same way: when a simpler version covers most of the need, name it.
-- **Triage every unknown** into exactly three bins: *findable* → find it now, yourself; *only-the-user-knows* → ask, with a recommendation; *only-running-code-can-tell* → flag it as a spike that becomes the issue's first step. Guessing is not a bin.
+- **Read the touched code.** Open the actual paths the work would change: current behavior, patterns to reuse, where it plugs in. The brief cites these real paths later — a brief naming no files is a sign this step was skipped.
+- **Verify dependencies.** Any library, service, or API capability the approach leans on gets checked against current official docs, noted with the date. Stack, schema, auth, and infra choices route through `dev-architect` — its verify protocol governs the check.
+- **Cross-check the request** against product docs and current behavior. A contradiction is pushback, never a silent resolution: "you asked for X; the code currently does Y — which wins?" Push back on cost the same way: when a simpler version covers most of the need, name it.
+- **Triage every unknown** into exactly three bins: *findable* → find it now, yourself; *only-the-operator-knows* → ask, with a recommendation; *only-running-code-can-tell* → a `research` issue or the issue's first spike step. Guessing is not a bin.
+
+## Scope the work — say it out loud
+
+Every issue gets exactly one scope call, announced with its reason so the operator can override, and applied as a label:
+
+- **`research`** — a question to answer, not code to keep. The brief is the question plus what "answered" looks like.
+- **`quick-build`** — the objective test: *the flow being changed already exists in the repo to read*. If there is no existing flow to change, it is not quick-build — familiarity with the kind of app doesn't count.
+- **`full-plan`** — big or new ground: a new subsystem, a restructuring, a brand-new flow.
+
+In doubt between two classes, take the heavier one. Re-classification after this point belongs to `dev-plan`'s one-way ratchet — never silently downgrade.
 
 ## The interview
 
-Ask in rounds using your harness's question tool (AskUserQuestion in Claude Code, `request_user_input` in Codex where the mode allows; no tool available → draft with recommended answers marked `TODO confirm` and say so). Each round covers the current frontier: every open decision that does not depend on another answer.
+Ask in rounds with your harness's question tool (no tool available → documented defaults marked `TODO confirm`, and say so). Each round covers the current frontier: every open decision that doesn't depend on another answer. Number the questions; give each a **recommended answer with a one-line reason** so the operator can reply "all recommended". A vague or self-contradicting answer gets pushback with concrete options — simple words, a mermaid or ASCII sketch when a picture beats prose — never silent absorption. Stop when the bar is met: *a fresh agent could act on each issue without asking anything.*
 
-- Number the questions. Give each a **recommended answer with a one-line reason**, so the user can reply "all recommended" or override by number.
-- Stop asking when the bar is met: *a fresh agent could implement each issue without asking anything.* Test every brief against that sentence before calling it done.
-- Do not re-ask what the material or an earlier round already settled.
+The angles, in order — product (who, observable outcome, in/out of scope, slices, priority) → behavior (flows, rules, permissions, edge and failure cases; UI states and copy) → technical (only choices genuinely the operator's, each with a recommendation, checked against `dev-architect`; settle the version impact where the project versions releases) → quality and risk (what proves it works, what earns `risky`, what stops a dark run). Deep approach trade-offs beyond the operator's choices belong to `dev-plan`, not this interview.
 
-## The angles, in order
+**Bug variant** (`fix:` issues): reproduction steps — or the artifacts needed to obtain them (logs, HAR, recording) — are a required brief section, and the brief names `dev-debug` as the implement path. A bug that can't be reproduced yet becomes a `research` issue first.
 
-Work the design the way a joint product-and-tech review would; each round's answers feed the next:
+## Slicing and hierarchy
 
-1. **Product** — who this is for, the observable outcome, what's in and out of scope now, how it splits into slices or phases, priority.
-2. **Behavior** — primary and alternate flows, rules, permissions, validations, edge and failure cases; for UI, the states, components, and copy.
-3. **Technical** — only the choices that are genuinely the user's: approach trade-offs, data and interface implications, integrations, migration; recommend one and say why — checking `dev-architect` first so a brief never proposes a recorded rejection or a moving part without its trigger. When the project versions releases (dev.md `changelog:` knob), settle the intended version impact (patch/minor/major) here — the brief records it and dev-implement's changelog entry starts from it. Routine implementation stays the implementer's.
-4. **Quality and risk** — what proves it works (test cases, acceptance), what earns the `risky` label, what should stop a dark run beyond the standing stop-list.
-
-These are the brief template's sections in interview form — a question exists only where reading the material, the codebase, and sensible defaults cannot fill a section.
-
-## Slicing
-
-- One issue = one outcome that fits one agent session, sliced vertically (a thin working path through the stack beats a layer at a time).
-- Blockers use native issue dependencies (blocked-by); phases use milestones; hierarchy uses parent/sub-issues. Labels never duplicate these.
-- A large feature gets a parent issue holding the map and child issues holding the work. **Only child issues ever get `ready`** — a parent brief is context, not an executable task, and an agent must never pick it up whole.
-- Deliberately deferred work ("someday, not now") lives in the parent's out-of-scope section, not as its own issue — icebox issues clutter the tracker. Create a tracking issue for it only when the user asks.
+- One issue = one outcome that fits one agent session, sliced vertically. Blockers use native dependencies; phases use milestones; parents use native sub-issues.
+- **Epics:** a multi-deliverable feature gets a parent whose body is a map, never a task — `Destination` (one or two lines every session orients to) · `Decisions so far` (one-line gists linking closed children) · `Not clear yet` (in-scope questions you cannot yet state precisely — the test is whether the question can be phrased sharply now, not answered now; don't pre-slice fog) · `Out of scope` (the tempting adjacent work, named). A mermaid overview when it helps. Each child is classified independently. **Only children ever get `ready`.**
+- Titles carry the type prefix (dev.md `branch:` type list + `research:`) and the native issue type where the org has them — issue, branch, and PR always agree.
 
 ## The brief
 
-Every issue body follows [brief-template](references/brief-template.md): Outcome · Out of scope · Rules and edge cases · UI states (when there is UI) · Approach and touch points · Tests and acceptance · Risks and stop conditions · Assumptions. Write the sections that apply and delete the ones that don't — an empty "N/A" section is noise, not diligence. Details live inline in the issue; links to docs are supporting material, never a substitute for the brief. Evidence over confidence: touch points name real paths, dependency claims carry their check date, and anything material the grounding could not verify goes in **Assumptions — confirm or correct**, never asserted as fact.
+The issue body follows [brief-template](references/brief-template.md), marker line included. Inline over linked; concrete over abstract; evidence over confidence — touch points name real paths, dependency claims carry their check date, and anything unverifiable goes to **Assumptions — confirm or correct**, never asserted. Tests-and-acceptance names the **seams** — the public boundaries tests will live at — because dark mode can't ask later.
 
-Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs --file <draft> --scope <class> --json` — structure gaps block (exit 2), quality smells only warn; fix blocks before the operator ever sees the draft.
+**Quick-build issues get their plan now:** after the brief has consensus, invoke `dev-plan`'s inline mode in this same conversation and post brief (description) + plan (comment) together — the operator's single approval covers both.
+
+Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs --file <draft> --scope <class> --json` — structure gaps block (exit 2), quality smells only warn; fix blocks before the operator ever sees the draft. Inline plans additionally pass `dev-plan`'s plan-lint.
 
 ## Labels and approval
 
-- A new issue starts at `needs-operator`. Add `risky` when it touches security, money, user data, or production. (Label names come from dev.md's `labels:` knob; the defaults are used throughout this skill family's prose.)
-- Approval is only the user's explicit words — "approved", "go ahead", clearly tied to this issue, in chat or on the issue. Labels, silence, or the passage of time never create approval.
-- Record it once: comment `Approved by <user> on <date>: "<their words>"`, then swap `needs-operator` → `ready`. That comment is what dev-implement's preflight looks for.
-- An issue with an unconfirmed entry in its Assumptions section cannot go `ready` — the recorded approval covers the ledger the user saw, so resolve every entry (confirmed, corrected, or moved to a spike) first.
-- An issue that settles a directional decision — one that passes the Decisions test in `.vegastack/dev.md` — records it as one comment starting `Decision:`, in the register's line format; dev-ship appends it at merge after naming it in the merge confirmation. A decision that stands regardless of the issue's fate may go into the register immediately on the user's explicit yes in the same conversation — note "recorded" on the comment so dev-ship doesn't append it twice. Choices that fail the test are brief content, never register lines.
-- The user edits or corrects a draft → apply, and summarize what changed since they last read it.
+- A new issue starts at `needs-operator`, plus its scope label; add `risky` when it touches security, money, user data, or production. (Names come from dev.md's `labels:` knob.)
+- Approval is only the operator's explicit words, clearly tied to the issue. Labels, silence, or time never create approval.
+- Record it as one marker comment — `<!-- vsk:v1 type=approval scope=brief -->` (or `scope=brief+plan` when the inline plan was posted with it) — body `Approved by operator (<username>) on DD-MM-YYYY: "<their words>"`. That comment is what preflight verifies.
+- Then flip the state: `research` and `quick-build` → `ready`; `full-plan` → `needs-plan` (dev-plan takes it from there).
+- An issue with an unresolved Assumptions entry cannot leave `needs-operator` — resolve every entry (confirmed, corrected, or moved to a spike) first; the section is deleted once resolved.
+- A directional decision this work settles — one passing the Decisions test in dev.md — is proposed as one register line on the operator's yes; `dev-ship` records at merge.
+- The operator edits a draft → apply, and summarize what changed since they last read it.
 
 ## After approval
 
-An approved issue that later needs a material change flips back to `needs-operator` with one comment naming what changed; the new approval is recorded the same way. Small wording fixes that change no behavior don't reopen anything.
+An approved issue that later needs a material change flips back to `needs-operator` with one comment naming what changed; the new approval is recorded the same way, and the brief's revision marker bumps. Small wording fixes that change no behavior don't reopen anything.
+
+End every run with the plain-language summary: what was created or changed, the scope calls made and why, and exactly what awaits the operator's word.

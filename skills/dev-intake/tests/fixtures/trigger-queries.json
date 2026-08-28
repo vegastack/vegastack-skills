@@ -2,11 +2,16 @@
   { "query": "turn this brainstorm into github issues", "should_trigger": true },
   { "query": "create tasks from the SOW pdf in docs/ - it covers the whole phase 2 scope", "should_trigger": true },
   { "query": "write up an issue for the csv export feature we just discussed", "should_trigger": true },
-  { "query": "plan the notifications feature as issues with blockers between them", "should_trigger": true },
+  { "query": "plan the notifications feature as issues with blockers between them", "should_trigger": true, "ambiguous_with": ["dev-plan"] },
   { "query": "approved, record it on issue #14 and mark it ready", "should_trigger": true, "ambiguous_with": ["dev-ship"] },
   { "query": "slice this epic into agent-sized issues", "should_trigger": true },
+  { "query": "users report the export button crashes on big files - make an issue", "should_trigger": true },
+  { "query": "write up this bug with the repro steps from the support thread", "should_trigger": true, "ambiguous_with": ["dev-debug"] },
   { "query": "do issue #12 end to end", "should_trigger": false, "ambiguous_with": ["dev-implement"] },
   { "query": "set up the dev workflow in this repo first", "should_trigger": false, "ambiguous_with": ["dev-setup"] },
   { "query": "make the PR for #9", "should_trigger": false, "ambiguous_with": ["dev-ship"] },
-  { "query": "what's the best architecture for the export pipeline", "should_trigger": false, "ambiguous_with": ["dev-architect"] }
+  { "query": "what's the best architecture for the export pipeline", "should_trigger": false, "ambiguous_with": ["dev-architect"] },
+  { "query": "write the implementation plan for approved issue 18", "should_trigger": false, "ambiguous_with": ["dev-plan"] },
+  { "query": "issue 18 is labeled needs-plan, pick it up", "should_trigger": false, "ambiguous_with": ["dev-plan"] },
+  { "query": "debug why login is broken", "should_trigger": false, "ambiguous_with": ["dev-debug"] }
 ]
