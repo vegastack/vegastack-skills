@@ -56,11 +56,14 @@ export function evaluateShipGate(facts) {
   const marker = parseMarker(evidence.body);
   const evidenceSha = marker?.keys?.sha ?? '';
 
-  if (!headSha.startsWith(evidenceSha) && !evidenceSha.startsWith(headSha)) {
-    const docsLineFresh = evidence.updatedAt && headCommittedAt && new Date(evidence.updatedAt) >= new Date(headCommittedAt);
-    if (!docsLineFresh) {
-      blocks.push(`branch head ${headSha} moved past evidence sha ${evidenceSha || '(none)'} and the evidence (with its Docs line) was not updated after it — corrections work is unrecorded`);
-    }
+  if (!/^[0-9a-f]{7,40}$/.test(evidenceSha)) {
+    blocks.push(`evidence marker carries no valid sha= (found "${evidenceSha || 'nothing'}") — the shipped revision must be named`);
+  } else if (!headSha.startsWith(evidenceSha) && !evidenceSha.startsWith(headSha)) {
+    // Strict equality, no reconciliation window: the corrections loop updates
+    // the evidence comment (Docs line AND sha) after every change, so a
+    // mismatched sha means unrecorded work. An "edited since the commit"
+    // window was spoofable by any comment edit and was removed.
+    blocks.push(`branch head ${headSha} moved past evidence sha ${evidenceSha} — the corrections loop must re-verify and update the evidence comment (Docs line + new sha) before shipping`);
   }
 
   if (!changelogTouched && !allowNoChangelog) {
@@ -71,12 +74,17 @@ export function evaluateShipGate(facts) {
     blocks.push(`latest review verdict is ${reviewVerdict ?? 'absent'} and the evidence Review section carries no adjudication`);
   }
 
+  if (facts.checkoutMismatch) {
+    blocks.push(facts.checkoutMismatch);
+  }
   if (checkExit !== null && checkExit !== 0) {
     blocks.push(`the project check command exited ${checkExit} on a fresh run — a claim is never trusted, always re-proven`);
   }
 
-  if (/\[DEBUG-/.test(diffText)) {
-    blocks.push('the diff still contains [DEBUG- tagged instrumentation — dev-debug cleanup was skipped');
+  // Added lines only: context/removed lines and docs that merely mention the
+  // tag (dev-debug's own SKILL.md) must not false-block.
+  if (/^\+(?!\+\+).*\[DEBUG-/m.test(diffText)) {
+    blocks.push('the diff adds [DEBUG- tagged instrumentation — dev-debug cleanup was skipped');
   }
 
   for (const pattern of RATIONALIZATIONS) {
@@ -100,19 +108,29 @@ export function gatherFacts(flags) {
     if (marker?.keys?.type === 'evidence') evidence = { body: comment.body, updatedAt: comment.updated_at };
     if (marker?.keys?.type === 'review') reviewVerdict = marker.keys.verdict ?? null;
   }
-  const adjudicated = /\*\*Review:\*\*[^\n]*(adjudicat|parked|ruling)/i.test(evidence?.body ?? '');
+  const reviewSection = /\*\*Review:\*\*[\s\S]*?(?=\n\*\*[A-Z]|\nBranch:|$)/.exec(evidence?.body ?? '')?.[0] ?? '';
+  const adjudicated = /(adjudicat|parked|ruling)/i.test(reviewSection);
 
   const headSha = sh('git', ['rev-parse', '--short=7', branch]);
   const headCommittedAt = sh('git', ['show', '-s', '--format=%cI', branch]);
   const diffText = sh('git', ['diff', `${base}...${branch}`]);
+  // The fresh check run and dev.md read use the WORKING TREE — they prove
+  // nothing unless the checkout is the branch under review.
+  const checkoutSha = sh('git', ['rev-parse', 'HEAD']);
+  const branchSha = sh('git', ['rev-parse', branch]);
+  const checkoutMismatch = checkoutSha === branchSha
+    ? null
+    : `the current checkout (${checkoutSha.slice(0, 7)}) is not the branch under review (${branch} @ ${branchSha.slice(0, 7)}) — run ship-gate from that branch so the fresh check proves the right code`;
 
   const devMd = readFileSync(flags['dev-md'] || '.vegastack/dev.md', 'utf8');
   const changelogKnob = (/^changelog:\s*(\S+)/m.exec(devMd) || [])[1] ?? 'none';
+  // Added files/lines only — a deleted changeset or the +++ diff header must
+  // not count as an entry.
   const changelogTouched = changelogKnob === 'none'
     ? true
     : changelogKnob === 'changesets'
-      ? /^diff --git a\/\.changeset\/(?!config)/m.test(diffText)
-      : /^\+.*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md']) || '');
+      ? /^\+\+\+ b\/\.changeset\/(?!config)/m.test(diffText)
+      : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md']) || '');
 
   let checkExit = null;
   const checkCmd = (/^commands:.*?check\s+`([^`]+)`/m.exec(devMd) || [])[1];
@@ -127,7 +145,7 @@ export function gatherFacts(flags) {
 
   return {
     evidence, reviewVerdict, adjudicated, headSha, headCommittedAt, diffText,
-    changelogTouched, allowNoChangelog: flags['allow-no-changelog'], checkExit,
+    changelogTouched, allowNoChangelog: flags['allow-no-changelog'], checkExit, checkoutMismatch,
   };
 }
 

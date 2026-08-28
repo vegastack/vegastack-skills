@@ -8,7 +8,9 @@ export class GhUnavailable extends Error {}
 
 // Run gh with explicit args (never a shell) and parse JSON output. Any failure
 // to reach GitHub is a GhUnavailable — callers treat it as "cannot verify",
-// which blocks (fail closed), never as a pass.
+// which blocks (fail closed), never as a pass. VSK_GH is a TEST SEAM only
+// (points unit tests at a stub binary); guards are enforcement infrastructure,
+// so never set it in real runs.
 export function ghJson(args, { gh = process.env.VSK_GH || 'gh' } = {}) {
   let out;
   try {

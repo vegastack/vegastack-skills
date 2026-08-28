@@ -23,12 +23,17 @@ describe('plan-lint', () => {
     const r = lintPlan(goodPlan.replace(/<!--[^>]*-->\n/, ''))
     expect(r.blocks.some((b) => b.includes('marker'))).toBe(true)
   })
-  test('blocks every banned placeholder', () => {
-    for (const phrase of ['TBD', 'we will handle edge cases', 'similar to Task 2', 'write tests for the above']) {
+  test('blocks every banned placeholder — one realistic phrase per pattern', () => {
+    const phrases = [
+      'TBD', 'TODO', 'we can implement later', 'fill in details here',
+      'add appropriate error handling', 'then add validation', 'we will handle edge cases',
+      'write tests for the above', 'similar to Task 2',
+    ]
+    expect(phrases.length).toBe(bannedPlaceholders.length)
+    for (const phrase of phrases) {
       const r = lintPlan(goodPlan.replace('the simple way', phrase))
       expect(r.blocks.some((b) => b.includes('banned placeholder'))).toBe(true)
     }
-    expect(bannedPlaceholders.length).toBeGreaterThanOrEqual(9)
   })
   test('blocks a plan with no checkbox tasks', () => {
     const r = lintPlan(goodPlan.replace('- [ ] **Task 1: build it**', '**Task 1: build it**'))
