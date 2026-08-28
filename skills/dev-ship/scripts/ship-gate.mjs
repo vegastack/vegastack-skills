@@ -95,9 +95,9 @@ export function evaluateShipGate(facts) {
     blocks.push(`the project check command exited ${checkExit} on a fresh run — a claim is never trusted, always re-proven`);
   }
 
-  // Added lines only: context/removed lines and docs that merely mention the
-  // tag (dev-debug's own SKILL.md) must not false-block.
-  if (/^\+(?!\+\+).*\[DEBUG-/m.test(diffText)) {
+  // Added lines only, and only the REAL tag shape ([DEBUG- + hex): docs that
+  // document the tag write placeholders like [DEBUG-<4hex>] and must not block.
+  if (/^\+(?!\+\+).*\[DEBUG-[0-9a-f]{4}\]/m.test(diffText)) {
     blocks.push('the diff adds [DEBUG- tagged instrumentation — dev-debug cleanup was skipped');
   }
 

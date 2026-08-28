@@ -7,7 +7,7 @@ description: Reproduce-first bug work. Use when given a bug to fix — "debug th
 
 The failure this skill prevents: reading code, forming one theory, and "fixing" something that was never the cause. The discipline is a hard order — **reproduce, shrink, suspect, test, prove, clean** — and each phase has a completion criterion you can check, not vibe. It runs inside dev-implement's dark mode: no operator questions; missing-artifact stops are one `handback` comment; every phase result is a ledger checkpoint.
 
-Nearest neighbors: `dev-intake`'s bug variant writes the brief (Reproduction section required — an unreproducible report becomes `research` first); `dev-implement` owns the surrounding build ceremony; `dev-review` judges the finished fix.
+Nearest neighbors: `dev-intake`'s bug variant writes the brief this skill executes; `dev-implement` owns the surrounding build ceremony; `dev-review` judges the finished fix.
 
 ## Phase 1 — the red command. No red command, no theorizing.
 
@@ -38,6 +38,6 @@ Write the failing test **before** touching the fix, at a **correct seam**: one w
 
 ## Phase 6 — clean up and teach
 
-Before hand-back, all checkable: the original repro re-runs green · `grep -r "[DEBUG-"` over the diff comes back empty (ship-gate backstops) · throwaway harnesses deleted · the **winning suspect and its evidence** named in the evidence comment and the commit message — the next debugger learns what it actually was, not just that it went away.
+Before hand-back, all checkable: the original repro re-runs green · `git diff <base>... | grep -F '[DEBUG-'` comes back empty (fixed-string grep; ship-gate backstops the added lines) · throwaway harnesses deleted · the **winning suspect and its evidence** named in the evidence comment and the commit message — the next debugger learns what it actually was, not just that it went away.
 
 Close with the plain-language summary: the symptom, the cause, the proof, and anything the investigation surfaced that deserves its own issue.

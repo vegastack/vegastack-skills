@@ -1,6 +1,6 @@
 # dev-debug
 
-Reproduce-first bug work, as a hard phase order with checkable completion criteria: build a **red command** (one named command that fails on the exact reported symptom — no red command, no theorizing), shrink the repro until every element is load-bearing, rank 3–5 falsifiable suspects and post them to the ledger without pausing, test one variable at a time with `[DEBUG-<hex>]`-tagged probes (cleanup is one grep, and ship-gate blocks survivors), write the regression test at a correct seam **before** the fix — red, fix, green, then the original un-minimised loop — and close by naming the winning suspect so the next debugger learns the cause, not just the absence. The agent entry point is [SKILL.md](SKILL.md).
+Reproduce-first bug work, as a hard phase order with checkable completion criteria: build a **red command** (one named command that fails on the exact reported symptom — no red command, no theorizing), shrink the repro until every element is load-bearing, rank 3–5 falsifiable suspects and post them to the ledger without pausing, test one variable at a time with `[DEBUG-<4hex>]`-tagged probes (cleanup is one grep, and ship-gate blocks survivors), write the regression test at a correct seam **before** the fix — red, fix, green, then the original un-minimised loop — and close by naming the winning suspect so the next debugger learns the cause, not just the absence. The agent entry point is [SKILL.md](SKILL.md).
 
 ## Install
 

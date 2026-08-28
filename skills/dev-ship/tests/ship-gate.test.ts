@@ -91,6 +91,8 @@ describe('ship-gate', () => {
     expect(added.blocks.some((b) => b.includes('[DEBUG-'))).toBe(true)
     const removedOrContext = evaluateShipGate({ ...cleanFacts(), diffText: '-console.log("[DEBUG-a4f2] x")\n [DEBUG-docs] mention in context\n+++ b/skills/dev-debug/SKILL.md' })
     expect(removedOrContext.blocks).toEqual([])
+    const docsPlaceholder = evaluateShipGate({ ...cleanFacts(), diffText: '+Every debug log carries a `[DEBUG-<4hex>]` tag' })
+    expect(docsPlaceholder.blocks).toEqual([])
   })
   test('rationalization phrases warn, never block', () => {
     const facts = cleanFacts()
