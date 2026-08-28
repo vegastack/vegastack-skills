@@ -37,7 +37,7 @@ Ask with your harness's question tool — AskUserQuestion in Claude Code, `reque
 
 **Round B — the workflow knobs**, recommended default first:
 
-1. Review of finished work: **subagent** · cross-agent (Codex↔Claude) · cross-agent only on `risky` issues
+1. Review of finished work (`review:` knob, mapped by dev-review): **cross-agent-risky** (subagent axes, the other agent on `risky` — recommended where the Codex CLI was detected; otherwise recommend `subagent`) · `subagent` (never cross-agent) · `cross-agent` (always)
 2. Proof for UI work: **playwright screenshots** · none
 3. Gates: **3** (approve → PR → merge as separate user words) · 2 (approve → one "ship it" covers PR and merge) · 1 (direct-to-main for single-operator projects: the ship word merges locally and pushes, no PR — everything else unchanged)
 4. Tests: **required for every change** · required for logic changes only
