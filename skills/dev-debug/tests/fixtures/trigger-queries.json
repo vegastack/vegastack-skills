@@ -1,0 +1,76 @@
+[
+  {
+    "query": "debug this — the export button crashes on big files",
+    "should_trigger": true
+  },
+  {
+    "query": "this is broken and I don't know why",
+    "should_trigger": true
+  },
+  {
+    "query": "users report login intermittently 500s — find out why",
+    "should_trigger": true
+  },
+  {
+    "query": "implement the fix issue #44 (it has repro steps)",
+    "should_trigger": true,
+    "ambiguous_with": [
+      "dev-implement"
+    ]
+  },
+  {
+    "query": "my fix didn't fix it — the symptom is back",
+    "should_trigger": true
+  },
+  {
+    "query": "why does this test only fail in CI",
+    "should_trigger": true
+  },
+  {
+    "query": "track down the memory leak in the worker",
+    "should_trigger": true
+  },
+  {
+    "query": "the date is wrong sometimes, figure it out",
+    "should_trigger": true
+  },
+  {
+    "query": "write up this bug as an issue",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-intake"
+    ]
+  },
+  {
+    "query": "review the finished fix on issue 44",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-review"
+    ]
+  },
+  {
+    "query": "implement the csv export feature issue",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-implement"
+    ]
+  },
+  {
+    "query": "plan the notifications rework before building",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-plan"
+    ]
+  },
+  {
+    "query": "should we add a queue to fix the timeouts",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-architect"
+    ]
+  },
+  {
+    "query": "debug my career choices",
+    "should_trigger": false
+  }
+]
