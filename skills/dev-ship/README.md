@@ -1,6 +1,6 @@
 # dev-ship
 
-The last two gates of the workflow, each spent only by the user's explicit words: "make the PR" creates the pull request (linked to the issue's evidence, `Closes #n`, no duplication of the report), and a separate "merge" lands it (re-checking that the head is still the reviewed revision, then squash-merging per the dev.md knob) and appends any recorded decision to `docs/decisions.md`. With `gates: 2` in the profile, one "ship it" covers both.
+The shipping gates of the workflow, each spent only by the user's explicit words: "make the PR" creates the pull request (linked to the issue's evidence, `Closes #n`, changelog entry verified), and a separate "merge" lands it (re-checking that the head is still the reviewed revision, then merging per the dev.md knob) and appends approved decisions to the register the `decisions:` knob names. The dev.md `gates` knob sets coverage: `2` lets one "ship it" cover both, `1` is direct-to-main with no PR. After merge it runs the dev.md `## Ship` runbook — release steps, local guards, deploys — stopping at every `ask:` line and every failure.
 
 The agent entry point is [SKILL.md](SKILL.md).
 
@@ -14,7 +14,8 @@ npx @vegastack/skills add dev-ship
 
 | Path | Purpose |
 |---|---|
-| [SKILL.md](SKILL.md) | Agent entry point: the two gates, PR and merge mechanics, failure handling |
+| [SKILL.md](SKILL.md) | Agent entry point: the gates, PR and merge mechanics, decision recording, failure handling |
+| [references/runbook.md](references/runbook.md) | Runbook execution semantics (auto/ask/guard), release batching, direct-to-main, bot PRs, rollback |
 | [refresh/REFRESH.md](refresh/REFRESH.md) + [refresh/sources.json](refresh/sources.json) | Evergreen waiver and its deliberately empty registry |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |

@@ -32,7 +32,7 @@ Work the design the way a joint product-and-tech review would; each round's answ
 
 1. **Product** — who this is for, the observable outcome, what's in and out of scope now, how it splits into slices or phases, priority.
 2. **Behavior** — primary and alternate flows, rules, permissions, validations, edge and failure cases; for UI, the states, components, and copy.
-3. **Technical** — only the choices that are genuinely the user's: approach trade-offs, data and interface implications, integrations, migration; recommend one and say why. Routine implementation stays the implementer's.
+3. **Technical** — only the choices that are genuinely the user's: approach trade-offs, data and interface implications, integrations, migration; recommend one and say why. When the project versions releases (dev.md `changelog:` knob), settle the intended version impact (patch/minor/major) here — the brief records it and dev-implement's changelog entry starts from it. Routine implementation stays the implementer's.
 4. **Quality and risk** — what proves it works (test cases, acceptance), what earns the `risky` label, what should stop a dark run beyond the standing stop-list.
 
 These are the brief template's sections in interview form — a question exists only where reading the material, the codebase, and sensible defaults cannot fill a section.
@@ -50,11 +50,11 @@ Every issue body follows [brief-template](references/brief-template.md): Outcome
 
 ## Labels and approval
 
-- A new issue starts at `needs-operator`. Add `risky` when it touches security, money, user data, or production.
+- A new issue starts at `needs-operator`. Add `risky` when it touches security, money, user data, or production. (Label names come from dev.md's `labels:` knob; the defaults are used throughout this skill family's prose.)
 - Approval is only the user's explicit words — "approved", "go ahead", clearly tied to this issue, in chat or on the issue. Labels, silence, or the passage of time never create approval.
 - Record it once: comment `Approved by <user> on <date>: "<their words>"`, then swap `needs-operator` → `ready`. That comment is what dev-implement's preflight looks for.
 - An issue with an unconfirmed entry in its Assumptions section cannot go `ready` — the recorded approval covers the ledger the user saw, so resolve every entry (confirmed, corrected, or moved to a spike) first.
-- An issue that settles a material cross-cutting decision records it as one comment starting `Decision:` — dev-ship appends that line to the project's decision register at merge.
+- An issue that settles a directional decision — one that passes the Decisions test in `.vegastack/dev.md` — records it as one comment starting `Decision:`, in the register's line format; dev-ship appends it at merge after naming it in the merge confirmation. Choices that fail the test are brief content, never register lines.
 - The user edits or corrects a draft → apply, and summarize what changed since they last read it.
 
 ## After approval

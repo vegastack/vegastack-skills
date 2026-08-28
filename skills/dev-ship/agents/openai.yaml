@@ -1,4 +1,4 @@
 interface:
   display_name: "dev-ship"
-  short_description: "Open the PR and merge, each on the user's word"
+  short_description: "PR, merge, and release runbook, each on the user's word"
   default_prompt: "Use $dev-ship to create the PR or merge this issue's work."

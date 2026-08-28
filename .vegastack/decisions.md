@@ -1,0 +1,7 @@
+# Decision register
+
+One dated line per directional decision (see `## Decisions` in dev.md for what qualifies); append-only. Format: `- DD-MM-YYYY (github-username) — the decision`.
+
+- 27-08-2026 (kmanojkumar) — Adopted the dev workflow skills for this repo itself (dev.md handbook, operator labels, Ship runbook = the changesets release flow).
+- 28-08-2026 (kmanojkumar) — .vegastack/dev.md is each project's single canonical process doc: policy docs fold into it as Ship bullets, the decision register lives beside it at .vegastack/decisions.md, and every rule that can be a deterministic check becomes a guard (local first, CI backstop).
+- 28-08-2026 (kmanojkumar) — Dev-skills v2 profile-format changes ship as a minor release: pre-1.0, zero deployed consumers, and the only existing profile (this repo's) is rewritten in the same release.

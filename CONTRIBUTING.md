@@ -20,7 +20,7 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 | `skills/architect/` | The architect skill: `SKILL.md`, decision-table references, per-project profile template, tests. |
 | `skills/*/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
-| `docs/policies/` | Release/rollback and content-versioning policies. |
+| `.vegastack/` | The project's own dev workflow instance: `dev.md` (the canonical process doc — release runbook, versioning, rollback) and `decisions.md` (the decision register). |
 
 ## Never commit generated files
 
@@ -49,8 +49,9 @@ Skill content is advisory prose and decision tables, not a rule corpus — there
 and no machine-extracted rule format to follow.
 
 - New reference files or reference sections, and new/changed recorded decisions (e.g. a new
-  "use/not/why" row, a new red line) are MINOR content changes — see
-  [docs/policies/content-versioning.md](docs/policies/content-versioning.md).
+  "use/not/why" row, a new red line) are MINOR content changes — see the content-semver bullet
+  in [.vegastack/dev.md](.vegastack/dev.md) (detail in
+  [skill-maintainer's release-ops](skills/skill-maintainer/references/release-ops.md)).
 - Factual refreshes and non-normative wording clarifications are PATCH.
 - Removing or renaming a skill, or a breaking change to a per-project profile format, is MAJOR.
 - Keep volatile facts (version pins, vendor mechanism names) in `pinned-facts.md`-style dated
@@ -62,4 +63,4 @@ Branches named `refresh/**` are reserved for the automated freshness loop and ar
 
 ## Releases
 
-Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — see [docs/policies/release-and-rollback.md](docs/policies/release-and-rollback.md). Contributors do not bump versions in PRs.
+Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs.

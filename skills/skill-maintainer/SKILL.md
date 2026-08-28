@@ -5,7 +5,7 @@ description: Maintainer skill for the vegastack-skills repository itself. Use wh
 
 # VegaStack Skill Maintainer
 
-Maintenance skill for this repository. Every change under `skills/` must satisfy the per-skill contract and the tri-harness standards below. Obey them in your own edits; enforce them in review. When a rule here disagrees with `CONTRIBUTING.md` or `docs/policies/` at the repo root, those win — then fix this skill.
+Maintenance skill for this repository. Every change under `skills/` must satisfy the per-skill contract and the tri-harness standards below. Obey them in your own edits; enforce them in review. When a rule here disagrees with `CONTRIBUTING.md` or `.vegastack/dev.md` at the repo root, those win — then fix this skill.
 
 ## Operating rules
 
@@ -26,7 +26,7 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 | new skill: should-it-exist gate, scaffolding, the 8-item contract audit, behavioral evals | the `skillify` skill |
 | release, rename, deprecate, rollback mechanics | [release ops](references/release-ops.md) |
 | this skill's own freshness contract | [REFRESH](refresh/REFRESH.md), [sources](refresh/sources.json) |
-| authoritative repo policy | `CONTRIBUTING.md`, `docs/policies/content-versioning.md`, `docs/policies/release-and-rollback.md` at the repo root |
+| authoritative repo policy | `CONTRIBUTING.md` and `.vegastack/dev.md` at the repo root (release runbook, content semver, rollback) |
 
 ## Workflow: scaffold a new skill
 
@@ -37,7 +37,7 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 
 ## Workflow: update or maintain
 
-- **Content versioning.** New rules/references and new recorded decisions are MINOR; weakening a normative rule, removing or renaming a skill, or breaking a per-project profile format is MAJOR; factual refreshes (pins, URLs, checksums) are PATCH (`docs/policies/content-versioning.md`).
+- **Content versioning.** New rules/references and new recorded decisions are MINOR; weakening a normative rule, removing or renaming a skill, or breaking a per-project profile format is MAJOR; factual refreshes (pins, URLs, checksums) are PATCH (the content-semver bullet in `.vegastack/dev.md`; detail in [release-ops](references/release-ops.md)).
 - **Tag volatile claims.** Any sentence carrying a vendor version, mechanism name, or numeric budget gets a source marker comment mapping to an ID in that skill's `refresh/sources.json`, and the registry entry's `affected` list must name the reference it lives in. Untagged volatile facts rot silently.
 - **Description budgets.** Stay within 1024 chars and keep triggers in the first sentence: Codex truncates its skill list at 2% of the context window / 8,000 chars, Claude Code truncates a skill's always-loaded listing at 1,536 chars — the tail of a long description is the first thing lost.
 - **Packaged-file changes.** Any add/remove/rename of a packaged file must update that skill's `packages/cli/packaging.json` entry in the same PR.

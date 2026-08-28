@@ -127,6 +127,50 @@
       "retrievedAt": "2026-08-27T08:19:24.132Z"
     },
     {
+      "id": "CC-HOOKS",
+      "service": "Claude Code hooks (Stop event, settings.json wiring, block/reason contract)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://code.claude.com/docs/en/hooks.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "claude-code-hooks"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ],
+      "checksum": "936bd443066df08a514972673358e102fd23b80bee9a289d3d53a1ed8aca1a64",
+      "retrievedAt": "2026-08-27T14:41:39.189Z"
+    },
+    {
+      "id": "CODEX-HOOKS",
+      "service": "Codex hooks (hooks.json locations, trust gating, Stop event contract)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://learn.chatgpt.com/docs/hooks.md"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "codex-hooks"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ],
+      "checksum": "430f2d85a4791dc695bcdc063193c225343104a342e8adf80a544ab87ae4223d",
+      "retrievedAt": "2026-08-27T14:41:39.189Z"
+    },
+    {
       "id": "CODEX-EXEC",
       "service": "Codex non-interactive mode (codex exec)",
       "kind": "official-docs",

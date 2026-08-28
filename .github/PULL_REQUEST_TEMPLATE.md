@@ -5,7 +5,7 @@
 ## Type of change
 
 - [ ] Installer/CLI (`packages/cli/`)
-- [ ] Skill content (`skills/`) — see [content versioning policy](https://github.com/vegastack/vegastack-skills/blob/main/docs/policies/content-versioning.md)
+- [ ] Skill content (`skills/`) — see the content-semver bullet in [.vegastack/dev.md](https://github.com/vegastack/vegastack-skills/blob/main/.vegastack/dev.md)
 - [ ] Refresh metadata (`skills/*/refresh/`)
 - [ ] CI / repo hygiene
 - [ ] Docs

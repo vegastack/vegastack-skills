@@ -1,4 +1,4 @@
 interface:
   display_name: "dev-setup"
-  short_description: "Bootstrap a repo for the issue-driven dev workflow"
+  short_description: "Bootstrap any repo, greenfield included, for the issue-driven dev workflow"
   default_prompt: "Use $dev-setup to bootstrap this project's dev workflow."

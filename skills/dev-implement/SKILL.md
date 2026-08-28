@@ -23,7 +23,7 @@ The gates exist to stop agent-invented authority, never to slow the user down. W
 
 ## Claim and branch
 
-Assign yourself, swap `ready` → `working`. Branch from the default branch: `<type>/<issue-number>-<short-slug>` (type from dev.md: feat, fix, docs, chore, refactor).
+Assign yourself, swap `ready` → `working`. Branch from the default branch per dev.md's `branch:` knob — the knob is the only source of the pattern and its type list.
 
 ## Build — dark
 
@@ -31,12 +31,17 @@ No progress updates, no questions. A spike the brief flagged runs first — its 
 
 Honesty over green: a failing test gets fixed at the root or reported as failing. Weakening a test, an assertion, or acceptance to pass is a cover-up, and cover-ups surface at review with interest.
 
+## Changelog — before hand-back
+
+Every behavior-changing branch carries its changelog entry per dev.md's `changelog:` knob; a ship-time guard catches misses, but don't rely on it. `changesets` → write `.changeset/<slug>.md` directly (frontmatter `"<package-name>": <bump>` from the brief's version-impact line, plus a one-paragraph summary — the changeset CLI prompt is interactive, never invoke it here). `keep-a-changelog` / `pubspec+changelog` → one bullet under `## [Unreleased]`. `none` → skip. Docs the brief names as affected get updated in the same branch.
+
 ## Verify
 
 - Run the tests dev.md requires (`tests: required` → every changed behavior has a test that runs and passes; `logic-only` → content/config tweaks may skip). Record commands and results for the evidence comment.
 - A `risky` issue gets focused security, failure, and recovery checks on top of the required tests.
-- When dev.md has a `## Verify` runbook, follow it — run the app and smoke-check the flows it names; that live result belongs in the evidence comment alongside the test output.
-- UI changed and `ui-evidence: playwright` → capture screenshots of the key states and flows, push them to the evidence repo (dev.md `evidence-repo`) under `<repo>/<issue-number>/`, and link them. Links, not embeds — private-repo images don't render inline in issues. Evidence repo missing or unreachable → name the local file paths in the evidence comment and say so; the hand-back never blocks on it.
+- When dev.md has a `## Verify` runbook, follow it — run the app and smoke-check the flows it names; that live result belongs in the evidence comment alongside the test output. Verify is pre-merge only; post-release checks live in `## Ship` and belong to dev-ship.
+- UI changed and `ui-evidence: playwright` → capture screenshots of the key states and flows and upload them to the shared evidence repo (dev.md `evidence-repo`) under `<this-repo-name>/<issue-number>/<timestamp>-<name>.png` — via the contents API so the repo is never cloned: `gh api -X PUT repos/<evidence-repo>/contents/<path> -f message="evidence #<issue>" -f content="$(base64 < <file> | tr -d '\n')"` (timestamped names keep re-captures from colliding). Link them in the evidence comment — links, not embeds; private-repo images don't render inline in issues. Evidence repo missing or unreachable → name the local file paths and say so; the hand-back never blocks on it.
+- dev.md's Ship or Verify section is an empty TODO while release/deploy machinery visibly exists → finish this issue normally, then suggest re-running dev-setup so detection can fill it.
 
 ## Independent review — per the dev.md knob
 
@@ -51,7 +56,9 @@ Honesty over green: a failing test gets fixed at the root or reported as failing
 **Done:** what changed, in behavior terms
 **Tests:** <command> → <result summary>
 **Review:** <mode> — <findings fixed / none / disputed with reason>
+**Changelog:** <entry added / none, with reason>     (when the knob is not `none`)
 **UI evidence:** <links>            (when applicable)
+**Decision:** <one line in the register format>     (only a dark-mode choice that passes dev.md's Decisions test — a proposal; dev-ship records it after naming it in the merge confirmation)
 **Not done / limits:** the honest list
 Branch: <name> @ <short-sha>
 ```
