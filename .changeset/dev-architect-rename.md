@@ -1,5 +1,0 @@
----
-"@vegastack/skills": minor
----
-
-The `architect` skill is now `dev-architect`, the fifth member of the dev-skills family, rebuilt around one-rule-one-home references and a verify-before-you-recommend protocol (platform capability/version claims are checked against pinned facts, then live docs, before shaping a recommendation). The per-project `.vegastack/arch.md` profile is retired: architecture facts live in a `## Architecture` section of `.vegastack/dev.md` (written by dev-setup, which also migrates legacy arch.md files), and ADRs are retired in favor of the `.vegastack/decisions.md` register. dev-intake, dev-implement, and dev-setup now cross-reference dev-architect explicitly; `doctor` checks `.vegastack/dev.md` instead of arch.md. Migration: copies installed under the old `architect` name are orphaned — reinstall with `npx @vegastack/skills add dev-architect`; installer operations addressed to `architect` no longer resolve. Renaming a skill now ships minor by default (major is the operator's explicit call); removing a skill stays major.
