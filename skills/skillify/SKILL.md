@@ -139,6 +139,6 @@ Phase 6: bun run check green; 8/8 → properly skilled
 | Need | Read |
 |---|---|
 | description engineering, writing style, numeric limits, token budgets, script-vs-instructions, volatile facts | [authoring](references/authoring.md) |
-| eval method, pass criteria, trigger-query doctrine, cycle protocol, KNOWN_GAPS, model guidance | [eval playbook](references/eval-playbook.md) |
+| eval method, pass criteria, trigger-query doctrine (incl. family-level re-runs), workflow-skill drills, cycle protocol, KNOWN_GAPS, model guidance | [eval playbook](references/eval-playbook.md) |
 | the scaffolded starting points | `assets/templates/` |
 | skillify's own freshness stance | [refresh/REFRESH.md](refresh/REFRESH.md) |
