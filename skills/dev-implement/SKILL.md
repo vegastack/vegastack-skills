@@ -11,7 +11,7 @@ Nearest neighbor: `dev-intake` writes the brief this skill executes; if the issu
 
 ## Direct requests
 
-The gates exist to stop agent-invented authority, never to slow the user down. When the user directly asks in chat for a change ("fix this typo", "bump that timeout"), their words are the approval — do it, verify it, and report; no issue required. Offer to record an issue when the change is material enough that its brief or evidence will matter later. Everything below is the path for issue-driven work.
+The gates exist to stop agent-invented authority, never to slow the user down. When the user directly asks in chat for a change ("fix this typo", "bump that timeout"), their words are the approval — do it, verify it, and report; no issue required. Branch as `<type>/<slug>` (no issue segment); the changelog rule below applies unchanged when the change is behavior-changing; shipping still goes through dev-ship's words, with the chat request standing in for the approval and the report for the evidence comment. Offer to record an issue when the change is material enough that its brief or evidence will matter later. Everything below is the path for issue-driven work.
 
 ## Preflight — all must hold, or stop and say which failed
 
@@ -33,14 +33,14 @@ Honesty over green: a failing test gets fixed at the root or reported as failing
 
 ## Changelog — before hand-back
 
-Every behavior-changing branch carries its changelog entry per dev.md's `changelog:` knob; a ship-time guard catches misses, but don't rely on it. `changesets` → write `.changeset/<slug>.md` directly (frontmatter `"<package-name>": <bump>` from the brief's version-impact line, plus a one-paragraph summary — the changeset CLI prompt is interactive, never invoke it here). `keep-a-changelog` / `pubspec+changelog` → one bullet under `## [Unreleased]`. `none` → skip. Docs the brief names as affected get updated in the same branch.
+Every behavior-changing branch carries its changelog entry per dev.md's `changelog:` knob; a ship-time guard catches misses, but don't rely on it. `changesets` → write `.changeset/<slug>.md` directly (frontmatter `"<package-name>": <bump>` from the brief's version-impact line, plus a one-paragraph summary — the changeset CLI prompt is interactive, never invoke it here). `keep-a-changelog` / `pubspec+changelog` → one bullet under `## [Unreleased]` (Added/Changed/Fixed/Removed subsection as fits); no CHANGELOG.md yet → create it in the same branch with the skeleton (`# Changelog` + `## [Unreleased]`). `none` → skip. Docs the brief names as affected get updated in the same branch.
 
 ## Verify
 
 - Run the tests dev.md requires (`tests: required` → every changed behavior has a test that runs and passes; `logic-only` → content/config tweaks may skip). Record commands and results for the evidence comment.
 - A `risky` issue gets focused security, failure, and recovery checks on top of the required tests.
 - When dev.md has a `## Verify` runbook, follow it — run the app and smoke-check the flows it names; that live result belongs in the evidence comment alongside the test output. Verify is pre-merge only; post-release checks live in `## Ship` and belong to dev-ship.
-- UI changed and `ui-evidence: playwright` → capture screenshots of the key states and flows and upload them to the shared evidence repo (dev.md `evidence-repo`) under `<this-repo-name>/<issue-number>/<timestamp>-<name>.png` — via the contents API so the repo is never cloned: `gh api -X PUT repos/<evidence-repo>/contents/<path> -f message="evidence #<issue>" -f content="$(base64 < <file> | tr -d '\n')"` (timestamped names keep re-captures from colliding). Link them in the evidence comment — links, not embeds; private-repo images don't render inline in issues. Evidence repo missing or unreachable → name the local file paths and say so; the hand-back never blocks on it.
+- UI changed and `ui-evidence: playwright` → capture screenshots of the key states and flows and upload them to the shared evidence repo (dev.md `evidence-repo`) under `<this-repo-name>/<issue-number>/<timestamp>-<name>.png` — via the contents API so the repo is never cloned: `base64 < <file> | tr -d '\n' | gh api -X PUT repos/<evidence-repo>/contents/<path> -f message="evidence #<issue>" -F content=@-` (piped stdin, so large screenshots never hit argv limits; timestamped names keep re-captures from colliding; a 409 from a concurrent upload just means retry). Link them in the evidence comment — links, not embeds; private-repo images don't render inline in issues. Evidence repo missing or unreachable → name the local file paths and say so; the hand-back never blocks on it.
 - dev.md's Ship or Verify section is an empty TODO while release/deploy machinery visibly exists → finish this issue normally, then suggest re-running dev-setup so detection can fill it.
 
 ## Independent review — per the dev.md knob

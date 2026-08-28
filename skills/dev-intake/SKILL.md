@@ -54,7 +54,7 @@ Every issue body follows [brief-template](references/brief-template.md): Outcome
 - Approval is only the user's explicit words — "approved", "go ahead", clearly tied to this issue, in chat or on the issue. Labels, silence, or the passage of time never create approval.
 - Record it once: comment `Approved by <user> on <date>: "<their words>"`, then swap `needs-operator` → `ready`. That comment is what dev-implement's preflight looks for.
 - An issue with an unconfirmed entry in its Assumptions section cannot go `ready` — the recorded approval covers the ledger the user saw, so resolve every entry (confirmed, corrected, or moved to a spike) first.
-- An issue that settles a directional decision — one that passes the Decisions test in `.vegastack/dev.md` — records it as one comment starting `Decision:`, in the register's line format; dev-ship appends it at merge after naming it in the merge confirmation. Choices that fail the test are brief content, never register lines.
+- An issue that settles a directional decision — one that passes the Decisions test in `.vegastack/dev.md` — records it as one comment starting `Decision:`, in the register's line format; dev-ship appends it at merge after naming it in the merge confirmation. A decision that stands regardless of the issue's fate may go into the register immediately on the user's explicit yes in the same conversation — note "recorded" on the comment so dev-ship doesn't append it twice. Choices that fail the test are brief content, never register lines.
 - The user edits or corrects a draft → apply, and summarize what changed since they last read it.
 
 ## After approval

@@ -11,7 +11,7 @@ authority: {{ordered — e.g. "CONTRIBUTING.md → this file → skill defaults"
 
 review: subagent            # subagent | cross-agent | cross-agent-risky
 ui-evidence: playwright     # playwright | none
-evidence-repo: {{owner}}/dev-review-evidence   # shared across projects; this project's folder = repo name
+evidence-repo: {{owner}}/dev-review-evidence   # shared across projects; this project's folder = repo name; delete the line when ui-evidence is none
 gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main, ship word merges locally and pushes, no PR
 tests: required             # required | logic-only
 merge: squash
@@ -23,7 +23,7 @@ release: on-request         # per-merge = Ship runbook runs as part of shipping 
 
 ## Ship — what happens after merge, in order
 
-Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position; its CI copy is the backstop).
+Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position, its runnable command inline on the line; the CI copy is the backstop).
 
 - {{playbook-drafted release steps for the detected stack}}
 - {{guard: lines from the playbook}}

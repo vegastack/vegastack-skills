@@ -20,7 +20,11 @@ Verified mechanics of the two harnesses this workflow targets. Everything here i
 
 ## Decision-capture Stop hook (optional, offered in Round C)
 
-Because both Stop contracts match, one shared script serves both harnesses. Write it to `.vegastack/hooks/decision-nudge.sh` and wire it as `sh .vegastack/hooks/decision-nudge.sh` (no exec bit needed) — Claude Code under `hooks.Stop` in `.claude/settings.json` (merge into any existing hooks array, never overwrite), Codex under `Stop` in `<repo>/.codex/hooks.json`. Only on the user's explicit yes, and only the `Stop` event.
+Because both Stop contracts match, one shared script serves both harnesses. Write it to `.vegastack/hooks/decision-nudge.sh` and wire it as `sh .vegastack/hooks/decision-nudge.sh` (no exec bit needed). Only on the user's explicit yes, and only the `Stop` event. The wiring shape is doubly nested — matcher groups each holding their own `hooks` array — identical in Claude Code's `.claude/settings.json` and Codex's `<repo>/.codex/hooks.json` (merge into existing hook config, never overwrite): <!-- source: CC-HOOKS --> <!-- source: CODEX-HOOKS -->
+
+```json
+{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "sh .vegastack/hooks/decision-nudge.sh" } ] } ] } }
+```
 
 ```sh
 #!/bin/sh

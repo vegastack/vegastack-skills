@@ -14,10 +14,10 @@ npx @vegastack/skills add architect
 | `architect` | Architecture advisor: the locked stack and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts, a per-project `.vegastack/arch.md` profile with repo-wins drift detection, and an advisory-only review discipline |
 | `skill-maintainer` | Encodes the Agent Skills standards (Claude Code, Codex, Hermes, agentskills.io) for creating, updating, and releasing skills in a skills repo |
 | `skillify` | Turns a feature or workflow into a complete skill conforming to the VegaStack skills contract, or audits an existing one |
-| `dev-setup` | Bootstraps a project for the issue-driven dev workflow: profile, AGENTS.md section, labels, decision register |
+| `dev-setup` | Bootstraps any project, greenfield included, for the issue-driven dev workflow: stack-playbook-drafted profile, AGENTS.md section, labels, guards, decision register |
 | `dev-intake` | Turns ideas, brainstorms, and SOWs into agent-ready GitHub issues with recorded user approval |
 | `dev-implement` | Implements an approved issue end to end, dark: preflight, claim, build, test, review, evidence in the issue |
-| `dev-ship` | Opens the PR and merges, each only on the user's explicit word |
+| `dev-ship` | Opens the PR, merges, and runs the project's Ship runbook, each only on the user's explicit word |
 
 ## Commands
 

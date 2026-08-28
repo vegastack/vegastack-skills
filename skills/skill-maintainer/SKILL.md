@@ -37,7 +37,7 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 
 ## Workflow: update or maintain
 
-- **Content versioning.** New rules/references and new recorded decisions are MINOR; weakening a normative rule, removing or renaming a skill, or breaking a per-project profile format is MAJOR; factual refreshes (pins, URLs, checksums) are PATCH (the content-semver bullet in `.vegastack/dev.md`; detail in [release-ops](references/release-ops.md)).
+- **Content versioning.** New rules/references and new recorded decisions are MINOR; weakening a normative rule, removing or renaming a skill, or breaking a per-project profile format is MAJOR — except pre-1.0 with zero deployed profile consumers, where a profile-format break may ship MINOR per a recorded decision; factual refreshes (pins, URLs, checksums) are PATCH (the content-semver bullet in `.vegastack/dev.md`; detail in [release-ops](references/release-ops.md)).
 - **Tag volatile claims.** Any sentence carrying a vendor version, mechanism name, or numeric budget gets a source marker comment mapping to an ID in that skill's `refresh/sources.json`, and the registry entry's `affected` list must name the reference it lives in. Untagged volatile facts rot silently.
 - **Description budgets.** Stay within 1024 chars and keep triggers in the first sentence: Codex truncates its skill list at 2% of the context window / 8,000 chars, Claude Code truncates a skill's always-loaded listing at 1,536 chars — the tail of a long description is the first thing lost.
 - **Packaged-file changes.** Any add/remove/rename of a packaged file must update that skill's `packages/cli/packaging.json` entry in the same PR.
@@ -48,7 +48,7 @@ Full playbook in [release ops](references/release-ops.md). Short form: a rename 
 
 ## Workflow: release
 
-Changeset lands with the PR → maintainer runs `bunx changeset version`, `bun install`, commits → tags `v<version>` → tag-driven pipeline runs check, tag↔version guard, npm trusted publishing, SBOM, GitHub release. Two decoupled version identities — **package version** (npm, changesets) and **foundation version** (content contract for deployed profiles) — must never be conflated; bumping the package must never invalidate a deployed profile. Rollback is roll-forward (publish previous-good as a new patch) plus `npm deprecate` of the bad version; unpublish only within 72 hours and only in addition. Details: [release ops](references/release-ops.md).
+Changeset lands with the PR → maintainer runs `bunx changeset version`, `bun install`, commits → tags `v<version>` → tag-driven pipeline runs check, tag↔version guard, npm trusted publishing, SBOM, GitHub release. One version identity: the package version covers the installer and every bundled skill's content snapshot — there is no separate content-contract version, and bumping the package must never invalidate a deployed per-project profile. Rollback is roll-forward (publish previous-good as a new patch) plus `npm deprecate` of the bad version; unpublish only within 72 hours and only in addition. Details: [release ops](references/release-ops.md).
 
 ## Workflow: portability check
 

@@ -5,6 +5,8 @@
   { "query": "looks good, merge #12", "should_trigger": true },
   { "query": "yes merge the invoice PR and close the issue", "should_trigger": true },
   { "query": "release everything merged since the last tag", "should_trigger": true },
+  { "query": "merge this week's renovate batch, checks are green", "should_trigger": true },
+  { "query": "v1.4.0 is broken in prod - roll back the release", "should_trigger": true },
   { "query": "implement issue #12 on a branch", "should_trigger": false, "ambiguous_with": ["dev-implement"] },
   { "query": "approve issue #14 and mark it ready", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
   { "query": "update skill-maintainer's release-ops reference for the new flow", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] },
