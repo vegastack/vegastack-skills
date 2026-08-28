@@ -1,6 +1,6 @@
 ---
 name: dev-ship
-description: Create the pull request and merge for a finished issue, each only on the user's explicit word, then run the project's Ship runbook — releases, guards, deploys. Use when the user says "make the PR", "open a pull request" for an issue, "ship it", "merge it", "merge issue 12", "release", "release everything since the last tag", or asks to close out a reviewed issue, merge a bot PR, or roll back a bad release (roll-forward). Verifies the issue is at for-operator with evidence and its changelog entry, links the PR to the issue, merges on the separate merge instruction, and records approved decisions. Not for implementing issues (dev-implement) or writing and approving them (dev-intake).
+description: Land finished work, each step only on the operator's explicit word. Use when the user says "make the PR", "open a pull request" for an issue, "ship it", "merge it", "merge issue 12", "release", "release everything since the last tag", or asks to close out a reviewed for-operator issue, merge a bot PR (Renovate, Dependabot), or roll back a bad release. Not for implementing issues (dev-implement), reviewing them (dev-review), or writing and approving them (dev-intake).
 ---
 
 # dev-ship
