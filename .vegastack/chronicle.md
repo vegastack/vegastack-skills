@@ -1,6 +1,15 @@
 # Chronicle — vegastack-skills
 
-The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill (lands with issue #17 of the v3 epic; entries before it follow the epic's agreed format).
+The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
+
+## 29-08-2026 — The project can now tell its own story (#17)
+
+**What:** "Catch me up on this project" works: the chronicle you are reading has an owner skill that defines the entry format and renders the digest — the story so far, the recent chapters, the open threads — without digging through git. Every build already writes its chapter; now the reading side exists too.
+**Why:** The operator kept forgetting what a project contained and what had happened in it; changelogs answer what changed for consumers, not what happened for the builder.
+**How it went:** Smooth — the file and knob had been dogfooded since #10, so the skill mostly wrote down rules already being lived.
+**Changed:** dev-chronicle skill (installable) · this file's header now points at it.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch feat/17-dev-chronicle
 
 ## 29-08-2026 — Shipping stopped taking anyone's word for it (#16)
 
