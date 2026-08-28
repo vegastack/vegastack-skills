@@ -6,6 +6,7 @@ import { checkEvidence } from '../scripts/evidence-check.mjs'
 const approval = (scope = 'brief') => ({ body: `<!-- vsk:v1 type=approval scope=${scope} -->\nApproved by operator (kmanojkumar) on 28-08-2026: "yes"` })
 const baseIssue = () => ({
   body: '## Outcome\nA thing.\n',
+  state: 'open',
   labels: [{ name: 'ready' }, { name: 'quick-build' }],
   assignees: [],
   repo: 'vegastack/vegastack-skills',
@@ -70,6 +71,14 @@ describe('preflight', () => {
     const r = evaluatePreflight({ issue, comments: [approval()], devMd, me: 'kmanojkumar' })
     expect(r.blocks.some((b: string) => b.includes('#7'))).toBe(true)
     expect(r.blocks.some((b: string) => b.includes('someone-else'))).toBe(true)
+  })
+  test('blocks a closed issue and a wrong state label; expect=working accepts a resume', () => {
+    const closed = baseIssue(); closed.state = 'closed'
+    expect(evaluatePreflight({ issue: closed, comments: [approval()], devMd, me: 'kmanojkumar' }).blocks.some((b: string) => b.includes('only open issues'))).toBe(true)
+    const wrong = baseIssue(); wrong.labels = [{ name: 'needs-operator' }, { name: 'quick-build' }]
+    expect(evaluatePreflight({ issue: wrong, comments: [approval()], devMd, me: 'kmanojkumar' }).blocks.some((b: string) => b.includes('expected ready'))).toBe(true)
+    const resume = baseIssue(); resume.labels = [{ name: 'working' }, { name: 'quick-build' }]
+    expect(evaluatePreflight({ issue: resume, comments: [approval()], devMd, me: 'kmanojkumar', expect: 'working' }).blocks).toEqual([])
   })
   test('blocks on repo mismatch with dev.md', () => {
     const issue = baseIssue()

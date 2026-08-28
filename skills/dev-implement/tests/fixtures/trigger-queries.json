@@ -56,7 +56,7 @@
     "should_trigger": false
   },
   {
-    "query": "the last session died mid-build on issue 15 \u2014 pick up where it left off",
+    "query": "the last session died mid-build on issue 15 — pick up where it left off",
     "should_trigger": true
   },
   {
