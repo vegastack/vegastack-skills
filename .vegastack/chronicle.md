@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — Small honesty fixes in the advisor and the factory (#20)
+
+**What:** Architecture guidance marked "(inferred)" can now actually graduate: confirming one proposes a dated register line and removes the tag — before, nothing ever flipped inferred to ratified. And the skill factory's testing playbook now says out loud what this epic learned by doing: trigger checks must re-run across the whole family when it changes, and workflow skills get their real proof from a sandbox drill, not single prompts.
+**Why:** Both were quiet drift risks found in the v3 assessment.
+**How it went:** Four surgical edits; nothing fought back.
+**Changed:** dev-architect ratification rule + count-free red-lines heading · skillify family-level trigger rule + workflow-skill eval note.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch feat/20-refinements
+
 ## 29-08-2026 — Bugs must be caught red-handed before they're "fixed" (#19)
 
 **What:** Bug work now has a hard order: first build one command that provably fails because of the reported symptom — no theorizing allowed before it exists — then shrink it, list ranked suspects with testable predictions, probe one variable at a time with tagged logging, and write the failing regression test before the fix. If no command can be built, the agent asks for artifacts instead of guessing; if no honest seam exists for the test, that gap is recorded instead of papered over.
