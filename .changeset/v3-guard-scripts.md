@@ -1,0 +1,5 @@
+---
+"@vegastack/skills": minor
+---
+
+Deterministic guard scripts across the workflow (facts block with exit 2, heuristics only warn, unverifiable state fails closed): dev-implement's `preflight.mjs` (approval marker, scope label, plan approval, Assumptions, blockers, assignee, repo match) and `evidence-check.mjs` (evidence-comment shape incl. the Docs line), dev-intake's `brief-lint.mjs` (per-scope required sections, grounded touch-point paths; vague-wording warnings), dev-plan's `plan-lint.mjs` (banned placeholders — its single home — task structure, checkboxes), and dev-ship's `ship-gate.mjs` (fresh check-command re-run, evidence-sha vs head with Docs-line reconciliation, changelog presence, review verdict/adjudication, `[DEBUG-` tag grep; rationalization-phrase warnings). All dependency-free Node with `--json`, unit-tested per branch, shipped via the packaging manifest, and wired into their skills' phase boundaries.

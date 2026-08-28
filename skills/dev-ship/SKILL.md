@@ -13,6 +13,7 @@ Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evi
 
 On the user's PR instruction:
 
+- Run the deterministic guard first: `node <path-to-this-skill>/scripts/ship-gate.mjs --issue <n> --branch <name> --json` — it re-runs the project check command fresh, verifies evidence-sha vs head (with the Docs-line reconciliation window), the changelog entry, the review verdict, and greps for leftover `[DEBUG-` tags; exit 2 stops you with its reasons, warnings are read-twice signals.
 - Verify the issue is at `for-operator` with the evidence comment present, and the branch is pushed. Not there yet → say what's missing instead of creating a premature PR.
 - Verify the changelog state matches the evidence comment's `**Changelog:**` line: a behavior-changing branch carries its entry per dev.md's `changelog:` knob (changesets: a `.changeset/*.md` in the diff; keep-a-changelog: the diff adds lines to CHANGELOG.md), while `none` with a reason that holds up (docs-only, test-only) is fine. An unexplained miss → corrections loop, not a PR.
 - `gh pr create` from the task branch: title from the issue, body is `Closes #<n>` plus a link to the evidence comment — the issue holds the report; the PR links it rather than duplicating it.
