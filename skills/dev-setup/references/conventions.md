@@ -21,13 +21,13 @@ Every workflow-generated issue comment opens with an invisible HTML marker follo
 | `decision` | — | one per decision proposal |
 | `handback` | — | one per stop event |
 
-Scripts and agents locate comments strictly by marker, never by heading text. A comment without its marker does not count as the artifact — there is no legacy fallback.
+`rev=<n>` and the matching `(v<n>)` heading suffix appear only on revisable artifacts — the brief (issue description), `plan`, and `evidence` — starting at `rev=1`/`(v1)`. Single-event comments (`approval`, `decision`, `handback`) and the `ledger` carry neither. Scripts and agents locate comments strictly by marker, never by heading text. A comment without its marker does not count as the artifact — there is no legacy fallback.
 
 ## Operator identity
 
 Every human reference in every artifact — approvals, revisions, decisions, changelog attributions, review adjudications — is written `operator (<github-username>)`:
 
-- Approval: `Approved by operator (kmanojkumar) on DD-MM-YYYY: "<their words>"`
+- Approval: `Approved by operator (<username>) on DD-MM-YYYY: "<their words>"`
 - Register line: `- DD-MM-YYYY operator (<username>) — <decision>`
 
 ## Revision markers
@@ -46,21 +46,21 @@ Set at intake, applied as a label, announced with its reason (operator can overr
 
 ## Labels
 
-State — exactly one per issue:
+State — exactly one per issue (creation colors live in dev-setup's labels row, their one home):
 
-| label | color | meaning |
-|---|---|---|
-| `needs-operator` | FBCA04 | waiting on the operator: a question, a brief or plan to approve, a proposal |
-| `needs-plan` | E36209 | brief approved; waiting for the planning stage (full-plan only) |
-| `ready` | 0E8A16 | fully approved — an agent may start |
-| `working` | 1D76DB | claimed, in progress; the ledger comment shows live progress |
-| `for-operator` | 5319E7 | done — evidence posted, awaiting operator review |
+| label | meaning |
+|---|---|
+| `needs-operator` | waiting on the operator: a question, a brief or plan to approve, a proposal |
+| `needs-plan` | brief approved; waiting for the planning stage (full-plan only) |
+| `ready` | fully approved — an agent may start |
+| `working` | claimed, in progress; the ledger comment shows live progress |
+| `for-operator` | done — evidence posted, awaiting operator review |
 
-Modifiers (may coexist with the state label): `risky` B60205 · scope `research` C5DEF5 / `quick-build` 76C7C0 / `full-plan` 2A9D8F · `epic` 24292E (parents, only when the org has no native Epic issue type).
+Modifiers (may coexist with the state label): `risky` · scope `research` / `quick-build` / `full-plan` · `epic` (map parents, only where the org has no native Epic issue type).
 
 ## Titles, types, hierarchy
 
-- **Title prefixes** on issues, branches, and PRs identically: `feat:` `fix:` `docs:` `chore:` `refactor:` `research:`. PR title = issue title.
+- **Title prefixes** on issues, branches, and PRs identically: dev.md's `branch:` knob type list (that knob stays the list's one home) plus `research:` for research issues. PR title = issue title.
 - **Native issue types** where the org defines them: Feature (feat) · Bug (fix) · Task (docs/chore/refactor/research) · Epic for parents (label fallback otherwise).
 - **Hierarchy:** epic parent = map only (Destination · Decisions so far as one-line gists · Not clear yet · Out of scope), children attached as native sub-issues; issues = the unit of work (brief in description, own approvals/branch/PR/evidence); tasks = checkboxes **in the plan comment only**. Blockers use native issue dependencies; phases use milestones. Only issues — never epics — get `ready`. A plan approaching GitHub's ~65,536-character comment cap means the issue should have been an epic: propose the split.
 

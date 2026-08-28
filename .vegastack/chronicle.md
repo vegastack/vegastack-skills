@@ -1,6 +1,6 @@
 # Chronicle — vegastack-skills
 
-The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format: dev-chronicle skill.
+The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill (lands with issue #17 of the v3 epic; entries before it follow the epic's agreed format).
 
 ## 28-08-2026 — The workflow got a shared rulebook (#10)
 

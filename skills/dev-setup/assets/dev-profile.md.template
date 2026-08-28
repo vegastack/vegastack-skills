@@ -16,7 +16,7 @@ gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it
 tests: required             # required | logic-only
 merge: squash
 branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor — the only place this list lives
-labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic
+labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents only where the org has no native Epic issue type
 changelog: {{changesets | keep-a-changelog | pubspec+changelog | none (reason)}}
 decisions: .vegastack/decisions.md
 release: on-request         # per-merge = Ship runbook runs as part of shipping · on-request = only when the operator says "release"
