@@ -13,12 +13,12 @@ Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evi
 
 On the user's PR instruction:
 
-- Run the deterministic guard first: `node <path-to-this-skill>/scripts/ship-gate.mjs --issue <n> --branch <name> --json` — it re-runs the project check command fresh, verifies evidence-sha vs head (with the Docs-line reconciliation window), the changelog entry, the review verdict, and greps for leftover `[DEBUG-` tags; exit 2 stops you with its reasons, warnings are read-twice signals.
+- Run the deterministic guard first: `node <path-to-this-skill>/scripts/ship-gate.mjs --issue <n> --branch <name> --json` — it re-runs the project check command fresh from the branch's own checkout, requires the evidence sha to equal the branch head (the corrections loop is the only reconciliation path), the changelog entry, the chronicle entry where the knob says `on`, a clean-or-adjudicated review verdict, and greps added lines for leftover `[DEBUG-` tags; exit 2 stops you with its reasons, warnings are read-twice signals.
 - Verify the issue is at `for-operator` with the evidence comment present, and the branch is pushed. Not there yet → say what's missing instead of creating a premature PR.
 - Verify the changelog state matches the evidence comment's `**Changelog:**` line: a behavior-changing branch carries its entry per dev.md's `changelog:` knob (changesets: a `.changeset/*.md` in the diff; keep-a-changelog: the diff adds lines to CHANGELOG.md), while `none` with a reason that holds up (docs-only, test-only) is fine. An unexplained miss → corrections loop, not a PR.
 - `gh pr create` from the task branch: title from the issue, body is `Closes #<n>` plus a link to the evidence comment — the issue holds the report; the PR links it rather than duplicating it.
 - No draft PRs unless the user asks for one.
-- If required checks fail on the PR, that's implement work: hand the failures to the corrections loop, update the evidence comment, and tell the user. Under `gates: 2` the standing ship word holds once checks are green again — unless the fix changed behavior, which goes back to the user (same rule as a merge conflict).
+- If required checks fail on the PR, that's implement work: hand the failures to the corrections loop, update the evidence comment, and tell the user. Under `gates: 2` the standing ship word holds once checks are green again — subject to Gate 2's staleness bound (behavior change or >7 days → one-sentence re-confirm).
 - A direct chat change (dev-implement's no-issue path) ships on the same words: the chat request stands in for the recorded approval, the PR body carries the evidence instead of linking an issue comment, and the changelog rule applies unchanged.
 - User corrections left on the PR itself flow through the same corrections loop on the same branch — the PR updates with the push; nothing gets recreated.
 
@@ -38,7 +38,7 @@ On the user's merge instruction:
 
 Merge is not the end when dev.md has a `## Ship` section: follow its steps in order — `auto:` lines you just do, `ask:` lines wait for the operator's word, `guard:` lines are deterministic checks you run locally at their position (their CI copies are the backstop). With `release: per-merge`, the runbook is part of shipping the issue; with `release: on-request`, it runs only when the operator says "release" (covering everything merged since the last one). Report each step's outcome; a failing step — guard included — stops the sequence and goes to the operator, never skipped past. Execution detail, release batching, direct-to-main, bot PRs, and rollback: [runbook](references/runbook.md).
 
-Rollback is never a force-push: follow the Ship section's rollback line — roll forward through the normal flow. A gotcha here (a step that surprised you, an instruction the operator had to repeat) is one proposed line folded into the runbook; a directional gotcha that passes dev.md's Decisions test is a register proposal instead, on the user's yes.
+Rollback is never a force-push: follow the Ship section's rollback line — roll forward through the normal flow. Gotchas surfaced here feed the Report's closing retro below.
 
 ## Report
 

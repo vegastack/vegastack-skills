@@ -44,6 +44,8 @@ export function evaluateShipGate(facts) {
     headSha,             // short sha of the branch head
     diffText,            // full diff vs base
     changelogTouched,    // boolean: diff adds a changelog/changeset entry
+    // chronicleOn/chronicleTouched (via facts.*): dev.md chronicle knob and
+    // whether the diff adds a "## " chronicle entry heading
     allowNoChangelog,    // reason string | undefined
     checkExit,           // number | null (null = no check command configured)
   } = facts;
@@ -71,6 +73,9 @@ export function evaluateShipGate(facts) {
 
   if (facts.chronicleOn && !facts.chronicleTouched && !allowNoChangelog) {
     blocks.push('dev.md says chronicle: on but the diff adds no .vegastack/chronicle.md entry (the same --allow-no-changelog reason covers docs/test-only branches)');
+  }
+  if (allowNoChangelog && (!changelogTouched || (facts.chronicleOn && !facts.chronicleTouched))) {
+    warns.push(`--allow-no-changelog exercised ("${allowNoChangelog}") — it excused: ${[!changelogTouched ? 'changelog' : null, facts.chronicleOn && !facts.chronicleTouched ? 'chronicle' : null].filter(Boolean).join(' + ')}`);
   }
 
   if (reviewVerdict !== 'clean' && !adjudicated) {
@@ -134,9 +139,10 @@ export function gatherFacts(flags) {
       ? /^\+\+\+ b\/\.changeset\/(?!config)/m.test(diffText)
       : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md']) || '');
 
-  const chronicleOn = /^chronicle:\s*on\b/m.test(devMd);
-  const chronicleTouched = /^\+\+\+ b\/\.vegastack\/chronicle\.md/m.test(diffText)
-    || /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md']) || '');
+  const chronicleOn = /^chronicle:\s*on\s*(#|$)/m.test(devMd);
+  // An entry means an ADDED "## " heading in the file-scoped diff — a deleted
+  // file or a typo edit to an old entry is not a new entry.
+  const chronicleTouched = /^\+## /m.test(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md']) || '');
 
   let checkExit = null;
   const checkCmd = (/^commands:.*?check\s+`([^`]+)`/m.exec(devMd) || [])[1];
