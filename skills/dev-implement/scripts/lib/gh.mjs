@@ -4,7 +4,12 @@
 // warn — exit 0 pass · 1 warn-only · 2 block; unverifiable state fails closed).
 import { execFileSync } from 'node:child_process';
 
-export class GhUnavailable extends Error {}
+export class GhUnavailable extends Error {
+  constructor(message, httpStatus = null) {
+    super(message);
+    this.httpStatus = httpStatus; // parsed from gh's "HTTP <code>" stderr, when present
+  }
+}
 
 // Run gh with explicit args (never a shell) and parse JSON output. Any failure
 // to reach GitHub is a GhUnavailable — callers treat it as "cannot verify",
@@ -16,7 +21,9 @@ export function ghJson(args, { gh = process.env.VSK_GH || 'gh' } = {}) {
   try {
     out = execFileSync(gh, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (error) {
-    throw new GhUnavailable(`gh ${args.join(' ')} failed: ${error.stderr?.toString().trim() || error.message}`);
+    const stderr = error.stderr?.toString().trim() || '';
+    const status = /HTTP (\d{3})/.exec(stderr)?.[1];
+    throw new GhUnavailable(`gh ${args.join(' ')} failed: ${stderr || error.message}`, status ? Number(status) : null);
   }
   try {
     return JSON.parse(out);

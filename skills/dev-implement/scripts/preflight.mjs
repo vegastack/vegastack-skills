@@ -57,10 +57,11 @@ export function gatherAndEvaluate(flags) {
     blockedBy = ghJson(['api', `repos/${repo}/issues/${issueNumber}/dependencies/blocked_by`])
       .filter((b) => b.state === 'open');
   } catch (error) {
-    // Only a missing endpoint (host without the dependencies API) means "none
-    // recorded". Every other failure — auth, network, rate limit — is
-    // unverifiable state and fails closed.
-    if (!/404|Not Found/i.test(error.message)) throw error;
+    // Only an HTTP 404 (host without the dependencies API) means "none
+    // recorded" — matched on the parsed status, never the message text, so a
+    // path containing "404" can't masquerade. Every other failure — auth,
+    // network, rate limit — is unverifiable state and fails closed.
+    if (error.httpStatus !== 404) throw error;
     blockedBy = [];
   }
   const devMd = readFileSync(flags['dev-md'] || '.vegastack/dev.md', 'utf8');

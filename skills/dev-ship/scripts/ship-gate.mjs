@@ -38,11 +38,10 @@ export function evaluateShipGate(facts) {
   const blocks = [];
   const warns = [];
   const {
-    evidence,            // { body, updatedAt } | null
+    evidence,            // { body } | null
     reviewVerdict,       // 'clean' | 'needs-fixes' | null
     adjudicated,         // boolean: evidence Review section carries adjudication rulings
     headSha,             // short sha of the branch head
-    headCommittedAt,     // ISO time of head commit
     diffText,            // full diff vs base
     changelogTouched,    // boolean: diff adds a changelog/changeset entry
     allowNoChangelog,    // reason string | undefined
@@ -112,7 +111,6 @@ export function gatherFacts(flags) {
   const adjudicated = /(adjudicat|parked|ruling)/i.test(reviewSection);
 
   const headSha = sh('git', ['rev-parse', '--short=7', branch]);
-  const headCommittedAt = sh('git', ['show', '-s', '--format=%cI', branch]);
   const diffText = sh('git', ['diff', `${base}...${branch}`]);
   // The fresh check run and dev.md read use the WORKING TREE — they prove
   // nothing unless the checkout is the branch under review.
@@ -144,7 +142,7 @@ export function gatherFacts(flags) {
   }
 
   return {
-    evidence, reviewVerdict, adjudicated, headSha, headCommittedAt, diffText,
+    evidence, reviewVerdict, adjudicated, headSha, diffText,
     changelogTouched, allowNoChangelog: flags['allow-no-changelog'], checkExit, checkoutMismatch,
   };
 }
