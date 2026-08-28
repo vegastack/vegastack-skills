@@ -16,7 +16,7 @@ Every workflow-generated issue comment opens with an invisible HTML marker follo
 | `approval` | `scope=<brief\|brief+plan\|plan>` | one per approval event |
 | `plan` | `rev` | one, edited in place |
 | `ledger` | `branch` | one, edited in place |
-| `evidence` | `branch sha` | one, edited in place |
+| `evidence` | `rev branch sha` | one, edited in place |
 | `review` | `round sha agent=<claude\|codex> verdict=<clean\|needs-fixes>` | one per review cycle, rounds appended inside |
 | `decision` | — | one per decision proposal |
 | `handback` | — | one per stop event |

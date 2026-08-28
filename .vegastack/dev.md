@@ -15,7 +15,7 @@ gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it
 tests: required             # scripts' deterministic branches; prose quality bar is the behavioral eval
 merge: rebase               # meaningful commits, linear history
 branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the only place this list lives
-labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic
+labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents (org has no native Epic issue type)
 changelog: changesets
 decisions: .vegastack/decisions.md
 release: on-request         # only when the operator says "release" — covers everything merged since the last one (switched from per-merge for the v3 epic, operator 28-08-2026)
