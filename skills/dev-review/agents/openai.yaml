@@ -1,0 +1,4 @@
+interface:
+  display_name: "dev-review"
+  short_description: "Independent multi-axis review of finished work"
+  default_prompt: "Use $dev-review to review this branch against its brief and plan."

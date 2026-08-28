@@ -44,11 +44,9 @@ Every behavior-changing branch carries its changelog entry per dev.md's `changel
 - UI changed and `ui-evidence: playwright` → capture screenshots of the key states and flows and upload them to the shared evidence repo (dev.md `evidence-repo`) under `<this-repo-name>/<issue-number>/<timestamp>-<name>.png` — via the contents API so the repo is never cloned: `base64 < <file> | tr -d '\n' | gh api -X PUT repos/<evidence-repo>/contents/<path> -f message="evidence #<issue>" -F content=@-` (piped stdin, so large screenshots never hit argv limits; timestamped names keep re-captures from colliding; a 409 from a concurrent upload just means retry). Link them in the evidence comment — links, not embeds; private-repo images don't render inline in issues. Evidence repo missing or unreachable → name the local file paths and say so; the hand-back never blocks on it.
 - dev.md's Ship or Verify section is an empty TODO while release/deploy machinery visibly exists → finish this issue normally, then suggest re-running dev-setup so detection can fill it.
 
-## Independent review — per the dev.md knob
+## Independent review — invoke dev-review
 
-- `subagent` (default): spawn a fresh reviewer subagent that gets the diff, the brief, and dev.md — and no memory of writing the code. It checks: does the change do what the brief says, does anything break, are the tests real? In a harness without subagents, do a separate fresh-eyes review pass against the brief and label it a self-review in the evidence comment; prefer cross-agent there for `risky` work.
-- `cross-agent` (or `cross-agent-risky` on a `risky` issue): push the branch, add to the evidence comment "awaiting cross-agent review", keep `working`, and tell the user which agent to point at the issue. The reviewing session posts findings on the issue; you apply them.
-- Fix real findings and rerun affected checks. Disagree with a finding → say why in the evidence comment rather than silently skipping it.
+Run the `dev-review` skill per dev.md's `review:` knob — fresh subagent axes by default, cross-agent (Codex↔Claude, announced to the operator) on `risky` or when the knob says so; it owns the axes, severities, review comment, bounded fix loop, and adjudication rules. You apply its findings through its loop and re-run the affected checks. Disagree with a finding → adjudicate openly per its rules, never silently skip; an operator dismissal gets appended to `.vegastack/review-known-patterns.md` with its "Still flag if:" clause. In a harness without subagents, run dev-review's axis briefs yourself as a labeled self-review and prefer cross-agent for `risky` work.
 
 ## The evidence comment — exactly one, edited in place
 

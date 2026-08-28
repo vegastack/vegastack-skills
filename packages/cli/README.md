@@ -18,6 +18,7 @@ npx @vegastack/skills add dev-architect
 | `dev-intake` | Turns ideas, brainstorms, and SOWs into agent-ready GitHub issues with recorded user approval |
 | `dev-plan` | Plans an approved issue before any code exists: fresh-grounded questionnaire, strict plan format with Interfaces blocks, the scope ratchet, quick-build inline mode |
 | `dev-implement` | Implements an approved issue end to end, dark: preflight, claim, build, test, review, evidence in the issue |
+| `dev-review` | Independent multi-axis review of finished work: spec/standards/security axes, bounded fix loop, cross-agent Codex mode |
 | `dev-ship` | Opens the PR, merges, and runs the project's Ship runbook, each only on the user's explicit word |
 
 ## Commands

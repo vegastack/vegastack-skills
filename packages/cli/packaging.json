@@ -39,6 +39,16 @@
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
+  "dev-review": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/dispatch-prompts.md",
+    "references/security-axis.md",
+    "references/cross-agent.md",
+    "assets/review-known-patterns.md.template",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
   "dev-setup": [
     "SKILL.md",
     "agents/openai.yaml",
