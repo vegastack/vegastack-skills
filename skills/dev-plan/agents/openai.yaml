@@ -1,0 +1,4 @@
+interface:
+  display_name: "dev-plan"
+  short_description: "Plan an approved issue before any code exists"
+  default_prompt: "Use $dev-plan to write the implementation plan for this approved issue."

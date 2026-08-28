@@ -1,0 +1,16 @@
+[
+  { "query": "plan issue 42 before we build it", "should_trigger": true },
+  { "query": "write the plan for the invoice reminders issue", "should_trigger": true },
+  { "query": "issue 18 is labeled needs-plan — pick it up", "should_trigger": true },
+  { "query": "work out the technical approach for this approved brief", "should_trigger": true },
+  { "query": "plan this before building", "should_trigger": true },
+  { "query": "the brief is approved, now figure out the tasks and interfaces", "should_trigger": true },
+  { "query": "break this issue into ordered implementation tasks", "should_trigger": true },
+  { "query": "dev-intake needs the inline plan for this quick-build", "should_trigger": true },
+  { "query": "turn this feature idea into issues", "should_trigger": false, "ambiguous_with": "dev-intake" },
+  { "query": "write up an issue for the export bug", "should_trigger": false, "ambiguous_with": "dev-intake" },
+  { "query": "implement issue 12 end to end", "should_trigger": false, "ambiguous_with": "dev-implement" },
+  { "query": "pick up the next ready issue and go dark", "should_trigger": false, "ambiguous_with": "dev-implement" },
+  { "query": "should we add a queue for this workload", "should_trigger": false, "ambiguous_with": "dev-architect" },
+  { "query": "plan my week", "should_trigger": false }
+]

@@ -27,6 +27,13 @@
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
+  "dev-plan": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/plan-format.md",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
   "dev-setup": [
     "SKILL.md",
     "agents/openai.yaml",

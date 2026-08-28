@@ -13,6 +13,7 @@ Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/s
 | [dev-intake](skills/dev-intake/) | Turns brainstorms, feature requests, and SOWs into agent-ready GitHub issues: grilling-style rounds with recommended answers, vertical-slice issues wired with native dependencies and milestones, and quoted-approval recording that flips `needs-operator` to `ready` | [Walkthrough](skills/dev-intake/README.md) · [SKILL.md](skills/dev-intake/SKILL.md) |
 | [dev-implement](skills/dev-implement/) | Implements an approved issue end to end without user input: fail-closed preflight, claim by assignee + `working` label, dark execution bounded by the brief and the dev.md stop-list, tests, independent review, one in-place evidence comment, hand-back with `for-operator` | [Walkthrough](skills/dev-implement/README.md) · [SKILL.md](skills/dev-implement/SKILL.md) |
 | [dev-ship](skills/dev-ship/) | The shipping gates, each spent only by the user's words: PR creation linked to the issue's evidence, a merge instruction that re-verifies the reviewed head, merges per the project's `merge:` knob, and appends approved decisions to the register — then runs the dev.md `## Ship` runbook (releases, local guards, deploys) | [Walkthrough](skills/dev-ship/README.md) · [SKILL.md](skills/dev-ship/SKILL.md) |
+| [dev-plan](skills/dev-plan/) | Plan an approved issue before any code — questionnaire, strict plan format, scope ratchet | [Walkthrough](skills/dev-plan/README.md) · [SKILL.md](skills/dev-plan/SKILL.md) |
 
 Install any skill by name:
 
