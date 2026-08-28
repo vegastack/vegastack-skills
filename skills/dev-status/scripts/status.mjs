@@ -8,10 +8,26 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const STATE_LABELS = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-operator'];
+const DEFAULT_LABELS = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-operator', 'risky', 'research', 'quick-build', 'full-plan', 'epic'];
+
+// The labels: knob lists names positionally (5 states, risky, 3 scopes, epic —
+// the dev-profile template order); a project that renamed labels still parses.
+export function readKnobs(devMdText) {
+  const labelsLine = /^labels:\s*([^\n#]+)/m.exec(devMdText ?? '')?.[1]?.trim();
+  const names = labelsLine ? labelsLine.split(/\s+/) : DEFAULT_LABELS;
+  const labels = names.length >= 10 ? names : DEFAULT_LABELS;
+  return {
+    states: labels.slice(0, 5),
+    risky: labels[5],
+    scopes: labels.slice(6, 9),
+    register: /^decisions:\s*(\S+)/m.exec(devMdText ?? '')?.[1] ?? '.vegastack/decisions.md',
+  };
+}
 
 function gh(args) {
-  const out = execFileSync(process.env.VSK_GH || 'gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  // env spread at call time: some runtimes pass a startup env snapshot to
+  // children, which would hide the VSK_GH/GH_STUB_DIR test seam.
+  const out = execFileSync(process.env.VSK_GH || 'gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } });
   return JSON.parse(out);
 }
 
@@ -69,29 +85,39 @@ export function pendingDecisions(comments, registerText) {
   return pending;
 }
 
+// CheckRuns carry `conclusion`; StatusContexts carry `state`. An empty rollup
+// is "no-checks", never green.
+export function checksState(rollup) {
+  if (!rollup || rollup.length === 0) return 'no-checks';
+  const ok = (c) => ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(c.conclusion ?? c.state ?? '');
+  return rollup.every(ok) ? 'green' : 'pending-or-red';
+}
+
 export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.md', now = Date.now() } = {}) {
   const resolvedRepo = repo || gh(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
+  const devMdText = existsSync(devMdPath) ? readFileSync(devMdPath, 'utf8') : '';
+  const knobs = readKnobs(devMdText);
   const board = {};
-  for (const label of STATE_LABELS) {
+  for (const label of knobs.states) {
     board[label] = gh(['issue', 'list', '-R', resolvedRepo, '--label', label, '--state', 'open',
       '--json', 'number,title,url,updatedAt,labels,assignees']).map((i) => ({
       number: i.number, title: i.title, url: i.url,
       ageDays: ageDays(i.updatedAt, now),
-      scope: (i.labels ?? []).map((l) => l.name).find((n) => ['research', 'quick-build', 'full-plan'].includes(n)) ?? null,
-      risky: (i.labels ?? []).some((l) => l.name === 'risky'),
+      scope: (i.labels ?? []).map((l) => l.name).find((n) => knobs.scopes.includes(n)) ?? null,
+      risky: (i.labels ?? []).some((l) => l.name === knobs.risky),
     }));
   }
 
   // Enrich working + for-operator issues with comment-derived signals.
-  const registerText = existsSync('.vegastack/decisions.md') ? readFileSync('.vegastack/decisions.md', 'utf8') : '';
+  const registerText = existsSync(knobs.register) ? readFileSync(knobs.register, 'utf8') : '';
   const decisions = [];
-  for (const bucket of ['working', 'for-operator']) {
+  for (const bucket of [knobs.states[3], knobs.states[4]]) {
     for (const issue of board[bucket]) {
       const comments = gh(['api', `repos/${resolvedRepo}/issues/${issue.number}/comments`, '--paginate']);
       issue.tasks = taskProgress(comments);
       const moved = ledgerMovedAt(comments);
       issue.ledgerAgeDays = moved ? ageDays(moved, now) : null;
-      issue.stale = bucket === 'working' && (issue.ledgerAgeDays === null || issue.ledgerAgeDays >= staleDays);
+      issue.stale = bucket === knobs.states[3] && (issue.ledgerAgeDays === null || issue.ledgerAgeDays >= staleDays);
       decisions.push(...pendingDecisions(comments, registerText).map((d) => ({ issue: issue.number, gist: d })));
     }
   }
@@ -99,7 +125,7 @@ export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.
   const prs = gh(['pr', 'list', '-R', resolvedRepo, '--json', 'number,title,url,statusCheckRollup'])
     .map((p) => ({
       number: p.number, title: p.title, url: p.url,
-      checks: (p.statusCheckRollup ?? []).every((c) => ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(c.conclusion ?? '')) ? 'green' : 'pending-or-red',
+      checks: checksState(p.statusCheckRollup),
     }));
 
   let lastChronicle = null;
@@ -116,7 +142,8 @@ if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const get = (f) => { const i = argv.indexOf(f); return i === -1 ? undefined : argv[i + 1]; };
   try {
-    const data = gatherStatus({ repo: get('--repo'), staleDays: Number(get('--stale-days') ?? 3), devMdPath: get('--dev-md') });
+    const staleDaysRaw = Number(get('--stale-days'));
+    const data = gatherStatus({ repo: get('--repo'), staleDays: Number.isFinite(staleDaysRaw) && staleDaysRaw >= 1 ? staleDaysRaw : 3, devMdPath: get('--dev-md') });
     console.log(JSON.stringify(data, null, argv.includes('--json') ? 2 : 0));
   } catch (error) {
     console.error(`status: cannot verify — ${error.message}`);

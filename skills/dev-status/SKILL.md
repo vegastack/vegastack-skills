@@ -29,7 +29,7 @@ Ready to build (N): - <linked title> — <scope>
 In flight (N): - <linked title> — working, task <x>/<y>, ledger moved <n>d ago
 Stale (N): - <linked title> — working <age>d, ledger silent <n>d → check or reclaim
 Open PRs (N): - <linked title> — checks <green|pending-or-red>
-Pending decisions (N): "<gist>" (#<issue>) — records at that issue's merge
+Pending decisions (N): "<gist>" (<linked issue>) — records at that issue's merge
 Last chronicle chapter: <date> — <title>
 Next: <the single most valuable operator action, and why>
 ```

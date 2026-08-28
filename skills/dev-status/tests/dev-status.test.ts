@@ -21,7 +21,4 @@ describe('dev-status contract', () => {
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
-  // TODO: if this skill ships scripts/, add unit tests for every deterministic
-  // branch. A prose-only skill needs nothing more here - its quality bar is the
-  // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
 })

@@ -42,3 +42,39 @@ describe('status helpers', () => {
     expect(parseMarker('## Ledger only')).toBeNull()
   })
 })
+
+import { checksState, gatherStatus, readKnobs } from '../scripts/status.mjs'
+import { join, resolve } from 'node:path'
+
+describe('gatherStatus over the gh stub', () => {
+  const skillRoot = resolve(import.meta.dir, '..')
+  test('assembles the board, staleness, tasks, decisions, and PR checks from canned gh output', () => {
+    process.env.VSK_GH = join(skillRoot, 'tests/fixtures/gh-stub.mjs')
+    process.env.GH_STUB_DIR = join(skillRoot, 'tests/fixtures/scenarios/basic')
+    try {
+      const data = gatherStatus({ staleDays: 3, devMdPath: '/nonexistent-dev.md', now: Date.parse('2026-08-29T12:00:00Z') })
+      expect(data.repo).toBe('vegastack/fixture-repo')
+      expect(data.board.working[0]).toMatchObject({ number: 7, scope: 'quick-build', risky: true, tasks: [1, 2], stale: true })
+      expect(data.board['for-operator'][0].number).toBe(8)
+      expect(data.pendingDecisions).toEqual([{ issue: 8, gist: 'retire the legacy webhook path' }])
+      expect(data.prs[0].checks).toBe('green')
+      expect(data.board.ready).toEqual([])
+    } finally {
+      delete process.env.VSK_GH; delete process.env.GH_STUB_DIR
+    }
+  })
+  test('checksState: StatusContext green, empty rollup is no-checks, failure is pending-or-red', () => {
+    expect(checksState([{ state: 'SUCCESS' }])).toBe('green')
+    expect(checksState([])).toBe('no-checks')
+    expect(checksState(undefined)).toBe('no-checks')
+    expect(checksState([{ conclusion: 'FAILURE' }])).toBe('pending-or-red')
+  })
+  test('readKnobs: renamed labels and custom register parse; short lists fall back', () => {
+    const knobs = readKnobs('labels: waiting planning go doing done hot q s l parent\ndecisions: docs/register.md\n')
+    expect(knobs.states).toEqual(['waiting', 'planning', 'go', 'doing', 'done'])
+    expect(knobs.risky).toBe('hot')
+    expect(knobs.register).toBe('docs/register.md')
+    expect(readKnobs('labels: a b c\n').states[0]).toBe('needs-operator')
+    expect(readKnobs('').register).toBe('.vegastack/decisions.md')
+  })
+})
