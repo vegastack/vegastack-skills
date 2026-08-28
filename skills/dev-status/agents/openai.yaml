@@ -1,0 +1,4 @@
+interface:
+  display_name: "dev-status"
+  short_description: "The operator's board — whose move is it"
+  default_prompt: "Use $dev-status to show what needs me."

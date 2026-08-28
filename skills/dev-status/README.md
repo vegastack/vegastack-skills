@@ -1,0 +1,26 @@
+# dev-status
+
+TODO: one-paragraph summary for humans and agents browsing the repo. The agent entry point is [SKILL.md](SKILL.md); everything else loads progressively from there.
+
+## Install
+
+```sh
+npx @vegastack/skills add dev-status
+```
+
+## What's in this skill
+
+| Path | Purpose |
+|---|---|
+| [SKILL.md](SKILL.md) | Agent entry point |
+| `references/` | TODO: on-demand detail, or delete this row |
+| `scripts/` | TODO: deterministic dependency-free Node scripts, or delete this row |
+| `assets/` | TODO: templates/schemas/examples, or delete this row |
+| [refresh/sources.json](refresh/sources.json) | Source registry for volatile claims |
+| [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract |
+| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| `tests/` | Bun tests and fixtures (never packaged) |
+
+## Behavior
+
+TODO: what the skill does when invoked, its output contract, and its guardrails.

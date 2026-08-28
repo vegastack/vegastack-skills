@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — The operator got a front desk (#18)
+
+**What:** Asking "status" or "what needs me" now produces the board: your queue first (things awaiting your word, oldest first), then what's waiting on plans, ready for agents, in flight with live task counts, gone quiet, and any decisions awaiting their merge — each line a named link, ending with the single most valuable thing to do next.
+**Why:** The operator's view was raw label-digging across issues; the workflow's whole state should be one ask away.
+**How it went:** Smooth; the marker conventions made every signal (ledger age, checkbox progress, pending decisions) mechanically readable.
+**Changed:** dev-status skill (installable) · status.mjs gatherer with unit tests.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch feat/18-dev-status
+
 ## 29-08-2026 — The project can now tell its own story (#17)
 
 **What:** "Catch me up on this project" works: the chronicle you are reading has an owner skill that defines the entry format and renders the digest — the story so far, the recent chapters, the open threads — without digging through git. Every build already writes its chapter; now the reading side exists too.
