@@ -9,9 +9,16 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GhUnavailable, findMarkerComment, ghJson, parseFlags, renderResult } from './lib/gh.mjs';
 
-export function evaluatePreflight({ issue, comments, devMd, me }) {
+export function evaluatePreflight({ issue, comments, devMd, me, expect = 'ready' }) {
   const blocks = [];
   const labels = (issue.labels ?? []).map((l) => l.name);
+
+  if (issue.state && issue.state !== 'open') blocks.push(`issue is ${issue.state} — only open issues are workable`);
+  const STATE_LABELS = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-operator'];
+  const state = STATE_LABELS.filter((s) => labels.includes(s));
+  if (!state.includes(expect)) {
+    blocks.push(`issue state label is [${state.join(', ') || 'none'}], expected ${expect} (fresh start: ready · resume: working with the operator's handover · corrections: for-operator)`);
+  }
 
   const approval = findMarkerComment(comments, 'approval');
   if (!approval) blocks.push('no recorded approval comment (marker type=approval) on the issue');
@@ -67,10 +74,11 @@ export function gatherAndEvaluate(flags) {
   const devMd = readFileSync(flags['dev-md'] || '.vegastack/dev.md', 'utf8');
   const me = flags.me || ghJson(['api', 'user']).login;
   return evaluatePreflight({
-    issue: { body: raw.body, labels: raw.labels, assignees: raw.assignees, repo, blockedBy },
+    issue: { body: raw.body, state: raw.state, labels: raw.labels, assignees: raw.assignees, repo, blockedBy },
     comments,
     devMd,
     me,
+    expect: flags.expect || 'ready',
   });
 }
 

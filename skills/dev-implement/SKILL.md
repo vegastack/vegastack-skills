@@ -15,8 +15,8 @@ When the operator directly asks in chat for a change, their words are the approv
 
 ## Preflight — all must hold, or stop and say which failed
 
-- Run the deterministic guard first: `node <path-to-this-skill>/scripts/preflight.mjs --issue <n> --json` — exit 2 stops you with its reasons (approval marker, scope label, plan approval on full-plan, Assumptions section, blockers, assignee, repo match).
-- Then the judgment checks: re-verify the brief's touch points against the current code (things drift between approval and execution) — including the version-impact line; volatile dependency claims per `dev-architect`'s verify protocol; a full-plan issue's plan still matches reality. Reality contradicting brief or plan is a stop — one `handback` comment with the discrepancy, `needs-operator`.
+- Run the deterministic guard first: `node <path-to-this-skill>/scripts/preflight.mjs --issue <n> --me $(gh api user -q .login) --json` — exit 2 stops you with its reasons (open + `ready` state, approval marker, scope label, plan approval on full-plan, Assumptions section, blockers, assignee, repo match). Resume and corrections runs pass `--expect working` / `--expect for-operator`.
+- Then the judgment checks: read the complete brief plus parent issue and milestone for context; re-verify the brief's touch points against the current code (things drift between approval and execution) — including the version-impact line; volatile dependency claims per `dev-architect`'s verify protocol; a full-plan issue's plan still matches reality. A material decision left open — even outside a formal Assumptions section — or reality contradicting brief or plan is a stop: one `handback` comment with the smallest question, `needs-operator`.
 - Resuming a dead session's issue: the operator's explicit handover is required; then follow the resume protocol in [ledger-and-resume](references/ledger-and-resume.md) — brief → plan → ledger → `git log`, nothing else.
 
 ## Claim
@@ -25,7 +25,7 @@ Assign yourself, swap `ready` → `working`, branch from the default branch per 
 
 ## Build — dark, test-first, checkpointed
 
-No progress updates, no questions. Work the plan task by task:
+No progress updates, no questions. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Then work the plan task by task:
 
 - **Red before green.** Write the failing test first — at the seams the brief names, never elsewhere — watch it fail for the stated reason, implement the minimal code, watch it pass. One slice at a time. The tests-are-real rubric (implementation-coupled, tautological, horizontal-sliced — defined in `dev-review`'s dispatch prompts) applies to your own tests before a reviewer ever sees them.
 - **Checkpoint the ledger** after every task (tick the plan checkbox in the same pass) and at every ruling, per the reference.
@@ -38,14 +38,14 @@ Honesty over green: a failing test gets fixed at the root or reported as failing
 
 ## Changelog and chronicle — before hand-back
 
-Every behavior-changing branch carries its changelog entry per dev.md's `changelog:` knob (`changesets` → write `.changeset/<slug>.md` directly, never the interactive CLI; `keep-a-changelog` → one bullet under `## [Unreleased]`; `none` → skip) **and**, when dev.md says `chronicle: on`, its story entry prepended to `.vegastack/chronicle.md` (format: the `dev-chronicle` skill) — both on the branch, landing atomically with the merge. Docs the brief names as affected get updated in the same branch.
+Every behavior-changing branch carries its changelog entry per dev.md's `changelog:` knob (`changesets` → write `.changeset/<slug>.md` directly, never the interactive CLI; `keep-a-changelog` / `pubspec+changelog` → one bullet under `## [Unreleased]`, creating CHANGELOG.md with the `# Changelog` + `## [Unreleased]` skeleton in the same branch when absent; `none` → skip) **and**, when dev.md says `chronicle: on`, its story entry prepended to `.vegastack/chronicle.md` (format: the `dev-chronicle` skill; until it lands, the file's existing entries model it) — both on the branch, landing atomically with the merge. Docs the brief names as affected get updated in the same branch.
 
 ## Verify — the gate function
 
 Before claiming ANY status: **identify** the command that proves it → **run** it fresh and complete → **read** the full output and exit code → only then claim, with the evidence. Tests pass ⇒ a fresh run with 0 failures — never "should pass", never a previous run. Build succeeds ⇒ exit 0. Bug fixed ⇒ the original symptom re-tested. A subagent finished ⇒ you inspected its diff or report file — never its say-so.
 
-- Run what dev.md's `tests:` knob requires; a `risky` issue gets focused security, failure, and recovery checks on top. When dev.md has a `## Verify` runbook, run the app and smoke-check the flows it names.
-- UI changed and `ui-evidence: playwright` → capture and upload screenshots to the shared evidence repo per the dev.md `evidence-repo` knob (contents API, timestamped names); link them, never embed. Evidence repo unreachable → name local paths and say so.
+- Run what dev.md's `tests:` knob requires; a `risky` issue gets focused security, failure, and recovery checks on top. When dev.md has a `## Verify` runbook, run the app and smoke-check the flows it names. Verify is pre-merge only; post-release checks live in `## Ship` and belong to dev-ship.
+- UI changed and `ui-evidence: playwright` → capture screenshots of the key states and upload to the shared evidence repo (dev.md `evidence-repo`) under `<this-repo-name>/<issue-number>/<timestamp>-<name>.png` via the contents API, never a clone: `base64 < <file> | tr -d '\n' | gh api -X PUT repos/<evidence-repo>/contents/<path> -f message="evidence #<issue>" -F content=@-` (piped stdin so large screenshots never hit argv limits; timestamped names avoid collisions; a 409 from a concurrent upload just means retry). Link them in the evidence comment — links, never embeds (private-repo images don't render inline). Evidence repo unreachable → name local paths and say so; the hand-back never blocks on it.
 - dev.md's Ship or Verify section is an empty TODO next to visible machinery → finish normally, then suggest re-running dev-setup.
 
 ## Independent review — invoke dev-review
@@ -68,7 +68,7 @@ Run the `dev-review` skill per dev.md's `review:` knob — fresh subagent axes b
 Branch: <name> @ <sha7>
 ```
 
-Run `node <path-to-this-skill>/scripts/evidence-check.mjs --file <draft> --json` before posting — exit 2 means the shape is incomplete; fix, don't post. Post it, swap `working` → `for-operator`, stop, and close with the plain-language summary: what was built, which paths were taken, every ruling made, what's worth the operator double-checking.
+The `**Review:**` line is the one home of surfaced rulings: every ledger `Ruling:` appears there, in the order made. Run `node <path-to-this-skill>/scripts/evidence-check.mjs --file <draft> --json` before posting — exit 2 means the shape is incomplete; fix, don't post. Post it, swap `working` → `for-operator`, stop, and close with the plain-language summary (which repeats, never replaces, the evidence content): what was built, which paths were taken, the rulings, what's worth the operator double-checking.
 
 ## Corrections loop — code and docs move together
 
