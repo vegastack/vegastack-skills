@@ -16,6 +16,7 @@ npx @vegastack/skills add dev-architect
 | `dev-architect` | Architecture advisor: the locked stack, recorded rejections, and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts behind a verify-before-you-recommend protocol, reading the `## Architecture` section of `.vegastack/dev.md` |
 | `dev-setup` | Bootstraps any project, greenfield included, for the issue-driven dev workflow: stack-playbook-drafted profile, AGENTS.md section, labels, guards, decision register |
 | `dev-intake` | Turns ideas, brainstorms, and SOWs into agent-ready GitHub issues with recorded user approval |
+| `dev-plan` | Plans an approved issue before any code exists: fresh-grounded questionnaire, strict plan format with Interfaces blocks, the scope ratchet, quick-build inline mode |
 | `dev-implement` | Implements an approved issue end to end, dark: preflight, claim, build, test, review, evidence in the issue |
 | `dev-ship` | Opens the PR, merges, and runs the project's Ship runbook, each only on the user's explicit word |
 

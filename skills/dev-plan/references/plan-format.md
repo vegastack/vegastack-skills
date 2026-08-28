@@ -23,7 +23,7 @@ The comment a plan lives in, verbatim. dev-implement executes it task by task an
 
 - **Task size:** the smallest unit that carries its own test cycle and is worth a fresh reviewer's look. Fold setup/scaffolding/docs into the task whose deliverable needs them; split only where a reviewer could reject one task while approving its neighbor. Each task ends independently verifiable.
 - **Prose tasks** (docs, skill text, config) swap the test-first Steps for edit → verify (the concrete command: `bun run check`, a link-resolution run, a rendered read-through) → commit. The verify step is never omitted.
-- **Revisions:** any post-approval edit bumps the heading `(v2)` and marker `rev=2` and appends a `Revisions:` line — `v2 — DD-MM-YYYY: <what changed>, per operator (<username>) correction`.
+- **Revisions:** post-approval edits follow the revision-marker rule in dev-setup's `references/conventions.md` — bump the heading/marker version and append the `Revisions:` line.
 
 ## Banned placeholders
 

@@ -5,7 +5,7 @@ description: Write the implementation plan for an approved issue before any code
 
 # dev-plan
 
-The planning stage: an approved brief goes in, an operator-approved plan comes out, and only then does code exist. Plans are written against the repo **as it is now** — a separate session from intake for `full-plan` issues, because code drifts between brief approval and build. Formats follow dev-setup's [conventions](../dev-setup/references/conventions.md).
+The planning stage: an approved brief goes in, an operator-approved plan comes out, and only then does code exist. Plans are written against the repo **as it is now** — a separate session from intake for `full-plan` issues, because code drifts between brief approval and build. Formats follow the `dev-setup` skill's `references/conventions.md` (cited by name — read it wherever dev-setup is installed).
 
 Nearest neighbors: `dev-intake` owns the brief and its approval mechanics — this skill owns the how; `dev-implement` executes what this produces, task by task. If `.vegastack/dev.md` is missing → run `dev-setup` first.
 
@@ -31,7 +31,7 @@ A vague or self-contradicting answer gets pushback with concrete options — sim
 Post one comment per [plan-format](references/plan-format.md): Goal · Approach (alternatives named) · Constraints · ordered `- [ ]` tasks, each with exact Files, an Interfaces block (consumes/produces with exact signatures), and Steps that put the failing test before the code. Before posting:
 
 - Self-review: every brief requirement maps to a task; names and types are consistent across tasks; no banned placeholders (the list lives in plan-format).
-- Run `node scripts/plan-lint.mjs --file <draft> --json` when present (ships with the guard-script wave); exit 2 = fix before posting.
+- Run this skill's plan-lint when present (ships with the guard-script wave): `node <path-to-this-skill>/scripts/plan-lint.mjs --file <draft> --json`; exit 2 = fix before posting.
 
 Checkboxes belong to the implement session — never pre-tick them.
 
