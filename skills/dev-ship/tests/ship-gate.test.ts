@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { evaluateShipGate, parseMarker } from '../scripts/ship-gate.mjs'
+import { chronicleEntryAdded, evaluateShipGate, parseMarker } from '../scripts/ship-gate.mjs'
 
 const evidenceBody = (sha = 'abc1234') => `<!-- vsk:v1 type=evidence rev=1 branch=feat/12-x sha=${sha} -->
 ## Result (v1)
@@ -51,7 +51,7 @@ describe('ship-gate', () => {
     expect(r.blocks.some((b) => b.includes('not the branch under review'))).toBe(true)
   })
   test('the chronicle-entry rule is an ADDED heading, not any touch', () => {
-    const headingRule = (fileDiff: string) => /^\+## /m.test(fileDiff)
+    const headingRule = chronicleEntryAdded
     expect(headingRule('+## 29-08-2026 — a new entry (#16)\n+**What:** …')).toBe(true)
     expect(headingRule('-## 28-08-2026 — deleted entry\n')).toBe(false)
     expect(headingRule('-**Why:** old\n+**Why:** typo-fixed old entry\n')).toBe(false)
