@@ -9,7 +9,7 @@ authority: CONTRIBUTING.md → this file → skill-maintainer's release-ops.md (
 
 ## Knobs
 
-review: subagent            # subagent | cross-agent | cross-agent-risky
+review: cross-agent-risky   # subagent | cross-agent-risky | cross-agent — codex-cli 0.149.1 present (verified 29-08-2026)
 ui-evidence: none           # no UI in this repo
 gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main
 tests: required             # scripts' deterministic branches; prose quality bar is the behavioral eval

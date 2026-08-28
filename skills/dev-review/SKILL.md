@@ -25,7 +25,9 @@ Each axis is a fresh subagent with no memory of writing the code (its prompt: [d
 
 **Never pre-judge.** A dispatch containing "do not flag…", "don't treat X as a defect", or "at most minor" is forbidden — if you believe something is a false positive, let the reviewer raise it and adjudicate it openly in the loop.
 
-## The review comment — one per cycle, rounds appended
+## The review comment — one per cycle, rounds appended, marker always current
+
+One comment per review cycle. **The single marker at the top is edited every round** to the newest `round`/`sha`/`verdict` — consumers (ship-gate) read the first marker, so a stale round-1 `needs-fixes` must never sit above a clean round 3. Prior rounds stay as plain `## Review — round <n>` sections appended below, carrying no markers of their own.
 
 ```markdown
 <!-- vsk:v1 type=review round=<n> sha=<head7> agent=<claude|codex> verdict=<clean|needs-fixes> -->
@@ -60,7 +62,7 @@ Severities: `[CRITICAL]` (security axis: exploitable now — blocks) > `[MUST-FI
 
 ## Cross-agent — the independence upgrade
 
-On `risky` (or `review: cross-agent` in dev.md), the review runs on the other agent per [cross-agent](references/cross-agent.md): announce the invocation to the operator at trigger time, send the `REVIEW REQUEST (vsk cross-agent v1)` handoff (`codex exec` from Claude; `claude -p` from Codex), and summarize the outcome at the end. The reviewing agent posts its own review comment (`agent=codex`), so independence is verifiable. CLI absent → fall back to the manual relay and note that dev-setup recommends installing it.
+The dev.md `review:` knob maps to exactly three states — `subagent` (fresh-subagent axes always, cross-agent never), `cross-agent-risky` (subagent axes normally; the other agent on `risky` — the recommended default where the CLI exists), `cross-agent` (the other agent always). When it runs on the other agent, follow [cross-agent](references/cross-agent.md): announce the invocation to the operator at trigger time, send the `REVIEW REQUEST (vsk cross-agent v1)` handoff (`codex exec` from Claude; `claude -p` from Codex), and summarize the outcome at the end. The reviewing agent posts its own review comment (`agent=codex`), so independence is verifiable. CLI absent → fall back to the manual relay and note that dev-setup recommends installing it.
 
 ## Closing
 

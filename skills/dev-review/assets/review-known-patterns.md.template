@@ -15,14 +15,14 @@ Format, one entry per pattern:
 
 ## Worked examples (replace with real entries)
 
-## Sequential awaits in setup scripts
+### Sequential awaits in setup scripts
 
 **Pattern:** consecutive `await` calls in bootstrap/setup code flagged as a parallelization miss.
 **Why it's safe here:** setup steps have ordering dependencies the reviewer can't see locally (labels before issues, scaffold before wiring).
 **Still flag if:** the awaits are inside a hot request path or a loop over user data.
 **Origin:** seeded example — delete when the first real entry lands.
 
-## Direct `gh` CLI calls without a wrapper
+### Direct `gh` CLI calls without a wrapper
 
 **Pattern:** scripts shelling to `gh` flagged as needing an API client abstraction.
 **Why it's safe here:** the workflow standardizes on `gh` for auth and pagination; a wrapper would duplicate it.

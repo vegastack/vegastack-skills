@@ -28,6 +28,6 @@ A finding that can't fill the Data flow line goes to the collapsed low-confidenc
 - **[SHOULD-FIX]** — hardening: rate limits, PII in logs, missing timeouts, defense-in-depth gaps with a holding layer.
 - Never round up to look thorough; judge against the project's Architecture facts — platform-scale concerns are not defects on a small internal tool.
 
-## Standing red lines (from dev-architect, always in force)
+## Standing red lines (summary — `dev-architect` remains their home)
 
 Middleware/proxy is never the authorization boundary; authorization lives server-side per resource. No secret in plaintext anywhere — code, config, logs, events, agent state. Permission checks fail closed, and the deny is still audited.

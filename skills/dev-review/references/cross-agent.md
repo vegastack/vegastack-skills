@@ -5,7 +5,7 @@ The independence upgrade: the review runs on the *other* agent — Codex when Cl
 ## Announce, invoke, summarize — the operator is never blind
 
 1. **At trigger time**, tell the operator in plain language: "invoking Codex for the cross-agent review of issue #N" — before the call, not after.
-2. **Invoke** non-interactively with the handoff below: from Claude, `codex exec "<handoff>"`; from Codex, `claude -p "<handoff>"`.
+2. **Invoke** non-interactively with the handoff below passed as ONE argument through an exec arg array — `execFile('codex', ['exec', handoff])` from Claude, `execFile('claude', ['-p', handoff])` from Codex — never interpolated into a shell string (the exact pattern this skill's own known-patterns template says to still-flag).
 3. **At the end**, summarize: which agent reviewed, the verdict, where its comment is, and what's worth the operator double-checking.
 
 ## The handoff — exact format
@@ -19,7 +19,10 @@ marked type=plan · package: <path to the review package file> · known-patterns
 references/conventions.md in this repo's installed skills
 axes: spec, standards[, security]
 output contract: post exactly ONE issue comment in the review-comment format
-(marker: <!-- vsk:v1 type=review round=<n> sha=<head7> agent=<you> verdict=... -->),
+(marker: <!-- vsk:v1 type=review round=<n> sha=<head7> agent=<you> verdict=... -->);
+on a re-review round, EDIT that same comment — update its single top marker to the
+new round/sha/verdict and append the round section below (never a second marker,
+never a second comment),
 findings as Finding [N] with severities [CRITICAL|MUST-FIX|SHOULD-FIX|NIT] and
 path:line evidence; nitpicks and low-confidence collapsed in <details>.
 constraints: READ-ONLY — never commit, push, edit files, or change labels; your
