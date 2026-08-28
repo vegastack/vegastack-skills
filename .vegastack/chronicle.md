@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — Bugs must be caught red-handed before they're "fixed" (#19)
+
+**What:** Bug work now has a hard order: first build one command that provably fails because of the reported symptom — no theorizing allowed before it exists — then shrink it, list ranked suspects with testable predictions, probe one variable at a time with tagged logging, and write the failing regression test before the fix. If no command can be built, the agent asks for artifacts instead of guessing; if no honest seam exists for the test, that gap is recorded instead of papered over.
+**Why:** "Fixed" something that was never the cause is the most expensive kind of done.
+**How it went:** Smooth; the ship-gate tag check and intake's Reproduction requirement were already waiting for this skill to plug into.
+**Changed:** dev-debug skill (installable) · eight-rung loop ladder reference.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch feat/19-dev-debug
+
 ## 29-08-2026 — The operator got a front desk (#18)
 
 **What:** Asking "status" or "what needs me" now produces the board: your queue first (things awaiting your word, oldest first), then what's waiting on plans, ready for agents, in flight with live task counts, gone quiet, and any decisions awaiting their merge — each line a named link, ending with the single most valuable thing to do next.

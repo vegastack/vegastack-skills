@@ -1,0 +1,4 @@
+interface:
+  display_name: "dev-debug"
+  short_description: "Reproduce-first bug diagnosis and fix"
+  default_prompt: "Use $dev-debug to find and fix this bug."

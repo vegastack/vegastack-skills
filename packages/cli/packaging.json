@@ -20,6 +20,13 @@
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
+  "dev-debug": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/loop-ladder.md",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
+  ],
   "dev-implement": [
     "SKILL.md",
     "agents/openai.yaml",
