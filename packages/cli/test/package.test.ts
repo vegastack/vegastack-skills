@@ -22,23 +22,23 @@ describe('publishable package', () => {
     const cli = join(installRoot, 'node_modules/.bin/vegastack-skills')
     const project = join(temporary, 'packed-project')
     await mkdir(project, { recursive: true })
-    const add = Bun.spawnSync([cli, 'add', 'architect', '--agent', 'both', '--dir', project, '--non-interactive'], { cwd: temporary, env: { ...process.env, HOME: temporary } })
+    const add = Bun.spawnSync([cli, 'add', 'dev-architect', '--agent', 'both', '--dir', project, '--non-interactive'], { cwd: temporary, env: { ...process.env, HOME: temporary } })
     expect(add.exitCode).toBe(0)
-    expect(await readFile(join(project, '.agents/skills/architect/SKILL.md'), 'utf8')).toContain('name: architect')
-    expect(await readFile(join(project, '.claude/skills/architect/SKILL.md'), 'utf8')).toContain('name: architect')
-    const installed = join(project, '.agents/skills/architect')
+    expect(await readFile(join(project, '.agents/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
+    expect(await readFile(join(project, '.claude/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
+    const installed = join(project, '.agents/skills/dev-architect')
     const installedFiles = await walk(installed)
     // Repo-side-only files must never ship in the packaged skill.
-    for (const forbidden of ['README.md', 'architect.test.ts']) expect(installedFiles.some(path => path.endsWith(forbidden))).toBe(false)
+    for (const forbidden of ['README.md', 'dev-architect.test.ts']) expect(installedFiles.some(path => path.endsWith(forbidden))).toBe(false)
     expect(installedFiles.some(path => path.includes('/tests/'))).toBe(false)
     expect(installedFiles.some(path => path.includes('/scripts/'))).toBe(false)
     expect((await readFile(join(installed, 'SKILL.md'), 'utf8')).split('\n').length).toBeLessThanOrEqual(150)
     for (const required of [
       'references/principles.md', 'references/stack.md', 'references/pinned-facts.md',
-      'references/project-profile.md', 'references/web.md', 'references/data.md',
+      'references/web.md', 'references/data.md',
       'references/infra.md', 'references/ai-agents.md', 'references/security.md',
-      'references/mobile.md', 'references/advisory.md',
-      'assets/arch-template.md', 'assets/adr-template.md', 'refresh/REFRESH.md', 'refresh/sources.json', 'agents/openai.yaml',
+      'references/mobile.md',
+      'refresh/REFRESH.md', 'refresh/sources.json', 'agents/openai.yaml',
     ]) expect(installedFiles.some(path => path.endsWith(required))).toBe(true)
     // The shipped refresh registry parses and carries populated baselines.
     const registry = JSON.parse(await readFile(join(installed, 'refresh/sources.json'), 'utf8'))

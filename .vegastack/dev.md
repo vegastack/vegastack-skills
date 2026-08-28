@@ -30,7 +30,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 - auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
 - Publishing is tag-triggered trusted publishing (OIDC, token-free, provenance by default — never pass `--provenance` explicitly, it conflicts with trusted-publishing config)
 - Rollback is roll-forward: revert on main, release previous-good as a new patch, `npm deprecate` the bad version ("Broken — use <new>"); unpublish only for leaked secrets within 72h, in addition to roll-forward, never instead
-- Content semver: new references/sections/recorded decisions = minor · factual refreshes, wording, test-only = patch · removing/renaming a skill, weakening a normative rule, breaking a per-project profile format = major (pre-1.0 with zero deployed profile consumers, a profile-format break may ship minor — recorded decision 28-08-2026); installer changes follow ordinary semver on the same version, a release takes the higher bump — detail in skill-maintainer's release-ops.md
+- Content semver: new references/sections/recorded decisions/skill renames = minor · factual refreshes, wording, test-only = patch · removing a skill, weakening a normative rule, breaking the per-project profile format = major, and major is otherwise the operator's explicit call (pre-1.0 with zero deployed profile consumers, a profile-format break may ship minor — recorded decision 28-08-2026); installer changes follow ordinary semver on the same version, a release takes the higher bump — detail in skill-maintainer's release-ops.md
 
 ## Verify — how to see it working (pre-merge)
 

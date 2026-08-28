@@ -475,19 +475,19 @@ async function doctor(options: Options) {
   await access(base, fsConstants.R_OK | fsConstants.W_OK)
   await assertNoSymlink(base, false)
   let failed = false
-  // The architect skill's per-project profile is plain markdown; the repo, not this file,
+  // The dev skills' per-project profile is plain markdown; the repo, not this file,
   // is the source of truth, so doctor only checks presence and basic shape.
-  const profilePath = join(base, '.vegastack', 'arch.md')
+  const profilePath = join(base, '.vegastack', 'dev.md')
   if (options.mode !== 'global') {
     if (await exists(profilePath)) {
       const content = await readFile(profilePath, 'utf8')
-      if (content.includes('hosting:')) console.log(`ok architecture profile: ${profilePath}`)
+      if (content.includes('## Knobs')) console.log(`ok dev profile: ${profilePath}`)
       else {
-        console.log(`invalid architecture profile: ${profilePath} (no "hosting:" line; regenerate from the architect skill's template)`)
+        console.log(`invalid dev profile: ${profilePath} (no "## Knobs" section; re-run dev-setup to regenerate)`)
         failed = true
       }
     } else {
-      console.log(`missing architecture profile: ${profilePath} (only needed once the architect skill is used in this project)`)
+      console.log(`missing dev profile: ${profilePath} (created by dev-setup once the dev skills are used in this project)`)
     }
   }
   console.log(`ok runtime: Node ${process.versions.node}`)

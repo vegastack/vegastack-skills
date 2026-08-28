@@ -1,8 +1,9 @@
-# Freshness contract — architect
+# Freshness contract — dev-architect
 
 Most of this skill is durable taste and recorded decisions; it does not go stale on its
-own. Exactly one file decays with the platform landscape: `references/pinned-facts.md`
-(plus the version claims embedded in `references/stack.md` and `references/mobile.md`).
+own. The decaying surface is `references/pinned-facts.md` — the verified cache behind
+SKILL.md's verify-before-you-recommend protocol — plus the version claims embedded in
+`references/mobile.md` and the fact-adjacent lines the registry's `affected` lists name.
 
 ## Mechanism
 
@@ -11,9 +12,10 @@ own. Exactly one file decays with the platform landscape: `references/pinned-fac
    evidence for anything that changed (fact text, version, date, source). The diffing
    judgment lives in the agent run, not in maintained scripts. The PR is human-reviewed —
    never auto-merged.
-2. **Refresh-on-use (safety net, written into SKILL.md).** When a recommendation leans on
-   a pinned fact older than 60 days, the consuming agent re-verifies that one fact first
-   and says so. Never bulk-refresh in-session.
+2. **Refresh-on-use (safety net, written into SKILL.md).** The verify protocol: a
+   recommendation leaning on a pinned fact older than 60 days re-verifies that one fact
+   first and says so; an uncached decision-bearing claim is verified against live docs
+   before it is recommended. Never bulk-refresh in-session.
 3. **Registry baseline (`sources.json`).** The repo-shared refresh runner
    (`tooling/refresh/refresh-evidence.mjs`) keeps checksum baselines for the critical
    source pages so CI can detect upstream drift deterministically between weekly runs.

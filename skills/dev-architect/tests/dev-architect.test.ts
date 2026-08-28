@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 // Untyped repo-shared validator; bun resolves the .mjs at runtime.
 import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
 
@@ -17,7 +17,7 @@ function relativeLinks(content: string): string[] {
   return links
 }
 
-describe('architect skill contract', () => {
+describe('dev-architect skill contract', () => {
   test('SKILL.md passes the repo validator', () => {
     const { ok, message } = validateSkill(skillDir)
     expect(message).toBe('Skill is valid!')
@@ -27,6 +27,16 @@ describe('architect skill contract', () => {
   test('SKILL.md stays within the lean budget', () => {
     const body = skillMd.replace(/^---\n[\s\S]*?\n---/, '')
     expect(body.split('\n').length).toBeLessThan(150)
+  })
+
+  test('references stay under the total line budget', () => {
+    // Ratchet, not target: the 2026-08 rebuild landed ~800 lines (from 1,016).
+    // Headroom allows refresh PRs to grow pinned-facts without breaking CI.
+    let total = 0
+    for (const name of readdirSync(join(skillDir, 'references'))) {
+      total += readFileSync(join(skillDir, 'references', name), 'utf8').split('\n').length
+    }
+    expect(total).toBeLessThan(850)
   })
 
   test('every relative link in SKILL.md resolves to a real file', () => {
@@ -49,13 +59,27 @@ describe('architect skill contract', () => {
         expect(existsSync(resolve(join(skillDir, 'references'), link))).toBe(true)
       }
       // Plain-text mentions like "(see security.md)" must also point at real files.
-      // arch.md lives in the consuming project (.vegastack/arch.md), not in this skill.
-      const external = new Set(['arch.md'])
+      // dev.md and decisions.md live in the consuming project (.vegastack/), not here.
+      const external = new Set(['dev.md', 'decisions.md'])
       for (const match of content.matchAll(/\b([a-z-]+\.md)\b/g)) {
         const target = match[1]
         if (target === name || external.has(target)) continue
-        expect(existsSync(join(skillDir, 'references', target)) || existsSync(join(skillDir, 'assets', target)) || existsSync(join(skillDir, target))).toBe(true)
+        expect(existsSync(join(skillDir, 'references', target)) || existsSync(join(skillDir, target))).toBe(true)
       }
+    }
+  })
+
+  test('trigger query fixture is well-formed with near-miss negatives', () => {
+    const fixture = JSON.parse(
+      readFileSync(join(skillDir, 'tests', 'fixtures', 'trigger-queries.json'), 'utf8'),
+    )
+    expect(Array.isArray(fixture)).toBe(true)
+    expect(fixture.length).toBeGreaterThanOrEqual(10)
+    expect(fixture.some((q: { should_trigger: boolean }) => q.should_trigger)).toBe(true)
+    expect(fixture.some((q: { should_trigger: boolean }) => !q.should_trigger)).toBe(true)
+    for (const entry of fixture) {
+      expect(typeof entry.query).toBe('string')
+      expect(typeof entry.should_trigger).toBe('boolean')
     }
   })
 

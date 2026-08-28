@@ -1,0 +1,13 @@
+[
+  { "query": "should we add Redis for caching sessions in the workspace app", "should_trigger": true },
+  { "query": "review this project's architecture before we start the billing epic", "should_trigger": true },
+  { "query": "we're choosing between Durable Objects and SSE for live presence - what's the house call", "should_trigger": true },
+  { "query": "does Hyperdrive support Postgres 18 yet", "should_trigger": true },
+  { "query": "client wants everything on AWS - how do we record that exception", "should_trigger": true },
+  { "query": "new saas project, whats our default stack agian", "should_trigger": true, "ambiguous_with": ["dev-setup"] },
+  { "query": "set up the dev workflow and labels for this repo", "should_trigger": false, "ambiguous_with": ["dev-setup"] },
+  { "query": "turn this schema-migration idea into issues an agent can build", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
+  { "query": "which button and dialog components should this settings form use", "should_trigger": false, "ambiguous_with": ["vegastack-design-system"] },
+  { "query": "wire the Tailwind CSS and provider for @vegastack/design into this new app", "should_trigger": false, "ambiguous_with": ["vegastack-consume"] },
+  { "query": "write the Durable Object class for the chat room we already designed", "should_trigger": false }
+]

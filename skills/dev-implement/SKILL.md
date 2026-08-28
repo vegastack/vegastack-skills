@@ -7,7 +7,7 @@ description: Implement an approved GitHub issue end to end without further user 
 
 One issue, one session, end to end: preflight → claim → build dark → verify → review → evidence in the issue → stop. The user reads the result in the issue on their own time; nothing here creates a PR or merges — those are `dev-ship`, on the user's word.
 
-Nearest neighbor: `dev-intake` writes the brief this skill executes; if the issue turns out to need decisions, that's intake work — hand it back via `needs-operator`, don't guess. `.vegastack/dev.md` missing → run `dev-setup` first. Read dev.md before anything; its knobs (review, ui-evidence, tests, branch, stop-list) govern this whole skill.
+Nearest neighbor: `dev-intake` writes the brief this skill executes; if the issue turns out to need decisions, that's intake work — hand it back via `needs-operator`, don't guess. `.vegastack/dev.md` missing → run `dev-setup` first. Read dev.md before anything; its knobs (review, ui-evidence, tests, branch, stop-list) govern this whole skill, and when the issue touches stack surfaces (schema, auth, hosting, services, jobs) its `## Architecture` section governs those choices the way the knobs govern process.
 
 ## Direct requests
 
@@ -19,7 +19,7 @@ The gates exist to stop agent-invented authority, never to slow the user down. W
 - The issue is open, labeled `ready`, and carries the recorded approval comment (`Approved by … : "…"`). A label without the comment is not approval.
 - No open blockers (issue dependencies) and no other assignee — an assigned or `working` issue belongs to someone else. A claim from a dead session is released only by the user: take over a `working` issue only when they explicitly hand it to you.
 - Read the complete brief, plus parent issue and milestone for context. If the brief leaves a material decision open — including an unresolved Assumptions entry — do not start: label `needs-operator`, comment the smallest question that unblocks it, stop.
-- Re-verify the brief against reality before coding: its cited touch points against the current code (things drift between approval and execution), and volatile dependency claims when stale or version-sensitive. Reality contradicting the brief is a stop — label `needs-operator` with the discrepancy; an approved brief is never a license to improvise past what's actually there.
+- Re-verify the brief against reality before coding: its cited touch points against the current code (things drift between approval and execution), and volatile dependency claims when stale or version-sensitive (per `dev-architect`'s verify protocol). Reality contradicting the brief is a stop — label `needs-operator` with the discrepancy; an approved brief is never a license to improvise past what's actually there.
 
 ## Claim and branch
 
@@ -27,7 +27,7 @@ Assign yourself, swap `ready` → `working`. Branch from the default branch per 
 
 ## Build — dark
 
-No progress updates, no questions. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Decide routine things yourself: file layout, helpers, fixtures, and root-cause fixes inside the issue's change areas. The brief's out-of-scope section and the dev.md stop-list bound you; hitting a stop condition (scope change, new dependency, spending, destructive/production action, unresolvable blocker) ends dark mode — post one `needs-operator` comment stating the smallest decision needed with your recommendation, and stop.
+No progress updates, no questions. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Decide routine things yourself: file layout, helpers, fixtures, and root-cause fixes inside the issue's change areas. A structural choice mid-build — a new dependency, table, or service — checks `dev-architect`'s trigger discipline first; a moving part with no named trigger is a stop condition, not a judgment call. The brief's out-of-scope section and the dev.md stop-list bound you; hitting a stop condition (scope change, new dependency, spending, destructive/production action, unresolvable blocker) ends dark mode — post one `needs-operator` comment stating the smallest decision needed with your recommendation, and stop.
 
 Honesty over green: a failing test gets fixed at the root or reported as failing. Weakening a test, an assertion, or acceptance to pass is a cover-up, and cover-ups surface at review with interest.
 

@@ -1,20 +1,16 @@
 {
-  "architect": [
+  "dev-architect": [
     "SKILL.md",
     "agents/openai.yaml",
-    "assets/arch-template.md",
-    "assets/adr-template.md",
     "references/principles.md",
     "references/stack.md",
     "references/pinned-facts.md",
-    "references/project-profile.md",
     "references/web.md",
     "references/data.md",
     "references/infra.md",
     "references/ai-agents.md",
     "references/security.md",
     "references/mobile.md",
-    "references/advisory.md",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
