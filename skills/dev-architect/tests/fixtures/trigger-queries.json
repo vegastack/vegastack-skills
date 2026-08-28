@@ -9,5 +9,5 @@
   { "query": "turn this schema-migration idea into issues an agent can build", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
   { "query": "which button and dialog components should this settings form use", "should_trigger": false, "ambiguous_with": ["vegastack-design-system"] },
   { "query": "wire the Tailwind CSS and provider for @vegastack/design into this new app", "should_trigger": false, "ambiguous_with": ["vegastack-consume"] },
-  { "query": "write the Durable Object class for the chat room we already designed", "should_trigger": false }
+  { "query": "write the Durable Object class for the chat room we already designed", "should_trigger": false, "ambiguous_with": ["cloudflare:durable-objects"] }
 ]

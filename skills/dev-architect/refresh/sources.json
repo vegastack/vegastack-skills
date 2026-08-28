@@ -8,7 +8,7 @@
     ],
     "defaultChecksumScope": "html-text-v1",
     "offline": "Use cached metadata only; fail closed when a critical entry is missing or older than thresholdDays.",
-    "drift": "Any drift requires reading the changed page and a human-reviewed PR updating references/pinned-facts.md (and the version claims in references/mobile.md); never auto-apply.",
+    "drift": "Any drift requires reading the changed page and a human-reviewed PR updating references/pinned-facts.md plus every other file the source's affected list names; never auto-apply.",
     "copyright": "Store claim metadata, URLs, hashes, and concise excerpts only; never archive third-party documentation corpora.",
     "cadence": "weekly scheduled-agent refresh; thresholdDays must be >= 14 (2x cadence) so a single missed run never breaches a threshold"
   },
