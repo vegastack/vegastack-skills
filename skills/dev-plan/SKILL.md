@@ -31,7 +31,7 @@ A vague or self-contradicting answer gets pushback with concrete options — sim
 Post one comment per [plan-format](references/plan-format.md): Goal · Approach (alternatives named) · Constraints · ordered `- [ ]` tasks, each with exact Files, an Interfaces block (consumes/produces with exact signatures), and Steps that put the failing test before the code. Before posting:
 
 - Self-review: every brief requirement maps to a task; names and types are consistent across tasks; no banned placeholders (the list lives in plan-format).
-- Run this skill's plan-lint when present (ships with the guard-script wave): `node <path-to-this-skill>/scripts/plan-lint.mjs --file <draft> --json`; exit 2 = fix before posting.
+- Run this skill's plan-lint: `node <path-to-this-skill>/scripts/plan-lint.mjs --file <draft> --json`; exit 2 = fix before posting (placeholders and structural gaps block).
 
 Checkboxes belong to the implement session — never pre-tick them.
 

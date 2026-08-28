@@ -48,6 +48,8 @@ These are the brief template's sections in interview form — a question exists 
 
 Every issue body follows [brief-template](references/brief-template.md): Outcome · Out of scope · Rules and edge cases · UI states (when there is UI) · Approach and touch points · Tests and acceptance · Risks and stop conditions · Assumptions. Write the sections that apply and delete the ones that don't — an empty "N/A" section is noise, not diligence. Details live inline in the issue; links to docs are supporting material, never a substitute for the brief. Evidence over confidence: touch points name real paths, dependency claims carry their check date, and anything material the grounding could not verify goes in **Assumptions — confirm or correct**, never asserted as fact.
 
+Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs --file <draft> --scope <class> --json` — structure gaps block (exit 2), quality smells only warn; fix blocks before the operator ever sees the draft.
+
 ## Labels and approval
 
 - A new issue starts at `needs-operator`. Add `risky` when it touches security, money, user data, or production. (Label names come from dev.md's `labels:` knob; the defaults are used throughout this skill family's prose.)

@@ -15,6 +15,7 @@ The gates exist to stop agent-invented authority, never to slow the user down. W
 
 ## Preflight — all must hold, or stop and say which failed
 
+- Run the deterministic guard first: `node <path-to-this-skill>/scripts/preflight.mjs --issue <n> --json` — exit 2 stops you with its reasons (approval marker, scope label, plan approval on full-plan, Assumptions section, blockers, assignee, repo match). The judgment checks below are yours on top.
 - `gh auth status` works and the issue's repo matches dev.md.
 - The issue is open, labeled `ready`, and carries the recorded approval comment (`Approved by … : "…"`). A label without the comment is not approval.
 - No open blockers (issue dependencies) and no other assignee — an assigned or `working` issue belongs to someone else. A claim from a dead session is released only by the user: take over a `working` issue only when they explicitly hand it to you.
@@ -63,7 +64,7 @@ Every behavior-changing branch carries its changelog entry per dev.md's `changel
 Branch: <name> @ <short-sha>
 ```
 
-Post it, swap `working` → `for-operator`, unassign nothing, stop. Later corrections update this same comment — a stack of stale result comments hides the current truth.
+Before posting, run `node <path-to-this-skill>/scripts/evidence-check.mjs --file <draft> --json` — exit 2 means the shape is incomplete; fix, don't post. Post it, swap `working` → `for-operator`, unassign nothing, stop. Later corrections update this same comment — a stack of stale result comments hides the current truth.
 
 ## Corrections loop
 
