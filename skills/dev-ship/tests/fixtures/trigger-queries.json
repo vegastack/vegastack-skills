@@ -4,8 +4,10 @@
   { "query": "ship it", "should_trigger": true },
   { "query": "looks good, merge #12", "should_trigger": true },
   { "query": "yes merge the invoice PR and close the issue", "should_trigger": true },
+  { "query": "release everything merged since the last tag", "should_trigger": true },
   { "query": "implement issue #12 on a branch", "should_trigger": false, "ambiguous_with": ["dev-implement"] },
   { "query": "approve issue #14 and mark it ready", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
-  { "query": "bump the changeset and cut a release of @vegastack/skills", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] },
+  { "query": "update skill-maintainer's release-ops reference for the new flow", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] },
+  { "query": "rollback the database migration that broke staging", "should_trigger": false },
   { "query": "why is CI failing on main", "should_trigger": false }
 ]

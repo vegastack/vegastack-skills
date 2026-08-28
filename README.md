@@ -31,7 +31,7 @@ The installer is fully offline with one exception: `doctor` checks npmjs.org for
 | `skills/<name>/` | Authored skill content — the source of truth. Every skill carries `SKILL.md` (agent entry), `README.md` (human/agent walkthrough), `tests/`, and `refresh/` (freshness contract), plus `references/`, `scripts/`, and `assets/` where the skill needs them |
 | `tooling/refresh/` | Repo-shared deterministic refresh runner (checksum/version verification), used by every skill's `refresh/sources.json` and both refresh workflows |
 | `packages/cli/` | The `@vegastack/skills` installer. Its skill copy and checksum manifest are generated at build time and are never committed |
-| `docs/policies/` | [Release and rollback](docs/policies/release-and-rollback.md) · [Content versioning](docs/policies/content-versioning.md) |
+| `.vegastack/` | This repo's own dev workflow instance (dogfooding the dev skills): [dev.md](.vegastack/dev.md) — the canonical process doc with the release runbook, versioning, and rollback — and [decisions.md](.vegastack/decisions.md) |
 | `.github/workflows/` | CI, tag-driven release (npm trusted publishing + SBOM), and refresh-PR guards |
 
 ## How freshness works

@@ -22,7 +22,7 @@
 #   explicit --provenance flag; it conflicts with trusted-publishing config
 #   (npm/cli#8036).
 #
-# Rollback policy: docs/policies/release-and-rollback.md
+# Rollback policy: the ## Ship section of .vegastack/dev.md
 
 name: Release
 
@@ -97,8 +97,27 @@ jobs:
           npm install --no-audit --no-fund
           npm sbom --sbom-format cyclonedx > sbom.json
 
+      # Release notes lead with the human-written changeset entries for this
+      # version; GitHub's generated commit notes are appended after the body.
+      # A tag whose version has no changelog entry means `changeset version`
+      # was skipped — fail rather than publish an unexplained release.
+      - name: Extract changelog entry for release notes
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          awk -v ver="$VERSION" '
+            $0 == "## " ver { inside = 1; next }
+            inside && /^## / { exit }
+            inside { print }
+          ' packages/cli/CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::packages/cli/CHANGELOG.md has no entry for $VERSION — run bunx changeset version before tagging"
+            exit 1
+          fi
+
       - name: Create GitHub release with SBOM
         uses: softprops/action-gh-release@v3
         with:
           files: sbom.json
+          body_path: release-notes.md
           generate_release_notes: true

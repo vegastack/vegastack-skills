@@ -4,8 +4,10 @@
   { "query": "pick up the next ready issue and go dark", "should_trigger": true },
   { "query": "I left corrections on issue #7, apply them", "should_trigger": true },
   { "query": "issue 21 is ready - build it", "should_trigger": true },
+  { "query": "implement issue 12, and don't forget the changeset", "should_trigger": true },
   { "query": "write an issue for the login timeout bug", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
   { "query": "merge #12 now", "should_trigger": false, "ambiguous_with": ["dev-ship"] },
+  { "query": "write the changelog entries for last month's release", "should_trigger": false, "ambiguous_with": ["dev-ship"] },
   { "query": "set up the dev workflow in this fresh repo", "should_trigger": false, "ambiguous_with": ["dev-setup"] },
   { "query": "review this open PR from my teammate and leave comments", "should_trigger": false }
 ]

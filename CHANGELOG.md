@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@vegastack/skills` and the skills it ships. Maintained via [changesets](https://github.com/changesets/changesets); since 0.3.0, release entries land in [packages/cli/CHANGELOG.md](packages/cli/CHANGELOG.md). Package semver policy: [docs/policies/content-versioning.md](docs/policies/content-versioning.md).
+All notable changes to `@vegastack/skills` and the skills it ships. Maintained via [changesets](https://github.com/changesets/changesets); since 0.3.0, release entries land in [packages/cli/CHANGELOG.md](packages/cli/CHANGELOG.md). Semver policy: the content-semver bullet in [.vegastack/dev.md](.vegastack/dev.md).
 
 ## 0.2.0 — 2026-08-08
 

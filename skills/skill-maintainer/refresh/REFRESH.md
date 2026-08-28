@@ -4,7 +4,7 @@ Instructions for the scheduled refresh agent (and any human running a manual ref
 
 ## What this skill claims
 
-- **Durable content** (`SKILL.md` workflows and operating rules, `references/release-ops.md`): repo process, derived from `docs/policies/*` — the refresh agent NEVER edits these. If a policy doc changes, that is a normal human PR, not a refresh.
+- **Durable content** (`SKILL.md` workflows and operating rules, `references/release-ops.md`): repo process, elaborating `.vegastack/dev.md` — the refresh agent NEVER edits these. If the process changes, that is a normal human PR, not a refresh.
 - **Volatile standards claims**: sentences marked `<!-- source: SOURCE-ID -->` inside `references/standards.md`. These carry the tri-harness standards — discovery paths, frontmatter rules, numeric context budgets, install surfaces. They are the compliance basis of every skill in this repo, so **all standards changes are semantic drift requiring a human-reviewed PR**: the agent may propose edits to marked sentences only, in the same PR as the registry update that evidences the change, and a maintainer must review before merge. The hard-limits table in `SKILL.md` mirrors several marked sentences; update it in the same PR (this is the one sanctioned SKILL.md touch, and only when a mirrored number changed).
 - **Volatile layer** (the only file the agent edits freely): `refresh/sources.json` — the source registry and staleness snapshot (checksums, retrieval times).
 

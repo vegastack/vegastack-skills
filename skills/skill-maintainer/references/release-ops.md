@@ -1,6 +1,6 @@
 # Release, rename, and rollback operations
 
-Condensed operational playbook. The authoritative policies live at the repo root — `docs/policies/release-and-rollback.md` and `docs/policies/content-versioning.md` — and this file must never contradict them; when in doubt, they win.
+The expanded release/rename/rollback detail behind the `## Ship` runbook and content-semver bullet in `.vegastack/dev.md` at the repo root. dev.md is the canonical process doc and wins on any disagreement; this file only elaborates it and must never contradict it.
 
 ## Semver for skill content
 
@@ -24,7 +24,7 @@ profile carries a schema version to validate against.
 ## Release flow (tag-driven)
 
 1. Every PR that changes released behavior lands with a changeset (`bunx changeset`) whose bump follows the table above.
-2. Maintainer, at release time: `bunx changeset version` (applies changesets to `packages/cli/package.json` and the changelog), then `bun install` so `bun.lock` does not go stale, commit. Root `CHANGELOG.md` gets a human-readable entry for every release.
+2. Maintainer, at release time: `bunx changeset version` (applies changesets to `packages/cli/package.json` and the changelog), then `bun install` so `bun.lock` does not go stale, commit. The release record is `packages/cli/CHANGELOG.md`, changesets-written — never by hand; the root `CHANGELOG.md` is the frozen pre-0.3.0 record pointing there.
 3. Tag the release commit `v<version>`, push the tag.
 4. The release workflow runs on the tag: `bun run check`, tag↔version guard, `npm publish` via trusted publishing (OIDC, token-free, provenance by default; idempotently skipped if already on the registry), SBOM, GitHub release. Never pass `--provenance` explicitly — it conflicts with trusted-publishing config.
 

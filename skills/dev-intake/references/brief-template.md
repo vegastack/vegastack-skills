@@ -28,6 +28,11 @@ user-facing text. Responsive and keyboard behavior when it matters.
 The chosen technical approach in a few lines: which parts of the codebase change,
 new/changed interfaces or schemas, data migrations. Routine choices (file names,
 helpers, fixtures) stay the implementer's — don't specify them.
+Name the docs and changelog surfaces this change must update (README section, user
+docs, the changelog entry's gist).
+**Version impact:** patch | minor | major, one-line reason — only when the project
+versions releases (dev.md `changelog:` knob); dev-implement's changelog entry or
+changeset starts from this line.
 
 ## Tests and acceptance
 
@@ -54,3 +59,4 @@ their evidence. Delete the section once every entry is resolved.
 - Concrete over abstract: "rejects amounts over 10,000 with error E402" beats "validates input".
 - Evidence over confidence: touch points name real file paths; a dependency capability claim carries the doc check and its date; what couldn't be verified goes to Assumptions, never stated as fact.
 - The brief binds the agent, so ambiguity is a bug in the brief — if two readings exist, the interview wasn't done.
+- A `Decision:` comment exists only for a choice that passes the Decisions test in `.vegastack/dev.md` — feature requests and implementation details never qualify; they are brief content, not register lines.

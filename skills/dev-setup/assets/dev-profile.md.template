@@ -1,32 +1,37 @@
 # Dev profile — {{owner/repo}}
 
-This file is the project's handbook: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log.
+This file is the project's handbook and its only process document: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log. A section left as TODO because its machinery didn't exist yet: re-run dev-setup detection when the machinery appears.
 
 repo: {{owner/repo}} · default branch {{branch}}
 stack: {{one line, or "see .vegastack/arch.md"}}
 commands: test `{{test}}` · build `{{build}}` · dev `{{dev}}`
+authority: {{ordered — e.g. "CONTRIBUTING.md → this file → skill defaults"; delete the line when this file is the only process doc}}
 
 ## Knobs
 
 review: subagent            # subagent | cross-agent | cross-agent-risky
 ui-evidence: playwright     # playwright | none
-evidence-repo: {{owner}}/dev-review-assets
-gates: 3                    # 3 = approve/PR/merge · 2 = approve/ship
+evidence-repo: {{owner}}/dev-review-evidence   # shared across projects; this project's folder = repo name
+gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main, ship word merges locally and pushes, no PR
 tests: required             # required | logic-only
 merge: squash
-branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor
-decisions: docs/decisions.md
+branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor — the only place this list lives
+labels: needs-operator ready working for-operator risky
+changelog: {{changesets | keep-a-changelog | pubspec+changelog | none (reason)}}
+decisions: .vegastack/decisions.md
 release: on-request         # per-merge = Ship runbook runs as part of shipping · on-request = only when the operator says "release"
 
 ## Ship — what happens after merge, in order
 
-Each line starts `auto:` (agent just does it) or `ask:` (needs the operator's word first).
+Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position; its CI copy is the backstop).
 
-- {{e.g. "auto: bunx changeset version && bun install, commit as chore: release"}}
-- {{e.g. "ask: git tag v<version> && git push origin main v<version> — tag triggers the publish pipeline"}}
-- {{delete this section's placeholders; "Ship: merge only" is a valid runbook}}
+- {{playbook-drafted release steps for the detected stack}}
+- {{guard: lines from the playbook}}
+- {{post-release verification — how to see the release/deploy landed}}
+- {{rollback one-liner from the playbook}}
+- {{versioning policy in 1–2 bullets when the project has one; delete the section's placeholders — "Ship: merge only" is a valid runbook}}
 
-## Verify — how to see it working
+## Verify — how to see it working (pre-merge)
 
 - {{start: command · URL}}
 - {{the flows worth smoke-checking after a change}}
@@ -40,9 +45,15 @@ Each line starts `auto:` (agent just does it) or `ask:` (needs the operator's wo
 
 - {{pointers: design system / component rules / .vegastack/arch.md / UI conventions}}
 
+## Decisions
+
+Record a decision only when it is directional — it steers work beyond this issue: a real alternative was rejected; it constrains work not yet written; and no dev.md line, lint rule, or guard can enforce it instead (if one can, write the rule). Feature requests, one-off fixes, and routine implementation choices never qualify. Every entry needs the user's explicit yes. One line in the register (`decisions:` knob), append-only, no other metadata:
+
+- DD-MM-YYYY (github-username) — the decision
+
 ## Stop and ask
 
-Dark execution ends and the operator decides when work would involve: a change of scope or product behavior, a significant new dependency or runtime, spending money, anything destructive or touching production, or a blocker the brief cannot resolve.
+Dark execution ends and the operator decides when work would involve: a change of scope or product behavior, a significant new dependency or runtime, spending money, anything destructive or touching production, or a blocker the brief cannot resolve. Nothing ships without the operator's explicit instruction — see the AGENTS.md dev section.
 
 ## Project rules
 
