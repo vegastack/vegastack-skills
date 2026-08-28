@@ -33,6 +33,12 @@ export function parseMarker(body) {
   return { keys };
 }
 
+// An entry means an ADDED "## " heading in the file-scoped diff — a deleted
+// file or a typo edit to an old entry is not a new entry.
+export function chronicleEntryAdded(fileDiff) {
+  return /^\+## /m.test(fileDiff ?? '');
+}
+
 // Pure evaluation over gathered facts — unit tests drive this directly.
 export function evaluateShipGate(facts) {
   const blocks = [];
@@ -140,9 +146,7 @@ export function gatherFacts(flags) {
       : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md']) || '');
 
   const chronicleOn = /^chronicle:\s*on\s*(#|$)/m.test(devMd);
-  // An entry means an ADDED "## " heading in the file-scoped diff — a deleted
-  // file or a typo edit to an old entry is not a new entry.
-  const chronicleTouched = /^\+## /m.test(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md']) || '');
+  const chronicleTouched = chronicleEntryAdded(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md']) || '');
 
   let checkExit = null;
   const checkCmd = (/^commands:.*?check\s+`([^`]+)`/m.exec(devMd) || [])[1];
