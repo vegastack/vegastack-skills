@@ -15,10 +15,11 @@ gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it
 tests: required             # scripts' deterministic branches; prose quality bar is the behavioral eval
 merge: rebase               # meaningful commits, linear history
 branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the only place this list lives
-labels: needs-operator ready working for-operator risky
+labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic
 changelog: changesets
 decisions: .vegastack/decisions.md
-release: per-merge          # the merge word covers the whole release — the Ship runbook (tag included) runs as part of shipping each merge; skip it when no changesets are pending (docs/test-only merges release nothing)
+release: on-request         # only when the operator says "release" — covers everything merged since the last one (switched from per-merge for the v3 epic, operator 28-08-2026)
+chronicle: on               # story entry per behavior-changing branch in .vegastack/chronicle.md
 
 ## Ship — what happens after merge, in order
 
@@ -45,7 +46,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 Record a decision only when it is directional — it steers work beyond this issue: a real alternative was rejected; it constrains work not yet written; and no dev.md line, lint rule, or guard can enforce it instead (if one can, write the rule). Feature requests, one-off fixes, and routine implementation choices never qualify. Every entry needs the user's explicit yes. One line in the register (`decisions:` knob), append-only, no other metadata:
 
-- DD-MM-YYYY (github-username) — the decision
+- DD-MM-YYYY operator (github-username) — the decision
 
 ## Stop and ask
 

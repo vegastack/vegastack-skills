@@ -30,6 +30,7 @@
   "dev-setup": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md",
     "references/harness-facts.md",
     "references/stack-playbooks.md",
     "assets/dev-profile.md.template",
