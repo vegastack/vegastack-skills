@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill (lands with issue #17 of the v3 epic; entries before it follow the epic's agreed format).
 
+## 29-08-2026 — Dark builds got a black box recorder (#15)
+
+**What:** While an agent builds unattended, it now keeps a live ledger on the issue — each finished task, each judgment call with its reasoning and what it costs if wrong, each review round. If the session dies or forgets (context limits), a fresh one reads brief → plan → ledger → git history — nothing else — and resumes at the exact right spot instead of redoing finished work. Tests are written before code at the boundaries the brief fixed, no status is ever claimed without a fresh command proving it, and when you correct something, the docs get corrected in the same breath as the code.
+**Why:** Session death used to mean starting over blind, and "tests pass" was sometimes a memory, not a fact.
+**How it went:** Clean rewrite on top of the merged guards and review system; the SKILL stayed within budget by moving ledger mechanics to a reference.
+**Changed:** dev-implement v3 (ledger + resume, TDD rules, verification gate, ratchet stop, doc-sync corrections, bounded direct path) · chronicle entries now written by the build itself.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch feat/15-dev-implement-v3
+
 ## 29-08-2026 — Review became the strongest link (#14)
 
 **What:** Reviewing finished work is now its own skill with real machinery: three separate fresh-eyed reviewers (does it match the brief · does it follow the rules · is it secure, when it matters), findings with severities that either block or don't, one tidy review comment per cycle, a fix loop that can't spin forever (three rounds, then every leftover gets an open ruling), and the option to have the *other* AI (Codex) do the review on risky work — announced to you before and after, never silently.
