@@ -36,7 +36,11 @@ use, per SKILL.md.
 ## Networking & auth
 
 - One `dio` client centralized in a single `ApiClient` — never scattered HTTP calls; the
-  app consumes the same contract-first REST API as the web app (web.md).
+  app consumes the same contract-first REST API as the web app (web.md). That versioned
+  `/api/v1` contract outlives web deploy cycles: app-store install lag keeps old clients
+  alive, so a shipped mobile app counts as real users even while the web side iterates
+  freely — the one exception to pre-launch delete-not-migrate and to dead-endpoint
+  deletion.
 - Auth is the same Better Auth instance as web, via the bearer plugin: capture the token
   from the `set-auth-token` response header on sign-in; store in `flutter_secure_storage`
   (never shared_preferences); attach `Authorization: Bearer` via a dio interceptor; clear

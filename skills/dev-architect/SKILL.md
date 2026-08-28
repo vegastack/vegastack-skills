@@ -19,8 +19,11 @@ component and token choices inside the UI.
 ## Every task
 
 1. Read the `## Architecture` section of `.vegastack/dev.md`. Section or file missing →
-   answer from the repo and suggest running `dev-setup` to record it; never create or edit
-   dev.md here.
+   answer from the repo and suggest running `dev-setup` to record it — unless the project
+   deliberately has no app architecture (a tooling/docs repo whose dev.md `stack:` line is
+   the whole truth); never create or edit dev.md here. A legacy `.vegastack/arch.md` found
+   instead: treat its lines as the Architecture facts for this task and suggest
+   `dev-setup`, which migrates it.
 2. The repository is the source of truth — package.json, lockfile, wrangler/CI files, the
    code. The Architecture section is a head start. When they disagree, trust the repo and
    propose the one-line section fix; never silently follow a stale line. A recorded
