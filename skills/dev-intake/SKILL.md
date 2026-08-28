@@ -20,17 +20,17 @@ Finding facts is your job, never the operator's — a brief built on unverified 
 
 ## Scope the work — say it out loud
 
-Every issue gets exactly one scope call, announced with its reason so the operator can override, and applied as a label:
+Every issue gets exactly one scope call, announced with its reason, applied as a label, and recorded in the brief's `**Scope:**` line so the reasoning survives the conversation. The operator can override it:
 
 - **`research`** — a question to answer, not code to keep. The brief is the question plus what "answered" looks like.
-- **`quick-build`** — the objective test: *the flow being changed already exists in the repo to read*. If there is no existing flow to change, it is not quick-build — familiarity with the kind of app doesn't count.
+- **`quick-build`** — the objective test (conventions' wording): *a small change AND the flow being changed already exists in the repo to read*. Missing either half — no existing flow, or not actually small — means it is not quick-build; familiarity with the kind of app doesn't count.
 - **`full-plan`** — big or new ground: a new subsystem, a restructuring, a brand-new flow.
 
 In doubt between two classes, take the heavier one. Re-classification after this point belongs to `dev-plan`'s one-way ratchet — never silently downgrade.
 
 ## The interview
 
-Ask in rounds with your harness's question tool (no tool available → documented defaults marked `TODO confirm`, and say so). Each round covers the current frontier: every open decision that doesn't depend on another answer. Number the questions; give each a **recommended answer with a one-line reason** so the operator can reply "all recommended". A vague or self-contradicting answer gets pushback with concrete options — simple words, a mermaid or ASCII sketch when a picture beats prose — never silent absorption. Stop when the bar is met: *a fresh agent could act on each issue without asking anything.*
+Ask in rounds with your harness's question tool (no tool available → documented defaults marked `TODO confirm`, and say so). Each round covers the current frontier: every open decision that doesn't depend on another answer. Number the questions; give each a **recommended answer with a one-line reason** so the operator can reply "all recommended"; never re-ask what the material or an earlier round already settled. A vague or self-contradicting answer gets pushback with concrete options — simple words, a mermaid or ASCII sketch when a picture beats prose — never silent absorption. Stop when the bar is met: *a fresh agent could act on each issue without asking anything.*
 
 The angles, in order — product (who, observable outcome, in/out of scope, slices, priority) → behavior (flows, rules, permissions, edge and failure cases; UI states and copy) → technical (only choices genuinely the operator's, each with a recommendation, checked against `dev-architect`; settle the version impact where the project versions releases) → quality and risk (what proves it works, what earns `risky`, what stops a dark run). Deep approach trade-offs beyond the operator's choices belong to `dev-plan`, not this interview.
 
@@ -39,6 +39,7 @@ The angles, in order — product (who, observable outcome, in/out of scope, slic
 ## Slicing and hierarchy
 
 - One issue = one outcome that fits one agent session, sliced vertically. Blockers use native dependencies; phases use milestones; parents use native sub-issues.
+- Deliberately deferred work ("someday, not now") lives in the parent's out-of-scope section, never as its own issue — icebox issues clutter the tracker; a tracking issue exists only on the operator's ask.
 - **Epics:** a multi-deliverable feature gets a parent whose body is a map, never a task — `Destination` (one or two lines every session orients to) · `Decisions so far` (one-line gists linking closed children) · `Not clear yet` (in-scope questions you cannot yet state precisely — the test is whether the question can be phrased sharply now, not answered now; don't pre-slice fog) · `Out of scope` (the tempting adjacent work, named). A mermaid overview when it helps. Each child is classified independently. **Only children ever get `ready`.**
 - Titles carry the type prefix (dev.md `branch:` type list + `research:`) and the native issue type where the org has them — issue, branch, and PR always agree.
 
@@ -54,7 +55,7 @@ Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs 
 
 - A new issue starts at `needs-operator`, plus its scope label; add `risky` when it touches security, money, user data, or production. (Names come from dev.md's `labels:` knob.)
 - Approval is only the operator's explicit words, clearly tied to the issue. Labels, silence, or time never create approval.
-- Record it as one marker comment — `<!-- vsk:v1 type=approval scope=brief -->` (or `scope=brief+plan` when the inline plan was posted with it) — body `Approved by operator (<username>) on DD-MM-YYYY: "<their words>"`. That comment is what preflight verifies.
+- Record it as one approval marker comment per conventions — `scope=brief`, or `scope=brief+plan` when the inline plan was posted with it — quoting the operator's words in the operator (username) format. That comment is what preflight verifies.
 - Then flip the state: `research` and `quick-build` → `ready`; `full-plan` → `needs-plan` (dev-plan takes it from there).
 - An issue with an unresolved Assumptions entry cannot leave `needs-operator` — resolve every entry (confirmed, corrected, or moved to a spike) first; the section is deleted once resolved.
 - A directional decision this work settles — one passing the Decisions test in dev.md — is proposed as one register line on the operator's yes; `dev-ship` records at merge.
