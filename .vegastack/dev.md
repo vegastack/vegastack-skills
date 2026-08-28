@@ -18,7 +18,7 @@ branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the
 labels: needs-operator ready working for-operator risky
 changelog: changesets
 decisions: .vegastack/decisions.md
-release: on-request         # releases batch up until the operator says "release"
+release: per-merge          # the merge word covers the whole release — the Ship runbook (tag included) runs as part of shipping each merge; skip it when no changesets are pending (docs/test-only merges release nothing)
 
 ## Ship — what happens after merge, in order
 
@@ -26,7 +26,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 - auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main
 - guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
-- ask: tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` — deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
+- auto: tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` — covered by the operator's merge word (release: per-merge); deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
 - auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
 - Publishing is tag-triggered trusted publishing (OIDC, token-free, provenance by default — never pass `--provenance` explicitly, it conflicts with trusted-publishing config)
 - Rollback is roll-forward: revert on main, release previous-good as a new patch, `npm deprecate` the bad version ("Broken — use <new>"); unpublish only for leaked secrets within 72h, in addition to roll-forward, never instead
