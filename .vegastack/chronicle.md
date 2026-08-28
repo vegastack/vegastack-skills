@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill (lands with issue #17 of the v3 epic; entries before it follow the epic's agreed format).
 
+## 29-08-2026 — Review became the strongest link (#14)
+
+**What:** Reviewing finished work is now its own skill with real machinery: three separate fresh-eyed reviewers (does it match the brief · does it follow the rules · is it secure, when it matters), findings with severities that either block or don't, one tidy review comment per cycle, a fix loop that can't spin forever (three rounds, then every leftover gets an open ruling), and the option to have the *other* AI (Codex) do the review on risky work — announced to you before and after, never silently.
+**Why:** The reviewer was the least-specified actor guarding dark-mode work — a two-line prompt deciding whether unattended code ships. Now it's the most-specified.
+**How it went:** Built on the merged conventions and guards; the preflight guard blocked this very issue's start over an unresolved assumption, which got resolved with evidence instead of a guess — the system policing its own construction.
+**Changed:** dev-review skill (installable) · dev-implement's review step now invokes it · per-project never-flag file with mandatory "Still flag if:" clauses.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch feat/14-dev-review-skill
+
 ## 29-08-2026 — Intake learned to size the work (#13)
 
 **What:** When you bring an idea now, intake says out loud how heavy it is — research (a question), quick-build (small, plan drafted in the same sitting, one approval), or full-plan (a real planning stage before code) — and the label routes everything after. Bugs must arrive with reproduction steps or they become research first. Big features become a parent map with sub-issues instead of one monster.

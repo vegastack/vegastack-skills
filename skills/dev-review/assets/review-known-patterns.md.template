@@ -1,0 +1,30 @@
+# Review known patterns — {{owner/repo}}
+
+The project's never-flag list. Every entry REQUIRES a "Still flag if:" exception clause — a suppression without one is a blind spot, not a calibration. dev-implement's corrections loop appends an entry whenever the operator dismisses a review finding, so dismissed patterns stay dismissed. Repo-documented standards override the reviewer's baseline; this file overrides neither — it only suppresses specific recurring false positives.
+
+Format, one entry per pattern:
+
+```markdown
+## <short pattern name>
+
+**Pattern:** <what the reviewer keeps flagging, concretely — code shape, file area>
+**Why it's safe here:** <the project fact that makes it a false positive>
+**Still flag if:** <the exception that makes it a real finding after all>
+**Origin:** <date + issue where the dismissal happened — operator (<username>)>
+```
+
+## Worked examples (replace with real entries)
+
+## Sequential awaits in setup scripts
+
+**Pattern:** consecutive `await` calls in bootstrap/setup code flagged as a parallelization miss.
+**Why it's safe here:** setup steps have ordering dependencies the reviewer can't see locally (labels before issues, scaffold before wiring).
+**Still flag if:** the awaits are inside a hot request path or a loop over user data.
+**Origin:** seeded example — delete when the first real entry lands.
+
+## Direct `gh` CLI calls without a wrapper
+
+**Pattern:** scripts shelling to `gh` flagged as needing an API client abstraction.
+**Why it's safe here:** the workflow standardizes on `gh` for auth and pagination; a wrapper would duplicate it.
+**Still flag if:** arguments are interpolated into a shell string instead of an execFile arg array.
+**Origin:** seeded example — delete when the first real entry lands.
