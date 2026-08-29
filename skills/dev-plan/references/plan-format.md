@@ -17,6 +17,8 @@ The comment a plan lives in, verbatim. dev-implement executes it task by task an
   - Interfaces — Consumes: <exact signatures/names from earlier tasks> · Produces: <exact names, parameter and return types later tasks rely on — an implementer may see only this task; this block is how they learn what neighbors use>
   - Steps: write the failing test (the actual test code, fenced) → run it, expect FAIL with <reason> → implement the minimal code → run, expect PASS → commit `<type>: <message>`
 - [ ] **Task 2: …**
+
+**Revisions:** (absent until a post-approval edit; then one line per edit)
 ````
 
 ## Rules

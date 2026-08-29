@@ -3,6 +3,7 @@
 // an agent may claim an issue. Facts block (exit 2 with reasons); nothing here
 // warns — judgment checks stay in the skill prose.
 //
+// Exit codes: 0 pass · 1 pass-with-warnings · 2 blocked (reasons printed).
 // Usage: node preflight.mjs --issue <n> [--repo owner/name] [--me <login>] [--dev-md <path>] --json
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,6 +12,7 @@ import { GhUnavailable, findMarkerComment, ghJson, parseFlags, renderResult } fr
 
 export function evaluatePreflight({ issue, comments, devMd, me, expect = 'ready' }) {
   const blocks = [];
+  const warns = [];
   const labels = (issue.labels ?? []).map((l) => l.name);
 
   if (issue.state && issue.state !== 'open') blocks.push(`issue is ${issue.state} — only open issues are workable`);
@@ -47,11 +49,13 @@ export function evaluatePreflight({ issue, comments, devMd, me, expect = 'ready'
   if (others.length > 0) blocks.push(`already assigned to ${others.join(', ')} — a working issue belongs to its claimant`);
 
   const repoLine = /^repo:\s*(\S+)/m.exec(devMd ?? '');
-  if (repoLine && issue.repo && repoLine[1] !== issue.repo) {
+  if (!repoLine) {
+    warns.push('dev.md has no repo: line — the issue-repo match could not be verified');
+  } else if (issue.repo && repoLine[1] !== issue.repo) {
     blocks.push(`issue repo ${issue.repo} does not match dev.md repo ${repoLine[1]}`);
   }
 
-  return { blocks, warns: [] };
+  return { blocks, warns };
 }
 
 export function gatherAndEvaluate(flags) {

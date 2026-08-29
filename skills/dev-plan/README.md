@@ -13,6 +13,8 @@ npx @vegastack/skills add dev-plan
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point |
+| [scripts/plan-lint.mjs](scripts/plan-lint.mjs) | Plan structure + banned-placeholder guard (blocks) |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [references/plan-format.md](references/plan-format.md) | The plan comment template, banned placeholders, self-review, worked example |
 | [refresh/sources.json](refresh/sources.json) | Source registry for volatile claims |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |

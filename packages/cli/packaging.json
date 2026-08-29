@@ -17,12 +17,14 @@
   "dev-chronicle": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
   "dev-debug": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
     "references/loop-ladder.md",
     "refresh/REFRESH.md",
     "refresh/sources.json"
@@ -30,6 +32,7 @@
   "dev-implement": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
     "scripts/lib/gh.mjs",
     "scripts/preflight.mjs",
     "scripts/evidence-check.mjs",
@@ -40,6 +43,7 @@
   "dev-intake": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
     "scripts/brief-lint.mjs",
     "references/brief-template.md",
     "refresh/REFRESH.md",
@@ -48,6 +52,7 @@
   "dev-plan": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
     "scripts/plan-lint.mjs",
     "references/plan-format.md",
     "refresh/REFRESH.md",
@@ -56,6 +61,7 @@
   "dev-review": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
     "references/dispatch-prompts.md",
     "references/security-axis.md",
     "references/cross-agent.md",
@@ -77,6 +83,7 @@
   "dev-ship": [
     "SKILL.md",
     "scripts/ship-gate.mjs",
+    "references/conventions.md@dev-setup",
     "agents/openai.yaml",
     "references/runbook.md",
     "refresh/REFRESH.md",
@@ -85,6 +92,7 @@
   "dev-status": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
     "scripts/status.mjs",
     "refresh/REFRESH.md",
     "refresh/sources.json"

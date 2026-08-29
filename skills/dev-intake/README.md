@@ -15,6 +15,8 @@ npx @vegastack/skills add dev-intake
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point: read-first rule, interview protocol, slicing, labels and approval recording |
+| [scripts/brief-lint.mjs](scripts/brief-lint.mjs) | Brief structure guard (blocks) with vague-wording warnings |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [references/brief-template.md](references/brief-template.md) | The issue-body template every `ready` issue follows, with writing rules |
 | [refresh/REFRESH.md](refresh/REFRESH.md) + [refresh/sources.json](refresh/sources.json) | Evergreen waiver and its deliberately empty registry |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |

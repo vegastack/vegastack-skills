@@ -12,7 +12,13 @@ const goodPlan = `<!-- vsk:v1 type=plan rev=1 -->
 - [ ] **Task 1: build it**
   - Files — Create: \`skills/x/scripts/x.mjs\` · Test: \`skills/x/tests/x.test.ts\`
   - Interfaces — Produces: \`doThing(input: string): number\`
-  - Steps: failing test → run red → implement → run green → commit
+  - Steps: failing test:
+
+    \`\`\`js
+    expect(doThing('a')).toBe(1)
+    \`\`\`
+
+    → run red → implement → run green → commit
 `
 
 describe('plan-lint', () => {
@@ -44,6 +50,16 @@ describe('plan-lint', () => {
       const r = lintPlan(goodPlan.replace(cut, 'X —'))
       expect(r.blocks.length).toBeGreaterThan(0)
     }
+  })
+  test('a failing-test Steps task without a fenced block is blocked; the fenced fixture passes', () => {
+    const unfenced = goodPlan.replace(/  - Steps: failing test:[\s\S]*?→ run red/, '  - Steps: write the failing test → run red')
+    expect(unfenced.includes('```')).toBe(false)
+    expect(lintPlan(unfenced).blocks.some((b) => b.includes('fenced'))).toBe(true)
+    expect(lintPlan(goodPlan).blocks).toEqual([])
+  })
+  test('a Task line missing its checkbox is detected, not absorbed', () => {
+    const bad = goodPlan + '\n**Task 2: sneaky no-checkbox task**\n  - Files — Modify: `x.ts`\n  - Interfaces — Produces: nothing\n  - Steps: edit → verify → commit\n'
+    expect(lintPlan(bad).blocks.some((b) => b.includes('without a checkbox'))).toBe(true)
   })
   test('ticked checkboxes still count as tasks', () => {
     expect(lintPlan(goodPlan.replace('- [ ]', '- [x]')).blocks).toEqual([])

@@ -13,8 +13,8 @@ Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evi
 
 On the user's PR instruction:
 
-- Run the deterministic guard first: `node <path-to-this-skill>/scripts/ship-gate.mjs --issue <n> --branch <name> --json` — it re-runs the project check command fresh from the branch's own checkout, requires the evidence sha to equal the branch head (the corrections loop is the only reconciliation path), the changelog entry, the chronicle entry where the knob says `on`, a clean-or-adjudicated review verdict, and greps added lines for leftover `[DEBUG-` tags; exit 2 stops you with its reasons, warnings are read-twice signals.
-- Verify the issue is at `for-operator` with the evidence comment present, and the branch is pushed. Not there yet → say what's missing instead of creating a premature PR.
+- Run the deterministic guard first: `node <path-to-this-skill>/scripts/ship-gate.mjs --issue <n> --branch <name> --json` (add `--repo <o/r> --dev-md <path>` outside the project root) — it re-runs the project check command fresh from the branch's own checkout, requires the evidence sha to equal the branch head (the corrections loop is the only reconciliation path), the changelog entry, the chronicle entry where the knob says `on`, a clean-or-adjudicated review verdict, and greps added lines for leftover `[DEBUG-` tags; exit 2 stops you with its reasons, warnings are read-twice signals.
+- Verify the issue is at `for-operator` with the evidence comment present — including its `**Docs:**` line (brief/plan revisions in sync) — and the branch is pushed. Not there yet → say what's missing instead of creating a premature PR. Docs out of sync is corrections work: never patch a brief or plan from inside dev-ship.
 - Verify the changelog state matches the evidence comment's `**Changelog:**` line: a behavior-changing branch carries its entry per dev.md's `changelog:` knob (changesets: a `.changeset/*.md` in the diff; keep-a-changelog: the diff adds lines to CHANGELOG.md), while `none` with a reason that holds up (docs-only, test-only) is fine. An unexplained miss → corrections loop, not a PR.
 - `gh pr create` from the task branch: title from the issue, body is `Closes #<n>` plus a link to the evidence comment — the issue holds the report; the PR links it rather than duplicating it.
 - No draft PRs unless the user asks for one.
@@ -23,6 +23,10 @@ On the user's PR instruction:
 - User corrections left on the PR itself flow through the same corrections loop on the same branch — the PR updates with the push; nothing gets recreated.
 
 With `gates: 1` there is no PR: the same verifications run, then the ship word triggers the merge below directly ([runbook](references/runbook.md) has the mechanics).
+
+| Excuse (observed) | Reality |
+|---|---|
+| "Opening a PR is preparation, not shipping — it pushes nothing… exactly the state the workflow wants finished work parked in." | Under `gates: 3` the PR is a gate spent only by the operator's word. Finished work parks on the pushed branch; a draft PR is still a PR nobody asked for. |
 
 ## Gate 2 — the merge
 

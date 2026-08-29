@@ -19,6 +19,7 @@ Never batch checkpoints "for later" — the ledger's value is exactly that a cra
 - Corroborate, don't re-verify: the commits the ledger names should exist in `git log` — reconcile the ranges; a mismatch is a `handback`, not a guess.
 - A task whose last line is a fix round is mid-loop — resume at the next round with the open findings; a later `complete` line supersedes earlier rounds.
 - Recorded rulings bind the resumed session: build on them, and surface disagreement in the evidence comment instead of re-litigating.
+- The "nothing else" is literal: not the full issue thread, not review round history, not any transcript of the dead session — that is context spent re-reading what the ledger already distills.
 - Re-executing work the ledger marks complete is the single most expensive failure this protocol exists to prevent — after compaction, trust the ledger and `git log` over recollection.
 
 ## Surfacing — rulings never die in the dark

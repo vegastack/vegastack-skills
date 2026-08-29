@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { chronicleEntryAdded, evaluateShipGate, parseMarker } from '../scripts/ship-gate.mjs'
+import { chronicleEntryAdded, evaluateShipGate, parseMarker, reviewAdjudicated } from '../scripts/ship-gate.mjs'
 
 const evidenceBody = (sha = 'abc1234') => `<!-- vsk:v1 type=evidence rev=1 branch=feat/12-x sha=${sha} -->
 ## Result (v1)
@@ -75,6 +75,18 @@ describe('ship-gate', () => {
     expect(r.blocks.some((b) => b.includes('changelog'))).toBe(true)
     const excused = evaluateShipGate({ ...cleanFacts(), changelogTouched: false, allowNoChangelog: 'docs-only' })
     expect(excused.blocks).toEqual([])
+  })
+  test('a Review line containing only routine rulings does NOT satisfy adjudication', () => {
+    const evidence = { body: evidenceBody().replace('**Review:** subagent — clean', '**Review:** subagent — needs-fixes; rulings surfaced: Ruling: kept the Map — cost if wrong: low') }
+    const r = evaluateShipGate({ ...cleanFacts(), evidence, reviewVerdict: 'needs-fixes', adjudicated: reviewAdjudicated(evidence.body) })
+    expect(r.blocks.some((b) => b.includes('review verdict'))).toBe(true)
+    const adj = { body: evidenceBody().replace('**Review:** subagent — clean', '**Review:** subagent — needs-fixes; Finding [2] parked with ruling') }
+    expect(evaluateShipGate({ ...cleanFacts(), evidence: adj, reviewVerdict: 'needs-fixes', adjudicated: reviewAdjudicated(adj.body) }).blocks).toEqual([])
+  })
+  test('a configured project without a commands check line warns instead of passing silently', () => {
+    const r = evaluateShipGate({ ...cleanFacts(), checkExit: null, checkMissing: true })
+    expect(r.blocks).toEqual([])
+    expect(r.warns.some((w) => w.includes('no check command'))).toBe(true)
   })
   test('needs-fixes verdict blocks without adjudication, passes with it', () => {
     const r = evaluateShipGate({ ...cleanFacts(), reviewVerdict: 'needs-fixes' })

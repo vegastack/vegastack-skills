@@ -4,6 +4,7 @@
 // Inline quick-build plans are linted separately by dev-plan's plan-lint — the
 // banned-placeholder list lives there, its single home.
 //
+// Exit codes: 0 pass · 1 pass-with-warnings · 2 blocked (reasons printed).
 // Usage: node brief-lint.mjs --file <brief.md> --scope <research|quick-build|full-plan> --json
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -22,7 +23,7 @@ const VAGUE_SMELLS = [
   /\betc\.?\b/i,
 ];
 
-export function lintBrief(text, scope) {
+export function lintBrief(text, scope, { fix = false } = {}) {
   const blocks = [];
   const warns = [];
 
@@ -30,6 +31,12 @@ export function lintBrief(text, scope) {
     return { blocks: [`unknown scope class "${scope}" (research | quick-build | full-plan)`], warns };
   }
   if (!/<!--\s*vsk:v1\s+type=brief\b/.test(text)) blocks.push('missing brief marker (<!-- vsk:v1 type=brief rev=n scope=... -->)');
+  if (scope !== 'research' && !/^\*\*Scope:\*\*/m.test(text)) {
+    blocks.push('missing the **Scope:** line — the announced reason must survive the conversation');
+  }
+  if (fix && !/^##\s+Reproduction\b/m.test(text)) {
+    blocks.push('fix-type brief without a ## Reproduction section — an unreproducible bug is research first');
+  }
 
   for (const heading of REQUIRED_HEADINGS[scope]) {
     if (!heading.test(text)) blocks.push(`missing required section for ${scope}: ${heading.source}`);
@@ -59,10 +66,10 @@ if (invokedDirectly) {
   const file = get('--file');
   const scope = get('--scope');
   if (!file || !scope) {
-    outcome = { blocks: ['usage: brief-lint.mjs --file <brief.md> --scope <class> [--json]'], warns: [] };
+    outcome = { blocks: ['usage: brief-lint.mjs --file <brief.md> --scope <class> [--fix] [--json]'], warns: [] };
   } else {
     try {
-      outcome = lintBrief(readFileSync(file, 'utf8'), scope);
+      outcome = lintBrief(readFileSync(file, 'utf8'), scope, { fix: argv.includes('--fix') });
     } catch (error) {
       outcome = { blocks: [`cannot read brief: ${error.message}`], warns: [] };
     }

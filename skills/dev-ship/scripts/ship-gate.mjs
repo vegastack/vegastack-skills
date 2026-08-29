@@ -4,6 +4,7 @@
 // rationalization scan over the evidence text only warns — regex heuristics
 // never block. Self-contained (ships with dev-ship; no cross-skill imports).
 //
+// Exit codes: 0 pass · 1 pass-with-warnings · 2 blocked (reasons printed).
 // Usage: node ship-gate.mjs --issue <n> --branch <name> [--repo o/r] [--dev-md <path>]
 //        [--base main] [--allow-no-changelog "<reason>"] --json
 import { execFileSync } from 'node:child_process';
@@ -20,6 +21,15 @@ const RATIONALIZATIONS = [
 
 function sh(cmd, args) {
   return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+// Adjudication means findings were RULED ON at the loop cap — "adjudicated"/
+// "parked" phrasing. Bare "ruling" is NOT enough: compliant evidence always
+// surfaces routine ledger rulings in the Review line, and that must not lift
+// a needs-fixes block.
+export function reviewAdjudicated(evidenceBody) {
+  const section = /\*\*Review:\*\*[\s\S]*?(?=\n\*\*[A-Z]|\nBranch:|$)/.exec(evidenceBody ?? '')?.[0] ?? '';
+  return /(adjudicat|parked)/i.test(section);
 }
 
 export function parseMarker(body) {
@@ -91,6 +101,9 @@ export function evaluateShipGate(facts) {
   if (facts.checkoutMismatch) {
     blocks.push(facts.checkoutMismatch);
   }
+  if (facts.checkMissing) {
+    warns.push('dev.md has no check command on its commands: line — the fresh-run gate could not run; verify by hand');
+  }
   if (checkExit !== null && checkExit !== 0) {
     blocks.push(`the project check command exited ${checkExit} on a fresh run — a claim is never trusted, always re-proven`);
   }
@@ -122,8 +135,7 @@ export function gatherFacts(flags) {
     if (marker?.keys?.type === 'evidence') evidence = { body: comment.body, updatedAt: comment.updated_at };
     if (marker?.keys?.type === 'review') reviewVerdict = marker.keys.verdict ?? null;
   }
-  const reviewSection = /\*\*Review:\*\*[\s\S]*?(?=\n\*\*[A-Z]|\nBranch:|$)/.exec(evidence?.body ?? '')?.[0] ?? '';
-  const adjudicated = /(adjudicat|parked|ruling)/i.test(reviewSection);
+  const adjudicated = reviewAdjudicated(evidence?.body);
 
   const headSha = sh('git', ['rev-parse', '--short=7', branch]);
   const diffText = sh('git', ['diff', `${base}...${branch}`]);
@@ -150,6 +162,7 @@ export function gatherFacts(flags) {
 
   let checkExit = null;
   const checkCmd = (/^commands:.*?check\s+`([^`]+)`/m.exec(devMd) || [])[1];
+  const checkMissing = !checkCmd;
   if (checkCmd) {
     try {
       execFileSync('sh', ['-c', checkCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -162,7 +175,7 @@ export function gatherFacts(flags) {
   return {
     evidence, reviewVerdict, adjudicated, headSha, diffText,
     changelogTouched, chronicleOn, chronicleTouched,
-    allowNoChangelog: flags['allow-no-changelog'], checkExit, checkoutMismatch,
+    allowNoChangelog: flags['allow-no-changelog'], checkExit, checkMissing, checkoutMismatch,
   };
 }
 

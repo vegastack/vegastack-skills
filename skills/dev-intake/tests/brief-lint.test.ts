@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { lintBrief } from '../scripts/brief-lint.mjs'
 
 const quickBuildBrief = `<!-- vsk:v1 type=brief rev=1 scope=quick-build -->
+**Scope:** quick-build — small, the flow exists.
+
 ## Outcome
 The status script accepts a flag.
 ## Approach and touch points
@@ -31,6 +33,18 @@ describe('brief-lint', () => {
   test('blocks when Approach names no backticked path', () => {
     const r = lintBrief(quickBuildBrief.replace('Modify `skills/dev-status/scripts/status.mjs`.', 'Modify the status script.'), 'quick-build')
     expect(r.blocks.some((b) => b.includes('backticked paths'))).toBe(true)
+  })
+  test('fix-type briefs require a Reproduction section', () => {
+    const r = lintBrief(quickBuildBrief, 'quick-build', { fix: true })
+    expect(r.blocks.some((b) => b.includes('Reproduction'))).toBe(true)
+    const withRepro = quickBuildBrief.replace('## Outcome', '## Reproduction\nSteps: run X, see Y.\n## Outcome')
+    expect(lintBrief(withRepro, 'quick-build', { fix: true }).blocks).toEqual([])
+  })
+  test('a missing **Scope:** line blocks (research exempt)', () => {
+    const noScope = quickBuildBrief.replace(/\*\*Scope:\*\*[^\n]*\n\n/, '')
+    expect(lintBrief(noScope, 'quick-build').blocks.some((b) => b.includes('**Scope:**'))).toBe(true)
+    const research = '<!-- vsk:v1 type=brief rev=1 scope=research -->\n## The question\nWhy?\n## What answered looks like\nA report.\n'
+    expect(lintBrief(research, 'research').blocks).toEqual([])
   })
   test('vague wording warns, never blocks', () => {
     const r = lintBrief(quickBuildBrief.replace('accepts a flag', 'works properly and is robust'), 'quick-build')
