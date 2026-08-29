@@ -10,9 +10,12 @@ import { createHash } from 'node:crypto'
 // scenario: content unchanged since the last human review, review clock overdue.
 const BODY = 'hyperdrive supports postgres 14-17\n'
 let serveChanged = false
+let serveEtag = true
 const server = createServer((req, res) => {
-  if (req.headers['if-none-match'] === '"vsk-etag"' && !serveChanged) { res.writeHead(304); res.end(); return }
-  res.writeHead(200, { 'content-type': 'text/plain', etag: '"vsk-etag"' })
+  if (serveEtag && req.headers['if-none-match'] === '"vsk-etag"' && !serveChanged) { res.writeHead(304); res.end(); return }
+  const headers = { 'content-type': 'text/plain' }
+  if (serveEtag) headers.etag = '"vsk-etag"'
+  res.writeHead(200, headers)
   res.end(serveChanged ? BODY + 'CHANGED\n' : BODY)
 })
 await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
@@ -76,6 +79,35 @@ describe('manual-review clock on verified-unchanged content', () => {
       const { report } = await refreshEvidence({ registry, cache: join(dir, 'cache.json'), report: join(dir, 'r.json'), acceptBaselines: true, allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z' })
       expect(report.acceptedBaselines[0]?.checksum).toBeDefined()
     } finally { serveChanged = false }
+  })
+  test('a warm cache never masks registry drift in verify mode (no-etag server, two runs)', async () => {
+    const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
+    const registry = makeRegistry(dir)
+    const cache = join(dir, 'cache.json')
+    serveChanged = true; serveEtag = false
+    try {
+      const r1 = await refreshEvidence({ registry, cache, report: join(dir, 'r1.json'), allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z' })
+      expect(r1.report.drift.length).toBe(1)
+      expect(r1.failClosed).toBe(true)
+      // Run 2 with the warm (drift-poisoned) cache must STILL report drift.
+      const r2 = await refreshEvidence({ registry, cache, report: join(dir, 'r2.json'), allowHttpLocalhost: true, topics: [], now: '2026-08-30T00:00:00Z' })
+      expect(r2.report.drift.length).toBe(1)
+      expect(r2.report.drift[0].baseline).toBe('registry')
+      expect(r2.report.drift[0].cacheDisagrees).toBe(true)
+      expect(r2.failClosed).toBe(true)
+    } finally { serveChanged = false; serveEtag = true }
+  })
+  test('unchanged source with a warm cache stays unaffected in verify mode', async () => {
+    const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
+    const registry = makeRegistry(dir)
+    const cache = join(dir, 'cache.json')
+    serveEtag = false
+    try {
+      await refreshEvidence({ registry, cache, report: join(dir, 'r1.json'), allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z' })
+      const r2 = await refreshEvidence({ registry, cache, report: join(dir, 'r2.json'), allowHttpLocalhost: true, topics: [], now: '2026-08-30T00:00:00Z' })
+      expect(r2.report.drift).toEqual([])
+      expect(r2.report.unaffected).toContain('TEST-MANUAL')
+    } finally { serveEtag = true }
   })
   test('read-only verification (no --accept-baselines) still fails closed and mutates nothing', async () => {
     const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
