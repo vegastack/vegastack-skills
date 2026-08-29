@@ -322,7 +322,10 @@ export async function refreshEvidence(options) {
           baselineUpdates.set(source.id, { ...(baselineUpdates.get(source.id) ?? {}), checksum: prior.checksum, retrievedAt: now.toISOString() })
         }
         prior.retrievedAt = now.toISOString()
-        if (options.acceptBaselines && prior.checksum === source.checksum) {
+        if (options.acceptBaselines && prior.checksum === source.checksum && source.versionDetection?.type === 'manual-review') {
+          // Server-asserted identity (304 against our cached etag), not a fresh
+          // hash — acceptable inside accept-mode's trust model, where a
+          // compromised approved host defeats acceptance anyway.
           baselineUpdates.set(source.id, { ...(baselineUpdates.get(source.id) ?? {}), retrievedAt: now.toISOString() })
         }
         report.unaffected.push(source.id)
@@ -335,12 +338,14 @@ export async function refreshEvidence(options) {
       else report.unaffected.push(source.id)
       if (options.acceptBaselines && source.checksum !== checksum) {
         baselineUpdates.set(source.id, { ...(baselineUpdates.get(source.id) ?? {}), checksum, retrievedAt: now.toISOString() })
-      } else if (options.acceptBaselines && source.checksum === checksum) {
-        // Verified byte-identical to the reviewed baseline: the content a human
-        // last reviewed is provably current, so the review clock refreshes.
-        // Without this, an overdue manual-review source whose page never
-        // changes fail-closes every accepting run forever (no sanctioned
-        // recovery — hand-editing timestamps is forbidden).
+      } else if (options.acceptBaselines && source.checksum === checksum && source.versionDetection?.type === 'manual-review') {
+        // Manual-review sources only: verified byte-identical to the reviewed
+        // baseline means the content a human last reviewed is provably current,
+        // so the review clock refreshes. Without this, an overdue manual-review
+        // source whose page never changes fail-closes every accepting run
+        // forever (no sanctioned recovery — hand-editing timestamps is
+        // forbidden). Scoped to manual-review so ordinary sources don't churn
+        // a full-registry timestamp diff into every weekly PR.
         baselineUpdates.set(source.id, { ...(baselineUpdates.get(source.id) ?? {}), retrievedAt: now.toISOString() })
       }
       cache.sources[source.id] = { retrievedAt: now.toISOString(), checksum, etag: response.headers.get('etag'), lastModified: response.headers.get('last-modified'), url: response.url, detectedVersion }
