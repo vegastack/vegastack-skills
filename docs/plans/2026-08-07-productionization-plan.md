@@ -1,7 +1,7 @@
 # VegaStack Skills — Productionization Plan (v2)
 
-**Date:** 2026-08-07 (v2 — revised after adversarial review of v1 by three independent review passes: plan-vs-code feasibility, full file sweep, refresh-system/strategy attack)
-**Decisions locked in:** public npm package, advisory-only checks (no CI gates in product repos), multi-skill family repo, scheduled agent-driven refresh with PR + human review, slimmed advisory ceremony. npm `@vegastack` scope and GitHub org exist.
+- **Date:** 2026-08-07 (v2 — revised after adversarial review of v1 by three independent review passes: plan-vs-code feasibility, full file sweep, refresh-system/strategy attack)
+- **Decisions locked in:** public npm package, advisory-only checks (no CI gates in product repos), multi-skill family repo, scheduled agent-driven refresh with PR + human review, slimmed advisory ceremony. npm `@vegastack` scope and GitHub org exist.
 
 > **Sanitization note:** this document is written to be commit-safe. It deliberately does not reproduce the leaked strings it orders purged (a client name and personal absolute paths found in `.vegastack/evidence-cache.json` and `work/` artifacts — referred to below as "the B6 strings"). v1 of this plan contained them verbatim; that was itself a leak vector and is fixed in this revision.
 
