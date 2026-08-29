@@ -7,24 +7,26 @@ Format, one entry per pattern:
 ```markdown
 ## <short pattern name>
 
-**Pattern:** <what the reviewer keeps flagging, concretely — code shape, file area>
-**Why it's safe here:** <the project fact that makes it a false positive>
-**Still flag if:** <the exception that makes it a real finding after all>
-**Origin:** <date + issue where the dismissal happened — operator (<username>)>
+- **Pattern:** <what the reviewer keeps flagging, concretely — code shape, file area>
+- **Why it's safe here:** <the project fact that makes it a false positive>
+- **Still flag if:** <the exception that makes it a real finding after all>
+- **Origin:** <date + issue where the dismissal happened — operator (<username>)>
 ```
+
+The four fields are LIST ITEMS — this file is read in a repo's file view, where single newlines soft-wrap into one paragraph; bullets are what guarantee a line per field. Appended entries (dev-implement's corrections loop) keep the same shape.
 
 ## Worked examples (replace with real entries)
 
 ### Sequential awaits in setup scripts
 
-**Pattern:** consecutive `await` calls in bootstrap/setup code flagged as a parallelization miss.
-**Why it's safe here:** setup steps have ordering dependencies the reviewer can't see locally (labels before issues, scaffold before wiring).
-**Still flag if:** the awaits are inside a hot request path or a loop over user data.
-**Origin:** seeded example — delete when the first real entry lands.
+- **Pattern:** consecutive `await` calls in bootstrap/setup code flagged as a parallelization miss.
+- **Why it's safe here:** setup steps have ordering dependencies the reviewer can't see locally (labels before issues, scaffold before wiring).
+- **Still flag if:** the awaits are inside a hot request path or a loop over user data.
+- **Origin:** seeded example — delete when the first real entry lands.
 
 ### Direct `gh` CLI calls without a wrapper
 
-**Pattern:** scripts shelling to `gh` flagged as needing an API client abstraction.
-**Why it's safe here:** the workflow standardizes on `gh` for auth and pagination; a wrapper would duplicate it.
-**Still flag if:** arguments are interpolated into a shell string instead of an execFile arg array.
-**Origin:** seeded example — delete when the first real entry lands.
+- **Pattern:** scripts shelling to `gh` flagged as needing an API client abstraction.
+- **Why it's safe here:** the workflow standardizes on `gh` for auth and pagination; a wrapper would duplicate it.
+- **Still flag if:** arguments are interpolated into a shell string instead of an execFile arg array.
+- **Origin:** seeded example — delete when the first real entry lands.
