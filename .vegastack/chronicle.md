@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — The weekly refresh can no longer paint itself into a corner (#37)
+
+**What:** The automated freshness checker used to lock up permanently if a "human must re-review this page" source went past its review window while the page itself never changed — and the only escape was a hand-edit the rules forbid. Now, when the checker cryptographically proves the page is byte-for-byte what a human last reviewed, the review clock refreshes itself; anything that actually changed still stops the line for human eyes.
+**Why:** Found live: the first post-release refresh run failed three-of-three attempts on a Cloudflare docs source that was 16 days "overdue" despite being provably unchanged.
+**How it went:** Textbook dev-debug — red command reproduced locally in one try; the test harness fought back twice (macOS /var symlink guard, a required registry option) before the true red.
+**Changed:** verified-unchanged sources refresh their review clock under accepting runs · two regression tests incl. the read-only-mutates-nothing guarantee.
+**Decisions:** none.
+— approved by operator (kmanojkumar) · built by claude · branch fix/37-refresh-deadlock
+
 ## 29-08-2026 — The system survived its own audit and got harder (#35)
 
 **What:** The epic's closing sweep put four fresh adversarial reviewers over everything built this week — and their ~20 findings are now fixed: the ship gate can no longer be talked past by routine rulings, plans can't hide unfenced test steps or checkbox-less tasks, every standalone install carries the shared rulebook, bug issues actually route to the debugger, and the one rationalization a pressure test ever caught ("a PR is just preparation") is now a named excuse with its answer printed in the shipping skill.

@@ -103,10 +103,10 @@
         "references/pinned-facts.md",
         "references/security.md"
       ],
-      "currentVersion": "1.6.27",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
-      "checksum": "30edf1b6658a473a00005153a3eafc07de5c3decd6b8f09fc6c32f3a21c4db1c",
-      "retrievedAt": "2026-08-12T14:33:11.062Z"
+      "currentVersion": "1.7.2",
+      "versionCheckedAt": "2026-08-29T05:41:10.649Z",
+      "checksum": "905fef0ef5b216abae2fcb14c7c7ea9b74c4788acc7fd65e8ad72600b13d670f",
+      "retrievedAt": "2026-08-29T05:41:10.649Z"
     },
     {
       "id": "EVE-DOCS",
@@ -129,10 +129,10 @@
         "references/pinned-facts.md",
         "references/ai-agents.md"
       ],
-      "currentVersion": "0.33.2",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
-      "checksum": "a777f9da0cb3966a9c7cc06a3c12be34b2928800b370e966e8b6e0f5a5622915",
-      "retrievedAt": "2026-08-12T14:33:11.062Z"
+      "currentVersion": "0.47.3",
+      "versionCheckedAt": "2026-08-29T05:41:10.649Z",
+      "checksum": "84a499a2bc49274d6736703b0d82b774822c7d5e9d69954a73262eff4af72614",
+      "retrievedAt": "2026-08-29T05:41:10.649Z"
     },
     {
       "id": "WORKFLOW-SDK-POSTGRES",
@@ -155,10 +155,10 @@
         "references/pinned-facts.md",
         "references/ai-agents.md"
       ],
-      "currentVersion": "4.3.3",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
-      "checksum": "3eca56b5ec9668638d4e00b290c157383dfe8ceaaa334de13bb6244b32fa6839",
-      "retrievedAt": "2026-08-12T14:33:11.062Z"
+      "currentVersion": "4.3.5",
+      "versionCheckedAt": "2026-08-29T05:41:10.649Z",
+      "checksum": "d99e33159e2259f8f71d22f2bd19ffbc284ff55e1d8e9916d4930725fb55461a",
+      "retrievedAt": "2026-08-29T05:41:10.649Z"
     },
     {
       "id": "NEXTJS-BLOG",
@@ -181,10 +181,10 @@
         "references/pinned-facts.md",
         "references/web.md"
       ],
-      "currentVersion": "16.3.0",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
-      "checksum": "9d5d2503e2e8aa7ed1c3f0cb972c78e64b2e3aae5f3ad264bb0a79bd179708f0",
-      "retrievedAt": "2026-08-12T14:33:11.062Z"
+      "currentVersion": "16.3.3",
+      "versionCheckedAt": "2026-08-29T05:41:10.649Z",
+      "checksum": "5485cefce17dd80d1062364c597dbef4ebe39b7a59e869458b53d618c4f6f57d",
+      "retrievedAt": "2026-08-29T05:41:10.649Z"
     },
     {
       "id": "PG-BOSS-NPM",
@@ -206,11 +206,11 @@
       "affected": [
         "references/pinned-facts.md"
       ],
-      "currentVersion": "12.27.0",
-      "versionCheckedAt": "2026-08-12T14:33:11.062Z",
+      "currentVersion": "12.28.1",
+      "versionCheckedAt": "2026-08-29T05:41:10.649Z",
       "checksumScope": "http-body",
-      "checksum": "abf4bc2795e2df03181a21dfd29c7b9234c933a9dcafa72b4583d590cad609da",
-      "retrievedAt": "2026-08-12T14:33:41.513Z"
+      "checksum": "6d1863268232526ae87582d9cba6f7ba148d91888409456a033c1f6b7e2f00f4",
+      "retrievedAt": "2026-08-29T05:41:10.649Z"
     },
     {
       "id": "FLUTTER-RELEASES",
@@ -232,8 +232,8 @@
         "references/pinned-facts.md",
         "references/mobile.md"
       ],
-      "checksum": "94f9df6f67615ee05d826995f9709309c5453d0d8e4be11232ca5d463929ed2b",
-      "retrievedAt": "2026-08-12T14:33:11.062Z"
+      "checksum": "833a60e3142d8944af96eb33a6266fb27cdbfedb3f72db9765098f81bdabfa9d",
+      "retrievedAt": "2026-08-29T05:41:10.649Z"
     }
   ]
 }
