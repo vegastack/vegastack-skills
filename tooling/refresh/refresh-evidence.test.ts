@@ -88,6 +88,7 @@ describe('manual-review clock on verified-unchanged content', () => {
     try {
       const r1 = await refreshEvidence({ registry, cache, report: join(dir, 'r1.json'), allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z' })
       expect(r1.report.drift.length).toBe(1)
+      expect(r1.report.drift[0].cacheDisagrees).toBeUndefined()
       expect(r1.failClosed).toBe(true)
       // Run 2 with the warm (drift-poisoned) cache must STILL report drift.
       const r2 = await refreshEvidence({ registry, cache, report: join(dir, 'r2.json'), allowHttpLocalhost: true, topics: [], now: '2026-08-30T00:00:00Z' })
