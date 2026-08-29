@@ -58,26 +58,40 @@ All facts below verified 2026-08-12.
   events/day, 3-day retention; automatic tracing starts billing 2026-10-01; OTLP export
   needs Workers Paid. [developers.cloudflare.com/workers/platform/limits]
 
-## Better Auth (1.6.27, 2026-08-11)
+## Better Auth (1.7.2, 2026-08-29)
 
-- **1.7.0 is in RC** (rc.5 shipped 2026-08-11, same day as the pinned patch). Stay on
-  1.6.x until 1.7 is stable; queued breaking changes include the MCP plugin restructure
-  (moves to `@better-auth/mcp`) and SAML IdP-initiated default-off. [github.com/better-auth]
+- **1.7 is stable** — 1.7.0 shipped 2026-08-18, current 1.7.2 (2026-08-26, npm latest).
+  The former 1.6.x hold is retired; adopt 1.7.x via the official migration steps. Notable
+  1.7.0 breaks beyond the bullets below: accounts rekeyed on `(issuer, accountId)` with a
+  migration backfill; `validAudiences` → `resources` + `oauthClientResource`;
+  `experimental.joins` → `advanced.database.joins`; generic OAuth rewritten on OAuth 2.1
+  defaults. [github.com/better-auth releases, verified 2026-08-29]
+- **The MCP plugin lives in `@better-auth/mcp` since 1.7.0** — requires
+  `@better-auth/cimd` and the `jwt()` plugin; `withMcpAuth` → `requireMcpAuth`,
+  `mcpHandler` → `createMcpProtectedRequestHandler`; options are flat, no `oidcConfig`
+  nesting. [releases/tag/v1.7.0]
+- **SAML IdP-initiated sign-in is default-off since 1.7.0** (`saml.allowIdpInitiated`
+  defaults to false); opt back in explicitly only where the IdP flow is required.
 - **The organizations plugin models teams, invitations, and custom RBAC end-to-end**
-  (`teams: { enabled: true }`, `invite-member` with `teamId`, `createAccessControl`).
-  [better-auth.com/docs]
-- **Better Auth ships an apiKey plugin** (docs/plugins/api-key — verified live
-  2026-08-12; an older internal note claiming otherwise was wrong). Default to the plugin
-  for new projects; the flagship platform's native implementation is a recorded project
-  decision, not the house default. The `bearer` plugin covers token session transport
-  (the mobile/Flutter mechanism).
+  (`teams: { enabled: true }`, `inviteMember` with `teamId`, `createAccessControl`) —
+  unchanged in 1.7 (SCIM was decoupled from it; irrelevant unless SCIM is used).
+  [better-auth.com/docs, verified 2026-08-29]
+- **The apiKey plugin is the standalone `@better-auth/api-key` package** (lockstep
+  1.7.2) — import from `@better-auth/api-key`, not `better-auth/plugins` (core's exports
+  no longer carry it). Default to the plugin for new projects; the flagship platform's
+  native implementation is a recorded project decision, not the house default. The
+  `bearer` plugin stays in core and covers token session transport (the mobile/Flutter
+  mechanism). [better-auth.com/docs/plugins/api-key, verified 2026-08-29]
 - **`twoFactor` supports `allowPasswordless: true`** for users without password accounts
-  (passkey/OAuth/magic-link signups).
+  (passkey/OAuth/magic-link signups). Since 1.7.0, `enableTwoFactor` takes and returns a
+  discriminated `method: "otp" | "totp"` (default totp) — pass `method: "otp"` for OTP
+  enrollment.
 
 ## Agents & jobs
 
 - **EVE (`eve` on npm, github.com/vercel/eve) is Vercel's durable-agent framework —
-  v0.33.2, still beta/pre-GA, shipping near-daily.** Filesystem-first agents; every
+  v0.47.3 (2026-08-28), still beta/pre-GA, shipping multiple releases per day; pin
+  behavior, not minor versions.** Filesystem-first agents; every
   session a durable, resumable workflow. [vercel.com/docs/eve]
 - **Self-hosted EVE durability (`@workflow/world-postgres`, stable 4.3.x) explicitly
   requires a long-lived worker process — "not compatible with serverless platforms".**
