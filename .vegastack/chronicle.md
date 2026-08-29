@@ -4,7 +4,7 @@ The project's story, newest first: what got built, why, and how it went — for 
 
 ## 29-08-2026 — The chronicle became readable where it's actually read ([#44](https://github.com/vegastack/vegastack-skills/issues/44))
 
-- **What:** Entries in this file now render properly on GitHub: each field on its own line instead of one merged paragraph, and every issue number a real link (bare #N only auto-links in issues and comments, never in file views — so the format now spells the links out). All fourteen existing chapters were migrated, wording untouched.
+- **What:** Entries in this file now render properly on GitHub: each field on its own line instead of one merged paragraph, and every issue number a real link (bare #N only auto-links in issues and comments, never in file views — so the format now spells the links out). All sixteen existing chapters were migrated, wording untouched.
 - **Why:** The operator opened the chronicle on github.com and got a wall of text with dead references — the one place this file is meant to be read.
 - **How it went:** Smooth; the fix went into the format's home (the dev-chronicle skill) first, then a mechanical migration — and this very entry is written in the new shape.
 - **Changed:** Bulleted fields + linked issue refs in the binding template · live file migrated · a never-bare-#N rule.
