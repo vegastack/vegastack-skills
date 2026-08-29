@@ -30,8 +30,8 @@
       "affected": [
         "ref:standards"
       ],
-      "checksum": "1aecfc21328fcf51b456615477d7aebfa05b779c56d75c7721c4fd5f969af8f7",
-      "retrievedAt": "2026-08-08T07:52:08.251Z"
+      "checksum": "f2c589e5fd5e4b4684fdf6567262c24dea6a3b14eca795ab1dca3c4b7a3e1eea",
+      "retrievedAt": "2026-08-29T05:57:04.887Z"
     },
     {
       "id": "CLAUDE-CODE-SKILLS",
@@ -52,8 +52,8 @@
       "affected": [
         "ref:standards"
       ],
-      "checksum": "a2651c4f1a7aa43978c549c9f376c47b738ac53532fecc8168aee0d3b796469a",
-      "retrievedAt": "2026-08-08T07:52:08.251Z"
+      "checksum": "92f9993b6c2cb79be4ecf3d2785c310978d4daf308df6a0d4d076845028b170b",
+      "retrievedAt": "2026-08-29T05:57:04.887Z"
     },
     {
       "id": "CODEX-SKILLS",
@@ -74,8 +74,8 @@
       "affected": [
         "ref:standards"
       ],
-      "checksum": "b7667a87600436ae5d70e414a2a0fcb207e11c8ffdb7a28d93637980f3ff565d",
-      "retrievedAt": "2026-08-08T07:52:08.251Z"
+      "checksum": "e6ede44b27e6195c1920bdfb2f3f15e548f3ba34feeffad3a0cb23c54a0f63b9",
+      "retrievedAt": "2026-08-29T05:57:04.887Z"
     },
     {
       "id": "HERMES-SKILLS",
@@ -96,8 +96,8 @@
       "affected": [
         "ref:standards"
       ],
-      "checksum": "c4ed10a90e9303adb7a80aa5531ea92a1debbe6c4edff588199b123429065893",
-      "retrievedAt": "2026-08-08T07:52:08.251Z"
+      "checksum": "d3cbea81c2c03c6ab480848c79d75d4914109898509344b774428579cc642223",
+      "retrievedAt": "2026-08-29T05:57:04.887Z"
     }
   ]
 }
