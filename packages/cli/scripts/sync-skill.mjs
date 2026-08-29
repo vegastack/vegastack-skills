@@ -46,16 +46,25 @@ for (const skillName of listedSkills) {
   const destination = join(bundleRoot, skillName)
   const runtimeFiles = packagedSkills[skillName]
 
+  // An entry may end in "@<source-skill>": the file is authored once in that
+  // skill and duplicated into this one at packaging time, so standalone
+  // installs stay self-contained (e.g. dev-setup's conventions.md shipping
+  // with every dev-family skill). The authored tree keeps a single home.
+  const entries = runtimeFiles.map(raw => {
+    const at = raw.lastIndexOf('@')
+    return at > 0 ? { key: raw.slice(0, at), sourceSkill: raw.slice(at + 1) } : { key: raw, sourceSkill: null }
+  })
+
   const authored = (await files(source)).map(path => relative(source, path).split(sep).join('/'))
-  const allowlisted = new Set(runtimeFiles)
+  const allowlisted = new Set(entries.filter(e => !e.sourceSkill).map(e => e.key))
   const unlisted = authored.filter(key => !allowlisted.has(key) && !unpackagedPrefixes.some(prefix => key.startsWith(prefix)))
   if (unlisted.length) throw new Error(`${skillName}: authored files neither allowlisted for packaging nor deliberately unpackaged: ${unlisted.join(', ')}`)
-  const missing = runtimeFiles.filter(key => !authored.includes(key))
+  const missing = entries.filter(e => !e.sourceSkill).map(e => e.key).filter(key => !authored.includes(key))
   if (missing.length) throw new Error(`${skillName}: allowlisted runtime files missing from the authored skill: ${missing.join(', ')}`)
 
-  for (const key of runtimeFiles) {
-    const from = join(source, key)
-    if (!(await lstat(from)).isFile()) throw new Error(`${skillName}: runtime allowlist entry is not a regular file: ${key}`)
+  for (const { key, sourceSkill } of entries) {
+    const from = sourceSkill ? join(skillsRoot, sourceSkill, key) : join(source, key)
+    if (!(await lstat(from)).isFile()) throw new Error(`${skillName}: runtime allowlist entry is not a regular file: ${sourceSkill ? `${key}@${sourceSkill}` : key}`)
     const to = join(destination, key)
     await mkdir(dirname(to), { recursive: true })
     await copyFile(from, to)

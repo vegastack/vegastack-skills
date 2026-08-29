@@ -69,6 +69,33 @@ describe('gatherStatus over the gh stub', () => {
     expect(checksState(undefined)).toBe('no-checks')
     expect(checksState([{ conclusion: 'FAILURE' }])).toBe('pending-or-red')
   })
+  test('empty board: all buckets empty, no PRs, no chronicle', () => {
+    process.env.VSK_GH = join(skillRoot, 'tests/fixtures/gh-stub.mjs')
+    process.env.GH_STUB_DIR = join(skillRoot, 'tests/fixtures/scenarios/empty')
+    try {
+      const data = gatherStatus({ devMdPath: '/nonexistent-dev.md', chroniclePath: '/nonexistent-chronicle.md', now: Date.parse('2026-08-29T12:00:00Z') })
+      expect(Object.values(data.board).every((b: any[]) => b.length === 0)).toBe(true)
+      expect(data.prs).toEqual([])
+      expect(data.pendingDecisions).toEqual([])
+      expect(data.lastChronicle).toBeNull()
+    } finally { delete process.env.VSK_GH; delete process.env.GH_STUB_DIR }
+  })
+  test('chronicle parse: newest entry date + outcome title', () => {
+    process.env.VSK_GH = join(skillRoot, 'tests/fixtures/gh-stub.mjs')
+    process.env.GH_STUB_DIR = join(skillRoot, 'tests/fixtures/scenarios/basic')
+    try {
+      const data = gatherStatus({ devMdPath: '/nonexistent-dev.md', chroniclePath: join(skillRoot, 'tests/fixtures/scenarios/basic/chronicle.md'), now: Date.parse('2026-08-29T12:00:00Z') })
+      expect(data.lastChronicle).toEqual({ date: '29-08-2026', title: 'Widgets got frobbed (#7)' })
+    } finally { delete process.env.VSK_GH; delete process.env.GH_STUB_DIR }
+  })
+  test('CLI fails closed: unreachable gh → exit 2, cannot-verify on stderr', () => {
+    const { spawnSync } = require('node:child_process')
+    const r = spawnSync('node', [join(skillRoot, 'scripts/status.mjs'), '--json'], {
+      env: { ...process.env, VSK_GH: '/nonexistent-vsk-gh' }, encoding: 'utf8',
+    })
+    expect(r.status).toBe(2)
+    expect(r.stderr).toContain('cannot verify')
+  })
   test('readKnobs: renamed labels and custom register parse; short lists fall back', () => {
     const knobs = readKnobs('labels: waiting planning go doing done hot q s l parent\ndecisions: docs/register.md\n')
     expect(knobs.states).toEqual(['waiting', 'planning', 'go', 'doing', 'done'])

@@ -15,7 +15,7 @@ When the operator directly asks in chat for a change, their words are the approv
 
 ## Preflight — all must hold, or stop and say which failed
 
-- Run the deterministic guard first: `node <path-to-this-skill>/scripts/preflight.mjs --issue <n> --me $(gh api user -q .login) --json` — exit 2 stops you with its reasons (open + `ready` state, approval marker, scope label, plan approval on full-plan, Assumptions section, blockers, assignee, repo match). Resume and corrections runs pass `--expect working` / `--expect for-operator`.
+- Run the deterministic guard first: `node <path-to-this-skill>/scripts/preflight.mjs --issue <n> --me $(gh api user -q .login) --json` (add `--repo <o/r> --dev-md <path>` when running outside the project root) — exit 2 stops you with its reasons (open + `ready` state, approval marker, scope label, plan approval on full-plan, Assumptions section, blockers, assignee, repo match). Resume and corrections runs pass `--expect working` / `--expect for-operator`.
 - Then the judgment checks: read the complete brief plus parent issue and milestone for context; re-verify the brief's touch points against the current code (things drift between approval and execution) — including the version-impact line; volatile dependency claims per `dev-architect`'s verify protocol; a full-plan issue's plan still matches reality. A material decision left open — even outside a formal Assumptions section — or reality contradicting brief or plan is a stop: one `handback` comment with the smallest question, `needs-operator`.
 - Resuming a dead session's issue: the operator's explicit handover is required; then follow the resume protocol in [ledger-and-resume](references/ledger-and-resume.md) — brief → plan → ledger → `git log`, nothing else.
 
@@ -25,7 +25,7 @@ Assign yourself, swap `ready` → `working`, branch from the default branch per 
 
 ## Build — dark, test-first, checkpointed
 
-No progress updates, no questions. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Then work the plan task by task:
+No progress updates, no questions. A `fix:` issue's diagnosis runs under the `dev-debug` skill — its phases govern the investigation inside this dark mode, and its winning suspect feeds the evidence comment. A spike the brief flagged runs first — its result opens the evidence comment and shapes the rest of the build. Then work the plan task by task:
 
 - **Red before green.** Write the failing test first — at the seams the brief names, never elsewhere — watch it fail for the stated reason, implement the minimal code, watch it pass. One slice at a time. The tests-are-real rubric (implementation-coupled, tautological, horizontal-sliced — defined in `dev-review`'s dispatch prompts) applies to your own tests before a reviewer ever sees them.
 - **Checkpoint the ledger** after every task (tick the plan checkbox in the same pass) and at every ruling, per the reference.

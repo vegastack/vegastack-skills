@@ -3,6 +3,7 @@
 // and structural gaps block; nothing here warns. The banned-placeholder list's
 // single home is this file — brief-lint defers inline-plan checks to it.
 //
+// Exit codes: 0 pass · 2 blocked (this guard has no warn class).
 // Usage: node plan-lint.mjs --file <plan.md> --json
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -33,6 +34,14 @@ export function lintPlan(text) {
     if (hit) blocks.push(`banned placeholder: "${hit[0]}" — plans carry the actual content`);
   }
 
+  // A **Task N:** line not carried by a checkbox would otherwise be absorbed
+  // into the previous task's chunk and inherit its sections — detect it.
+  for (const line of text.split('\n')) {
+    if (/\*\*Task \d+:/.test(line) && !/^- \[[ x]\]/.test(line.trim().replace(/^[-*\s]+(?=\*\*)/, '- [x] '))) {
+      if (!/^\s*- \[[ x]\]/.test(line)) blocks.push(`task line without a checkbox: "${line.trim().slice(0, 60)}"`);
+    }
+  }
+
   const tasks = text.split(/^- \[[ x]\] \*\*Task /m).slice(1);
   if (tasks.length === 0) blocks.push('no checkbox tasks found (- [ ] **Task N: ...**)');
   tasks.forEach((task, index) => {
@@ -40,6 +49,9 @@ export function lintPlan(text) {
     if (!/Files\s*—/.test(task)) blocks.push(`task ${n}: missing "Files —" line with exact paths`);
     if (!/Interfaces\s*—/.test(task)) blocks.push(`task ${n}: missing "Interfaces —" block (consumes/produces)`);
     if (!/Steps[:\s]/.test(task)) blocks.push(`task ${n}: missing "Steps" line`);
+    if (/failing test/i.test(task) && !task.includes('```')) {
+      blocks.push(`task ${n}: a failing-test step must carry the actual test code in a fenced block`);
+    }
   });
 
   return { blocks, warns: [] };

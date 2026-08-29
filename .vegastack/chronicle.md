@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — The system survived its own audit and got harder (#35)
+
+**What:** The epic's closing sweep put four fresh adversarial reviewers over everything built this week — and their ~20 findings are now fixed: the ship gate can no longer be talked past by routine rulings, plans can't hide unfenced test steps or checkbox-less tasks, every standalone install carries the shared rulebook, bug issues actually route to the debugger, and the one rationalization a pressure test ever caught ("a PR is just preparation") is now a named excuse with its answer printed in the shipping skill.
+**Why:** The operator's bar: pressure-test and adversarially review every change before releasing. The sweep found real holes; shipping them would have been the old prose-only workflow all over again.
+**How it went:** The audit caught its own builders repeatedly (unticked checkboxes on eleven issues, a stale changeset sentence headed for the public changelog) — every catch fixed on the record.
+**Changed:** ship-gate/plan-lint/preflight/brief-lint spec conformance + fail-closed tests · @source shared packaging (conventions.md everywhere) · fix:-to-dev-debug routing · cross-agent handoff literals · resume-protocol exclusions · plan-template Revisions slot · truthful release notes.
+**Decisions:** none new.
+— approved by operator (kmanojkumar) · built by claude · branch fix/35-v3-hardening
+
 ## 29-08-2026 — The skills stopped spoiling their own plots (#21)
 
 **What:** Every skill's one-line description now says only when to use it and what it's not for — the step-by-step summaries are gone. That matters because agents sometimes follow the summary instead of opening the skill, skipping steps the summary didn't mention. The repo docs now also name all ten workflow skills in one place.

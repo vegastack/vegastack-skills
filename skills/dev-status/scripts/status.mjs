@@ -93,7 +93,7 @@ export function checksState(rollup) {
   return rollup.every(ok) ? 'green' : 'pending-or-red';
 }
 
-export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.md', now = Date.now() } = {}) {
+export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.md', chroniclePath = '.vegastack/chronicle.md', now = Date.now() } = {}) {
   const resolvedRepo = repo || gh(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
   const devMdText = existsSync(devMdPath) ? readFileSync(devMdPath, 'utf8') : '';
   const knobs = readKnobs(devMdText);
@@ -129,8 +129,8 @@ export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.
     }));
 
   let lastChronicle = null;
-  if (existsSync('.vegastack/chronicle.md')) {
-    const m = /^## (\d{2}-\d{2}-\d{4}) — (.+)$/m.exec(readFileSync('.vegastack/chronicle.md', 'utf8'));
+  if (existsSync(chroniclePath)) {
+    const m = /^## (\d{2}-\d{2}-\d{4}) — (.+)$/m.exec(readFileSync(chroniclePath, 'utf8'));
     if (m) lastChronicle = { date: m[1], title: m[2] };
   }
 

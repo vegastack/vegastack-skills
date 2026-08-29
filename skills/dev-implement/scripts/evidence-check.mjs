@@ -2,6 +2,7 @@
 // dev-implement guard: the evidence comment's required shape. Structure blocks;
 // nothing here warns.
 //
+// Exit codes: 0 pass · 2 blocked (this guard has no warn class).
 // Usage: node evidence-check.mjs --file <evidence.md> --json
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

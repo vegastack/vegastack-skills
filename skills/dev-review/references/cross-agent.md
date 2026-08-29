@@ -15,11 +15,12 @@ REVIEW REQUEST (vsk cross-agent v1)
 repo: <absolute path> · issue: <url> · branch: <name> · range: <base7>..<head7>
 brief: the issue description (marker type=brief) · plan: the issue comment
 marked type=plan · package: <path to the review package file> · known-patterns:
-.vegastack/review-known-patterns.md · conventions: the dev-setup skill's
-references/conventions.md in this repo's installed skills
+.vegastack/review-known-patterns.md · conventions: references/conventions.md inside ANY installed dev-family skill
+(e.g. .claude/skills/dev-review/references/conventions.md — every dev skill ships a copy)
 axes: spec, standards[, security]
 output contract: post exactly ONE issue comment in the review-comment format
-(marker: <!-- vsk:v1 type=review round=<n> sha=<head7> agent=<you> verdict=... -->);
+(marker: <!-- vsk:v1 type=review round=<n> sha=<head7> agent=codex verdict=... -->;
+the reverse direction writes agent=claude);
 on a re-review round, EDIT that same comment — update its single top marker to the
 new round/sha/verdict and append the round section below (never a second marker,
 never a second comment),

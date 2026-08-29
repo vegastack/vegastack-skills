@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { findMarkerComment, parseFlags, parseMarker, renderResult } from '../scripts/lib/gh.mjs'
+import { GhUnavailable, findMarkerComment, ghJson, parseFlags, parseMarker, renderResult } from '../scripts/lib/gh.mjs'
 import { evaluatePreflight } from '../scripts/preflight.mjs'
 import { checkEvidence } from '../scripts/evidence-check.mjs'
 
@@ -32,6 +32,20 @@ describe('marker lib', () => {
   })
   test('parseFlags: values and booleans', () => {
     expect(parseFlags(['--issue', '12', '--json'])).toEqual({ issue: '12', json: true })
+  })
+})
+
+describe('ghJson fail-closed', () => {
+  test('an unreachable gh binary throws GhUnavailable (callers block, never pass)', () => {
+    expect(() => ghJson(['api', 'user'], { gh: '/nonexistent-vsk-gh' })).toThrow(GhUnavailable)
+  })
+  test('HTTP status is parsed from stderr onto the error', () => {
+    try {
+      ghJson(['x'], { gh: 'sh' }) // sh x -> stderr without HTTP marker
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(GhUnavailable)
+      expect(e.httpStatus).toBeNull()
+    }
   })
 })
 
@@ -79,6 +93,11 @@ describe('preflight', () => {
     expect(evaluatePreflight({ issue: wrong, comments: [approval()], devMd, me: 'kmanojkumar' }).blocks.some((b: string) => b.includes('expected ready'))).toBe(true)
     const resume = baseIssue(); resume.labels = [{ name: 'working' }, { name: 'quick-build' }]
     expect(evaluatePreflight({ issue: resume, comments: [approval()], devMd, me: 'kmanojkumar', expect: 'working' }).blocks).toEqual([])
+  })
+  test('a dev.md without a repo: line warns instead of silently skipping the match', () => {
+    const r = evaluatePreflight({ issue: baseIssue(), comments: [approval()], devMd: 'stack: something\n', me: 'kmanojkumar' })
+    expect(r.blocks).toEqual([])
+    expect(r.warns.some((w: string) => w.includes('no repo: line'))).toBe(true)
   })
   test('blocks on repo mismatch with dev.md', () => {
     const issue = baseIssue()
