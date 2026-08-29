@@ -13,6 +13,7 @@ npx @vegastack/skills add dev-review
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [references/dispatch-prompts.md](references/dispatch-prompts.md) | Verbatim reviewer briefs per axis + the scoped re-review brief |
 | [references/security-axis.md](references/security-axis.md) | Data-flow method, security finding format, severity rules |
 | [references/cross-agent.md](references/cross-agent.md) | The Codex↔Claude handoff, announcements, fallbacks |

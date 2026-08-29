@@ -13,6 +13,7 @@ npx @vegastack/skills add dev-status
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point — gather + render rules |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [scripts/status.mjs](scripts/status.mjs) | The gatherer: gh-backed, markers-only, knob-aware (labels/register from dev.md), exit 2 on cannot-verify |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
