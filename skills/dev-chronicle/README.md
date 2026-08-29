@@ -13,6 +13,7 @@ npx @vegastack/skills add dev-chronicle
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point — the entry format and the digest |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | `tests/` | Bun tests and fixtures (never packaged) |

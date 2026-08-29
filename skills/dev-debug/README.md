@@ -13,6 +13,7 @@ npx @vegastack/skills add dev-debug
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point — the six phases and their criteria |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [references/loop-ladder.md](references/loop-ladder.md) | The eight rungs for building the red command, tightening axes, and the no-rung stop |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
