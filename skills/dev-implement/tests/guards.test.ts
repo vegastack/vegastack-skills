@@ -133,6 +133,12 @@ Branch: feat/12-x @ abc1234`
     expect(r.blocks.some((b: string) => b.includes('**Docs:**'))).toBe(true)
     expect(r.blocks.some((b: string) => b.includes('Branch:'))).toBe(true)
   })
+  test('accepts a sha linked to its commit in the tail, rejects a half-written link', () => {
+    const linked = good.replace('Branch: feat/12-x @ abc1234', 'Branch: feat/12-x @ [abc1234](https://github.com/o/r/commit/abc1234def5678)')
+    expect(checkEvidence(linked).blocks).toEqual([])
+    const halfLink = good.replace('Branch: feat/12-x @ abc1234', 'Branch: feat/12-x @ [abc1234]')
+    expect(checkEvidence(halfLink).blocks.some((b: string) => b.includes('Branch:'))).toBe(true)
+  })
   test('blocks on marker without real sha', () => {
     const r = checkEvidence(good.replace('sha=abc1234', 'sha=TBDTBDT'))
     expect(r.blocks.some((b: string) => b.includes('real sha'))).toBe(true)
