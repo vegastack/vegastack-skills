@@ -31,6 +31,18 @@ function gh(args) {
   return JSON.parse(out);
 }
 
+// Terminal display: `[text](url)` carries no meaning in a terminal, so the board
+// renders link-free variants alongside the raw fields. A link wrapped in its own
+// parens — the chronicle title's `([#44](url))` shape — collapses to `(#44)`
+// rather than leaving doubled parens behind. URLs containing `)` are not a shape
+// this workflow produces (issue/commit URLs never do).
+export function stripLinks(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/\(\[([^\]]*)\]\(([^)]*)\)\)/g, '($1)')
+    .replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1');
+}
+
 export function ageDays(iso, now = Date.now()) {
   return Math.floor((now - Date.parse(iso)) / 86_400_000);
 }
@@ -118,7 +130,7 @@ export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.
       const moved = ledgerMovedAt(comments);
       issue.ledgerAgeDays = moved ? ageDays(moved, now) : null;
       issue.stale = bucket === knobs.states[3] && (issue.ledgerAgeDays === null || issue.ledgerAgeDays >= staleDays);
-      decisions.push(...pendingDecisions(comments, registerText).map((d) => ({ issue: issue.number, gist: d })));
+      decisions.push(...pendingDecisions(comments, registerText).map((d) => ({ issue: issue.number, gist: d, gistPlain: stripLinks(d) })));
     }
   }
 
@@ -131,7 +143,7 @@ export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.
   let lastChronicle = null;
   if (existsSync(chroniclePath)) {
     const m = /^## (\d{2}-\d{2}-\d{4}) — (.+)$/m.exec(readFileSync(chroniclePath, 'utf8'));
-    if (m) lastChronicle = { date: m[1], title: m[2] };
+    if (m) lastChronicle = { date: m[1], title: m[2], titlePlain: stripLinks(m[2]) };
   }
 
   return { repo: resolvedRepo, staleDays, board, prs, pendingDecisions: decisions, lastChronicle };
