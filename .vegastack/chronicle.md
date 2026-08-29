@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — The advisor's facts caught up with the world (#42)
+
+**What:** The architecture advisor's pinned facts now reflect this week's vendor reality, each re-verified against live docs: Better Auth 1.7 is stable (the old "hold at 1.6.x" guidance retired, the MCP-plugin move and SAML default-off recorded as landed, plus a real catch — the apiKey plugin now lives in its own package, so the old import advice was wrong), and EVE sits at 0.47.3, still beta and shipping several times a day.
+**Why:** The weekly refresh PR adopted new baselines; version numbers alone never change advice — the facts behind them had to be re-checked.
+**How it went:** Review demanded the full verification record live on disk, not just a summary — fair, and now it does.
+**Changed:** Better Auth section rewritten at 1.7.2 with five verified bullets · EVE bullet at 0.47.3 with a pin-behavior-not-versions note.
+**Decisions:** none.
+— approved by operator (kmanojkumar) · built by claude · branch chore/42-adopt-baselines
+
 ## 29-08-2026 — The freshness checker stopped believing its own cache (#40)
 
 **What:** In pure verification runs, drift is now always judged against the reviewed registry baseline. Before, the first run to spot a changed page would also memorize the changed page in its local cache — and the second run, comparing against that cache, would declare everything fine while the reviewed baseline still disagreed. A critical drifted source could vanish from the radar on any machine with a persistent cache.
