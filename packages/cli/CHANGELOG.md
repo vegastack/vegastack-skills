@@ -1,5 +1,36 @@
 # @vegastack/skills
 
+## 0.12.0
+
+### Minor Changes
+
+- f8dbacd: dev-status stops reporting already-recorded decisions as pending, and the workflow's shipped artifacts render correctly where they are actually read.
+
+  - dev-status: a decision already in the register no longer stays "pending" forever when its gist carries a markdown link.
+  - dev-status: `status.mjs` emits `titlePlain` and `gistPlain`, so the terminal board never prints raw link markup.
+  - dev-review: the known-patterns template's four entry fields are list items, so a project's file renders one line per field; appended entries inherit the shape.
+  - dev-implement: changeset entries carry a stated shape — one plain first sentence, detail as sub-bullets after a blank line.
+  - dev-implement: the evidence tail's sha stays bare, with the reason on the record — GitHub auto-links it once the branch is pushed.
+  - Docs: one-line rows in both README skills tables; legacy plan headers bulleted.
+
+### Patch Changes
+
+- 21ffb4b: dev-architect's pinned facts adopted to the refreshed baselines, live-verified 29-08-2026.
+
+  - Better Auth 1.7 is stable; the 1.6.x hold is retired.
+  - MCP support moved to `@better-auth/mcp`, with its renames.
+  - SAML IdP-initiated flows are default-off.
+  - `apiKey` corrected to the standalone `@better-auth/api-key` package.
+  - `twoFactor`'s discriminated-method break noted, plus four further 1.7.0 breaks.
+  - EVE at 0.47.3 — beta, multiple releases daily; pin behavior, not minor versions.
+
+- 6c1db6b: dev-chronicle: the entry format now renders correctly in GitHub file views.
+
+  - Fields are list items — single newlines otherwise soft-wrap into one paragraph.
+  - Titles carry a full markdown link to the issue.
+  - Bare `#N` references are banned from entries; file views never auto-link them.
+  - The footer sits after a blank line as its own paragraph.
+
 ## 0.11.2
 
 ### Patch Changes
