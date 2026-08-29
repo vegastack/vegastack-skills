@@ -65,10 +65,10 @@ Run the `dev-review` skill per dev.md's `review:` knob — fresh subagent axes b
 **UI evidence:** <links>            (when applicable)
 **Decision:** <register-format proposals>   (only choices passing dev.md's Decisions test)
 **Not done / limits:** the honest list
-Branch: <name> @ <sha7>
+Branch: <name> @ [<sha7>](<repo url>/commit/<sha>)
 ```
 
-The `**Review:**` line is the one home of surfaced rulings: every ledger `Ruling:` appears there, in the order made. Run `node <path-to-this-skill>/scripts/evidence-check.mjs --file <draft> --json` before posting — exit 2 means the shape is incomplete; fix, don't post. Post it, swap `working` → `for-operator`, stop, and close with the plain-language summary (which repeats, never replaces, the evidence content): what was built, which paths were taken, the rulings, what's worth the operator double-checking.
+The tail's sha is a link to its commit — a bare 7-character sha does not reliably auto-link mid-line in a comment (the bare form still passes the guard, for installs with no remote to link to). The `**Review:**` line is the one home of surfaced rulings: every ledger `Ruling:` appears there, in the order made. Run `node <path-to-this-skill>/scripts/evidence-check.mjs --file <draft> --json` before posting — exit 2 means the shape is incomplete; fix, don't post. Post it, swap `working` → `for-operator`, stop, and close with the plain-language summary (which repeats, never replaces, the evidence content): what was built, which paths were taken, the rulings, what's worth the operator double-checking.
 
 ## Corrections loop — code and docs move together
 
