@@ -57,6 +57,10 @@ describe('plan-lint', () => {
     expect(lintPlan(unfenced).blocks.some((b) => b.includes('fenced'))).toBe(true)
     expect(lintPlan(goodPlan).blocks).toEqual([])
   })
+  test('mid-line Task references never false-block', () => {
+    const withRefs = goodPlan.replace('**Constraints:**', '**Constraints:**\n- consumes Task 1 output; see **Task 1:** interfaces above')
+    expect(lintPlan(withRefs).blocks.filter((b) => b.includes('without a checkbox'))).toEqual([])
+  })
   test('a Task line missing its checkbox is detected, not absorbed', () => {
     const bad = goodPlan + '\n**Task 2: sneaky no-checkbox task**\n  - Files — Modify: `x.ts`\n  - Interfaces — Produces: nothing\n  - Steps: edit → verify → commit\n'
     expect(lintPlan(bad).blocks.some((b) => b.includes('without a checkbox'))).toBe(true)

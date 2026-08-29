@@ -49,7 +49,7 @@ The issue body follows [brief-template](references/brief-template.md), marker li
 
 **Quick-build issues get their plan now:** after the brief has consensus, invoke `dev-plan`'s inline mode in this same conversation and post brief (description) + plan (comment) together — the operator's single approval covers both.
 
-Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs --file <draft> --scope <class> --json` — structure gaps block (exit 2), quality smells only warn; fix blocks before the operator ever sees the draft. Inline plans additionally pass `dev-plan`'s plan-lint.
+Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs --file <draft> --scope <class> --json` (add `--fix` for fix:-type briefs — it requires the Reproduction section) — structure gaps block (exit 2), quality smells only warn; fix blocks before the operator ever sees the draft. Inline plans additionally pass `dev-plan`'s plan-lint.
 
 ## Labels and approval
 
