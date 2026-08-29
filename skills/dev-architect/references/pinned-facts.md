@@ -6,7 +6,7 @@ verify-before-you-recommend protocol, and the ONLY file in this skill that goes 
 itself — the weekly refresh (see refresh/REFRESH.md) re-verifies it. When a recommendation
 leans on a fact older than 60 days, re-verify that one fact against its source first.
 
-All facts below verified 2026-08-12.
+Facts carry their own verification dates (sections verified 2026-08-12 unless a bullet says otherwise; Better Auth and EVE re-verified 2026-08-29).
 
 ## Cloudflare
 
@@ -72,6 +72,7 @@ All facts below verified 2026-08-12.
   nesting. [releases/tag/v1.7.0]
 - **SAML IdP-initiated sign-in is default-off since 1.7.0** (`saml.allowIdpInitiated`
   defaults to false); opt back in explicitly only where the IdP flow is required.
+  [releases/tag/v1.7.0, verified 2026-08-29]
 - **The organizations plugin models teams, invitations, and custom RBAC end-to-end**
   (`teams: { enabled: true }`, `inviteMember` with `teamId`, `createAccessControl`) —
   unchanged in 1.7 (SCIM was decoupled from it; irrelevant unless SCIM is used).
@@ -89,9 +90,9 @@ All facts below verified 2026-08-12.
 
 ## Agents & jobs
 
-- **EVE (`eve` on npm, github.com/vercel/eve) is Vercel's durable-agent framework —
-  v0.47.3 (2026-08-28), still beta/pre-GA, shipping multiple releases per day; pin
-  behavior, not minor versions.** Filesystem-first agents; every
+- **EVE (`eve` on npm, github.com/vercel/eve) is Vercel's durable-agent framework — v0.47.3
+  (2026-08-28), still beta/pre-GA, shipping multiple releases per day; pin behavior, not
+  minor versions.** Filesystem-first agents; every
   session a durable, resumable workflow. [vercel.com/docs/eve]
 - **Self-hosted EVE durability (`@workflow/world-postgres`, stable 4.3.x) explicitly
   requires a long-lived worker process — "not compatible with serverless platforms".**
