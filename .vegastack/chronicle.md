@@ -2,6 +2,16 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — The chronicle became readable where it's actually read ([#44](https://github.com/vegastack/vegastack-skills/issues/44))
+
+- **What:** Entries in this file now render properly on GitHub: each field on its own line instead of one merged paragraph, and every issue number a real link (bare #N only auto-links in issues and comments, never in file views — so the format now spells the links out). All fourteen existing chapters were migrated, wording untouched.
+- **Why:** The operator opened the chronicle on github.com and got a wall of text with dead references — the one place this file is meant to be read.
+- **How it went:** Smooth; the fix went into the format's home (the dev-chronicle skill) first, then a mechanical migration — and this very entry is written in the new shape.
+- **Changed:** Bulleted fields + linked issue refs in the binding template · live file migrated · a never-bare-#N rule.
+- **Decisions:** none.
+
+— approved by operator (kmanojkumar) · built by claude · branch fix/44-chronicle-rendering
+
 ## 29-08-2026 — The advisor's facts caught up with the world ([#42](https://github.com/vegastack/vegastack-skills/issues/42))
 
 - **What:** The architecture advisor's pinned facts now reflect this week's vendor reality, each re-verified against live docs: Better Auth 1.7 is stable (the old "hold at 1.6.x" guidance retired, the MCP-plugin move and SAML default-off recorded as landed, plus a real catch — the apiKey plugin now lives in its own package, so the old import advice was wrong), and EVE sits at 0.47.3, still beta and shipping several times a day.
