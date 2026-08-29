@@ -31,16 +31,18 @@ function gh(args) {
   return JSON.parse(out);
 }
 
-// Terminal display: `[text](url)` carries no meaning in a terminal, so the board
+// Terminal display: link markup carries no meaning in a terminal, so the board
 // renders link-free variants alongside the raw fields. A link wrapped in its own
-// parens — the chronicle title's `([#44](url))` shape — collapses to `(#44)`
-// rather than leaving doubled parens behind. URLs containing `)` are not a shape
-// this workflow produces (issue/commit URLs never do).
+// parens — a chronicle title's `(<linked issue ref>)` shape — collapses to one
+// pair of parens rather than leaving doubled ones behind. URLs containing `)`
+// are not a shape this workflow produces (issue and commit URLs never do).
+const LINK_SHAPE = '\\[([^\\]]*)\\]\\((?:[^)]*)\\)';
+const WRAPPED_LINK = new RegExp(`\\(${LINK_SHAPE}\\)`, 'g');
+const LINK = new RegExp(LINK_SHAPE, 'g');
+
 export function stripLinks(text) {
   if (typeof text !== 'string') return '';
-  return text
-    .replace(/\(\[([^\]]*)\]\(([^)]*)\)\)/g, '($1)')
-    .replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1');
+  return text.replace(WRAPPED_LINK, '($1)').replace(LINK, '$1');
 }
 
 export function ageDays(iso, now = Date.now()) {
