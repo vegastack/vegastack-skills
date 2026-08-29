@@ -25,7 +25,7 @@ chronicle: on               # story entry per behavior-changing branch in .vegas
 
 Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position; its release.yml copy is the backstop).
 
-- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main — the install is for dependency changes; the workspace version recorded in `bun.lock` does not follow a version bump and is not a release identity (mechanics: release-ops.md)
+- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main — the install is there to carry dependency changes
 - guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
 - auto: tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` — covered by the operator's release word (release: on-request); deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
 - auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
@@ -55,7 +55,7 @@ Dark execution ends and the operator decides when work would involve: a change o
 ## Project rules
 
 - Every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet in Ship); contributors never bump versions
-- The single version lives in `packages/cli/package.json` (changesets-managed); the workspace root package.json is pinned at `0.0.0` — a placeholder `npm sbom` requires (purls need a version), never bumped, never a release identity
+- The single version lives in `packages/cli/package.json` (changesets-managed); the workspace root package.json is pinned at `0.0.0` — a placeholder `npm sbom` requires (purls need a version), never bumped, never a release identity; neither is the version `bun.lock` records for the workspace, which does not follow a version bump and is never hand-edited (mechanics: skill-maintainer's release-ops.md)
 - Every skill change goes through skillify's contract (8-item checklist, eval before tests)
 - Never commit generated files: dist/, packages/cli/skill/, skill-integrity.json
 - Never hand-edit refresh checksums/versions/timestamps — runner only
