@@ -333,9 +333,13 @@ export async function refreshEvidence(options) {
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const checksum = evidenceChecksum(source, registry.policy, await readBounded(response))
-      const comparison = prior?.checksum ?? source.checksum
-      if (comparison && comparison !== checksum && !options.acceptBaselines) report.drift.push(item(source, { from: comparison, to: checksum, baseline: prior?.checksum ? 'cache' : 'registry' }))
-      else report.unaffected.push(source.id)
+      // Verify-mode drift is REGISTRY-anchored: the registry baseline is the
+      // reviewed truth, and a warm cache that already stored the drifted hash
+      // must never mask it (verify run 1 reports drift AND caches the new
+      // hash; a cache-preferring comparison made run 2 pass silently).
+      if (source.checksum && source.checksum !== checksum && !options.acceptBaselines) {
+        report.drift.push(item(source, { from: source.checksum, to: checksum, baseline: 'registry', ...(prior?.checksum && prior.checksum !== source.checksum ? { cacheDisagrees: true } : {}) }))
+      } else report.unaffected.push(source.id)
       if (options.acceptBaselines && source.checksum !== checksum) {
         baselineUpdates.set(source.id, { ...(baselineUpdates.get(source.id) ?? {}), checksum, retrievedAt: now.toISOString() })
       } else if (options.acceptBaselines && source.checksum === checksum && source.versionDetection?.type === 'manual-review') {

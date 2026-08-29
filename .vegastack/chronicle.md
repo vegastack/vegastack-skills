@@ -2,6 +2,15 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — The freshness checker stopped believing its own cache (#40)
+
+**What:** In pure verification runs, drift is now always judged against the reviewed registry baseline. Before, the first run to spot a changed page would also memorize the changed page in its local cache — and the second run, comparing against that cache, would declare everything fine while the reviewed baseline still disagreed. A critical drifted source could vanish from the radar on any machine with a persistent cache.
+**Why:** Pre-existing hole spotted by #37's reviewer and spun off as its own task; CI was safe (scratch caches) but local runs were not.
+**How it went:** Clean — one comparison expression, one no-etag test-server arm, exactly one red before green.
+**Changed:** verify-mode drift registry-anchored with a cache-disagreement annotation · two regression tests (warm-cache masking pinned; unchanged-source control).
+**Decisions:** none.
+— approved by operator (kmanojkumar) · built by claude · branch fix/40-verify-cache-masking
+
 ## 29-08-2026 — The weekly refresh can no longer paint itself into a corner (#37)
 
 **What:** The automated freshness checker used to lock up permanently if a "human must re-review this page" source went past its review window while the page itself never changed — and the only escape was a hand-edit the rules forbid. Now, when the checker cryptographically proves the page is byte-for-byte what a human last reviewed, the review clock refreshes itself; anything that actually changed still stops the line for human eyes.
