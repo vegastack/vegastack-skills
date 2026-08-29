@@ -25,7 +25,7 @@ chronicle: on               # story entry per behavior-changing branch in .vegas
 
 Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position; its release.yml copy is the backstop).
 
-- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main
+- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main (the install carries dependency changes into `bun.lock`; it does not re-pin the workspace version there — bun rewrites the lockfile only when the dependency graph changes, `--frozen-lockfile` passes with the older pin, and the manifest is the release identity)
 - guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
 - auto: tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` — covered by the operator's release word (release: on-request); deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
 - auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
