@@ -1,5 +1,11 @@
 # @vegastack/skills
 
+## 0.11.2
+
+### Patch Changes
+
+- 60dcd31: Refresh runner: verify-mode drift is now registry-anchored on the 200 path — a warm cache that already stored a drifted checksum can no longer mask registry drift on subsequent verify runs against servers without etag/last-modified support (the 304 path already caught this class). Drift items report `baseline: 'registry'` with a `cacheDisagrees` annotation when the cache also differs; accept mode and the 304 branch are unchanged.
+
 ## 0.11.1
 
 ### Patch Changes
