@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ageDays, ledgerMovedAt, parseMarker, pendingDecisions, taskProgress } from '../scripts/status.mjs'
+import { ageDays, ledgerMovedAt, parseMarker, pendingDecisions, stripLinks, taskProgress } from '../scripts/status.mjs'
 
 const NOW = Date.parse('2026-08-29T12:00:00Z')
 const planComment = (body: string) => ({ body: `<!-- vsk:v1 type=plan rev=1 -->\n${body}`, updated_at: '2026-08-29T10:00:00Z' })
@@ -37,6 +37,13 @@ describe('status helpers', () => {
     const pending = pendingDecisions(comments, register)
     expect(pending).toEqual(['exports stay client-side until >10k rows is real', 'retire the legacy webhook path'])
   })
+  test('stripLinks unwraps markdown links for terminal display', () => {
+    // The post-#44 chronicle title shape: the link sits inside its own parens.
+    expect(stripLinks('Widgets got frobbed ([#7](https://github.com/o/r/issues/7))')).toBe('Widgets got frobbed (#7)')
+    expect(stripLinks('retire the [legacy webhook path](https://example.com/doc) for good')).toBe('retire the legacy webhook path for good')
+    expect(stripLinks('no links here')).toBe('no links here')
+    expect(stripLinks(null)).toBe('')
+  })
   test('parseMarker matches the shared contract', () => {
     expect(parseMarker('<!-- vsk:v1 type=ledger branch=feat/x -->')?.keys.type).toBe('ledger')
     expect(parseMarker('## Ledger only')).toBeNull()
@@ -56,7 +63,7 @@ describe('gatherStatus over the gh stub', () => {
       expect(data.repo).toBe('vegastack/fixture-repo')
       expect(data.board.working[0]).toMatchObject({ number: 7, scope: 'quick-build', risky: true, tasks: [1, 2], stale: true })
       expect(data.board['for-operator'][0].number).toBe(8)
-      expect(data.pendingDecisions).toEqual([{ issue: 8, gist: 'retire the legacy webhook path' }])
+      expect(data.pendingDecisions).toEqual([{ issue: 8, gist: 'retire the [legacy webhook path](https://example.com/webhooks)', gistPlain: 'retire the legacy webhook path' }])
       expect(data.prs[0].checks).toBe('green')
       expect(data.board.ready).toEqual([])
     } finally {
@@ -85,7 +92,7 @@ describe('gatherStatus over the gh stub', () => {
     process.env.GH_STUB_DIR = join(skillRoot, 'tests/fixtures/scenarios/basic')
     try {
       const data = gatherStatus({ devMdPath: '/nonexistent-dev.md', chroniclePath: join(skillRoot, 'tests/fixtures/scenarios/basic/chronicle.md'), now: Date.parse('2026-08-29T12:00:00Z') })
-      expect(data.lastChronicle).toEqual({ date: '29-08-2026', title: 'Widgets got frobbed (#7)' })
+      expect(data.lastChronicle).toEqual({ date: '29-08-2026', title: 'Widgets got frobbed ([#7](https://github.com/vegastack/fixture-repo/issues/7))', titlePlain: 'Widgets got frobbed (#7)' })
     } finally { delete process.env.VSK_GH; delete process.env.GH_STUB_DIR }
   })
   test('CLI fails closed: unreachable gh → exit 2, cannot-verify on stderr', () => {

@@ -39,6 +39,7 @@ Next: <the single most valuable operator action, and why>
 - `risky` issues get their flag shown inline wherever they appear.
 - **Next** is one line, chosen not computed-looking: the action that unblocks the most (a plan approval blocking several ready issues beats a lone review).
 - <linked title> means a markdown link wrapping the issue/PR title around its URL; numbers ride inside the link, never stand alone.
+- The chronicle title and the decision gists come from the script's `titlePlain` / `gistPlain` fields — text the source wrote as a markdown link (post-#44 chronicle titles carry one) would otherwise print as raw `[text](url)` in a terminal.
 
 ## Honesty rules
 
