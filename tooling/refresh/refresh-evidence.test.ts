@@ -9,7 +9,12 @@ import { createHash } from 'node:crypto'
 // A local server holding one byte-identical page — the manual-review deadlock
 // scenario: content unchanged since the last human review, review clock overdue.
 const BODY = 'hyperdrive supports postgres 14-17\n'
-const server = createServer((req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end(BODY) })
+let serveChanged = false
+const server = createServer((req, res) => {
+  if (req.headers['if-none-match'] === '"vsk-etag"' && !serveChanged) { res.writeHead(304); res.end(); return }
+  res.writeHead(200, { 'content-type': 'text/plain', etag: '"vsk-etag"' })
+  res.end(serveChanged ? BODY + 'CHANGED\n' : BODY)
+})
 await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
 const port = (server.address() as any).port
 afterAll(() => server.close())
@@ -51,6 +56,26 @@ describe('manual-review clock on verified-unchanged content', () => {
     expect(report.manualVersionReview[0]?.due).toBe(false)
     const written = JSON.parse(readFileSync(registry, 'utf8'))
     expect(written.sources[0].retrievedAt).toContain('2026-08-29')
+  })
+  test('304 path: cached-identical manual-review source also refreshes the clock', async () => {
+    const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
+    const registry = makeRegistry(dir)
+    const cache = join(dir, 'cache.json')
+    // First accepting run warms the cache (200 + etag) and refreshes the clock.
+    await refreshEvidence({ registry, cache, report: join(dir, 'r1.json'), acceptBaselines: true, allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z' })
+    // Second run gets a 304; the clock must advance again.
+    const { failClosed } = await refreshEvidence({ registry, cache, report: join(dir, 'r2.json'), acceptBaselines: true, allowHttpLocalhost: true, topics: [], now: '2026-08-30T00:00:00Z' })
+    expect(failClosed).toBe(false)
+    expect(JSON.parse(readFileSync(registry, 'utf8')).sources[0].retrievedAt).toContain('2026-08-30')
+  })
+  test('a CHANGED checksum keeps existing behavior: accepted as a new baseline, not a silent clock bump', async () => {
+    const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
+    const registry = makeRegistry(dir)
+    serveChanged = true
+    try {
+      const { report } = await refreshEvidence({ registry, cache: join(dir, 'cache.json'), report: join(dir, 'r.json'), acceptBaselines: true, allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z' })
+      expect(report.acceptedBaselines[0]?.checksum).toBeDefined()
+    } finally { serveChanged = false }
   })
   test('read-only verification (no --accept-baselines) still fails closed and mutates nothing', async () => {
     const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
