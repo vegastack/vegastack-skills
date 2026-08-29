@@ -1,0 +1,66 @@
+import { afterAll, describe, expect, test } from 'bun:test'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { realpathSync } from 'node:fs'
+import { join } from 'node:path'
+import { createServer } from 'node:http'
+import { refreshEvidence } from './refresh-evidence.mjs'
+import { createHash } from 'node:crypto'
+
+// A local server holding one byte-identical page — the manual-review deadlock
+// scenario: content unchanged since the last human review, review clock overdue.
+const BODY = 'hyperdrive supports postgres 14-17\n'
+const server = createServer((req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end(BODY) })
+await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
+const port = (server.address() as any).port
+afterAll(() => server.close())
+
+function makeRegistry(dir: string) {
+  const checksum = createHash('sha256').update(BODY).digest('hex')
+  const registry = {
+    schemaVersion: 1,
+    policy: { defaultChecksumScope: 'http-body' },
+    sources: [{
+      id: 'TEST-MANUAL',
+      service: 'test service',
+      kind: 'official-docs',
+      stability: 'vendor-docs',
+      thresholdDays: 14,
+      critical: true,
+      urls: { primary: `http://127.0.0.1:${port}/page` },
+      versionDetection: { type: 'manual-review' },
+      topics: ['t'],
+      affected: ['references/x.md'],
+      checksum,
+      retrievedAt: '2026-08-01T00:00:00.000Z', // 28 days before "now" — overdue
+    }],
+  }
+  const path = join(dir, 'sources.json')
+  writeFileSync(path, JSON.stringify(registry, null, 2))
+  return path
+}
+
+describe('manual-review clock on verified-unchanged content', () => {
+  test('overdue + byte-identical + --accept-baselines → clock refreshes, run passes', async () => {
+    const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
+    const registry = makeRegistry(dir)
+    const { report, failClosed } = await refreshEvidence({
+      registry, cache: join(dir, 'cache.json'), report: join(dir, 'report.json'),
+      acceptBaselines: true, allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z',
+    })
+    expect(failClosed).toBe(false)
+    expect(report.manualVersionReview[0]?.due).toBe(false)
+    const written = JSON.parse(readFileSync(registry, 'utf8'))
+    expect(written.sources[0].retrievedAt).toContain('2026-08-29')
+  })
+  test('read-only verification (no --accept-baselines) still fails closed and mutates nothing', async () => {
+    const dir = mkdtempSync(join(realpathSync(process.env.TMPDIR ?? '/tmp'), 'vsk-refresh-'))
+    const registry = makeRegistry(dir)
+    const before = readFileSync(registry, 'utf8')
+    const { failClosed } = await refreshEvidence({
+      registry, cache: join(dir, 'cache.json'), report: join(dir, 'report.json'),
+      allowHttpLocalhost: true, topics: [], now: '2026-08-29T00:00:00Z',
+    })
+    expect(failClosed).toBe(true)
+    expect(readFileSync(registry, 'utf8')).toBe(before)
+  })
+})
