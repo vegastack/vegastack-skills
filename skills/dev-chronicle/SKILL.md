@@ -12,17 +12,19 @@ Nearest neighbors: `dev-implement` writes the entries at hand-back (the write ru
 ## The entry — one per behavior-changing branch
 
 ```markdown
-## DD-MM-YYYY — <title: the change as a human outcome — not a mechanism, not a commit subject> (#<issue>)
+## DD-MM-YYYY — <title: the change as a human outcome — not a mechanism, not a commit subject> ([#<issue>](<issue url>))
 
-**What:** <2–4 plain sentences: what exists now that didn't, from the operator's point of view>
-**Why:** <the need that prompted it>
-**How it went:** <the honest one-liner: smooth / what fought back / what was cut>
-**Changed:** <the user-visible changes, simple words — bullets or one ·-separated line>
-**Decisions:** <register lines it produced, or "none">
+- **What:** <2–4 plain sentences: what exists now that didn't, from the operator's point of view>
+- **Why:** <the need that prompted it>
+- **How it went:** <the honest one-liner: smooth / what fought back / what was cut>
+- **Changed:** <the user-visible changes, simple words — sub-bullets or one ·-separated line>
+- **Decisions:** <register lines it produced, or "none">
+
 — approved by operator (<username>) · built by <agent> · branch <name>
 ```
 
-- Titles name the outcome ("Invoice reminders now chase late payers"), never the mechanism ("add reminderAt column").
+- Titles name the outcome ("Invoice reminders now chase late payers"), never the mechanism ("add reminderAt column"). The issue reference is a full markdown link to `…/issues/<n>` (correct for PRs too — GitHub redirects); a bare `#N` never appears anywhere in an entry, because file views don't auto-link it.
+- The fields are LIST ITEMS and the footer sits after a blank line — single newlines soft-wrap into one paragraph in rendered markdown; bullets are what guarantee a line per field.
 - Prepend — newest first. File missing → create it with a two-line header naming this skill as the format home.
 - **How it went** is where honesty lives: what fought back, what was cut, what surprised. "Smooth" is a fine answer; silence is not.
 - Research issues get an entry only when the findings changed direction; docs/test-only merges get none (ship-gate's excuse flag covers both records at once).
