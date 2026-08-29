@@ -37,6 +37,11 @@ describe('status helpers', () => {
     const pending = pendingDecisions(comments, register)
     expect(pending).toEqual(['exports stay client-side until >10k rows is real', 'retire the legacy webhook path'])
   })
+  test('a recorded decision is not pending just because its gist carries a link', () => {
+    const register = '- 29-08-2026 operator (mk) — retire the legacy webhook path\n'
+    const comments = [{ body: '<!-- vsk:v1 type=decision -->\nretire the [legacy webhook path](https://example.com/webhooks)', updated_at: '' }]
+    expect(pendingDecisions(comments, register)).toEqual([])
+  })
   test('stripLinks unwraps markdown links for terminal display', () => {
     // The chronicle title shape: the issue link sits inside its own parens.
     expect(stripLinks('Widgets got frobbed ([#7](https://github.com/o/r/issues/7))')).toBe('Widgets got frobbed (#7)')

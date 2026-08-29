@@ -31,18 +31,15 @@ function gh(args) {
   return JSON.parse(out);
 }
 
-// Terminal display: link markup carries no meaning in a terminal, so the board
-// renders link-free variants alongside the raw fields. A link wrapped in its own
-// parens — a chronicle title's `(<linked issue ref>)` shape — collapses to one
-// pair of parens rather than leaving doubled ones behind. URLs containing `)`
-// are not a shape this workflow produces (issue and commit URLs never do).
-const LINK_SHAPE = '\\[([^\\]]*)\\]\\((?:[^)]*)\\)';
-const WRAPPED_LINK = new RegExp(`\\(${LINK_SHAPE}\\)`, 'g');
-const LINK = new RegExp(LINK_SHAPE, 'g');
+// Link markup carries no meaning in a terminal, so the board renders link-free
+// variants alongside the raw fields — and register comparison uses them, so a
+// linked gist still matches its plain register line. URLs containing `)` are not
+// a shape this workflow produces (issue and commit URLs never do).
+const LINK = /\[([^\]]*)\]\((?:[^)]*)\)/g;
 
 export function stripLinks(text) {
   if (typeof text !== 'string') return '';
-  return text.replace(WRAPPED_LINK, '($1)').replace(LINK, '$1');
+  return text.replace(LINK, '$1');
 }
 
 export function ageDays(iso, now = Date.now()) {
@@ -81,6 +78,12 @@ export function ledgerMovedAt(comments) {
   return at;
 }
 
+// Register lines are written plain, proposals may carry links — compare link-free
+// so a recorded decision does not stay "pending" forever on its markup alone.
+function recorded(gist, registerText) {
+  return stripLinks(registerText).includes(stripLinks(gist).slice(0, 60));
+}
+
 // Decision proposals not yet in the register: marker type=decision comments
 // (and evidence **Decision:** lines) whose text isn't in the register file.
 export function pendingDecisions(comments, registerText) {
@@ -89,11 +92,11 @@ export function pendingDecisions(comments, registerText) {
     const type = parseMarker(c.body)?.keys?.type;
     if (type === 'decision') {
       const gist = (c.body.split('\n').find((l) => l.trim() && !l.startsWith('<!--') && !l.startsWith('#')) ?? '').trim();
-      if (gist && !(registerText ?? '').includes(gist.slice(0, 60))) pending.push(gist);
+      if (gist && !recorded(gist, registerText)) pending.push(gist);
     }
     if (type === 'evidence') {
       const m = /\*\*Decision:\*\*\s*([^\n]+)/.exec(c.body);
-      if (m && !/^none\b/i.test(m[1].trim()) && !(registerText ?? '').includes(m[1].trim().slice(0, 60))) pending.push(m[1].trim());
+      if (m && !/^none\b/i.test(m[1].trim()) && !recorded(m[1].trim(), registerText)) pending.push(m[1].trim());
     }
   }
   return pending;
