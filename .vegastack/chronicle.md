@@ -2,6 +2,16 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 29-08-2026 — A release step stopped promising something it never did ([#48](https://github.com/vegastack/vegastack-skills/issues/48))
+
+- **What:** The release runbook said the `bun install` after a version bump keeps the lockfile fresh. It doesn't: bun only rewrites the lockfile when the dependency graph changes, so the workspace's own version pin there sits at an old number — ours had been six releases behind — and installs, including the strict `--frozen-lockfile` one CI runs, pass regardless. The runbook now says what the step really does (carries dependency changes through) and states plainly that the old pin is not a defect and must never be hand-edited. The fix went in at the shipped playbook that writes this line into every project the setup skill bootstraps, so nobody inherits the wrong promise.
+- **Why:** The pre-ship adversarial review of [#46](https://github.com/vegastack/vegastack-skills/issues/46) tested the claim instead of believing it, and found it false. A runbook that promises something untrue teaches the next reader to "fix" a healthy lockfile by hand — which the project rules forbid.
+- **How it went:** Quick, once the facts were nailed down: four probes in a throwaway copy (plain install, `--force`, `--frozen-lockfile`, then adding a dependency to watch the pin finally move) settled exactly what to write.
+- **Changed:** Corrected release step in dev-setup's npm playbook · a version-identity note saying an older lockfile pin is not a release identity · the verified behavior recorded in release ops · this repo's own Ship line.
+- **Decisions:** none.
+
+— approved by operator (kmanojkumar) · built by claude · branch docs/48-lockfile-claim
+
 ## 29-08-2026 — The cosmetic sweep's leftovers got fixed at their format homes ([#46](https://github.com/vegastack/vegastack-skills/issues/46))
 
 - **What:** The rendering annoyances from the sweep are gone, and one real bug came out with them. A project's review known-patterns file now shows one line per field instead of a merged paragraph (the same bug [#44](https://github.com/vegastack/vegastack-skills/issues/44) fixed for the chronicle, in the template consuming repos inherit); changesets now have a stated shape, so future changelog entries and the release notes that lead with them stop being 1,200-character walls; the terminal status board no longer prints raw link markup, and — the bug — a decision already written into the register no longer sits on the board as "pending" forever just because its wording carried a link; both README skills tables read as one line per skill; and two archived plan documents lost their merged headers.
