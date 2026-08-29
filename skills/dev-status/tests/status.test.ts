@@ -38,7 +38,7 @@ describe('status helpers', () => {
     expect(pending).toEqual(['exports stay client-side until >10k rows is real', 'retire the legacy webhook path'])
   })
   test('stripLinks unwraps markdown links for terminal display', () => {
-    // The post-#44 chronicle title shape: the link sits inside its own parens.
+    // The chronicle title shape: the issue link sits inside its own parens.
     expect(stripLinks('Widgets got frobbed ([#7](https://github.com/o/r/issues/7))')).toBe('Widgets got frobbed (#7)')
     expect(stripLinks('retire the [legacy webhook path](https://example.com/doc) for good')).toBe('retire the legacy webhook path for good')
     expect(stripLinks('no links here')).toBe('no links here')
