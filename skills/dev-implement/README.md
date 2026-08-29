@@ -16,6 +16,7 @@ npx @vegastack/skills add dev-implement
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point: preflight, claim, dark-mode bounds, verify, review modes, evidence contract, corrections loop |
 | [references/ledger-and-resume.md](references/ledger-and-resume.md) | Ledger usage and the resume protocol |
+| [scripts/lib/gh.mjs](scripts/lib/gh.mjs) | Shared guard plumbing: gh invocation, marker parsing, result contract |
 | [scripts/preflight.mjs](scripts/preflight.mjs) | Deterministic preflight guard (exit 2 blocks) |
 | [scripts/evidence-check.mjs](scripts/evidence-check.mjs) | Evidence-comment shape guard |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |

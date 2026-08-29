@@ -39,13 +39,20 @@ describe('ghJson fail-closed', () => {
   test('an unreachable gh binary throws GhUnavailable (callers block, never pass)', () => {
     expect(() => ghJson(['api', 'user'], { gh: '/nonexistent-vsk-gh' })).toThrow(GhUnavailable)
   })
-  test('HTTP status is parsed from stderr onto the error', () => {
+  test('HTTP status is parsed from stderr onto the error (403 stub), null without a marker', () => {
+    const stub = new URL('./fixtures/gh-403-stub.sh', import.meta.url).pathname
+    let threw = false
     try {
-      ghJson(['x'], { gh: 'sh' }) // sh x -> stderr without HTTP marker
+      ghJson(['api', 'user'], { gh: stub })
     } catch (e: any) {
+      threw = true
       expect(e).toBeInstanceOf(GhUnavailable)
-      expect(e.httpStatus).toBeNull()
+      expect(e.httpStatus).toBe(403)
     }
+    expect(threw).toBe(true)
+    let threw2 = false
+    try { ghJson(['x'], { gh: '/nonexistent-vsk-gh' }) } catch (e: any) { threw2 = true; expect(e.httpStatus).toBeNull() }
+    expect(threw2).toBe(true)
   })
 })
 

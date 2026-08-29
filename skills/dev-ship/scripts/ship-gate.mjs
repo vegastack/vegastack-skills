@@ -20,16 +20,18 @@ const RATIONALIZATIONS = [
 ];
 
 function sh(cmd, args) {
-  return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  // VSK_GH is a TEST SEAM (stubs gh in unit tests); git always runs real.
+  const bin = cmd === 'gh' ? (process.env.VSK_GH || 'gh') : cmd;
+  return execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } }).trim();
 }
 
-// Adjudication means findings were RULED ON at the loop cap — "adjudicated"/
-// "parked" phrasing. Bare "ruling" is NOT enough: compliant evidence always
-// surfaces routine ledger rulings in the Review line, and that must not lift
-// a needs-fixes block.
+// Adjudication means OPEN FINDINGS were ruled on at the loop cap. Routine
+// ledger vocabulary ("Ruling:", a mid-build "parked", "nothing parked") must
+// not lift a needs-fixes block — only "adjudicat*" or a finding-tied park
+// ("Finding [N] ... parked") counts.
 export function reviewAdjudicated(evidenceBody) {
   const section = /\*\*Review:\*\*[\s\S]*?(?=\n\*\*[A-Z]|\nBranch:|$)/.exec(evidenceBody ?? '')?.[0] ?? '';
-  return /(adjudicat|parked)/i.test(section);
+  return /adjudicat/i.test(section) || /finding \[\d+\][^\n]*parked/i.test(section);
 }
 
 export function parseMarker(body) {

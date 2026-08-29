@@ -14,6 +14,8 @@ npx @vegastack/skills add dev-ship
 
 | Path | Purpose |
 |---|---|
+| [scripts/ship-gate.mjs](scripts/ship-gate.mjs) | The Gate 1 deterministic guard (fresh check re-run, sha equality, changelog/chronicle, verdicts, tag grep) |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [SKILL.md](SKILL.md) | Agent entry point: the gates, PR and merge mechanics, decision recording, failure handling |
 | [references/runbook.md](references/runbook.md) | Runbook execution semantics (auto/ask/guard), release batching, direct-to-main, bot PRs, rollback |
 | [refresh/REFRESH.md](refresh/REFRESH.md) + [refresh/sources.json](refresh/sources.json) | Evergreen waiver and its deliberately empty registry |

@@ -34,11 +34,14 @@ export function lintPlan(text) {
     if (hit) blocks.push(`banned placeholder: "${hit[0]}" — plans carry the actual content`);
   }
 
-  // A **Task N:** line not carried by a checkbox would otherwise be absorbed
+  // A Task-header line not carried by a checkbox would otherwise be absorbed
   // into the previous task's chunk and inherit its sections — detect it.
+  // Anchored to the line START so mid-line references ("consumes Task 2's
+  // output") never false-block.
   for (const line of text.split('\n')) {
-    if (/\*\*Task \d+:/.test(line) && !/^- \[[ x]\]/.test(line.trim().replace(/^[-*\s]+(?=\*\*)/, '- [x] '))) {
-      if (!/^\s*- \[[ x]\]/.test(line)) blocks.push(`task line without a checkbox: "${line.trim().slice(0, 60)}"`);
+    const t = line.trim();
+    if (/^(\*\*|[-*]\s+\*\*)?Task \d+:/.test(t) && !/^- \[[ x]\]/.test(t)) {
+      blocks.push(`task line without a checkbox: "${t.slice(0, 60)}"`);
     }
   }
 

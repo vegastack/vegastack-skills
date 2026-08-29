@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { chronicleEntryAdded, evaluateShipGate, parseMarker, reviewAdjudicated } from '../scripts/ship-gate.mjs'
+import { chronicleEntryAdded, evaluateShipGate, gatherFacts, parseMarker, reviewAdjudicated } from '../scripts/ship-gate.mjs'
 
 const evidenceBody = (sha = 'abc1234') => `<!-- vsk:v1 type=evidence rev=1 branch=feat/12-x sha=${sha} -->
 ## Result (v1)
@@ -112,6 +112,17 @@ describe('ship-gate', () => {
     const r = evaluateShipGate(facts)
     expect(r.blocks).toEqual([])
     expect(r.warns.length).toBe(1)
+  })
+  test('gatherFacts fails closed when gh is unreachable (the CLI turns this into exit 2)', () => {
+    process.env.VSK_GH = '/nonexistent-vsk-gh'
+    try {
+      expect(() => gatherFacts({ issue: '1', branch: 'main' })).toThrow()
+    } finally { delete process.env.VSK_GH }
+  })
+  test('adjudication: finding-tied parked counts, incidental parked does not', () => {
+    expect(reviewAdjudicated('**Review:** needs-fixes — Finding [2] parked — Ruling: stands\n**Changelog:** x')).toBe(true)
+    expect(reviewAdjudicated('**Review:** needs-fixes; rulings surfaced; Task 3: parked — Ruling: kept\n**Changelog:** x')).toBe(false)
+    expect(reviewAdjudicated('**Review:** clean, nothing parked\n**Changelog:** x')).toBe(false)
   })
   test('parseMarker exported for the skill wiring', () => {
     expect(parseMarker(evidenceBody())?.keys.type).toBe('evidence')
