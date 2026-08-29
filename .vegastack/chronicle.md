@@ -7,7 +7,7 @@ The project's story, newest first: what got built, why, and how it went — for 
 **What:** The automated freshness checker used to lock up permanently if a "human must re-review this page" source went past its review window while the page itself never changed — and the only escape was a hand-edit the rules forbid. Now, when the checker cryptographically proves the page is byte-for-byte what a human last reviewed, the review clock refreshes itself; anything that actually changed still stops the line for human eyes.
 **Why:** Found live: the first post-release refresh run failed three-of-three attempts on a Cloudflare docs source that was 16 days "overdue" despite being provably unchanged.
 **How it went:** Textbook dev-debug — red command reproduced locally in one try; the harness fought back twice (macOS /var symlink guard, a required registry option). Review caught two real problems: the first repro run had quietly accepted six unreviewed baselines into the working tree (reverted — the weekly PR is where adoptions get human eyes), and the fix was widened to all sources when only manual-review ones need it (narrowed).
-**Changed:** verified-unchanged sources refresh their review clock under accepting runs · two regression tests incl. the read-only-mutates-nothing guarantee.
+**Changed:** verified-unchanged sources refresh their review clock under accepting runs · four regression tests incl. the read-only-mutates-nothing guarantee.
 **Decisions:** none.
 — approved by operator (kmanojkumar) · built by claude · branch fix/37-refresh-deadlock
 
