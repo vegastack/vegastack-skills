@@ -38,8 +38,8 @@ Next: <the single most valuable operator action, and why>
 - Sections with zero entries are omitted, not rendered empty. A completely quiet board is one line: "Nothing needs you — <n> issues ready for agents, nothing in flight."
 - `risky` issues get their flag shown inline wherever they appear.
 - **Next** is one line, chosen not computed-looking: the action that unblocks the most (a plan approval blocking several ready issues beats a lone review).
-- <linked title> means a markdown link wrapping the issue/PR title around its URL; numbers ride inside the link, never stand alone.
-- `<title-plain>` / `<gist-plain>` are the script's `titlePlain` / `gistPlain` fields — chronicle titles and decision gists can contain markdown links (the chronicle format writes issue references as links), whose raw bracket-and-parenthesis markup means nothing in a terminal.
+- <linked title> means a markdown link this report builds around the issue/PR title and its URL; numbers ride inside the link, never stand alone. That governs the references the board itself makes.
+- `<title-plain>` / `<gist-plain>` are the script's `titlePlain` / `gistPlain` fields — text quoted from elsewhere (a chronicle title, a decision gist) may arrive carrying markdown links, and raw bracket-and-parenthesis markup means nothing in a terminal, so it is quoted with the markup removed rather than relinked.
 
 ## Honesty rules
 

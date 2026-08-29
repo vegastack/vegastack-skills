@@ -13,10 +13,10 @@ npx @vegastack/skills add dev-architect
 |---|---|
 | `skill-maintainer` | Encodes the Agent Skills standards (Claude Code, Codex, Hermes, agentskills.io) for creating, updating, and releasing skills in a skills repo |
 | `skillify` | Turns a feature or workflow into a complete skill conforming to the VegaStack skills contract, or audits an existing one |
-| `dev-architect` | Architecture advisor: the locked stack, recorded rejections, and lean-first principles as evidence-distilled decision tables, dated source-verified platform facts behind a verify-before-you-recommend protocol, reading the `## Architecture` section of `.vegastack/dev.md` |
 | `dev-setup` | Bootstraps any project, greenfield included, for the issue-driven dev workflow: stack-playbook-drafted profile, AGENTS.md section, labels, guards, decision register |
 | `dev-intake` | Turns ideas, brainstorms, and SOWs into agent-ready GitHub issues with recorded user approval |
 | `dev-plan` | Plans an approved issue before any code exists: fresh-grounded questionnaire, strict plan format with Interfaces blocks, the scope ratchet, quick-build inline mode |
+| `dev-architect` | Architecture advisor: the locked stack, recorded rejections, and dated platform facts behind a verify-before-you-recommend protocol |
 | `dev-implement` | Implements an approved issue end to end, dark: preflight, claim, build, test, review, evidence in the issue |
 | `dev-debug` | Reproduce-first bug diagnosis: red command, ranked suspects, regression-test-before-fix |
 | `dev-review` | Independent multi-axis review of finished work: spec/standards/security axes, bounded fix loop, cross-agent Codex mode |

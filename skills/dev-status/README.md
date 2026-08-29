@@ -1,6 +1,6 @@
 # dev-status
 
-The operator's board: one ask — "status", "what needs me" — answers whose move it is across every issue in the dev workflow. A deterministic, read-only script gathers open issues per state label (with age, scope class, and risky flags), live task progress from plan-comment checkboxes, ledger staleness for `working` issues, open PRs with check state, decision proposals not yet in the register, and the last chronicle chapter. The skill renders the needs-you-first report — every line a named link, ending with the single most valuable Next action — and never invents state: an unverifiable board is reported as exactly that. The agent entry point is [SKILL.md](SKILL.md).
+The operator's board: one ask — "status", "what needs me" — answers whose move it is across every issue in the dev workflow. A deterministic, read-only script gathers open issues per state label (with age, scope class, and risky flags), live task progress from plan-comment checkboxes, ledger staleness for `working` issues, open PRs with check state, decision proposals not yet in the register, and the last chronicle chapter. The skill renders the needs-you-first report — issues and PRs named as links rather than bare numbers, ending with the single most valuable Next action — and never invents state: an unverifiable board is reported as exactly that. The agent entry point is [SKILL.md](SKILL.md).
 
 ## Install
 

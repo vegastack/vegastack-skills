@@ -33,11 +33,7 @@ export function checkEvidence(text) {
     if (!pattern.test(text)) blocks.push(`missing ${label}`);
   }
 
-  // The sha may be bare (older comments, installs without a remote) or linked to
-  // its commit — bare 7-char shas do not reliably auto-link mid-line in a comment.
-  // A bracketed sha must carry a real commit URL; a half-written link still blocks.
-  const tail = /Branch:\s*\S+\s*@\s*(?:[0-9a-f]{7,}\b|\[[0-9a-f]{7,}\]\(\S+\/commit\/[0-9a-f]{7,}\))/;
-  if (!tail.test(text)) blocks.push('missing "Branch: <name> @ <sha7>" tail line (sha bare or linked to /commit/<sha>)');
+  if (!/Branch:\s*\S+\s*@\s*[0-9a-f]{7,}/.test(text)) blocks.push('missing "Branch: <name> @ <sha7>" tail line');
 
   return { blocks, warns: [] };
 }
