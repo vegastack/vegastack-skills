@@ -29,8 +29,8 @@ Ready to build (N): - <linked title> — <scope>
 In flight (N): - <linked title> — working, task <x>/<y>, ledger moved <n>d ago
 Stale (N): - <linked title> — working <age>d, ledger silent <n>d → check or reclaim
 Open PRs (N): - <linked title> — checks <green|pending-or-red|no-checks>
-Pending decisions (N): "<gist>" (<linked issue>) — records at that issue's merge
-Last chronicle chapter: <date> — <title>
+Pending decisions (N): "<gist-plain>" (<linked issue>) — records at that issue's merge
+Last chronicle chapter: <date> — <title-plain>
 Next: <the single most valuable operator action, and why>
 ```
 
@@ -39,7 +39,7 @@ Next: <the single most valuable operator action, and why>
 - `risky` issues get their flag shown inline wherever they appear.
 - **Next** is one line, chosen not computed-looking: the action that unblocks the most (a plan approval blocking several ready issues beats a lone review).
 - <linked title> means a markdown link wrapping the issue/PR title around its URL; numbers ride inside the link, never stand alone.
-- The chronicle title and the decision gists come from the script's `titlePlain` / `gistPlain` fields — text the source wrote as a markdown link (post-#44 chronicle titles carry one) would otherwise print its raw bracket-and-parenthesis markup in a terminal.
+- `<title-plain>` / `<gist-plain>` are the script's `titlePlain` / `gistPlain` fields — chronicle titles and decision gists can contain markdown links (the chronicle format writes issue references as links), whose raw bracket-and-parenthesis markup means nothing in a terminal.
 
 ## Honesty rules
 

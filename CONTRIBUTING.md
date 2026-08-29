@@ -64,4 +64,4 @@ Branches named `refresh/**` are reserved for the automated freshness loop and ar
 
 ## Releases
 
-Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. A changeset's first line is one plain sentence; detail goes after a blank line as short sub-bullets (the shape's home is the dev-implement skill's changelog rule) — the published changelog and the release notes reproduce it verbatim.
+Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. Changeset entries follow the shape in the dev-implement skill's changelog rule ([skills/dev-implement/SKILL.md](skills/dev-implement/SKILL.md)) — the published changelog and the release notes reproduce them verbatim.

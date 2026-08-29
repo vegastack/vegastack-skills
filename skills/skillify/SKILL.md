@@ -89,7 +89,7 @@ Now that quality is proven:
 
 1. Write unit tests for the deterministic branches of any bundled scripts, plus fixtures. A prose-only skill keeps just its trigger-query fixture.
 2. Write `refresh/sources.json` + `refresh/REFRESH.md` for the volatile facts marked in Phase 2 — or the one-line evergreen waiver.
-3. Finish `README.md` and `agents/openai.yaml`; fill in the wiring TODOs the scaffolder left (README row description, changeset text).
+3. Finish `README.md` and `agents/openai.yaml`; fill in the wiring TODOs the scaffolder left (README row description, changeset text — shaped per dev-implement's changelog rule).
 
 ## Phase 6 — Verify
 
