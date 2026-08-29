@@ -1,8 +1,8 @@
 # arch-guardian v2 — Advisor Redesign Plan
 
-**Date:** 2026-08-09
-**Decided with owner (interview):** advisory-only (no exceptions, no ADR-waiver machinery); drop the deterministic checker in favor of an evidence-backed advisory report; three tiers (prototype / production / enterprise) declared at project level; slim-but-required profile; all projects are VegaStack projects (internal or client); avoid infra/scope creep — tools are contextual recommendations, not mechanical mandates; no revenue/"paying tenant" framing anywhere.
-**Delegated to this plan:** how tiers and tools interact; what happens to checklist-style rules; advisory-report design; what gets deleted vs kept.
+- **Date:** 2026-08-09
+- **Decided with owner (interview):** advisory-only (no exceptions, no ADR-waiver machinery); drop the deterministic checker in favor of an evidence-backed advisory report; three tiers (prototype / production / enterprise) declared at project level; slim-but-required profile; all projects are VegaStack projects (internal or client); avoid infra/scope creep — tools are contextual recommendations, not mechanical mandates; no revenue/"paying tenant" framing anywhere.
+- **Delegated to this plan:** how tiers and tools interact; what happens to checklist-style rules; advisory-report design; what gets deleted vs kept.
 
 ---
 
