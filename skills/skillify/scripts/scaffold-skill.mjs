@@ -102,17 +102,23 @@ async function wireReadme(repoRoot, name, group, groupHeading, write) {
   if (body.includes(`](skills/${relativePath}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
   const lines = body.split('\n')
 
-  // The search window is the group's section, or everything before the first "### " when
-  // ungrouped, so a row can never land in a neighbouring family's table.
-  let from = 0
-  let to = lines.length
+  // The search window is the group's section, or the ungrouped table when there is no group.
+  // Both are bounded by the "## Skills" region, so a row can never land in a neighbouring
+  // family's table or in an unrelated table elsewhere in the README.
+  const regionStart = lines.findIndex(line => /^##\s+Skills\s*$/.test(line))
+  if (regionStart < 0) return { step: 'root README row', status: 'skipped: Skills section not found' }
+  const afterRegion = lines.findIndex((line, index) => index > regionStart && /^##\s+/.test(line) && !/^###/.test(line))
+  const regionEnd = afterRegion < 0 ? lines.length : afterRegion
+
+  let from = regionStart
+  let to = regionEnd
   if (group) {
-    from = lines.findIndex(line => line.trim() === `### ${groupHeading}`)
+    from = lines.findIndex((line, index) => index > regionStart && index < regionEnd && line.trim() === `### ${groupHeading}`)
     if (from < 0) throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
-    const next = lines.findIndex((line, index) => index > from && /^###?\s+/.test(line))
-    to = next < 0 ? lines.length : next
+    const next = lines.findIndex((line, index) => index > from && index < regionEnd && /^###\s+/.test(line))
+    to = next < 0 ? regionEnd : next
   } else {
-    const firstSection = lines.findIndex(line => /^###\s+/.test(line))
+    const firstSection = lines.findIndex((line, index) => index > regionStart && index < regionEnd && /^###\s+/.test(line))
     if (firstSection >= 0) to = firstSection
   }
 

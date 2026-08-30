@@ -1,0 +1,3019 @@
+diff --git a/.changeset/skill-groups.md b/.changeset/skill-groups.md
+new file mode 100644
+index 0000000..1849ccd
+--- /dev/null
++++ b/.changeset/skill-groups.md
+@@ -0,0 +1,10 @@
++---
++"@vegastack/skills": minor
++---
++
++Authored skills may now be grouped one level deep under `skills/<group>/`, and the ten dev-workflow skills have moved into a `dev-skills` group.
++
++- Installed layout and install commands are unchanged: the packaged bundle stays flat, keyed by bare skill name, so `npx @vegastack/skills add dev-plan` is exactly what it was and existing installations are untouched.
++- `skillify`'s scaffolder gains `--group <name>`, which places a new skill in an existing group and writes its README row into that group's section. An unknown group is refused rather than created.
++- `skill-maintainer` gains the group rules and a create-or-maintain-a-group workflow, backed by a new repo-side structure check that blocks on illegal depth, name collisions, a malformed `GROUP.md`, missing skill meta files, packaging entries that disagree with the authored tree, and README rows that are absent, mispathed, or in the wrong section.
++- Ungrouped skills at `skills/<name>/` remain fully supported; `skill-maintainer` and `skillify` deliberately stay ungrouped.
+diff --git a/.github/PULL_REQUEST_TEMPLATE.md b/.github/PULL_REQUEST_TEMPLATE.md
+index 929507a..1250432 100644
+--- a/.github/PULL_REQUEST_TEMPLATE.md
++++ b/.github/PULL_REQUEST_TEMPLATE.md
+@@ -1,17 +1,17 @@
+ ## What
+ 
+ <!-- One or two sentences: what this PR changes and why. -->
+ 
+ ## Type of change
+ 
+ - [ ] Installer/CLI (`packages/cli/`)
+ - [ ] Skill content (`skills/`) — see the content-semver bullet in [.vegastack/dev.md](https://github.com/vegastack/vegastack-skills/blob/main/.vegastack/dev.md)
+-- [ ] Refresh metadata (`skills/*/refresh/`)
++- [ ] Refresh metadata (any skill's `refresh/`)
+ - [ ] CI / repo hygiene
+ - [ ] Docs
+ 
+ ## Checklist
+ 
+ - [ ] `bun run check` passes locally
+ - [ ] No generated files committed (`dist/`, `packages/cli/skill/`, `skill-integrity.json`, `work/`)
+ - [ ] Semver impact considered per the content versioning policy (content changes only): new reference/section, changed recorded decision, or skill rename = minor, factual refresh/wording = patch, skill removal or profile-format break = major (the operator may declare any change major)
+diff --git a/.github/workflows/refresh-guard.yml b/.github/workflows/refresh-guard.yml
+index 788b86c..a1b234e 100644
+--- a/.github/workflows/refresh-guard.yml
++++ b/.github/workflows/refresh-guard.yml
+@@ -34,21 +34,21 @@ jobs:
+           fetch-depth: 0
+ 
+       - name: Fail if the diff leaves the refresh scope
+         run: |
+           set -euo pipefail
+           git fetch origin "${{ github.base_ref }}" --depth=1 || true
+           CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...")
+           echo "Changed files:"
+           echo "$CHANGED"
+           OUT_OF_SCOPE=$(echo "$CHANGED" | grep -Ev \
+-            -e '^skills/[^/]+/refresh/' \
++            -e '^skills/([^/]+/)?[^/]+/refresh/' \
+             || true)
+           if [ -n "$OUT_OF_SCOPE" ]; then
+             echo "::error::Refresh PRs may only touch skills/*/refresh/. Out of scope:"
+             echo "$OUT_OF_SCOPE"
+             exit 1
+           fi
+           echo "Scope OK."
+ 
+   re-verify:
+     if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'refresh/')
+@@ -65,20 +65,21 @@ jobs:
+       # produces zero drift; hand-edited or hallucinated checksums/versions fail.
+       # A scratch cache is used so results always compare against the registry,
+       # never a stale local cache (none is committed anyway).
+       - name: Deterministic re-verification
+         run: |
+           set -euo pipefail
+           # The runner is repo-shared (tooling/refresh); every skill's
+           # registry is re-verified.
+           RUNNER=tooling/refresh/refresh-evidence.mjs
+           SCRATCH=$(mktemp -d)
+-          for REGISTRY in skills/*/refresh/sources.json; do
++          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
++          for REGISTRY in "${REGISTRIES[@]}"; do
+             echo "== $REGISTRY"
+             node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
+               --cache "$SCRATCH/evidence-cache-$(basename "$(dirname "$(dirname "$REGISTRY")")").json" \
+               --report "$SCRATCH/evidence-drift-$(basename "$(dirname "$(dirname "$REGISTRY")")").json"
+           done
+           # Exit 0 tolerates NON-critical drift: a few sources (e.g. Google doc
+           # properties) churn text per request, and blocking on them would flap.
+           # Critical-source drift or unavailability still fails the job.
+           echo "Critical baselines reproduce against the PR's registry."
+diff --git a/.github/workflows/refresh.yml b/.github/workflows/refresh.yml
+index 539ef75..c04e109 100644
+--- a/.github/workflows/refresh.yml
++++ b/.github/workflows/refresh.yml
+@@ -37,21 +37,25 @@ jobs:
+           node-version: "24.x"
+ 
+       - name: Accept verified baselines for every skill registry
+         run: |
+           set -euo pipefail
+           RUNNER=tooling/refresh/refresh-evidence.mjs
+           SCRATCH=$(mktemp -d)
+           mkdir -p "$SCRATCH/reports"
+           # Vendor hosts occasionally refuse a datacenter IP for one request;
+           # retry before letting fail-closed kill a scheduled run.
+-          for REGISTRY in skills/*/refresh/sources.json; do
++          # Depth-agnostic: skills live at skills/<name>/ or skills/<group>/<name>/, and a shell
++          # glob would silently cover only one of the two. The name is still the registry's
++          # grandparent directory at either depth.
++          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
++          for REGISTRY in "${REGISTRIES[@]}"; do
+             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
+             echo "== $SKILL"
+             for ATTEMPT in 1 2 3; do
+               if node "$RUNNER" --registry "$REGISTRY" --accept-baselines \
+                 --cache "$SCRATCH/cache-$SKILL.json" \
+                 --report "$SCRATCH/reports/$SKILL.json"; then
+                 break
+               elif [ "$ATTEMPT" = "3" ]; then
+                 echo "::error::$SKILL refresh failed after 3 attempts"
+                 exit 1
+@@ -67,21 +71,22 @@ jobs:
+       # workflows (GitHub recursion prevention), so refresh-guard will NOT run
+       # on the standing PR automatically. The same deterministic re-verification
+       # therefore runs here, in the run that produced the baselines: a fresh
+       # scratch-cache pass against the just-written registries must reproduce
+       # with no critical drift.
+       - name: Re-verify accepted baselines (self-guard)
+         run: |
+           set -euo pipefail
+           RUNNER=tooling/refresh/refresh-evidence.mjs
+           VERIFY=$(mktemp -d)
+-          for REGISTRY in skills/*/refresh/sources.json; do
++          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
++          for REGISTRY in "${REGISTRIES[@]}"; do
+             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
+             node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
+               --cache "$VERIFY/cache-$SKILL.json" \
+               --report "$VERIFY/report-$SKILL.json"
+           done
+ 
+       - name: Open or update the standing refresh PR
+         env:
+           GH_TOKEN: ${{ github.token }}
+         run: |
+@@ -99,21 +104,22 @@ jobs:
+               const report = JSON.parse(readFileSync(`${dir}/${file}`, "utf8"));
+               if (!report.acceptedBaselines.length) continue;
+               body += `\n### ${file.replace(/\.json$/, "")}\n`;
+               for (const entry of report.acceptedBaselines) body += `- ${entry.id}${entry.currentVersion ? ` — version ${entry.currentVersion}` : ""}${entry.checksum ? " (checksum updated)" : ""}\n`;
+             }
+             writeFileSync(process.env.SCRATCH + "/pr-body.md", body);
+           '
+           git config user.name "vegastack-refresh[bot]"
+           git config user.email "noreply@vegastack.com"
+           git checkout -B refresh/weekly
+-          git add skills/*/refresh/sources.json
++          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
++          git add "${REGISTRIES[@]}"
+           git commit -m "chore(refresh): weekly deterministic baseline refresh"
+           git push -f origin refresh/weekly
+           if gh pr list --head refresh/weekly --state open --json number --jq length | grep -qv '^0$'; then
+             gh pr edit refresh/weekly --body-file "$SCRATCH/pr-body.md"
+             echo "Updated the standing refresh PR."
+           else
+             gh pr create --head refresh/weekly --base main \
+               --title "chore(refresh): weekly deterministic baseline refresh" \
+               --body-file "$SCRATCH/pr-body.md"
+           fi
+diff --git a/.vegastack/.tmp/54-skill-groups/ledger.md b/.vegastack/.tmp/54-skill-groups/ledger.md
+new file mode 100644
+index 0000000..811fb75
+--- /dev/null
++++ b/.vegastack/.tmp/54-skill-groups/ledger.md
+@@ -0,0 +1,16 @@
++<!-- vsk:v1 type=ledger branch=feat/skill-groups -->
++## Ledger — feat/skill-groups
++- Base: 1fa0ccc · worktree at `.claude/worktrees/feat-skill-groups` · baseline `bun run check` green (165 tests), `skill-integrity.json` snapshotted pre-change for the Task 7 acceptance diff
++- Task 1: complete (commits 1fa0ccc..d081194) — `packages/cli/scripts/lib/skills.mjs`, 11 tests
++- Task 2: complete (commits d081194..6a22e7d) — 5 tests; rebuilt `skill-integrity.json` diffs clean against the pre-change baseline
++- Task 3: complete (commits 6a22e7d..b3dc1ef) — 3 tests
++- Task 4: complete (commits b3dc1ef..e7a7911) — 18 tests; `structure.mjs check` passes on the repo in its still-flat state, which is the ungrouped path proving itself before any move
++- Task 5: complete (commits e7a7911..cd85911) — 9 tests, including a round trip asserting `create-group`'s output is exactly what `checkStructure` accepts
++- Task 6: complete (commits cd85911..a2b6b21) — 5 new tests, 28 in the skillify suite
++- Task 7: complete (commits a2b6b21..2ef4d6b) — 128 files, all ten moves recorded as renames; `bun run check` green (216 tests) across the mixed layout; packed-tarball install of `dev-plan` by bare name verified clean on both agent surfaces
++- Task 8: complete (commits 2ef4d6b..89da838) — counted evidence, not a trusted edit: the new discovery finds 12 registries where the old glob found 2
++- Ruling: `discoverSkills` raises on a group child that is neither a skill nor a container of one, rather than ignoring it — why: silently skipping a stray directory is how a half-moved skill disappears from the bundle without an error — cost if wrong: a group may not hold non-skill subdirectories, which no current or planned group needs
++- Ruling: added a `VSK_REPO_ROOT` override to `sync-skill.mjs` — why: the build script had no seam, so its group behavior could otherwise only be tested by mutating the real checkout — cost if wrong: one env var of new surface on a build-only script that never ships
++- Ruling: set `allowJs: true` in `packages/cli/tsconfig.json` — why: the new `packages/cli/test/*.ts` files import the `.mjs` scripts they cover, and without it `tsc` fails TS7016 on every such import — cost if wrong: `tsc` now infers types from the scripts it already had to resolve; nothing in `src/` changes
++- Ruling: `scaffold-skill.mjs` carries its own three-line `groupTitle()` rather than importing the repo's `readGroupDoc` — why: it ships inside the skillify skill and must stay dependency-free, so it cannot reach into `packages/cli` — cost if wrong: two small copies of one parse, each tested, and `structure.mjs check` fails loudly if they ever disagree about a section
++- Ruling: the acceptance diff is "no bundle change from the move", not a literal byte-identical manifest — why: Task 6 deliberately changes two shipped skillify files, so their checksums must move — cost if wrong: none, and it is asserted precisely rather than eyeballed (bundle skill set identical, 12 bare-name keys, per-skill file lists unchanged, exactly two changed entries, both skillify's)
+diff --git a/.vegastack/chronicle.md b/.vegastack/chronicle.md
+index 10d745f..c179f7f 100644
+--- a/.vegastack/chronicle.md
++++ b/.vegastack/chronicle.md
+@@ -1,14 +1,24 @@
+ # Chronicle — vegastack-skills
+ 
+ The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
+ 
++## 30-08-2026 — Skills got families, and the install command never noticed ([#54](https://github.com/vegastack/vegastack-skills/issues/54))
++
++- **What:** Authored skills may now live one level deep inside a named group, and the ten dev-workflow skills moved into `skills/dev-skills/`. Nothing a user types changed: the packaged bundle is still flat and still keyed by bare skill name, so `npx @vegastack/skills add dev-plan` is byte-for-byte the command it was and every existing installation is untouched. A group is a directory plus a `GROUP.md` — a display title and one blurb line — which the root README's per-group section mirrors. `skill-maintainer` owns the rules and the create-a-group workflow; `skillify`'s scaffolder gained `--group` and refuses to invent a group it doesn't find.
++- **Why:** This is an org-level skills repo, and twelve peers in one flat directory had stopped saying which ones belong together.
++- **How it went:** The shape of the fix was settled before any code, by moving the whole repo in a throwaway copy and rebuilding: the bundle came out byte-identical, which proved the authored layout and the shipped layout were already decoupled and that only three one-level directory scans stood in the way. That turned a scary-looking migration into a small one. The build, the validator, and the new structure checker were then pointed at a single discovery module, so the layout rule has one home instead of three. The genuinely dangerous surface was CI: the weekly refresh globbed `skills/*/refresh/sources.json`, which after the move would have covered two skills instead of twelve and reported nothing wrong — a failure with no error message. Its acceptance is a count, not an edit. The operator's standing instruction shaped the tests as much as the code: ungrouped skills are a first-class case, not a fallback, so every grouped rule has a named ungrouped counterpart, `skill-maintainer` and `skillify` deliberately stayed at the top level, and the structure checker was run green against the still-flat repo before a single directory moved.
++- **Changed:** Shared depth-capped discovery in `packages/cli/scripts/lib/` · group-aware packaging sync and skill validator · a new `structure.mjs` with `check` and `create-group`, wired into `bun run check` · `--group` on the scaffolder with a depth-correct test-import template · the dev family moved · depth-agnostic refresh discovery in both workflows · group rules in `skill-maintainer`, paths throughout the repo docs.
++- **Decisions:** Authored skills may be grouped one level deep; packaging keys and the published bundle stay flat, so install commands never carry a group.
++
++— approved by operator (kmanojkumar) · built by claude · branch feat/skill-groups
++
+ ## 29-08-2026 — A release step stopped promising something it never did ([#48](https://github.com/vegastack/vegastack-skills/issues/48))
+ 
+ - **What:** The release runbook said the `bun install` after a version bump keeps the lockfile fresh. It doesn't: with bun, the version recorded for the workspace inside the lockfile simply does not follow a version bump — ours sat ten releases behind — and the installs this release flow runs, the strict CI one included, pass anyway because nothing reads it. The runbook now says what the step is actually for (carrying dependency changes through), says the older recorded version is not a defect and must never be hand-edited, and — because the shipped playbook writes this line into every project the setup skill bootstraps — says it in a way that is true for other package managers too, since npm behaves the opposite way.
+ - **Why:** The pre-ship adversarial review of [#46](https://github.com/vegastack/vegastack-skills/issues/46) tested the claim instead of believing it, and found it false. A runbook that promises something untrue teaches the next reader to "fix" a healthy lockfile by hand — which the project rules forbid.
+ - **How it went:** The first four probes were not enough, and the adversarial review said so: they established *that* the recorded version lags but not *why*, and the explanation written from them — "bun rewrites the lockfile only when the dependency graph changes" — turned out to be false. Widening a dependency range so that nothing at all resolved differently still refreshed it. So the prose stopped explaining a mechanism and started reporting what is actually observable. The same pass caught the bigger mistake: bun's behavior had been stated as a general fact in the package-manager-agnostic playbook, where npm does the opposite — the exact error this issue exists to correct, one paragraph over.
+ - **Changed:** Corrected release step in dev-setup's npm playbook · a package-manager-neutral version-identity note · the observed bun behavior recorded in release ops, which is where the expanded release detail lives · this repo's own version-identity rule extended to cover it, with the Ship step left as a plain step.
+ - **Decisions:** none.
+ 
+ — approved by operator (kmanojkumar) · built by claude · branch docs/48-lockfile-claim
+ 
+diff --git a/.vegastack/decisions.md b/.vegastack/decisions.md
+index cf75580..66d2481 100644
+--- a/.vegastack/decisions.md
++++ b/.vegastack/decisions.md
+@@ -1,9 +1,10 @@
+ # Decision register
+ 
+ One dated line per directional decision (see `## Decisions` in dev.md for what qualifies); append-only. Format: `- DD-MM-YYYY operator (github-username) — the decision`. (Entries before 28-08-2026 use the older `(github-username)` form; the register is never rewritten.)
+ 
+ - 27-08-2026 (kmanojkumar) — Adopted the dev workflow skills for this repo itself (dev.md handbook, operator labels, Ship runbook = the changesets release flow).
+ - 28-08-2026 (kmanojkumar) — .vegastack/dev.md is each project's single canonical process doc: policy docs fold into it as Ship bullets, the decision register lives beside it at .vegastack/decisions.md, and every rule that can be a deterministic check becomes a guard (local first, CI backstop).
+ - 28-08-2026 (kmanojkumar) — Dev-skills v2 profile-format changes ship as a minor release: pre-1.0, zero deployed consumers, and the only existing profile (this repo's) is rewritten in the same release.
+ - 28-08-2026 (kmanojkumar) — architect → dev-architect; arch.md folded into dev.md as ## Architecture; ADRs retired — decisions.md is the only decision record.
+ - 28-08-2026 (kmanojkumar) — Renaming a skill ships minor by default; major only on the operator's explicit call (removal stays major).
++- 30-08-2026 (kmanojkumar) — Authored skills may be grouped one level deep under skills/<group>/ with a GROUP.md; packaging keys and the published bundle stay flat, so install commands never carry a group.
+diff --git a/.vegastack/dev.md b/.vegastack/dev.md
+index 7ee04e6..886d7ac 100644
+--- a/.vegastack/dev.md
++++ b/.vegastack/dev.md
+@@ -1,16 +1,16 @@
+ # Dev profile — vegastack/vegastack-skills
+ 
+ This file is the project's handbook and its only process document: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log. A section left as TODO because its machinery didn't exist yet: re-run dev-setup detection when the machinery appears.
+ 
+ repo: vegastack/vegastack-skills · default branch main
+-stack: Bun monorepo — authored skills under skills/, @vegastack/skills installer under packages/cli (Node >= 24)
++stack: Bun monorepo — authored skills under skills/<name>/ or skills/<group>/<name>/ (one level, GROUP.md per group; the packaged bundle stays flat), @vegastack/skills installer under packages/cli (Node >= 24)
+ commands: test `bun test` · check `bun run check` · build `bun run build`
+ authority: CONTRIBUTING.md → this file → skill-maintainer's release-ops.md (expanded release/rename detail) → skill defaults
+ 
+ ## Knobs
+ 
+ review: cross-agent-risky   # subagent | cross-agent-risky | cross-agent — codex-cli 0.149.1 present (verified 29-08-2026)
+ ui-evidence: none           # no UI in this repo
+ gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main
+ tests: required             # scripts' deterministic branches; prose quality bar is the behavioral eval
+ merge: rebase               # meaningful commits, linear history
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index f4ee2ac..7686137 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -9,33 +9,33 @@ bun install --frozen-lockfile
+ bun run check      # validate:skill + test + lint + typecheck
+ bun run build      # builds the CLI and syncs the skill copy into packages/cli
+ ```
+ 
+ `bun run check` must pass before every PR. CI runs it on Node 24 plus a packed-tarball install smoke test.
+ 
+ ## Repo layout
+ 
+ | Path | What it is |
+ |---|---|
+-| `skills/` | Authored skill content — the single source of truth. Edit here. |
+-| `skills/dev-*/` | The ten dev-workflow skills (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
+-| `skills/*/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
++| `skills/` | Authored skill content — the single source of truth. Edit here. A skill sits at `skills/<name>/` or, inside a group, at `skills/<group>/<name>/` — one level, never deeper. |
++| `skills/dev-skills/` | The dev-workflow group (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): a `GROUP.md` plus ten skills, each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
++| `<skill>/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
+ | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
+ | `.vegastack/` | The project's own dev workflow instance: `dev.md` (the canonical process doc — release runbook, versioning, rollback) and `decisions.md` (the decision register). |
+ 
+ ## Never commit generated files
+ 
+ `dist/`, `packages/cli/skill/`, `packages/cli/skill-integrity.json`, `work/`, and `.vegastack/evidence-*.json` are build or tooling outputs. They are gitignored; `prepack` regenerates what the package needs. PRs that add them will be rejected.
+ 
+ ## Adding a new skill
+ 
+-Every skill lives at `skills/<name>/` and is self-contained:
++Every skill lives at `skills/<name>/` or `skills/<group>/<name>/` and is self-contained:
+ 
+ | File/dir | Required | Purpose |
+ |---|---|---|
+ | `SKILL.md` | yes | Agent entry point — valid frontmatter (`name`, `description`), progressive routing to references |
+ | `README.md` | yes | Human/agent walkthrough of the whole skill (repo-side only; not packaged) |
+ | `references/` | if applicable | Normative content, loaded on demand (a self-contained skill may have none) |
+ | `scripts/` | if applicable | Deterministic, dependency-free Node scripts |
+ | `assets/` | if applicable | Templates, schemas, examples |
+ | `tests/` | yes | Bun tests and the trigger-query fixture (never packaged); unit tests are required for scripts' deterministic branches, not for prose |
+ | `refresh/sources.json` + `refresh/REFRESH.md` | yes | Freshness contract for the weekly refresh automation, or a one-line evergreen waiver |
+@@ -53,15 +53,15 @@ and no machine-extracted rule format to follow.
+   in [.vegastack/dev.md](.vegastack/dev.md) (detail in
+   [skill-maintainer's release-ops](skills/skill-maintainer/references/release-ops.md)).
+ - Factual refreshes and non-normative wording clarifications are PATCH.
+ - Removing a skill, or a breaking change to the per-project profile format, is MAJOR;
+   renaming a skill ships MINOR by default — major only when the operator declares it.
+ - Keep volatile facts (version pins, vendor mechanism names) in `pinned-facts.md`-style dated
+   entries so the refresh system can track them.
+ 
+ ## Refresh PRs
+ 
+-Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/`. Human content changes go on normal branches.
++Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to refresh metadata at either legal depth. Human content changes go on normal branches.
+ 
+ ## Releases
+ 
+-Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. Changeset entries follow the shape in the dev-implement skill's changelog rule ([skills/dev-implement/SKILL.md](skills/dev-implement/SKILL.md)) — the published changelog and the release notes reproduce them verbatim.
++Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. Changeset entries follow the shape in the dev-implement skill's changelog rule ([skills/dev-skills/dev-implement/SKILL.md](skills/dev-skills/dev-implement/SKILL.md)) — the published changelog and the release notes reproduce them verbatim.
+diff --git a/README.md b/README.md
+index b0ca5b1..c3c8731 100644
+--- a/README.md
++++ b/README.md
+@@ -1,54 +1,61 @@
+ # VegaStack Skills
+ 
+ Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/skills` npm installer that ships them. Each skill is self-contained: its own entry point, references, deterministic scripts, freshness contract, and walkthrough README.
+ 
+ ## Skills
+ 
+ | Skill | What it does | Docs |
+ |---|---|---|
+ | [skill-maintainer](skills/skill-maintainer/) | The verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create, update, rename, and release runs through it | [Walkthrough](skills/skill-maintainer/README.md) · [SKILL.md](skills/skill-maintainer/SKILL.md) |
+ | [skillify](skills/skillify/) | The repo-local skill factory: gates whether something should be a skill at all, scaffolds the contract with its repo wiring, and audits existing skills | [Walkthrough](skills/skillify/README.md) · [SKILL.md](skills/skillify/SKILL.md) |
+-| [dev-setup](skills/dev-setup/) | Bootstraps a project for the issue-driven workflow: `.vegastack/dev.md`, the AGENTS.md section, the workflow labels, and the decision register | [Walkthrough](skills/dev-setup/README.md) · [SKILL.md](skills/dev-setup/SKILL.md) |
+-| [dev-intake](skills/dev-intake/) | Turns brainstorms, requests, and SOWs into agent-ready issues, with quoted-approval recording that flips `needs-operator` to `ready` | [Walkthrough](skills/dev-intake/README.md) · [SKILL.md](skills/dev-intake/SKILL.md) |
+-| [dev-plan](skills/dev-plan/) | The planning stage between intake and implementation: approaches, a no-placeholder plan with failing-test-first steps, and the scope ratchet | [Walkthrough](skills/dev-plan/README.md) · [SKILL.md](skills/dev-plan/SKILL.md) |
+-| [dev-architect](skills/dev-architect/) | VegaStack's architecture advisor: the locked stack, recorded rejections, and dated platform facts behind a verify-before-you-recommend protocol | [Walkthrough](skills/dev-architect/README.md) · [SKILL.md](skills/dev-architect/SKILL.md) |
+-| [dev-implement](skills/dev-implement/) | Implements an approved issue end to end without user input: preflight, claim, dark build, tests, independent review, evidence comment, hand-back | [Walkthrough](skills/dev-implement/README.md) · [SKILL.md](skills/dev-implement/SKILL.md) |
+-| [dev-debug](skills/dev-debug/) | Reproduce-first bug work: a red repro command before any theory, ranked falsifiable suspects, and the regression test before the fix | [Walkthrough](skills/dev-debug/README.md) · [SKILL.md](skills/dev-debug/SKILL.md) |
+-| [dev-review](skills/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop | [Walkthrough](skills/dev-review/README.md) · [SKILL.md](skills/dev-review/SKILL.md) |
+-| [dev-ship](skills/dev-ship/) | The shipping gates, each spent only by the operator's words: PR, merge per the `merge:` knob, then the project's `## Ship` runbook | [Walkthrough](skills/dev-ship/README.md) · [SKILL.md](skills/dev-ship/SKILL.md) |
+-| [dev-status](skills/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev-status/README.md) · [SKILL.md](skills/dev-status/SKILL.md) |
+-| [dev-chronicle](skills/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev-chronicle/README.md) · [SKILL.md](skills/dev-chronicle/SKILL.md) |
++
++### Dev workflow
++
++The issue-driven development workflow: ten stages from project bootstrap to the shipped, chronicled change.
++
++| Skill | What it does | Docs |
++|---|---|---|
++| [dev-setup](skills/dev-skills/dev-setup/) | Bootstraps a project for the issue-driven workflow: `.vegastack/dev.md`, the AGENTS.md section, the workflow labels, and the decision register | [Walkthrough](skills/dev-skills/dev-setup/README.md) · [SKILL.md](skills/dev-skills/dev-setup/SKILL.md) |
++| [dev-intake](skills/dev-skills/dev-intake/) | Turns brainstorms, requests, and SOWs into agent-ready issues, with quoted-approval recording that flips `needs-operator` to `ready` | [Walkthrough](skills/dev-skills/dev-intake/README.md) · [SKILL.md](skills/dev-skills/dev-intake/SKILL.md) |
++| [dev-plan](skills/dev-skills/dev-plan/) | The planning stage between intake and implementation: approaches, a no-placeholder plan with failing-test-first steps, and the scope ratchet | [Walkthrough](skills/dev-skills/dev-plan/README.md) · [SKILL.md](skills/dev-skills/dev-plan/SKILL.md) |
++| [dev-architect](skills/dev-skills/dev-architect/) | VegaStack's architecture advisor: the locked stack, recorded rejections, and dated platform facts behind a verify-before-you-recommend protocol | [Walkthrough](skills/dev-skills/dev-architect/README.md) · [SKILL.md](skills/dev-skills/dev-architect/SKILL.md) |
++| [dev-implement](skills/dev-skills/dev-implement/) | Implements an approved issue end to end without user input: preflight, claim, dark build, tests, independent review, evidence comment, hand-back | [Walkthrough](skills/dev-skills/dev-implement/README.md) · [SKILL.md](skills/dev-skills/dev-implement/SKILL.md) |
++| [dev-debug](skills/dev-skills/dev-debug/) | Reproduce-first bug work: a red repro command before any theory, ranked falsifiable suspects, and the regression test before the fix | [Walkthrough](skills/dev-skills/dev-debug/README.md) · [SKILL.md](skills/dev-skills/dev-debug/SKILL.md) |
++| [dev-review](skills/dev-skills/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop | [Walkthrough](skills/dev-skills/dev-review/README.md) · [SKILL.md](skills/dev-skills/dev-review/SKILL.md) |
++| [dev-ship](skills/dev-skills/dev-ship/) | The shipping gates, each spent only by the operator's words: PR, merge per the `merge:` knob, then the project's `## Ship` runbook | [Walkthrough](skills/dev-skills/dev-ship/README.md) · [SKILL.md](skills/dev-skills/dev-ship/SKILL.md) |
++| [dev-status](skills/dev-skills/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev-skills/dev-status/README.md) · [SKILL.md](skills/dev-skills/dev-status/SKILL.md) |
++| [dev-chronicle](skills/dev-skills/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev-skills/dev-chronicle/README.md) · [SKILL.md](skills/dev-skills/dev-chronicle/SKILL.md) |
+ 
+ Install any skill by name:
+ 
+ ```sh
+ npx @vegastack/skills add dev-architect
+ ```
+ 
+ Requires Node >= 24. Project installs target `.claude/skills` (Claude Code) and `.agents/skills` (Codex); `--global` additionally supports `--agent hermes` (`~/.hermes/skills` — Hermes discovers skills globally only). `list` shows bundled skills; `verify` re-checks installed bytes against the shipped checksum manifest; `remove` uninstalls; `doctor` diagnoses. All commands and flags: [installer README](packages/cli/README.md).
+ 
+ The installer is fully offline with one exception: `doctor` checks npmjs.org for a newer release. No telemetry.
+ 
+ ## Repository structure
+ 
+ | Path | Purpose |
+ |---|---|
+-| `skills/<name>/` | Authored skill content — the source of truth. Every skill carries `SKILL.md` (agent entry), `README.md` (human/agent walkthrough), `tests/`, and `refresh/` (freshness contract), plus `references/`, `scripts/`, and `assets/` where the skill needs them |
++| `skills/<name>/`<br>`skills/<group>/<name>/` | Authored skill content — the source of truth. A skill sits at the top level or inside a group, one level deep and no deeper; both are fully supported. Every skill carries `SKILL.md` (agent entry), `README.md` (human/agent walkthrough), `tests/`, and `refresh/` (freshness contract), plus `references/`, `scripts/`, and `assets/` where the skill needs them. A group adds a `GROUP.md` (display title plus one blurb line) beside its skills; groups are an authoring convenience only — the packaged bundle is flat, so `add <skill>` never names one |
+ | `tooling/refresh/` | Repo-shared deterministic refresh runner (checksum/version verification), used by every skill's `refresh/sources.json` and both refresh workflows |
+ | `packages/cli/` | The `@vegastack/skills` installer. Its skill copy and checksum manifest are generated at build time and are never committed |
+ | `.vegastack/` | This repo's own dev workflow instance (dogfooding the dev skills): [dev.md](.vegastack/dev.md) — the canonical process doc with the release runbook, versioning, and rollback — and [decisions.md](.vegastack/decisions.md) |
+ | `.github/workflows/` | CI, tag-driven release (npm trusted publishing + SBOM), and refresh-PR guards |
+ 
+ ## How freshness works
+ 
+-Skill content cites external sources (specs, vendor docs, package versions) tracked per skill in `skills/*/refresh/sources.json`, with per-skill agent instructions in `refresh/REFRESH.md`. A weekly automated refresh (.github/workflows/refresh.yml) re-verifies every registry deterministically and maintains one standing evidence-linked PR; a human reviews and merges. CI restricts refresh branches to refresh metadata only and re-fetches claimed versions/checksums so hand-edited or hallucinated values cannot merge. Old installs degrade gracefully: `doctor` reports installed-vs-latest, and advice leaning on a stale critical source is marked not verified rather than asserted.
++Skill content cites external sources (specs, vendor docs, package versions) tracked per skill in each skill's `refresh/sources.json`, with per-skill agent instructions in `refresh/REFRESH.md`. A weekly automated refresh (.github/workflows/refresh.yml) re-verifies every registry deterministically and maintains one standing evidence-linked PR; a human reviews and merges. CI restricts refresh branches to refresh metadata only and re-fetches claimed versions/checksums so hand-edited or hallucinated values cannot merge. Old installs degrade gracefully: `doctor` reports installed-vs-latest, and advice leaning on a stale critical source is marked not verified rather than asserted.
+ 
+ ## Advisory reviews, user-held gates
+ 
+ Architecture review (`dev-architect`) is advisory by design: evidence-backed reports with honest severities (`critical` / `production-gate` / `consider`), unverified claims labeled rather than asserted, and deliberately accepted risk kept visible instead of suppressed. The dev workflow skills are the complement: their gates are real, and every one of them is held by the user — agents can never approve, ship, or merge on their own authority.
+ 
+ ## Develop
+ 
+ ```sh
+ bun install --frozen-lockfile
+ bun run check    # validate skills + test + lint + typecheck
+diff --git a/SECURITY.md b/SECURITY.md
+index eae9236..28a2cdb 100644
+--- a/SECURITY.md
++++ b/SECURITY.md
+@@ -16,11 +16,11 @@ Only the latest published minor of `@vegastack/skills` receives security fixes.
+ 
+ | Version | Supported |
+ |---|---|
+ | latest minor (see [npm](https://www.npmjs.com/package/@vegastack/skills)) | yes |
+ | older versions | no — upgrade |
+ 
+ ## Scope notes
+ 
+ - The installer makes no network calls at install time; `doctor` performs a single version check against registry.npmjs.org. Anything contradicting that is a vulnerability — report it.
+ - The bundled checksum manifest proves package-internal consistency; publisher identity is attested by npm provenance. Weaknesses in either model are in scope.
+-- Fake credentials under `skills/*/tests/fixtures/` are intentional test fixtures, not leaks (see `.gitleaks.toml`).
++- Fake credentials under any skill's `tests/fixtures/` are intentional test fixtures, not leaks (see `.gitleaks.toml`).
+diff --git a/package.json b/package.json
+index 0625165..a58358a 100644
+--- a/package.json
++++ b/package.json
+@@ -1,22 +1,23 @@
+ {
+   "name": "vegastack-skills-workspace",
+   "private": true,
+   "version": "0.0.0",
+   "packageManager": "bun@1.3.14",
+   "workspaces": [
+     "packages/*"
+   ],
+   "scripts": {
+     "build": "bun run --cwd packages/cli build",
+-    "check": "bun run validate:skill && bun run test && bun run lint && bun run typecheck",
++    "check": "bun run validate:skill && bun run validate:structure && bun run test && bun run lint && bun run typecheck",
+     "validate:skill": "node packages/cli/scripts/validate-skill.mjs",
++    "validate:structure": "node packages/cli/scripts/structure.mjs check",
+     "lint": "bun packages/cli/scripts/lint.mjs",
+     "typecheck": "bunx tsc -p packages/cli/tsconfig.json --noEmit",
+     "test": "bun test",
+     "package:cli": "bun run --cwd packages/cli pack:local"
+   },
+   "devDependencies": {
+     "@changesets/cli": "^2.31.1",
+     "@types/bun": "^1.3.14",
+     "@types/node": "24.2.0",
+     "typescript": "5.9.2"
+diff --git a/packages/cli/scripts/lib/skills.mjs b/packages/cli/scripts/lib/skills.mjs
+new file mode 100644
+index 0000000..86aafbe
+--- /dev/null
++++ b/packages/cli/scripts/lib/skills.mjs
+@@ -0,0 +1,121 @@
++// The one home for "where do authored skills live". The build (sync-skill.mjs), the skill
++// validator (validate-skill.mjs), and the structure checker (structure.mjs) all read the layout
++// from here, so the rule cannot drift between three implementations.
++//
++// Two layouts are legal and equal in standing:
++//   skills/<name>/            an ungrouped skill
++//   skills/<group>/<name>/    a skill in a group, with skills/<group>/GROUP.md beside it
++//
++// Anything deeper raises. Only invariants that would corrupt the flat bundle raise here —
++// illegal depth, duplicate skill names, a group name that also names a skill, an ungrammatical
++// group name. Documentation-level rules (GROUP.md shape, README rows, per-skill meta files)
++// belong to structure.mjs, which reports them without breaking the build.
++import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
++import { basename, join } from 'node:path'
++
++// Synchronous on purpose: validate-skill.mjs exposes a sync validateSkill() that twelve skill
++// test files import, and mixing an async discovery into it would ripple through all of them.
++
++const MAX_NAME_LENGTH = 64
++
++// The grammar shared by skill names and group names. Intersection of the agentskills.io spec and
++// every target harness: a leading lowercase letter, then lowercase letters, digits, and hyphens,
++// no leading/trailing hyphen, no consecutive hyphens.
++export function nameError(name) {
++  if (typeof name !== 'string' || name.length === 0) return 'a name is required'
++  if (name.length > MAX_NAME_LENGTH) return `name is ${name.length} characters; the maximum is ${MAX_NAME_LENGTH}`
++  if (!/^[a-z]/.test(name)) return 'name must start with a lowercase letter'
++  if (!/^[a-z0-9-]+$/.test(name)) return 'name may contain only lowercase letters, digits, and hyphens'
++  if (name.includes('--')) return 'name must not contain consecutive hyphens'
++  if (name.endsWith('-')) return 'name must not end with a hyphen'
++  return null
++}
++
++const isDirectory = (path) => existsSync(path) && statSync(path).isDirectory()
++const isSkillDir = (path) => existsSync(join(path, 'SKILL.md'))
++
++function childDirectories(path) {
++  return readdirSync(path, { withFileTypes: true })
++    .filter((entry) => entry.isDirectory())
++    .map((entry) => entry.name)
++    .sort()
++}
++
++// Every directory under skills/ is either a skill (it holds SKILL.md) or a group (it does not).
++// A group's children must all be skills; a SKILL.md below that depth is a layout error.
++function assertNoDeeperSkill(groupPath, groupName) {
++  for (const child of childDirectories(groupPath)) {
++    const path = join(groupPath, child)
++    if (isSkillDir(path)) continue
++    for (const grandchild of childDirectories(path)) {
++      if (isSkillDir(join(path, grandchild))) {
++        throw new Error(`Skill nested too deep: skills/${groupName}/${child}/${grandchild} — only skills/<name>/ and skills/<group>/<name>/ are legal`)
++      }
++    }
++    throw new Error(`Not a skill and not a legal group child: skills/${groupName}/${child} — a group directory holds only skills and its GROUP.md`)
++  }
++}
++
++export function discoverSkills(skillsRoot) {
++  const found = new Map()
++  const groupNames = []
++
++  const add = (name, path, group) => {
++    const existing = found.get(name)
++    if (existing) {
++      throw new Error(`Duplicate authored skill name "${name}": ${existing.path} and ${path} — the packaged bundle is flat, so two skills may never share a name`)
++    }
++    found.set(name, { name, path, group })
++  }
++
++  for (const entry of childDirectories(skillsRoot)) {
++    const path = join(skillsRoot, entry)
++    if (isSkillDir(path)) {
++      add(entry, path, null)
++      continue
++    }
++    const invalid = nameError(entry)
++    if (invalid) throw new Error(`Invalid group name "${entry}": ${invalid}`)
++    groupNames.push(entry)
++    assertNoDeeperSkill(path, entry)
++    for (const child of childDirectories(path)) add(child, join(path, child), entry)
++  }
++
++  // A group named like a skill makes every path-shaped reference ambiguous — README rows,
++  // packaging keys, and prose all stop being able to say which one they mean.
++  for (const group of groupNames) {
++    if (found.has(group)) {
++      throw new Error(`Group name "${group}" also names a skill at ${found.get(group).path} — group and skill names share one namespace`)
++    }
++  }
++
++  return found
++}
++
++export function discoverGroups(skillsRoot) {
++  const groups = new Map()
++  for (const entry of childDirectories(skillsRoot)) {
++    const path = join(skillsRoot, entry)
++    if (isSkillDir(path)) continue
++    groups.set(entry, { name: entry, path })
++  }
++  return groups
++}
++
++// GROUP.md is the group's contract: an H1 that is its display name, then one non-empty blurb
++// line. Both feed the root README section, so a malformed file returns null rather than a
++// half-parsed shape the README would silently inherit.
++export function readGroupDoc(groupPath) {
++  const path = join(groupPath, 'GROUP.md')
++  if (!existsSync(path) || !statSync(path).isFile()) return null
++  const lines = readFileSync(path, 'utf8').split('\n')
++  const headingIndex = lines.findIndex((line) => /^#\s+\S/.test(line))
++  if (headingIndex === -1) return null
++  const title = lines[headingIndex].replace(/^#\s+/, '').trim()
++  const blurb = lines.slice(headingIndex + 1).find((line) => line.trim() !== '')?.trim()
++  if (!title || !blurb || blurb.startsWith('#')) return null
++  return { title, blurb }
++}
++
++// The bundle directory for a skill is always its bare name, whatever its authored depth.
++export const bundleName = (skillPath) => basename(skillPath)
+diff --git a/packages/cli/scripts/structure.mjs b/packages/cli/scripts/structure.mjs
+new file mode 100644
+index 0000000..f0a3da0
+--- /dev/null
++++ b/packages/cli/scripts/structure.mjs
+@@ -0,0 +1,347 @@
++#!/usr/bin/env node
++// The repo's structure tool: it enforces and creates the shape authored skills live in.
++// skill-maintainer owns the rules; this script is the deterministic method behind them, and is
++// cited from the repo root the same way validate-skill.mjs already is.
++//
++//   node packages/cli/scripts/structure.mjs check [--json]
++//   node packages/cli/scripts/structure.mjs create-group <name> [--title T] [--blurb B] [--write] [--json]
++//
++// Division of labour: invariants that would corrupt the flat bundle (illegal depth, duplicate
++// skill names, a group named like a skill) raise inside lib/skills.mjs at build time. Everything
++// here is contract-level — GROUP.md shape, per-skill meta files, README rows and sections,
++// packaging correspondence — and is reported, never repaired. Machine-verifiable facts block;
++// judgement-level observations only warn, per the guard doctrine in dev-setup's conventions.
++//
++// Exit codes: 0 clean · 1 warnings only (or a create-group refusal) · 2 blocked · 2 usage error.
++import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, renameSync, writeFileSync } from 'node:fs'
++import { dirname, join, relative, resolve, sep } from 'node:path'
++import { fileURLToPath } from 'node:url'
++import { discoverGroups, discoverSkills, nameError, readGroupDoc } from './lib/skills.mjs'
++
++// Every skill carries these; the scaffolder writes them all, so a gap means a hand-made tree.
++const REQUIRED_SKILL_FILES = ['SKILL.md', 'README.md', 'agents/openai.yaml', 'refresh/REFRESH.md', 'refresh/sources.json']
++// Text the scaffolder leaves for a human to replace. Its presence is a smell, never a build break.
++const PLACEHOLDER = /TODO/
++
++const posix = (path) => path.split(sep).join('/')
++
++// ---------------------------------------------------------------------------
++// README parsing
++//
++// The Skills region runs from "## Skills" to the next "## " heading. Inside it, rows before the
++// first "### " belong to ungrouped skills; each "### " opens a group section whose heading text
++// must equal that group's GROUP.md title.
++// ---------------------------------------------------------------------------
++
++export function parseSkillsRegion(readmeBody) {
++  const lines = readmeBody.split('\n')
++  const start = lines.findIndex((line) => /^##\s+Skills\s*$/.test(line))
++  if (start === -1) return null
++  let end = lines.length
++  for (let i = start + 1; i < lines.length; i += 1) {
++    if (/^##\s+/.test(lines[i]) && !/^###/.test(lines[i])) { end = i; break }
++  }
++
++  const sections = [{ title: null, heading: null, rows: [], body: [] }]
++  for (const line of lines.slice(start + 1, end)) {
++    const heading = /^###\s+(.+?)\s*$/.exec(line)
++    if (heading) {
++      sections.push({ title: heading[1], heading: line, rows: [], body: [] })
++      continue
++    }
++    const section = sections[sections.length - 1]
++    section.body.push(line)
++    const row = /^\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|/.exec(line)
++    if (row) section.rows.push({ name: row[1], target: row[2].replace(/\/$/, ''), line })
++  }
++  return sections
++}
++
++// ---------------------------------------------------------------------------
++// check
++// ---------------------------------------------------------------------------
++
++export function checkStructure(repoRoot) {
++  const blocks = []
++  const warns = []
++  const root = resolve(repoRoot)
++  const skillsRoot = join(root, 'skills')
++
++  let skills
++  try {
++    skills = discoverSkills(skillsRoot)
++  } catch (error) {
++    // A layout error that would break the build is reported here rather than thrown, so one
++    // command surfaces every structural problem at once.
++    return { blocks: [error.message], warns }
++  }
++  const groups = discoverGroups(skillsRoot)
++
++  // --- groups: GROUP.md shape, and nothing loose beside the skills ---
++  const groupDocs = new Map()
++  for (const [name, group] of [...groups].sort()) {
++    const doc = readGroupDoc(group.path)
++    if (!doc) {
++      blocks.push(`skills/${name}/GROUP.md is missing or malformed — a group needs an H1 title followed by one non-empty blurb line`)
++    } else {
++      groupDocs.set(name, doc)
++      if (PLACEHOLDER.test(doc.blurb)) warns.push(`skills/${name}/GROUP.md still carries scaffolded placeholder text in its blurb`)
++    }
++    for (const entry of readdirSync(group.path, { withFileTypes: true })) {
++      if (entry.isDirectory() || entry.name === 'GROUP.md') continue
++      blocks.push(`skills/${name}/${entry.name} is not allowed — a group directory holds only skill directories and its GROUP.md`)
++    }
++    const members = [...skills.values()].filter((skill) => skill.group === name)
++    if (members.length === 1) warns.push(`group "${name}" holds a single skill (${members[0].name}) — a family of one is usually better ungrouped`)
++  }
++
++  // --- per-skill meta files ---
++  for (const skill of [...skills.values()].sort((a, b) => a.name.localeCompare(b.name))) {
++    for (const file of REQUIRED_SKILL_FILES) {
++      if (!existsSync(join(skill.path, file))) {
++        blocks.push(`${posix(relative(root, skill.path))}/${file} is missing — every skill carries ${REQUIRED_SKILL_FILES.join(', ')}`)
++      }
++    }
++  }
++
++  // --- packaging correspondence, both directions, with bare-name keys ---
++  const packagingPath = join(root, 'packages/cli/packaging.json')
++  if (!existsSync(packagingPath)) {
++    blocks.push('packages/cli/packaging.json is missing')
++  } else {
++    let packaged
++    try {
++      packaged = JSON.parse(readFileSync(packagingPath, 'utf8'))
++    } catch (error) {
++      blocks.push(`packages/cli/packaging.json does not parse: ${error.message}`)
++      packaged = null
++    }
++    if (packaged) {
++      for (const key of Object.keys(packaged).sort()) {
++        if (key.includes('/')) {
++          blocks.push(`packaging.json key "${key}" must be a bare skill name — the packaged bundle is flat, so a key never carries a group`)
++          continue
++        }
++        if (!skills.has(key)) blocks.push(`packaging.json names "${key}", which is not an authored skill`)
++      }
++      for (const name of [...skills.keys()].sort()) {
++        if (!(name in packaged)) blocks.push(`skill "${name}" has no packages/cli/packaging.json entry`)
++      }
++    }
++  }
++
++  // --- root README: one row per skill, in the section matching where it lives ---
++  const readmePath = join(root, 'README.md')
++  if (!existsSync(readmePath)) {
++    blocks.push('README.md is missing')
++    return { blocks, warns }
++  }
++  const sections = parseSkillsRegion(readFileSync(readmePath, 'utf8'))
++  if (!sections) {
++    blocks.push('README.md has no "## Skills" section')
++    return { blocks, warns }
++  }
++
++  const titleToGroup = new Map([...groupDocs].map(([name, doc]) => [doc.title, name]))
++  const rowSection = new Map()
++  for (const section of sections) {
++    if (section.title !== null) {
++      const group = titleToGroup.get(section.title)
++      if (!group) {
++        blocks.push(`README.md has a "### ${section.title}" section under Skills that matches no group's GROUP.md title`)
++      } else {
++        const doc = groupDocs.get(group)
++        if (!section.body.some((line) => line.trim() === doc.blurb)) {
++          blocks.push(`README.md section "### ${section.title}" does not carry skills/${group}/GROUP.md's blurb line`)
++        }
++        if (section.body.some((line) => PLACEHOLDER.test(line) && !line.startsWith('|'))) {
++          warns.push(`README.md section "### ${section.title}" still carries scaffolded placeholder text`)
++        }
++      }
++    }
++    for (const row of section.rows) {
++      if (rowSection.has(row.name)) blocks.push(`README.md lists "${row.name}" more than once under Skills`)
++      rowSection.set(row.name, { section, row })
++      if (PLACEHOLDER.test(row.line)) warns.push(`README.md row for "${row.name}" still carries a scaffolded placeholder description`)
++    }
++  }
++
++  for (const name of rowSection.keys()) {
++    if (!skills.has(name)) blocks.push(`README.md lists "${name}" under Skills, but no such skill is authored`)
++  }
++  for (const skill of [...skills.values()].sort((a, b) => a.name.localeCompare(b.name))) {
++    const entry = rowSection.get(skill.name)
++    if (!entry) {
++      blocks.push(`skill "${skill.name}" has no row in README.md's Skills section`)
++      continue
++    }
++    const expectedTarget = `skills/${skill.group ? `${skill.group}/` : ''}${skill.name}`
++    if (entry.row.target !== expectedTarget) {
++      blocks.push(`README.md row for "${skill.name}" links ${entry.row.target}/ but the skill lives at ${expectedTarget}/`)
++    }
++    const expectedTitle = skill.group ? groupDocs.get(skill.group)?.title ?? null : null
++    if ((entry.section.title ?? null) !== expectedTitle) {
++      const where = expectedTitle ? `the "### ${expectedTitle}" section` : 'the ungrouped table above the group sections'
++      const found = entry.section.title ? `"### ${entry.section.title}"` : 'the ungrouped table'
++      blocks.push(`README.md row for "${skill.name}" sits in ${found} but belongs in ${where}`)
++    }
++  }
++
++  return { blocks, warns }
++}
++
++// ---------------------------------------------------------------------------
++// create-group
++// ---------------------------------------------------------------------------
++
++function writeAtomic(path, body) {
++  const staging = `${path}.structure-tmp`
++  writeFileSync(staging, body)
++  renameSync(staging, path)
++}
++
++function entryAt(path) {
++  try {
++    return lstatSync(path)
++  } catch {
++    return null
++  }
++}
++
++// Inserts the group's section at the end of the Skills region's tables: after the last existing
++// group section, or after the ungrouped table when this is the first group. The install snippet
++// that follows the tables stays where it is.
++export function insertGroupSection(readmeBody, title, blurb) {
++  const lines = readmeBody.split('\n')
++  const start = lines.findIndex((line) => /^##\s+Skills\s*$/.test(line))
++  if (start === -1) return null
++  let end = lines.length
++  for (let i = start + 1; i < lines.length; i += 1) {
++    if (/^##\s+/.test(lines[i]) && !/^###/.test(lines[i])) { end = i; break }
++  }
++  let lastRow = -1
++  for (let i = start + 1; i < end; i += 1) if (lines[i].startsWith('|')) lastRow = i
++  if (lastRow === -1) return null
++  const section = [`### ${title}`, '', blurb, '', '| Skill | What it does | Docs |', '|---|---|---|', '']
++  lines.splice(lastRow + 1, 0, '', ...section.slice(0, -1))
++  return lines.join('\n')
++}
++
++export function createGroup({ name, repoRoot, title, blurb, write = false }) {
++  const invalid = nameError(name)
++  if (invalid) throw new Error(`Invalid group name ${JSON.stringify(name ?? null)}: ${invalid}`)
++  if (!repoRoot) throw new Error('repoRoot is required')
++  if (!title || !blurb) throw new Error('a group needs both a --title and a --blurb')
++  const root = resolve(repoRoot)
++  const skillsRoot = join(root, 'skills')
++  const skillsEntry = entryAt(skillsRoot)
++  if (!skillsEntry || !skillsEntry.isDirectory()) {
++    throw new Error(`${skillsRoot} is not a real directory — point --dir at the vegastack-skills repo root`)
++  }
++  const target = join(skillsRoot, name)
++  const existing = entryAt(target)
++  // lstat does not follow symlinks, so a symlinked group path fails isDirectory() and refuses.
++  if (existing && !existing.isDirectory()) throw new Error(`Refusing to create a group at ${target}: it exists and is not a directory`)
++  if (existing && existsSync(join(target, 'SKILL.md'))) throw new Error(`Refusing to create a group at ${target}: a skill already lives there`)
++
++  const wiring = []
++  const groupDocPath = join(target, 'GROUP.md')
++  const docExists = Boolean(entryAt(groupDocPath))
++  const readmePath = join(root, 'README.md')
++  const readmeBody = entryAt(readmePath)?.isFile() ? readFileSync(readmePath, 'utf8') : null
++  const sectionExists = readmeBody !== null && (parseSkillsRegion(readmeBody) ?? []).some((section) => section.title === title)
++
++  if (!write) {
++    wiring.push({ step: 'GROUP.md', status: docExists ? 'skipped: already exists' : 'planned' })
++    wiring.push({ step: 'root README section', status: readmeBody === null ? 'skipped: README.md not found' : sectionExists ? 'skipped: already exists' : 'planned' })
++    return { name, path: target, files: ['GROUP.md'], wrote: false, wiring }
++  }
++
++  if (docExists) {
++    wiring.push({ step: 'GROUP.md', status: 'skipped: already exists' })
++  } else {
++    mkdirSync(target, { recursive: true })
++    writeAtomic(groupDocPath, `# ${title}\n\n${blurb}\n`)
++    wiring.push({ step: 'GROUP.md', status: 'done' })
++  }
++
++  if (readmeBody === null) {
++    wiring.push({ step: 'root README section', status: 'skipped: README.md not found' })
++  } else if (sectionExists) {
++    wiring.push({ step: 'root README section', status: 'skipped: already exists' })
++  } else {
++    const updated = insertGroupSection(readmeBody, title, blurb)
++    if (updated === null) {
++      wiring.push({ step: 'root README section', status: 'skipped: Skills table not found' })
++    } else {
++      writeAtomic(readmePath, updated)
++      wiring.push({ step: 'root README section', status: 'done' })
++    }
++  }
++
++  return { name, path: target, files: ['GROUP.md'], wrote: true, wiring }
++}
++
++// ---------------------------------------------------------------------------
++// CLI
++// ---------------------------------------------------------------------------
++
++function parseArguments(argv) {
++  const rest = [...argv]
++  const command = rest.shift()
++  const options = { command, name: undefined, title: undefined, blurb: undefined, write: false, json: false, dir: undefined }
++  while (rest.length) {
++    const flag = rest.shift()
++    if (flag === '--title') options.title = rest.shift()
++    else if (flag === '--blurb') options.blurb = rest.shift()
++    else if (flag === '--dir') options.dir = rest.shift()
++    else if (flag === '--write') options.write = true
++    else if (flag === '--json') options.json = true
++    else if (flag.startsWith('-')) throw new Error(`Unknown option: ${flag}`)
++    else if (options.name === undefined) options.name = flag
++    else throw new Error(`Unexpected argument: ${flag}`)
++  }
++  if (!['check', 'create-group'].includes(options.command)) {
++    throw new Error('Usage: structure.mjs <check|create-group> [name] [--title T] [--blurb B] [--write] [--json] [--dir PATH]')
++  }
++  if (options.command === 'create-group' && !options.name) throw new Error('create-group requires a group name')
++  return options
++}
++
++const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
++if (invokedDirectly) {
++  let options
++  try {
++    options = parseArguments(process.argv.slice(2))
++  } catch (error) {
++    console.error(String(error.message ?? error))
++    process.exit(2)
++  }
++  const repoRoot = options.dir ? resolve(options.dir) : resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
++
++  if (options.command === 'check') {
++    const { blocks, warns } = checkStructure(repoRoot)
++    if (options.json) {
++      console.log(JSON.stringify({ guard: 'structure', ok: blocks.length === 0, blocks, warns }, null, 2))
++    } else {
++      for (const block of blocks) console.error(`block: ${block}`)
++      for (const warn of warns) console.warn(`warn:  ${warn}`)
++      if (!blocks.length && !warns.length) console.log('structure: ok')
++    }
++    process.exit(blocks.length ? 2 : warns.length ? 1 : 0)
++  }
++
++  try {
++    const result = createGroup({ ...options, repoRoot })
++    if (options.json) {
++      console.log(JSON.stringify(result, null, 2))
++    } else {
++      console.log(result.wrote ? `Created group ${result.path}` : `Dry run - pass --write to create ${result.path}`)
++      for (const { step, status } of result.wiring) console.log(`  - ${step}: ${status}`)
++    }
++    process.exit(0)
++  } catch (error) {
++    console.error(String(error.message ?? error))
++    process.exit(1)
++  }
++}
+diff --git a/packages/cli/scripts/sync-skill.mjs b/packages/cli/scripts/sync-skill.mjs
+index f471ac9..7f6d8b8 100644
+--- a/packages/cli/scripts/sync-skill.mjs
++++ b/packages/cli/scripts/sync-skill.mjs
+@@ -1,18 +1,22 @@
+ import { copyFile, lstat, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+ import { createHash } from 'node:crypto'
+ import { dirname, join, relative, resolve, sep } from 'node:path'
+ import { fileURLToPath } from 'node:url'
++import { discoverSkills } from './lib/skills.mjs'
+ 
+ const here = dirname(fileURLToPath(import.meta.url))
+-const packageRoot = resolve(here, '..')
+-const skillsRoot = resolve(packageRoot, '../../skills')
++// VSK_REPO_ROOT lets the tests drive this script against a miniature repo; unset, it resolves
++// the real checkout exactly as before.
++const repoRoot = process.env.VSK_REPO_ROOT ? resolve(process.env.VSK_REPO_ROOT) : resolve(here, '../../..')
++const packageRoot = join(repoRoot, 'packages/cli')
++const skillsRoot = join(repoRoot, 'skills')
+ const bundleRoot = join(packageRoot, 'skill')
+ 
+ // Explicit per-skill packaging allowlists live in packaging.json (data, not code) so the
+ // skillify scaffolder can wire a new skill automatically. Anything authored that is neither
+ // listed there nor in unpackagedPrefixes fails the build loudly — a forgotten entry must never
+ // ship a silently incomplete skill. README.md is repo-side only (its relative links target repo
+ // paths); tests are never packaged.
+ const unpackagedPrefixes = ['tests/', 'README.md']
+ const packagedSkills = JSON.parse(await readFile(join(packageRoot, 'packaging.json'), 'utf8'))
+ 
+@@ -23,54 +27,59 @@ async function files(root) {
+       const path = join(directory, entry.name)
+       if (entry.isSymbolicLink()) throw new Error(`Refusing canonical skill symlink: ${path}`)
+       if (entry.isDirectory()) await walk(path)
+       else if (entry.isFile()) output.push(path)
+     }
+   }
+   await walk(root)
+   return output.sort()
+ }
+ 
+-// Every authored skill must have a packaging allowlist, and vice versa.
+-const authoredSkills = (await readdir(skillsRoot, { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
++// Every authored skill must have a packaging allowlist, and vice versa. Where the skills live —
++// skills/<name>/ or skills/<group>/<name>/ — is discovery's business, not this script's; the
++// bundle it produces is flat either way.
++const skillPaths = discoverSkills(skillsRoot)
++const authoredSkills = [...skillPaths.keys()].sort()
+ const listedSkills = Object.keys(packagedSkills).sort()
+ const unlistedSkills = authoredSkills.filter(name => !listedSkills.includes(name))
+ if (unlistedSkills.length) throw new Error(`Authored skills without an entry in packages/cli/packaging.json: ${unlistedSkills.join(', ')}`)
+ const missingSkills = listedSkills.filter(name => !authoredSkills.includes(name))
+ if (missingSkills.length) throw new Error(`Packaging allowlist names skills that do not exist: ${missingSkills.join(', ')}`)
+ 
+ await rm(bundleRoot, { recursive: true, force: true })
+ const manifest = { schemaVersion: 2, skills: {} }
+ 
+ for (const skillName of listedSkills) {
+-  const source = join(skillsRoot, skillName)
++  const source = skillPaths.get(skillName).path
+   const destination = join(bundleRoot, skillName)
+   const runtimeFiles = packagedSkills[skillName]
+ 
+   // An entry may end in "@<source-skill>": the file is authored once in that
+   // skill and duplicated into this one at packaging time, so standalone
+   // installs stay self-contained (e.g. dev-setup's conventions.md shipping
+   // with every dev-family skill). The authored tree keeps a single home.
+   const entries = runtimeFiles.map(raw => {
+     const at = raw.lastIndexOf('@')
+     return at > 0 ? { key: raw.slice(0, at), sourceSkill: raw.slice(at + 1) } : { key: raw, sourceSkill: null }
+   })
+ 
+   const authored = (await files(source)).map(path => relative(source, path).split(sep).join('/'))
+   const allowlisted = new Set(entries.filter(e => !e.sourceSkill).map(e => e.key))
+   const unlisted = authored.filter(key => !allowlisted.has(key) && !unpackagedPrefixes.some(prefix => key.startsWith(prefix)))
+   if (unlisted.length) throw new Error(`${skillName}: authored files neither allowlisted for packaging nor deliberately unpackaged: ${unlisted.join(', ')}`)
+   const missing = entries.filter(e => !e.sourceSkill).map(e => e.key).filter(key => !authored.includes(key))
+   if (missing.length) throw new Error(`${skillName}: allowlisted runtime files missing from the authored skill: ${missing.join(', ')}`)
+ 
+   for (const { key, sourceSkill } of entries) {
+-    const from = sourceSkill ? join(skillsRoot, sourceSkill, key) : join(source, key)
++    const sourceRoot = sourceSkill ? skillPaths.get(sourceSkill)?.path : source
++    if (!sourceRoot) throw new Error(`${skillName}: allowlist entry names an unknown source skill: ${key}@${sourceSkill}`)
++    const from = join(sourceRoot, key)
+     if (!(await lstat(from)).isFile()) throw new Error(`${skillName}: runtime allowlist entry is not a regular file: ${sourceSkill ? `${key}@${sourceSkill}` : key}`)
+     const to = join(destination, key)
+     await mkdir(dirname(to), { recursive: true })
+     await copyFile(from, to)
+   }
+ 
+   const skillManifest = { files: {} }
+   for (const path of await files(destination)) {
+     const key = relative(destination, path).split(sep).join('/')
+     skillManifest.files[key] = createHash('sha256').update(await readFile(path)).digest('hex')
+diff --git a/packages/cli/scripts/validate-skill.mjs b/packages/cli/scripts/validate-skill.mjs
+index 8980f1e..847a581 100644
+--- a/packages/cli/scripts/validate-skill.mjs
++++ b/packages/cli/scripts/validate-skill.mjs
+@@ -1,15 +1,16 @@
+ #!/usr/bin/env node
+ // Structural validation of authored skill trees (JS port of the skill-creator
+ // quick_validate checks, so `check` has no machine-local python dependency).
+ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+ import { basename, join, resolve, dirname } from 'node:path';
++import { discoverSkills } from './lib/skills.mjs';
+ import { fileURLToPath } from 'node:url';
+ 
+ // The agentskills.io spec's six fields are the ceiling (claude.ai packaging hard-errors on
+ // anything else); the tri-harness portable floor is name + description.
+ const MAX_NAME_LENGTH = 64;
+ const MAX_DESCRIPTION_LENGTH = 1024;
+ const ALLOWED_KEYS = new Set(['name', 'description', 'license', 'compatibility', 'allowed-tools', 'metadata']);
+ 
+ // Frontmatter in our skills is single-line "key: value" scalars only; reject anything fancier
+ // rather than mis-parse it.
+@@ -124,25 +125,25 @@ function findBrokenLinks(skillDir) {
+     const body = readFileSync(path, 'utf8');
+     for (const match of body.matchAll(/\]\(([^)\s]+)\)/g)) {
+       const target = match[1].split('#')[0];
+       if (target === '' || /^[a-z][a-z0-9+.-]*:/.test(target)) continue;
+       if (!existsSync(join(dirname(path), target))) broken.push(`${file} -> ${target}`);
+     }
+   }
+   return broken;
+ }
+ 
+-function discoverSkillDirs(skillsRoot) {
++// Skills live at skills/<name>/ or skills/<group>/<name>/; discovery is shared with the build
++// and the structure checker so the layout rule has one home.
++export function discoverSkillDirs(skillsRoot) {
+   if (!existsSync(skillsRoot)) return [];
+-  return readdirSync(skillsRoot)
+-    .map((entry) => join(skillsRoot, entry))
+-    .filter((candidate) => statSync(candidate).isDirectory());
++  return [...discoverSkills(skillsRoot).values()].map((skill) => skill.path);
+ }
+ 
+ const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+ if (invokedDirectly) {
+   const args = process.argv.slice(2);
+   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+   const targets = args.length > 0 ? args.map((arg) => resolve(arg)) : discoverSkillDirs(join(repoRoot, 'skills'));
+   if (targets.length === 0) {
+     console.error('validate-skill: no skill directories found');
+     process.exit(1);
+diff --git a/packages/cli/test/skills-lib.test.ts b/packages/cli/test/skills-lib.test.ts
+new file mode 100644
+index 0000000..551e5ec
+--- /dev/null
++++ b/packages/cli/test/skills-lib.test.ts
+@@ -0,0 +1,120 @@
++import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
++import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
++import { discoverGroups, discoverSkills, nameError, readGroupDoc } from '../scripts/lib/skills.mjs'
++
++let root = ''
++const skill = (path: string, name: string) => {
++  mkdirSync(path, { recursive: true })
++  writeFileSync(join(path, 'SKILL.md'), `---\nname: ${name}\ndescription: d\n---\n`)
++}
++const group = (path: string, title: string) => {
++  mkdirSync(path, { recursive: true })
++  writeFileSync(join(path, 'GROUP.md'), `# ${title}\n\nA blurb.\n`)
++}
++
++beforeAll(() => { root = mkdtempSync(join(tmpdir(), 'skills-lib-')) })
++afterAll(() => { rmSync(root, { recursive: true, force: true }) })
++
++const tree = (label: string) => {
++  const skills = join(root, label, 'skills')
++  mkdirSync(skills, { recursive: true })
++  return skills
++}
++
++describe('discoverSkills', () => {
++  test('finds ungrouped and grouped skills in one mixed tree', () => {
++    const skills = tree('mixed')
++    skill(join(skills, 'solo'), 'solo')
++    group(join(skills, 'fam'), 'Fam')
++    skill(join(skills, 'fam', 'member'), 'member')
++    const found = discoverSkills(skills)
++    expect([...found.keys()].sort()).toEqual(['member', 'solo'])
++    expect(found.get('solo')!.group).toBeNull()
++    expect(found.get('member')!.group).toBe('fam')
++    expect(found.get('member')!.path).toBe(join(skills, 'fam', 'member'))
++  })
++
++  test('an ungrouped-only tree needs no groups at all', () => {
++    const skills = tree('flat')
++    skill(join(skills, 'one'), 'one')
++    skill(join(skills, 'two'), 'two')
++    expect([...discoverSkills(skills).keys()].sort()).toEqual(['one', 'two'])
++    expect(discoverGroups(skills).size).toBe(0)
++  })
++
++  test('raises on a skill nested two levels deep', () => {
++    const skills = tree('deep')
++    group(join(skills, 'a'), 'A')
++    skill(join(skills, 'a', 'b', 'c'), 'c')
++    expect(() => discoverSkills(skills)).toThrow(/nested too deep/i)
++  })
++
++  test('raises when the same skill name appears twice', () => {
++    const skills = tree('dupe')
++    skill(join(skills, 'twin'), 'twin')
++    group(join(skills, 'fam'), 'Fam')
++    skill(join(skills, 'fam', 'twin'), 'twin')
++    expect(() => discoverSkills(skills)).toThrow(/duplicate/i)
++  })
++
++  test('raises when a group name equals a skill name living elsewhere', () => {
++    const skills = tree('collide')
++    group(join(skills, 'foo'), 'Foo')
++    skill(join(skills, 'foo', 'inner'), 'inner')
++    group(join(skills, 'bar'), 'Bar')
++    skill(join(skills, 'bar', 'foo'), 'foo')
++    expect(() => discoverSkills(skills)).toThrow(/group name .*foo.* also names a skill/i)
++  })
++
++  test('raises on a group name that breaks the shared grammar', () => {
++    const skills = tree('badname')
++    group(join(skills, 'Bad--Group'), 'B')
++    skill(join(skills, 'Bad--Group', 'inner'), 'inner')
++    expect(() => discoverSkills(skills)).toThrow(/group name/i)
++  })
++})
++
++describe('discoverGroups', () => {
++  test('returns every group directory in a mixed tree, and none of the skills', () => {
++    const skills = tree('groups')
++    skill(join(skills, 'solo'), 'solo')
++    group(join(skills, 'fam'), 'Fam')
++    skill(join(skills, 'fam', 'member'), 'member')
++    const groups = discoverGroups(skills)
++    expect([...groups.keys()]).toEqual(['fam'])
++    expect(groups.get('fam')!.path).toBe(join(skills, 'fam'))
++  })
++})
++
++describe('readGroupDoc', () => {
++  test('reads the H1 title and the blurb line', () => {
++    const skills = tree('doc')
++    group(join(skills, 'fam'), 'Dev workflow')
++    expect(readGroupDoc(join(skills, 'fam'))).toEqual({ title: 'Dev workflow', blurb: 'A blurb.' })
++  })
++
++  test('returns null for a GROUP.md with no blurb under the heading', () => {
++    const skills = tree('noblurb')
++    mkdirSync(join(skills, 'fam'), { recursive: true })
++    writeFileSync(join(skills, 'fam', 'GROUP.md'), '# Only a title\n')
++    expect(readGroupDoc(join(skills, 'fam'))).toBeNull()
++  })
++
++  test('returns null when GROUP.md is absent', () => {
++    const skills = tree('nodoc')
++    mkdirSync(join(skills, 'fam'), { recursive: true })
++    expect(readGroupDoc(join(skills, 'fam'))).toBeNull()
++  })
++})
++
++describe('nameError', () => {
++  test('accepts a legal name and rejects each grammar break', () => {
++    expect(nameError('dev-skills')).toBeNull()
++    expect(nameError('Dev')).toContain('lowercase')
++    expect(nameError('a--b')).toContain('consecutive')
++    expect(nameError('a-')).toContain('hyphen')
++    expect(nameError('1abc')).toContain('lowercase letter')
++  })
++})
+diff --git a/packages/cli/test/structure-check.test.ts b/packages/cli/test/structure-check.test.ts
+new file mode 100644
+index 0000000..a37bc35
+--- /dev/null
++++ b/packages/cli/test/structure-check.test.ts
+@@ -0,0 +1,202 @@
++import { describe, expect, test } from 'bun:test'
++import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
++import { checkStructure } from '../scripts/structure.mjs'
++
++const UNGROUPED_ROW = '| [solo](skills/solo/) | s | [SKILL.md](skills/solo/SKILL.md) |'
++
++function readme(sections: { ungrouped: string[]; groups?: { title: string; blurb: string; rows: string[] }[] }) {
++  const lines = ['## Skills', '', '| Skill | What it does | Docs |', '|---|---|---|', ...sections.ungrouped, '']
++  for (const group of sections.groups ?? []) {
++    lines.push(`### ${group.title}`, '', group.blurb, '', '| Skill | What it does | Docs |', '|---|---|---|', ...group.rows, '')
++  }
++  lines.push('Install any skill by name:', '', '## Repository structure', '')
++  return lines.join('\n')
++}
++
++// A minimal repo that satisfies every rule; each case perturbs exactly one thing.
++function fixture(mutate: (paths: { root: string; skills: string }) => void = () => {}) {
++  const root = mkdtempSync(join(tmpdir(), 'structure-'))
++  const skills = join(root, 'skills')
++  mkdirSync(join(root, 'packages/cli'), { recursive: true })
++  const meta = (dir: string, name: string) => {
++    mkdirSync(join(dir, 'agents'), { recursive: true })
++    mkdirSync(join(dir, 'refresh'), { recursive: true })
++    writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: d\n---\n`)
++    writeFileSync(join(dir, 'README.md'), `# ${name}\n`)
++    writeFileSync(join(dir, 'agents/openai.yaml'), 'name: x\n')
++    writeFileSync(join(dir, 'refresh/REFRESH.md'), '# r\n')
++    writeFileSync(join(dir, 'refresh/sources.json'), '{"sources":[]}\n')
++  }
++  meta(join(skills, 'solo'), 'solo')
++  mkdirSync(join(skills, 'fam'), { recursive: true })
++  writeFileSync(join(skills, 'fam', 'GROUP.md'), '# Fam\n\nThe fam blurb.\n')
++  meta(join(skills, 'fam', 'one'), 'one')
++  meta(join(skills, 'fam', 'two'), 'two')
++  writeFileSync(
++    join(root, 'packages/cli/packaging.json'),
++    JSON.stringify({ solo: ['SKILL.md'], one: ['SKILL.md'], two: ['SKILL.md'] }, null, 2),
++  )
++  writeFileSync(join(root, 'README.md'), readme({
++    ungrouped: [UNGROUPED_ROW],
++    groups: [{
++      title: 'Fam',
++      blurb: 'The fam blurb.',
++      rows: [
++        '| [one](skills/fam/one/) | o | [SKILL.md](skills/fam/one/SKILL.md) |',
++        '| [two](skills/fam/two/) | t | [SKILL.md](skills/fam/two/SKILL.md) |',
++      ],
++    }],
++  }))
++  mutate({ root, skills })
++  return root
++}
++
++const clean = (root: string) => rmSync(root, { recursive: true, force: true })
++const rewriteReadme = (root: string, edit: (body: string) => string) =>
++  writeFileSync(join(root, 'README.md'), edit(readFileSync(join(root, 'README.md'), 'utf8')))
++const setPackaging = (root: string, value: Record<string, string[]>) =>
++  writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify(value, null, 2))
++
++describe('checkStructure', () => {
++  test('a correct mixed tree passes with no blocks and no warnings', () => {
++    const root = fixture()
++    expect(checkStructure(root)).toEqual({ blocks: [], warns: [] })
++    clean(root)
++  })
++
++  test('a tree with only ungrouped skills and no groups passes', () => {
++    const root = fixture(({ root, skills }) => {
++      rmSync(join(skills, 'fam'), { recursive: true, force: true })
++      setPackaging(root, { solo: ['SKILL.md'] })
++      writeFileSync(join(root, 'README.md'), readme({ ungrouped: [UNGROUPED_ROW] }))
++    })
++    expect(checkStructure(root)).toEqual({ blocks: [], warns: [] })
++    clean(root)
++  })
++
++  test('blocks a group with no GROUP.md', () => {
++    const root = fixture(({ skills }) => rmSync(join(skills, 'fam', 'GROUP.md')))
++    expect(checkStructure(root).blocks.join()).toMatch(/GROUP\.md/i)
++    clean(root)
++  })
++
++  test('blocks a GROUP.md with a title but no blurb', () => {
++    const root = fixture(({ skills }) => writeFileSync(join(skills, 'fam', 'GROUP.md'), '# Fam\n'))
++    expect(checkStructure(root).blocks.join()).toMatch(/GROUP\.md/i)
++    clean(root)
++  })
++
++  test('blocks a GROUP.md whose title does not match its README section heading', () => {
++    const root = fixture(({ skills }) => writeFileSync(join(skills, 'fam', 'GROUP.md'), '# Other\n\nThe fam blurb.\n'))
++    expect(checkStructure(root).blocks.join()).toMatch(/section/i)
++    clean(root)
++  })
++
++  test('blocks a README section that names no real group', () => {
++    const root = fixture(({ root }) => rewriteReadme(root, body => body.replace('### Fam', '### Fam\n\nGhost blurb.\n\n### Ghost')))
++    expect(checkStructure(root).blocks.join()).toMatch(/ghost/i)
++    clean(root)
++  })
++
++  test('blocks a stray file sitting inside a group directory', () => {
++    const root = fixture(({ skills }) => writeFileSync(join(skills, 'fam', 'notes.md'), 'x\n'))
++    expect(checkStructure(root).blocks.join()).toMatch(/notes\.md/)
++    clean(root)
++  })
++
++  test('blocks a skill missing any required meta file, grouped or ungrouped', () => {
++    for (const target of [['solo'], ['fam', 'one']]) {
++      const root = fixture(({ skills }) => rmSync(join(skills, ...target, 'agents/openai.yaml')))
++      expect(checkStructure(root).blocks.join()).toMatch(/openai\.yaml/)
++      clean(root)
++    }
++  })
++
++  test('blocks a skill with no packaging entry and an entry with no skill', () => {
++    const missing = fixture(({ root }) => setPackaging(root, { solo: ['SKILL.md'], one: ['SKILL.md'] }))
++    expect(checkStructure(missing).blocks.join()).toMatch(/two/)
++    clean(missing)
++    const extra = fixture(({ root }) =>
++      setPackaging(root, { solo: ['SKILL.md'], one: ['SKILL.md'], two: ['SKILL.md'], ghost: ['SKILL.md'] }))
++    expect(checkStructure(extra).blocks.join()).toMatch(/ghost/)
++    clean(extra)
++  })
++
++  test('blocks a group-qualified packaging key', () => {
++    const root = fixture(({ root }) =>
++      setPackaging(root, { solo: ['SKILL.md'], 'fam/one': ['SKILL.md'], two: ['SKILL.md'] }))
++    expect(checkStructure(root).blocks.join()).toMatch(/bare skill name/i)
++    clean(root)
++  })
++
++  test('blocks a README row whose link path is not where the skill actually lives', () => {
++    const root = fixture(({ root }) => rewriteReadme(root, body => body.replaceAll('skills/fam/one/', 'skills/one/')))
++    expect(checkStructure(root).blocks.length).toBeGreaterThan(0)
++    clean(root)
++  })
++
++  test('blocks a grouped skill whose row sits in the ungrouped table', () => {
++    const root = fixture(({ root }) => rewriteReadme(root, body => {
++      const row = '| [two](skills/fam/two/) | t | [SKILL.md](skills/fam/two/SKILL.md) |'
++      return body.replace(`${row}\n`, '').replace(UNGROUPED_ROW, `${UNGROUPED_ROW}\n${row}`)
++    }))
++    expect(checkStructure(root).blocks.join()).toMatch(/section/i)
++    clean(root)
++  })
++
++  test('blocks an ungrouped skill whose row sits in a group section', () => {
++    const root = fixture(({ root }) => rewriteReadme(root, body => body
++      .replace(`${UNGROUPED_ROW}\n`, '')
++      .replace('| [one](skills/fam/one/) | o | [SKILL.md](skills/fam/one/SKILL.md) |', `${UNGROUPED_ROW}\n| [one](skills/fam/one/) | o | [SKILL.md](skills/fam/one/SKILL.md) |`)))
++    expect(checkStructure(root).blocks.join()).toMatch(/section/i)
++    clean(root)
++  })
++
++  test('blocks a skill with no README row at all', () => {
++    const root = fixture(({ root }) => rewriteReadme(root, body => body.replace(`${UNGROUPED_ROW}\n`, '')))
++    expect(checkStructure(root).blocks.join()).toMatch(/solo/)
++    clean(root)
++  })
++
++  test('blocks a README row naming a skill that does not exist', () => {
++    const root = fixture(({ root }) => rewriteReadme(root, body =>
++      body.replace(UNGROUPED_ROW, `${UNGROUPED_ROW}\n| [phantom](skills/phantom/) | p | [SKILL.md](skills/phantom/SKILL.md) |`)))
++    expect(checkStructure(root).blocks.join()).toMatch(/phantom/)
++    clean(root)
++  })
++
++  test('turns a layout error that would break the build into a block, not a crash', () => {
++    const root = fixture(({ skills }) => {
++      mkdirSync(join(skills, 'fam', 'nested', 'deep'), { recursive: true })
++      writeFileSync(join(skills, 'fam', 'nested', 'deep', 'SKILL.md'), '---\nname: deep\ndescription: d\n---\n')
++    })
++    const result = checkStructure(root)
++    expect(result.blocks.join()).toMatch(/nested too deep/i)
++    clean(root)
++  })
++
++  test('warns without blocking on a group holding a single skill', () => {
++    const root = fixture(({ root, skills }) => {
++      rmSync(join(skills, 'fam', 'two'), { recursive: true, force: true })
++      setPackaging(root, { solo: ['SKILL.md'], one: ['SKILL.md'] })
++      rewriteReadme(root, body => body.replace(/^\| \[two\].*\n/m, ''))
++    })
++    const result = checkStructure(root)
++    expect(result.blocks).toEqual([])
++    expect(result.warns.join()).toMatch(/single skill/i)
++    clean(root)
++  })
++
++  test('warns without blocking on scaffolded placeholder text left in a row or a blurb', () => {
++    const root = fixture(({ root, skills }) => {
++      writeFileSync(join(skills, 'fam', 'GROUP.md'), '# Fam\n\nTODO: one-line description\n')
++      rewriteReadme(root, body => body.replace('The fam blurb.', 'TODO: one-line description'))
++    })
++    const result = checkStructure(root)
++    expect(result.blocks).toEqual([])
++    expect(result.warns.join()).toMatch(/placeholder/i)
++    clean(root)
++  })
++})
+diff --git a/packages/cli/test/structure-create-group.test.ts b/packages/cli/test/structure-create-group.test.ts
+new file mode 100644
+index 0000000..2f13b52
+--- /dev/null
++++ b/packages/cli/test/structure-create-group.test.ts
+@@ -0,0 +1,121 @@
++import { describe, expect, test } from 'bun:test'
++import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
++import { checkStructure, createGroup } from '../scripts/structure.mjs'
++
++function repo() {
++  const root = mkdtempSync(join(tmpdir(), 'create-group-'))
++  mkdirSync(join(root, 'skills'), { recursive: true })
++  writeFileSync(join(root, 'README.md'), [
++    '## Skills', '',
++    '| Skill | What it does | Docs |', '|---|---|---|',
++    '| [solo](skills/solo/) | s | [SKILL.md](skills/solo/SKILL.md) |', '',
++    'Install any skill by name:', '',
++    '## Repository structure', '',
++  ].join('\n'))
++  return root
++}
++const clean = (root: string) => rmSync(root, { recursive: true, force: true })
++
++describe('createGroup', () => {
++  test('dry run reports the plan and writes nothing', () => {
++    const root = repo()
++    const result = createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.' })
++    expect(result.wrote).toBe(false)
++    expect(result.files).toContain('GROUP.md')
++    expect(result.wiring.map(w => w.status)).toEqual(['planned', 'planned'])
++    expect(existsSync(join(root, 'skills/fam'))).toBe(false)
++    expect(readFileSync(join(root, 'README.md'), 'utf8')).not.toContain('### Fam')
++    clean(root)
++  })
++
++  test('--write creates GROUP.md and the README section above the install snippet', () => {
++    const root = repo()
++    createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.', write: true })
++    expect(readFileSync(join(root, 'skills/fam/GROUP.md'), 'utf8')).toBe('# Fam\n\nThe blurb.\n')
++    const readme = readFileSync(join(root, 'README.md'), 'utf8')
++    expect(readme).toContain('### Fam')
++    expect(readme).toContain('The blurb.')
++    expect(readme.indexOf('### Fam')).toBeLessThan(readme.indexOf('Install any skill by name:'))
++    expect(readme.indexOf('| [solo](skills/solo/) |')).toBeLessThan(readme.indexOf('### Fam'))
++    clean(root)
++  })
++
++  test('a second group lands after the first, not inside it', () => {
++    const root = repo()
++    createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'First blurb.', write: true })
++    createGroup({ name: 'kin', repoRoot: root, title: 'Kin', blurb: 'Second blurb.', write: true })
++    const readme = readFileSync(join(root, 'README.md'), 'utf8')
++    expect(readme.indexOf('### Fam')).toBeLessThan(readme.indexOf('### Kin'))
++    expect(readme.indexOf('### Kin')).toBeLessThan(readme.indexOf('Install any skill by name:'))
++    clean(root)
++  })
++
++  test('a second run is idempotent and reports it', () => {
++    const root = repo()
++    createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.', write: true })
++    const again = createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.', write: true })
++    expect(again.wiring.map(w => w.status).join()).toMatch(/already exists/)
++    expect(readFileSync(join(root, 'README.md'), 'utf8').match(/### Fam/g)).toHaveLength(1)
++    clean(root)
++  })
++
++  test('refuses an invalid group name before touching the filesystem', () => {
++    const root = repo()
++    expect(() => createGroup({ name: 'Bad--Name', repoRoot: root, title: 'B', blurb: 'b', write: true })).toThrow(/name/i)
++    expect(existsSync(join(root, 'skills/Bad--Name'))).toBe(false)
++    clean(root)
++  })
++
++  test('refuses a group with no title or no blurb', () => {
++    const root = repo()
++    expect(() => createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: '', write: true })).toThrow(/blurb/i)
++    expect(existsSync(join(root, 'skills/fam'))).toBe(false)
++    clean(root)
++  })
++
++  test('refuses when the target group path is a symlink', () => {
++    const root = repo()
++    symlinkSync(join(root, 'skills'), join(root, 'skills/fam'))
++    expect(() => createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'b', write: true })).toThrow()
++    clean(root)
++  })
++
++  test('refuses to turn an existing skill directory into a group', () => {
++    const root = repo()
++    mkdirSync(join(root, 'skills/solo'), { recursive: true })
++    writeFileSync(join(root, 'skills/solo/SKILL.md'), '---\nname: solo\ndescription: d\n---\n')
++    expect(() => createGroup({ name: 'solo', repoRoot: root, title: 'Solo', blurb: 'b', write: true })).toThrow(/skill already lives there/i)
++    clean(root)
++  })
++
++  test('the section it writes is the one checkStructure expects', () => {
++    const root = repo()
++    // Build a complete, valid repo around a group created by the command itself.
++    const meta = (dir: string, name: string) => {
++      mkdirSync(join(dir, 'agents'), { recursive: true })
++      mkdirSync(join(dir, 'refresh'), { recursive: true })
++      writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: d\n---\n`)
++      writeFileSync(join(dir, 'README.md'), `# ${name}\n`)
++      writeFileSync(join(dir, 'agents/openai.yaml'), 'name: x\n')
++      writeFileSync(join(dir, 'refresh/REFRESH.md'), '# r\n')
++      writeFileSync(join(dir, 'refresh/sources.json'), '{"sources":[]}\n')
++    }
++    meta(join(root, 'skills/solo'), 'solo')
++    createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.', write: true })
++    meta(join(root, 'skills/fam/one'), 'one')
++    meta(join(root, 'skills/fam/two'), 'two')
++    mkdirSync(join(root, 'packages/cli'), { recursive: true })
++    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ solo: ['SKILL.md'], one: ['SKILL.md'], two: ['SKILL.md'] }))
++    const body = readFileSync(join(root, 'README.md'), 'utf8')
++    writeFileSync(join(root, 'README.md'), body.replace('|---|---|---|\n\nInstall', [
++      '|---|---|---|',
++      '| [one](skills/fam/one/) | o | [SKILL.md](skills/fam/one/SKILL.md) |',
++      '| [two](skills/fam/two/) | t | [SKILL.md](skills/fam/two/SKILL.md) |',
++      '', 'Install',
++    ].join('\n')))
++    expect(checkStructure(root)).toEqual({ blocks: [], warns: [] })
++    clean(root)
++  })
++})
+diff --git a/packages/cli/test/sync-skill.test.ts b/packages/cli/test/sync-skill.test.ts
+new file mode 100644
+index 0000000..6e4684a
+--- /dev/null
++++ b/packages/cli/test/sync-skill.test.ts
+@@ -0,0 +1,102 @@
++import { describe, expect, test } from 'bun:test'
++import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { dirname, join } from 'node:path'
++
++// sync-skill.mjs runs against a repo layout, so each case builds a miniature one and drives the
++// script through the VSK_REPO_ROOT override rather than needing a real checkout.
++function repo(build: (skills: string) => void) {
++  const root = mkdtempSync(join(tmpdir(), 'sync-'))
++  const skills = join(root, 'skills')
++  mkdirSync(join(root, 'packages/cli'), { recursive: true })
++  mkdirSync(skills, { recursive: true })
++  build(skills)
++  return root
++}
++
++const writeSkill = (dir: string, name: string, extra: Record<string, string> = {}) => {
++  mkdirSync(dir, { recursive: true })
++  writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: d\n---\n`)
++  for (const [rel, body] of Object.entries(extra)) {
++    mkdirSync(dirname(join(dir, rel)), { recursive: true })
++    writeFileSync(join(dir, rel), body)
++  }
++}
++
++const writeGroup = (skills: string, name: string, title: string) => {
++  mkdirSync(join(skills, name), { recursive: true })
++  writeFileSync(join(skills, name, 'GROUP.md'), `# ${title}\n\nA blurb.\n`)
++}
++
++const run = (root: string) =>
++  Bun.spawnSync(['node', join(import.meta.dir, '../scripts/sync-skill.mjs')], { env: { ...process.env, VSK_REPO_ROOT: root } })
++
++describe('sync-skill with groups', () => {
++  test('a grouped and an ungrouped skill both land flat in the bundle', () => {
++    const root = repo(skills => {
++      writeSkill(join(skills, 'solo'), 'solo')
++      writeGroup(skills, 'fam', 'Fam')
++      writeSkill(join(skills, 'fam', 'member'), 'member')
++    })
++    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ solo: ['SKILL.md'], member: ['SKILL.md'] }))
++    expect(run(root).exitCode).toBe(0)
++    expect(existsSync(join(root, 'packages/cli/skill/solo/SKILL.md'))).toBe(true)
++    expect(existsSync(join(root, 'packages/cli/skill/member/SKILL.md'))).toBe(true)
++    expect(existsSync(join(root, 'packages/cli/skill/fam'))).toBe(false)
++    const manifest = JSON.parse(readFileSync(join(root, 'packages/cli/skill-integrity.json'), 'utf8'))
++    expect(Object.keys(manifest.skills).sort()).toEqual(['member', 'solo'])
++    rmSync(root, { recursive: true, force: true })
++  })
++
++  test('an @source-skill entry resolves across a group boundary', () => {
++    const root = repo(skills => {
++      writeGroup(skills, 'fam', 'Fam')
++      writeSkill(join(skills, 'fam', 'donor'), 'donor', { 'references/shared.md': 'shared body\n' })
++      writeSkill(join(skills, 'taker'), 'taker')
++    })
++    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({
++      donor: ['SKILL.md', 'references/shared.md'],
++      taker: ['SKILL.md', 'references/shared.md@donor'],
++    }))
++    expect(run(root).exitCode).toBe(0)
++    expect(readFileSync(join(root, 'packages/cli/skill/taker/references/shared.md'), 'utf8')).toBe('shared body\n')
++    rmSync(root, { recursive: true, force: true })
++  })
++
++  test('a skill two levels deep fails the build loudly', () => {
++    const root = repo(skills => {
++      writeGroup(skills, 'a', 'A')
++      writeSkill(join(skills, 'a', 'b', 'deep'), 'deep')
++    })
++    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ deep: ['SKILL.md'] }))
++    const result = run(root)
++    expect(result.exitCode).not.toBe(0)
++    expect(result.stderr.toString()).toMatch(/nested too deep/i)
++    rmSync(root, { recursive: true, force: true })
++  })
++
++  test('a duplicate skill name across a group boundary fails the build loudly', () => {
++    const root = repo(skills => {
++      writeSkill(join(skills, 'twin'), 'twin')
++      writeGroup(skills, 'fam', 'Fam')
++      writeSkill(join(skills, 'fam', 'twin'), 'twin')
++    })
++    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ twin: ['SKILL.md'] }))
++    const result = run(root)
++    expect(result.exitCode).not.toBe(0)
++    expect(result.stderr.toString()).toMatch(/duplicate/i)
++    rmSync(root, { recursive: true, force: true })
++  })
++
++  test('an ungrouped-only tree still builds, unchanged by group support', () => {
++    const root = repo(skills => {
++      writeSkill(join(skills, 'one'), 'one')
++      writeSkill(join(skills, 'two'), 'two')
++    })
++    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ one: ['SKILL.md'], two: ['SKILL.md'] }))
++    expect(run(root).exitCode).toBe(0)
++    const manifest = JSON.parse(readFileSync(join(root, 'packages/cli/skill-integrity.json'), 'utf8'))
++    expect(Object.keys(manifest.skills).sort()).toEqual(['one', 'two'])
++    rmSync(root, { recursive: true, force: true })
++  })
++})
+diff --git a/packages/cli/test/validate-skill.test.ts b/packages/cli/test/validate-skill.test.ts
+new file mode 100644
+index 0000000..4edfc94
+--- /dev/null
++++ b/packages/cli/test/validate-skill.test.ts
+@@ -0,0 +1,45 @@
++import { describe, expect, test } from 'bun:test'
++import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
++import { tmpdir } from 'node:os'
++import { join } from 'node:path'
++import { discoverSkillDirs, validateSkill } from '../scripts/validate-skill.mjs'
++
++describe('discoverSkillDirs', () => {
++  test('returns grouped and ungrouped skill dirs and never a group dir', () => {
++    const root = mkdtempSync(join(tmpdir(), 'validate-'))
++    const skills = join(root, 'skills')
++    mkdirSync(join(skills, 'solo'), { recursive: true })
++    writeFileSync(join(skills, 'solo', 'SKILL.md'), '---\nname: solo\ndescription: d\n---\n')
++    mkdirSync(join(skills, 'fam', 'member'), { recursive: true })
++    writeFileSync(join(skills, 'fam', 'GROUP.md'), '# Fam\n\nA blurb.\n')
++    writeFileSync(join(skills, 'fam', 'member', 'SKILL.md'), '---\nname: member\ndescription: d\n---\n')
++    const found = discoverSkillDirs(skills).sort()
++    expect(found).toEqual([join(skills, 'fam', 'member'), join(skills, 'solo')])
++    for (const dir of found) expect(validateSkill(dir).ok).toBe(true)
++    rmSync(root, { recursive: true, force: true })
++  })
++
++  test('an ungrouped-only tree is discovered exactly as before', () => {
++    const root = mkdtempSync(join(tmpdir(), 'validate-flat-'))
++    const skills = join(root, 'skills')
++    for (const name of ['one', 'two']) {
++      mkdirSync(join(skills, name), { recursive: true })
++      writeFileSync(join(skills, name, 'SKILL.md'), `---\nname: ${name}\ndescription: d\n---\n`)
++    }
++    expect(discoverSkillDirs(skills).sort()).toEqual([join(skills, 'one'), join(skills, 'two')])
++    rmSync(root, { recursive: true, force: true })
++  })
++
++  test('validateSkill still requires name to equal the directory name inside a group', () => {
++    const root = mkdtempSync(join(tmpdir(), 'validate-mismatch-'))
++    const skills = join(root, 'skills')
++    mkdirSync(join(skills, 'fam', 'member'), { recursive: true })
++    writeFileSync(join(skills, 'fam', 'GROUP.md'), '# Fam\n\nA blurb.\n')
++    // The group name must never be what the frontmatter is checked against.
++    writeFileSync(join(skills, 'fam', 'member', 'SKILL.md'), '---\nname: fam\ndescription: d\n---\n')
++    const result = validateSkill(join(skills, 'fam', 'member'))
++    expect(result.ok).toBe(false)
++    expect(result.message).toContain("must match the skill directory name 'member'")
++    rmSync(root, { recursive: true, force: true })
++  })
++})
+diff --git a/packages/cli/tsconfig.json b/packages/cli/tsconfig.json
+index 69d6906..0887f7e 100644
+--- a/packages/cli/tsconfig.json
++++ b/packages/cli/tsconfig.json
+@@ -1,12 +1,13 @@
+ {
+   "compilerOptions": {
+     "target": "ES2022",
+     "module": "NodeNext",
+     "moduleResolution": "NodeNext",
+     "strict": true,
+     "noUncheckedIndexedAccess": true,
+     "types": ["node", "bun"],
+-    "skipLibCheck": true
++    "skipLibCheck": true,
++    "allowJs": true
+   },
+   "include": ["src/**/*.ts", "test/**/*.ts"]
+ }
+diff --git a/skills/dev-skills/GROUP.md b/skills/dev-skills/GROUP.md
+new file mode 100644
+index 0000000..057842d
+--- /dev/null
++++ b/skills/dev-skills/GROUP.md
+@@ -0,0 +1,3 @@
++# Dev workflow
++
++The issue-driven development workflow: ten stages from project bootstrap to the shipped, chronicled change.
+diff --git a/skills/dev-architect/README.md b/skills/dev-skills/dev-architect/README.md
+similarity index 100%
+rename from skills/dev-architect/README.md
+rename to skills/dev-skills/dev-architect/README.md
+diff --git a/skills/dev-architect/SKILL.md b/skills/dev-skills/dev-architect/SKILL.md
+similarity index 100%
+rename from skills/dev-architect/SKILL.md
+rename to skills/dev-skills/dev-architect/SKILL.md
+diff --git a/skills/dev-architect/agents/openai.yaml b/skills/dev-skills/dev-architect/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-architect/agents/openai.yaml
+rename to skills/dev-skills/dev-architect/agents/openai.yaml
+diff --git a/skills/dev-architect/references/ai-agents.md b/skills/dev-skills/dev-architect/references/ai-agents.md
+similarity index 100%
+rename from skills/dev-architect/references/ai-agents.md
+rename to skills/dev-skills/dev-architect/references/ai-agents.md
+diff --git a/skills/dev-architect/references/data.md b/skills/dev-skills/dev-architect/references/data.md
+similarity index 100%
+rename from skills/dev-architect/references/data.md
+rename to skills/dev-skills/dev-architect/references/data.md
+diff --git a/skills/dev-architect/references/infra.md b/skills/dev-skills/dev-architect/references/infra.md
+similarity index 100%
+rename from skills/dev-architect/references/infra.md
+rename to skills/dev-skills/dev-architect/references/infra.md
+diff --git a/skills/dev-architect/references/mobile.md b/skills/dev-skills/dev-architect/references/mobile.md
+similarity index 100%
+rename from skills/dev-architect/references/mobile.md
+rename to skills/dev-skills/dev-architect/references/mobile.md
+diff --git a/skills/dev-architect/references/pinned-facts.md b/skills/dev-skills/dev-architect/references/pinned-facts.md
+similarity index 100%
+rename from skills/dev-architect/references/pinned-facts.md
+rename to skills/dev-skills/dev-architect/references/pinned-facts.md
+diff --git a/skills/dev-architect/references/principles.md b/skills/dev-skills/dev-architect/references/principles.md
+similarity index 100%
+rename from skills/dev-architect/references/principles.md
+rename to skills/dev-skills/dev-architect/references/principles.md
+diff --git a/skills/dev-architect/references/security.md b/skills/dev-skills/dev-architect/references/security.md
+similarity index 100%
+rename from skills/dev-architect/references/security.md
+rename to skills/dev-skills/dev-architect/references/security.md
+diff --git a/skills/dev-architect/references/stack.md b/skills/dev-skills/dev-architect/references/stack.md
+similarity index 100%
+rename from skills/dev-architect/references/stack.md
+rename to skills/dev-skills/dev-architect/references/stack.md
+diff --git a/skills/dev-architect/references/web.md b/skills/dev-skills/dev-architect/references/web.md
+similarity index 100%
+rename from skills/dev-architect/references/web.md
+rename to skills/dev-skills/dev-architect/references/web.md
+diff --git a/skills/dev-architect/refresh/REFRESH.md b/skills/dev-skills/dev-architect/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-architect/refresh/REFRESH.md
+rename to skills/dev-skills/dev-architect/refresh/REFRESH.md
+diff --git a/skills/dev-architect/refresh/sources.json b/skills/dev-skills/dev-architect/refresh/sources.json
+similarity index 100%
+rename from skills/dev-architect/refresh/sources.json
+rename to skills/dev-skills/dev-architect/refresh/sources.json
+diff --git a/skills/dev-architect/tests/dev-architect.test.ts b/skills/dev-skills/dev-architect/tests/dev-architect.test.ts
+similarity index 98%
+rename from skills/dev-architect/tests/dev-architect.test.ts
+rename to skills/dev-skills/dev-architect/tests/dev-architect.test.ts
+index 39b7009..f894de6 100644
+--- a/skills/dev-architect/tests/dev-architect.test.ts
++++ b/skills/dev-skills/dev-architect/tests/dev-architect.test.ts
+@@ -1,15 +1,15 @@
+ import { describe, expect, test } from 'bun:test'
+ import { existsSync, readFileSync, readdirSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+ // Untyped repo-shared validator; bun resolves the .mjs at runtime.
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillDir = resolve(import.meta.dir, '..')
+ const skillMd = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')
+ 
+ function relativeLinks(content: string): string[] {
+   const links: string[] = []
+   for (const match of content.matchAll(/\[[^\]]*\]\(([^)\s#]+)[^)]*\)/g)) {
+     const target = match[1]
+     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue // http:, https:, mailto:, ...
+     links.push(target)
+diff --git a/skills/dev-architect/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-architect/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-architect/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-architect/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-chronicle/README.md b/skills/dev-skills/dev-chronicle/README.md
+similarity index 100%
+rename from skills/dev-chronicle/README.md
+rename to skills/dev-skills/dev-chronicle/README.md
+diff --git a/skills/dev-chronicle/SKILL.md b/skills/dev-skills/dev-chronicle/SKILL.md
+similarity index 100%
+rename from skills/dev-chronicle/SKILL.md
+rename to skills/dev-skills/dev-chronicle/SKILL.md
+diff --git a/skills/dev-chronicle/agents/openai.yaml b/skills/dev-skills/dev-chronicle/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-chronicle/agents/openai.yaml
+rename to skills/dev-skills/dev-chronicle/agents/openai.yaml
+diff --git a/skills/dev-chronicle/refresh/REFRESH.md b/skills/dev-skills/dev-chronicle/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-chronicle/refresh/REFRESH.md
+rename to skills/dev-skills/dev-chronicle/refresh/REFRESH.md
+diff --git a/skills/dev-chronicle/refresh/sources.json b/skills/dev-skills/dev-chronicle/refresh/sources.json
+similarity index 100%
+rename from skills/dev-chronicle/refresh/sources.json
+rename to skills/dev-skills/dev-chronicle/refresh/sources.json
+diff --git a/skills/dev-chronicle/tests/dev-chronicle.test.ts b/skills/dev-skills/dev-chronicle/tests/dev-chronicle.test.ts
+similarity index 93%
+rename from skills/dev-chronicle/tests/dev-chronicle.test.ts
+rename to skills/dev-skills/dev-chronicle/tests/dev-chronicle.test.ts
+index a00c7f6..891c56f 100644
+--- a/skills/dev-chronicle/tests/dev-chronicle.test.ts
++++ b/skills/dev-skills/dev-chronicle/tests/dev-chronicle.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-chronicle contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-chronicle/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-chronicle/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-chronicle/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-chronicle/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-debug/README.md b/skills/dev-skills/dev-debug/README.md
+similarity index 100%
+rename from skills/dev-debug/README.md
+rename to skills/dev-skills/dev-debug/README.md
+diff --git a/skills/dev-debug/SKILL.md b/skills/dev-skills/dev-debug/SKILL.md
+similarity index 100%
+rename from skills/dev-debug/SKILL.md
+rename to skills/dev-skills/dev-debug/SKILL.md
+diff --git a/skills/dev-debug/agents/openai.yaml b/skills/dev-skills/dev-debug/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-debug/agents/openai.yaml
+rename to skills/dev-skills/dev-debug/agents/openai.yaml
+diff --git a/skills/dev-debug/references/loop-ladder.md b/skills/dev-skills/dev-debug/references/loop-ladder.md
+similarity index 100%
+rename from skills/dev-debug/references/loop-ladder.md
+rename to skills/dev-skills/dev-debug/references/loop-ladder.md
+diff --git a/skills/dev-debug/refresh/REFRESH.md b/skills/dev-skills/dev-debug/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-debug/refresh/REFRESH.md
+rename to skills/dev-skills/dev-debug/refresh/REFRESH.md
+diff --git a/skills/dev-debug/refresh/sources.json b/skills/dev-skills/dev-debug/refresh/sources.json
+similarity index 100%
+rename from skills/dev-debug/refresh/sources.json
+rename to skills/dev-skills/dev-debug/refresh/sources.json
+diff --git a/skills/dev-debug/tests/dev-debug.test.ts b/skills/dev-skills/dev-debug/tests/dev-debug.test.ts
+similarity index 93%
+rename from skills/dev-debug/tests/dev-debug.test.ts
+rename to skills/dev-skills/dev-debug/tests/dev-debug.test.ts
+index 1d3b2f0..13f020d 100644
+--- a/skills/dev-debug/tests/dev-debug.test.ts
++++ b/skills/dev-skills/dev-debug/tests/dev-debug.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-debug contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-debug/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-debug/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-debug/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-debug/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-implement/README.md b/skills/dev-skills/dev-implement/README.md
+similarity index 100%
+rename from skills/dev-implement/README.md
+rename to skills/dev-skills/dev-implement/README.md
+diff --git a/skills/dev-implement/SKILL.md b/skills/dev-skills/dev-implement/SKILL.md
+similarity index 100%
+rename from skills/dev-implement/SKILL.md
+rename to skills/dev-skills/dev-implement/SKILL.md
+diff --git a/skills/dev-implement/agents/openai.yaml b/skills/dev-skills/dev-implement/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-implement/agents/openai.yaml
+rename to skills/dev-skills/dev-implement/agents/openai.yaml
+diff --git a/skills/dev-implement/references/ledger-and-resume.md b/skills/dev-skills/dev-implement/references/ledger-and-resume.md
+similarity index 100%
+rename from skills/dev-implement/references/ledger-and-resume.md
+rename to skills/dev-skills/dev-implement/references/ledger-and-resume.md
+diff --git a/skills/dev-implement/refresh/REFRESH.md b/skills/dev-skills/dev-implement/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-implement/refresh/REFRESH.md
+rename to skills/dev-skills/dev-implement/refresh/REFRESH.md
+diff --git a/skills/dev-implement/refresh/sources.json b/skills/dev-skills/dev-implement/refresh/sources.json
+similarity index 100%
+rename from skills/dev-implement/refresh/sources.json
+rename to skills/dev-skills/dev-implement/refresh/sources.json
+diff --git a/skills/dev-implement/scripts/evidence-check.mjs b/skills/dev-skills/dev-implement/scripts/evidence-check.mjs
+similarity index 100%
+rename from skills/dev-implement/scripts/evidence-check.mjs
+rename to skills/dev-skills/dev-implement/scripts/evidence-check.mjs
+diff --git a/skills/dev-implement/scripts/lib/gh.mjs b/skills/dev-skills/dev-implement/scripts/lib/gh.mjs
+similarity index 100%
+rename from skills/dev-implement/scripts/lib/gh.mjs
+rename to skills/dev-skills/dev-implement/scripts/lib/gh.mjs
+diff --git a/skills/dev-implement/scripts/preflight.mjs b/skills/dev-skills/dev-implement/scripts/preflight.mjs
+similarity index 100%
+rename from skills/dev-implement/scripts/preflight.mjs
+rename to skills/dev-skills/dev-implement/scripts/preflight.mjs
+diff --git a/skills/dev-implement/tests/dev-implement.test.ts b/skills/dev-skills/dev-implement/tests/dev-implement.test.ts
+similarity index 93%
+rename from skills/dev-implement/tests/dev-implement.test.ts
+rename to skills/dev-skills/dev-implement/tests/dev-implement.test.ts
+index ca67acf..7a42f40 100644
+--- a/skills/dev-implement/tests/dev-implement.test.ts
++++ b/skills/dev-skills/dev-implement/tests/dev-implement.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-implement contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-implement/tests/fixtures/gh-403-stub.sh b/skills/dev-skills/dev-implement/tests/fixtures/gh-403-stub.sh
+similarity index 100%
+rename from skills/dev-implement/tests/fixtures/gh-403-stub.sh
+rename to skills/dev-skills/dev-implement/tests/fixtures/gh-403-stub.sh
+diff --git a/skills/dev-implement/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-implement/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-implement/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-implement/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-implement/tests/guards.test.ts b/skills/dev-skills/dev-implement/tests/guards.test.ts
+similarity index 100%
+rename from skills/dev-implement/tests/guards.test.ts
+rename to skills/dev-skills/dev-implement/tests/guards.test.ts
+diff --git a/skills/dev-intake/README.md b/skills/dev-skills/dev-intake/README.md
+similarity index 100%
+rename from skills/dev-intake/README.md
+rename to skills/dev-skills/dev-intake/README.md
+diff --git a/skills/dev-intake/SKILL.md b/skills/dev-skills/dev-intake/SKILL.md
+similarity index 100%
+rename from skills/dev-intake/SKILL.md
+rename to skills/dev-skills/dev-intake/SKILL.md
+diff --git a/skills/dev-intake/agents/openai.yaml b/skills/dev-skills/dev-intake/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-intake/agents/openai.yaml
+rename to skills/dev-skills/dev-intake/agents/openai.yaml
+diff --git a/skills/dev-intake/references/brief-template.md b/skills/dev-skills/dev-intake/references/brief-template.md
+similarity index 100%
+rename from skills/dev-intake/references/brief-template.md
+rename to skills/dev-skills/dev-intake/references/brief-template.md
+diff --git a/skills/dev-intake/refresh/REFRESH.md b/skills/dev-skills/dev-intake/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-intake/refresh/REFRESH.md
+rename to skills/dev-skills/dev-intake/refresh/REFRESH.md
+diff --git a/skills/dev-intake/refresh/sources.json b/skills/dev-skills/dev-intake/refresh/sources.json
+similarity index 100%
+rename from skills/dev-intake/refresh/sources.json
+rename to skills/dev-skills/dev-intake/refresh/sources.json
+diff --git a/skills/dev-intake/scripts/brief-lint.mjs b/skills/dev-skills/dev-intake/scripts/brief-lint.mjs
+similarity index 100%
+rename from skills/dev-intake/scripts/brief-lint.mjs
+rename to skills/dev-skills/dev-intake/scripts/brief-lint.mjs
+diff --git a/skills/dev-intake/tests/brief-lint.test.ts b/skills/dev-skills/dev-intake/tests/brief-lint.test.ts
+similarity index 100%
+rename from skills/dev-intake/tests/brief-lint.test.ts
+rename to skills/dev-skills/dev-intake/tests/brief-lint.test.ts
+diff --git a/skills/dev-intake/tests/dev-intake.test.ts b/skills/dev-skills/dev-intake/tests/dev-intake.test.ts
+similarity index 93%
+rename from skills/dev-intake/tests/dev-intake.test.ts
+rename to skills/dev-skills/dev-intake/tests/dev-intake.test.ts
+index 282467e..243d69b 100644
+--- a/skills/dev-intake/tests/dev-intake.test.ts
++++ b/skills/dev-skills/dev-intake/tests/dev-intake.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-intake contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-intake/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-intake/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-intake/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-intake/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-plan/README.md b/skills/dev-skills/dev-plan/README.md
+similarity index 100%
+rename from skills/dev-plan/README.md
+rename to skills/dev-skills/dev-plan/README.md
+diff --git a/skills/dev-plan/SKILL.md b/skills/dev-skills/dev-plan/SKILL.md
+similarity index 100%
+rename from skills/dev-plan/SKILL.md
+rename to skills/dev-skills/dev-plan/SKILL.md
+diff --git a/skills/dev-plan/agents/openai.yaml b/skills/dev-skills/dev-plan/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-plan/agents/openai.yaml
+rename to skills/dev-skills/dev-plan/agents/openai.yaml
+diff --git a/skills/dev-plan/references/plan-format.md b/skills/dev-skills/dev-plan/references/plan-format.md
+similarity index 100%
+rename from skills/dev-plan/references/plan-format.md
+rename to skills/dev-skills/dev-plan/references/plan-format.md
+diff --git a/skills/dev-plan/refresh/REFRESH.md b/skills/dev-skills/dev-plan/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-plan/refresh/REFRESH.md
+rename to skills/dev-skills/dev-plan/refresh/REFRESH.md
+diff --git a/skills/dev-plan/refresh/sources.json b/skills/dev-skills/dev-plan/refresh/sources.json
+similarity index 100%
+rename from skills/dev-plan/refresh/sources.json
+rename to skills/dev-skills/dev-plan/refresh/sources.json
+diff --git a/skills/dev-plan/scripts/plan-lint.mjs b/skills/dev-skills/dev-plan/scripts/plan-lint.mjs
+similarity index 100%
+rename from skills/dev-plan/scripts/plan-lint.mjs
+rename to skills/dev-skills/dev-plan/scripts/plan-lint.mjs
+diff --git a/skills/dev-plan/tests/dev-plan.test.ts b/skills/dev-skills/dev-plan/tests/dev-plan.test.ts
+similarity index 93%
+rename from skills/dev-plan/tests/dev-plan.test.ts
+rename to skills/dev-skills/dev-plan/tests/dev-plan.test.ts
+index 2fedacc..e7766f2 100644
+--- a/skills/dev-plan/tests/dev-plan.test.ts
++++ b/skills/dev-skills/dev-plan/tests/dev-plan.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-plan contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-plan/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-plan/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-plan/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-plan/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-plan/tests/plan-lint.test.ts b/skills/dev-skills/dev-plan/tests/plan-lint.test.ts
+similarity index 100%
+rename from skills/dev-plan/tests/plan-lint.test.ts
+rename to skills/dev-skills/dev-plan/tests/plan-lint.test.ts
+diff --git a/skills/dev-review/README.md b/skills/dev-skills/dev-review/README.md
+similarity index 100%
+rename from skills/dev-review/README.md
+rename to skills/dev-skills/dev-review/README.md
+diff --git a/skills/dev-review/SKILL.md b/skills/dev-skills/dev-review/SKILL.md
+similarity index 100%
+rename from skills/dev-review/SKILL.md
+rename to skills/dev-skills/dev-review/SKILL.md
+diff --git a/skills/dev-review/agents/openai.yaml b/skills/dev-skills/dev-review/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-review/agents/openai.yaml
+rename to skills/dev-skills/dev-review/agents/openai.yaml
+diff --git a/skills/dev-review/assets/review-known-patterns.md.template b/skills/dev-skills/dev-review/assets/review-known-patterns.md.template
+similarity index 100%
+rename from skills/dev-review/assets/review-known-patterns.md.template
+rename to skills/dev-skills/dev-review/assets/review-known-patterns.md.template
+diff --git a/skills/dev-review/references/cross-agent.md b/skills/dev-skills/dev-review/references/cross-agent.md
+similarity index 100%
+rename from skills/dev-review/references/cross-agent.md
+rename to skills/dev-skills/dev-review/references/cross-agent.md
+diff --git a/skills/dev-review/references/dispatch-prompts.md b/skills/dev-skills/dev-review/references/dispatch-prompts.md
+similarity index 100%
+rename from skills/dev-review/references/dispatch-prompts.md
+rename to skills/dev-skills/dev-review/references/dispatch-prompts.md
+diff --git a/skills/dev-review/references/security-axis.md b/skills/dev-skills/dev-review/references/security-axis.md
+similarity index 100%
+rename from skills/dev-review/references/security-axis.md
+rename to skills/dev-skills/dev-review/references/security-axis.md
+diff --git a/skills/dev-review/refresh/REFRESH.md b/skills/dev-skills/dev-review/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-review/refresh/REFRESH.md
+rename to skills/dev-skills/dev-review/refresh/REFRESH.md
+diff --git a/skills/dev-review/refresh/sources.json b/skills/dev-skills/dev-review/refresh/sources.json
+similarity index 100%
+rename from skills/dev-review/refresh/sources.json
+rename to skills/dev-skills/dev-review/refresh/sources.json
+diff --git a/skills/dev-review/tests/dev-review.test.ts b/skills/dev-skills/dev-review/tests/dev-review.test.ts
+similarity index 96%
+rename from skills/dev-review/tests/dev-review.test.ts
+rename to skills/dev-skills/dev-review/tests/dev-review.test.ts
+index 87ff09a..98fe980 100644
+--- a/skills/dev-review/tests/dev-review.test.ts
++++ b/skills/dev-skills/dev-review/tests/dev-review.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-review contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-review/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-review/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-review/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-review/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-setup/README.md b/skills/dev-skills/dev-setup/README.md
+similarity index 100%
+rename from skills/dev-setup/README.md
+rename to skills/dev-skills/dev-setup/README.md
+diff --git a/skills/dev-setup/SKILL.md b/skills/dev-skills/dev-setup/SKILL.md
+similarity index 100%
+rename from skills/dev-setup/SKILL.md
+rename to skills/dev-skills/dev-setup/SKILL.md
+diff --git a/skills/dev-setup/agents/openai.yaml b/skills/dev-skills/dev-setup/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-setup/agents/openai.yaml
+rename to skills/dev-skills/dev-setup/agents/openai.yaml
+diff --git a/skills/dev-setup/assets/agents-section.md.template b/skills/dev-skills/dev-setup/assets/agents-section.md.template
+similarity index 100%
+rename from skills/dev-setup/assets/agents-section.md.template
+rename to skills/dev-skills/dev-setup/assets/agents-section.md.template
+diff --git a/skills/dev-setup/assets/dev-profile.md.template b/skills/dev-skills/dev-setup/assets/dev-profile.md.template
+similarity index 100%
+rename from skills/dev-setup/assets/dev-profile.md.template
+rename to skills/dev-skills/dev-setup/assets/dev-profile.md.template
+diff --git a/skills/dev-setup/references/conventions.md b/skills/dev-skills/dev-setup/references/conventions.md
+similarity index 100%
+rename from skills/dev-setup/references/conventions.md
+rename to skills/dev-skills/dev-setup/references/conventions.md
+diff --git a/skills/dev-setup/references/harness-facts.md b/skills/dev-skills/dev-setup/references/harness-facts.md
+similarity index 100%
+rename from skills/dev-setup/references/harness-facts.md
+rename to skills/dev-skills/dev-setup/references/harness-facts.md
+diff --git a/skills/dev-setup/references/stack-playbooks.md b/skills/dev-skills/dev-setup/references/stack-playbooks.md
+similarity index 100%
+rename from skills/dev-setup/references/stack-playbooks.md
+rename to skills/dev-skills/dev-setup/references/stack-playbooks.md
+diff --git a/skills/dev-setup/refresh/REFRESH.md b/skills/dev-skills/dev-setup/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-setup/refresh/REFRESH.md
+rename to skills/dev-skills/dev-setup/refresh/REFRESH.md
+diff --git a/skills/dev-setup/refresh/sources.json b/skills/dev-skills/dev-setup/refresh/sources.json
+similarity index 100%
+rename from skills/dev-setup/refresh/sources.json
+rename to skills/dev-skills/dev-setup/refresh/sources.json
+diff --git a/skills/dev-setup/tests/dev-setup.test.ts b/skills/dev-skills/dev-setup/tests/dev-setup.test.ts
+similarity index 93%
+rename from skills/dev-setup/tests/dev-setup.test.ts
+rename to skills/dev-skills/dev-setup/tests/dev-setup.test.ts
+index bedbe27..1ccbc87 100644
+--- a/skills/dev-setup/tests/dev-setup.test.ts
++++ b/skills/dev-skills/dev-setup/tests/dev-setup.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-setup contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-setup/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-setup/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-setup/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-setup/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-setup/tests/snippets.test.ts b/skills/dev-skills/dev-setup/tests/snippets.test.ts
+similarity index 100%
+rename from skills/dev-setup/tests/snippets.test.ts
+rename to skills/dev-skills/dev-setup/tests/snippets.test.ts
+diff --git a/skills/dev-ship/README.md b/skills/dev-skills/dev-ship/README.md
+similarity index 100%
+rename from skills/dev-ship/README.md
+rename to skills/dev-skills/dev-ship/README.md
+diff --git a/skills/dev-ship/SKILL.md b/skills/dev-skills/dev-ship/SKILL.md
+similarity index 100%
+rename from skills/dev-ship/SKILL.md
+rename to skills/dev-skills/dev-ship/SKILL.md
+diff --git a/skills/dev-ship/agents/openai.yaml b/skills/dev-skills/dev-ship/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-ship/agents/openai.yaml
+rename to skills/dev-skills/dev-ship/agents/openai.yaml
+diff --git a/skills/dev-ship/references/runbook.md b/skills/dev-skills/dev-ship/references/runbook.md
+similarity index 100%
+rename from skills/dev-ship/references/runbook.md
+rename to skills/dev-skills/dev-ship/references/runbook.md
+diff --git a/skills/dev-ship/refresh/REFRESH.md b/skills/dev-skills/dev-ship/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-ship/refresh/REFRESH.md
+rename to skills/dev-skills/dev-ship/refresh/REFRESH.md
+diff --git a/skills/dev-ship/refresh/sources.json b/skills/dev-skills/dev-ship/refresh/sources.json
+similarity index 100%
+rename from skills/dev-ship/refresh/sources.json
+rename to skills/dev-skills/dev-ship/refresh/sources.json
+diff --git a/skills/dev-ship/scripts/ship-gate.mjs b/skills/dev-skills/dev-ship/scripts/ship-gate.mjs
+similarity index 100%
+rename from skills/dev-ship/scripts/ship-gate.mjs
+rename to skills/dev-skills/dev-ship/scripts/ship-gate.mjs
+diff --git a/skills/dev-ship/tests/dev-ship.test.ts b/skills/dev-skills/dev-ship/tests/dev-ship.test.ts
+similarity index 93%
+rename from skills/dev-ship/tests/dev-ship.test.ts
+rename to skills/dev-skills/dev-ship/tests/dev-ship.test.ts
+index 0b4c4ca..c57f8a1 100644
+--- a/skills/dev-ship/tests/dev-ship.test.ts
++++ b/skills/dev-skills/dev-ship/tests/dev-ship.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-ship contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-ship/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-ship/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-ship/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-ship/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-ship/tests/ship-gate.test.ts b/skills/dev-skills/dev-ship/tests/ship-gate.test.ts
+similarity index 100%
+rename from skills/dev-ship/tests/ship-gate.test.ts
+rename to skills/dev-skills/dev-ship/tests/ship-gate.test.ts
+diff --git a/skills/dev-status/README.md b/skills/dev-skills/dev-status/README.md
+similarity index 100%
+rename from skills/dev-status/README.md
+rename to skills/dev-skills/dev-status/README.md
+diff --git a/skills/dev-status/SKILL.md b/skills/dev-skills/dev-status/SKILL.md
+similarity index 100%
+rename from skills/dev-status/SKILL.md
+rename to skills/dev-skills/dev-status/SKILL.md
+diff --git a/skills/dev-status/agents/openai.yaml b/skills/dev-skills/dev-status/agents/openai.yaml
+similarity index 100%
+rename from skills/dev-status/agents/openai.yaml
+rename to skills/dev-skills/dev-status/agents/openai.yaml
+diff --git a/skills/dev-status/refresh/REFRESH.md b/skills/dev-skills/dev-status/refresh/REFRESH.md
+similarity index 100%
+rename from skills/dev-status/refresh/REFRESH.md
+rename to skills/dev-skills/dev-status/refresh/REFRESH.md
+diff --git a/skills/dev-status/refresh/sources.json b/skills/dev-skills/dev-status/refresh/sources.json
+similarity index 100%
+rename from skills/dev-status/refresh/sources.json
+rename to skills/dev-skills/dev-status/refresh/sources.json
+diff --git a/skills/dev-status/scripts/status.mjs b/skills/dev-skills/dev-status/scripts/status.mjs
+similarity index 100%
+rename from skills/dev-status/scripts/status.mjs
+rename to skills/dev-skills/dev-status/scripts/status.mjs
+diff --git a/skills/dev-status/tests/dev-status.test.ts b/skills/dev-skills/dev-status/tests/dev-status.test.ts
+similarity index 92%
+rename from skills/dev-status/tests/dev-status.test.ts
+rename to skills/dev-skills/dev-status/tests/dev-status.test.ts
+index df82b35..2b6af5a 100644
+--- a/skills/dev-status/tests/dev-status.test.ts
++++ b/skills/dev-skills/dev-status/tests/dev-status.test.ts
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('dev-status contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/dev-status/tests/fixtures/gh-stub.mjs b/skills/dev-skills/dev-status/tests/fixtures/gh-stub.mjs
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/gh-stub.mjs
+rename to skills/dev-skills/dev-status/tests/fixtures/gh-stub.mjs
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/chronicle.md b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/chronicle.md
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/chronicle.md
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/chronicle.md
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/comments-7.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/comments-7.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/comments-7.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/comments-7.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/comments-8.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/comments-8.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/comments-8.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/comments-8.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/issues-for-operator.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-for-operator.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/issues-for-operator.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-for-operator.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-operator.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-operator.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-operator.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-operator.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-plan.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-plan.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-plan.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-needs-plan.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/issues-ready.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-ready.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/issues-ready.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-ready.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/issues-working.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-working.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/issues-working.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/issues-working.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/prs.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/prs.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/prs.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/prs.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/basic/repo.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/repo.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/basic/repo.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/basic/repo.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/empty/issues-for-operator.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-for-operator.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/empty/issues-for-operator.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-for-operator.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-operator.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-operator.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-operator.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-operator.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-plan.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-plan.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-plan.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-needs-plan.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/empty/issues-ready.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-ready.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/empty/issues-ready.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-ready.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/empty/issues-working.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-working.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/empty/issues-working.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/issues-working.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/empty/prs.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/prs.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/empty/prs.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/prs.json
+diff --git a/skills/dev-status/tests/fixtures/scenarios/empty/repo.json b/skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/repo.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/scenarios/empty/repo.json
+rename to skills/dev-skills/dev-status/tests/fixtures/scenarios/empty/repo.json
+diff --git a/skills/dev-status/tests/fixtures/trigger-queries.json b/skills/dev-skills/dev-status/tests/fixtures/trigger-queries.json
+similarity index 100%
+rename from skills/dev-status/tests/fixtures/trigger-queries.json
+rename to skills/dev-skills/dev-status/tests/fixtures/trigger-queries.json
+diff --git a/skills/dev-status/tests/status.test.ts b/skills/dev-skills/dev-status/tests/status.test.ts
+similarity index 100%
+rename from skills/dev-status/tests/status.test.ts
+rename to skills/dev-skills/dev-status/tests/status.test.ts
+diff --git a/skills/skill-maintainer/SKILL.md b/skills/skill-maintainer/SKILL.md
+index a48a48d..8f1a68e 100644
+--- a/skills/skill-maintainer/SKILL.md
++++ b/skills/skill-maintainer/SKILL.md
+@@ -2,42 +2,53 @@
+ name: skill-maintainer
+ description: Maintainer skill for the vegastack-skills repository itself. Use whenever working on this repo - creating or scaffolding a new skill, editing an existing skill (SKILL.md, references, refresh registry, tests), renaming, deprecating, or removing a skill, cutting a release or rolling one back, or checking cross-agent portability across Claude Code, Codex, Hermes, and the agentskills.io standard. Encodes the tri-harness standards (frontmatter policy, naming grammar, description and context budgets, install surfaces) and the per-skill contract every change under skills/ must satisfy. Load it before touching any file in this repo.
+ ---
+ 
+ # VegaStack Skill Maintainer
+ 
+ Maintenance skill for this repository. Every change under `skills/` must satisfy the per-skill contract and the tri-harness standards below. Obey them in your own edits; enforce them in review. When a rule here disagrees with `CONTRIBUTING.md` or `.vegastack/dev.md` at the repo root, those win — then fix this skill.
+ 
+ ## Operating rules
+ 
+-1. Skill content lives only in `skills/<name>/`. Wiring lives outside it: the per-skill packaging allowlist in `packages/cli/packaging.json`, the root `README.md` skills table, and `CHANGELOG.md` (via changesets). The skillify scaffolder writes all three when creating a skill.
++1. Skill content lives only in the skill's own directory, at one of exactly two depths: `skills/<name>/` ungrouped, or `skills/<group>/<name>/` inside a group. Both are first-class; deeper is a build error. A group is a directory holding skills plus a `GROUP.md` (an H1 display title, then one blurb line), and group and skill names share one namespace and one grammar. Wiring lives outside the skill: the per-skill packaging allowlist in `packages/cli/packaging.json` — always keyed by **bare** skill name, because the packaged bundle is flat and an install command never carries a group — the root `README.md` skills table, and `CHANGELOG.md` (via changesets). The skillify scaffolder writes all three when creating a skill.
+ 2. Frontmatter is exactly two keys: `name` and `description`. The open spec also allows `license`, `compatibility`, and `metadata`, but this repo defaults to the minimal two; adding any other key is a policy exception needing maintainer sign-off.
+ 3. `name` must equal the directory name. Grammar: starts with a lowercase letter, then only lowercase letters, digits, and hyphens; no leading/trailing hyphen, no consecutive hyphens; at most 64 chars.
+ 4. `description`: at most 1024 chars, third person, states WHAT the skill does and WHEN to load it, trigger words front-loaded, no angle brackets. Never summarize the workflow in it — agents follow the summary and skip the body. Err slightly pushy: agents under-trigger.
+ 5. `SKILL.md` under 500 lines (target under 150) and roughly under 5k tokens. Detail goes to `references/`, executables to `scripts/`, templates to `assets/`. Relative links stay inside the skill, one level deep.
+ 6. No Claude-only body syntax anywhere in a skill: no dynamic command injection, no argument placeholders, no Claude environment-variable paths — the exact token list is in [standards](references/standards.md). Reference scripts as plain relative paths runnable from the skill directory.
+ 7. Never hand-edit checksums, versions, or timestamps in any `refresh/sources.json` — they must come from a refresh-runner run.
+-8. Before finishing any change: `node packages/cli/scripts/validate-skill.mjs skills/<name>` and `bun test skills/<name>` (both from repo root) must pass.
++8. Before finishing any change: `node packages/cli/scripts/validate-skill.mjs <skill-dir>` and `bun test <skill-dir>` for the skill you touched, plus `node packages/cli/scripts/structure.mjs check` for the repo shape (all from repo root) must pass. `bun run check` runs the structure check as one of its stages.
+ 
+ ## Route progressively
+ 
+ | Need | Read |
+ |---|---|
+ | tri-harness standards: discovery paths, frontmatter rules, context budgets, install surfaces, portability rules, unverified items | [standards](references/standards.md) |
+ | new skill: should-it-exist gate, scaffolding, the 8-item contract audit, behavioral evals | the `skillify` skill |
++| repo shape: groups, `GROUP.md`, the README sections, the structure check | the group workflow below |
+ | release, rename, deprecate, rollback mechanics | [release ops](references/release-ops.md) |
+ | this skill's own freshness contract | [REFRESH](refresh/REFRESH.md), [sources](refresh/sources.json) |
+ | authoritative repo policy | `CONTRIBUTING.md` and `.vegastack/dev.md` at the repo root (release runbook, content semver, rollback) |
+ 
++## Workflow: create or maintain a group
++
++Groups are this skill's responsibility: the repo shape, its `GROUP.md` files, and the root README sections that mirror them. The deterministic method is `packages/cli/scripts/structure.mjs`, run from the repo root.
++
++1. **Create a group** — `node packages/cli/scripts/structure.mjs create-group <name> --title "<Display Title>" --blurb "<one line>"` prints the plan; add `--write` to apply. It writes `skills/<name>/GROUP.md` and inserts the matching `### <Display Title>` README section after the existing tables. Dry-run by default, idempotent, and it refuses a name that breaks the grammar, collides with a skill, or resolves to a symlink.
++2. **Put skills in it** — skillify's scaffolder places a new skill with `--group <name>`; it refuses an unknown group rather than inventing one, so a mistyped group never creates a stray family. Moving an existing skill into a group is a `git mv` plus its README row and its test's validator-import depth; `structure.mjs check` names anything left inconsistent.
++3. **Check the shape** — `node packages/cli/scripts/structure.mjs check` blocks on illegal depth, name collisions, a missing or malformed `GROUP.md`, stray files in a group, a skill missing a contract meta file, packaging entries that disagree with the authored tree, a group-qualified packaging key, and README rows that are absent, duplicated, mispathed, or in the wrong section. It warns — without blocking — on a group of one and on scaffolded placeholder text.
++
++A group never reaches an installer: the bundle is flat, so `GROUP.md` ships nowhere and `add <skill>` never names a group. Ungrouped skills at `skills/<name>/` stay fully supported; grouping is a choice, not a migration.
++
+ ## Workflow: scaffold a new skill
+ 
+-1. Run skillify's `scripts/scaffold-skill.mjs` — it creates the contract tree (`SKILL.md`, `README.md`, `refresh/`, `agents/openai.yaml`, tests and the trigger fixture) and performs the repo wiring itself: the `packages/cli/packaging.json` entry, the root README row, and the changeset (a new skill is MINOR). Fill in the README row description and changeset text it leaves as TODOs; files added after scaffolding go into the skill's `packaging.json` entry by hand (the build fails loudly on unlisted files).
++1. Run skillify's `scripts/scaffold-skill.mjs` — it creates the contract tree (`SKILL.md`, `README.md`, `refresh/`, `agents/openai.yaml`, tests and the trigger fixture) and performs the repo wiring itself: the `packages/cli/packaging.json` entry, the root README row in the right section, and the changeset (a new skill is MINOR). Pass `--group <name>` to place it in an existing group. Fill in the README row description and changeset text it leaves as placeholders; files added after scaffolding go into the skill's `packaging.json` entry by hand (the build fails loudly on unlisted files).
+ 2. Write frontmatter and body per operating rules 2–6; the body routes to references, it does not inline them. `skillify` owns the full authoring and eval discipline.
+ 3. Seed refresh baselines with the deterministic runner, never by hand — invocation in [REFRESH](refresh/REFRESH.md).
+ 4. Run the checks in operating rule 8.
+ 
+ ## Workflow: update or maintain
+ 
+ - **Content versioning.** New rules/references and new recorded decisions are MINOR; weakening a normative rule, removing or renaming a skill, or breaking a per-project profile format is MAJOR — except pre-1.0 with zero deployed profile consumers, where a profile-format break may ship MINOR per a recorded decision; factual refreshes (pins, URLs, checksums) are PATCH (the content-semver bullet in `.vegastack/dev.md`; detail in [release-ops](references/release-ops.md)).
+ - **Tag volatile claims.** Any sentence carrying a vendor version, mechanism name, or numeric budget gets a source marker comment mapping to an ID in that skill's `refresh/sources.json`, and the registry entry's `affected` list must name the reference it lives in. Untagged volatile facts rot silently.
+ - **Description budgets.** Stay within 1024 chars and keep triggers in the first sentence: Codex truncates its skill list at 2% of the context window / 8,000 chars, Claude Code truncates a skill's always-loaded listing at 1,536 chars — the tail of a long description is the first thing lost.
+ - **Packaged-file changes.** Any add/remove/rename of a packaged file must update that skill's `packages/cli/packaging.json` entry in the same PR.
+@@ -54,21 +65,21 @@ Changeset lands with the PR → maintainer runs `bunx changeset version`, `bun i
+ 
+ Run this checklist before merging any skill change; per-harness detail in [standards](references/standards.md).
+ 
+ - [ ] Frontmatter keys exactly `name` + `description`, values within limits (rules 2–4).
+ - [ ] `name` equals the directory name.
+ - [ ] Description has no angle brackets and triggers front-loaded.
+ - [ ] `SKILL.md` under 500 lines; relative links resolve and stay inside the skill.
+ - [ ] No Claude-only body syntax (token list in standards).
+ - [ ] `agents/openai.yaml` present for Codex; extra files are safely ignored by the other harnesses.
+ - [ ] Install surfaces respected: Claude Code `.claude/skills` (project) / `~/.claude/skills` (global); Codex `.agents/skills` (project and global); Hermes `~/.hermes/skills` **global only** — never assume Hermes project-level discovery.
+-- [ ] `node packages/cli/scripts/validate-skill.mjs skills/<name>` and `bun test skills/<name>` pass.
++- [ ] `node packages/cli/scripts/validate-skill.mjs <skill-dir>` and `bun test <skill-dir>` pass, and `node packages/cli/scripts/structure.mjs check` is clean.
+ 
+ ## Hard limits
+ 
+ | Limit | Value |
+ |---|---|
+ | `name` | ≤ 64 chars, lowercase letter first, then `[a-z0-9-]`, no consecutive hyphens, equals directory name |
+ | `description` | 1–1024 chars, no angle brackets |
+ | `SKILL.md` | under 500 lines / ~5k tokens; target under 150 lines |
+ | Claude Code listing | name + description truncated at 1,536 chars per skill |
+ | Claude Code body | first 5,000 tokens persist across compaction; 25,000-token shared skills budget |
+diff --git a/skills/skill-maintainer/references/release-ops.md b/skills/skill-maintainer/references/release-ops.md
+index 9fc86d6..fb250f6 100644
+--- a/skills/skill-maintainer/references/release-ops.md
++++ b/skills/skill-maintainer/references/release-ops.md
+@@ -39,21 +39,21 @@ Contributors do not bump versions in PRs; releases are maintainer-driven.
+ 3. Unpublish only if the bad version leaked secrets or is actively harmful, still within 72 hours, and always *in addition to* steps 1–2, never instead.
+ 
+ ## Rename a skill
+ 
+ Skill names are consumer-facing identifiers — treat a rename as a stable-ID break:
+ 
+ 1. Rename the directory and the frontmatter `name` in the same commit — they must always stay equal.
+ 2. Update every wiring point in the same PR: the skill's entry in `packages/cli/packaging.json`, the root README skills table row, and any cross-skill or docs links.
+ 3. Changeset: MINOR by default — major only when the operator declares it. Either way, note the migration in `CHANGELOG.md`: copies installed under the old name are orphaned, and installer operations addressed to the old name stop resolving once the shipped manifest no longer knows it.
+ 4. Registry source IDs inside `refresh/sources.json` are skill-internal and unaffected, but every `affected` ref must still resolve to a real reference in the renamed tree.
+-5. Re-run `node packages/cli/scripts/validate-skill.mjs skills/<new-name>` and the skill's tests — name/directory equality is validated.
++5. Re-run `node packages/cli/scripts/validate-skill.mjs <new-skill-dir>`, the skill's tests, and `node packages/cli/scripts/structure.mjs check` — name/directory equality is validated, and the structure check catches a README row left pointing at the old path.
+ 
+ ## Deprecate / remove a skill
+ 
+ 1. Announce deprecation in the root README table and `CHANGELOG.md` at least one release before removal when practical.
+-2. Removal: delete `skills/<name>/`, remove its allowlist entries and README row, MAJOR changeset with migration notes.
++2. Removal: delete the skill's directory, remove its allowlist entries and README row, MAJOR changeset with migration notes. Removing the last skill from a group also removes the group's `GROUP.md` and its README section.
+ 3. Removing a skill in a new MAJOR does **not** deprecate previously published package versions — `npm deprecate` only versions that are themselves broken.
+ 
+ ## Refresh branches
+ 
+-Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/`. Human content changes go on normal branches. Never hand-edit checksums/versions/timestamps anywhere — CI re-fetches claimed baselines, so hand-edited values cannot merge.
++Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to refresh metadata at either legal depth (`skills/<name>/refresh/` and `skills/<group>/<name>/refresh/`). Human content changes go on normal branches. Never hand-edit checksums/versions/timestamps anywhere — CI re-fetches claimed baselines, so hand-edited values cannot merge.
+diff --git a/skills/skillify/README.md b/skills/skillify/README.md
+index 955e786..5700e48 100644
+--- a/skills/skillify/README.md
++++ b/skills/skillify/README.md
+@@ -27,23 +27,24 @@ Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex); `--
+ | `tests/` | Bun tests and fixtures (never packaged) |
+ 
+ ## The workflow in one paragraph
+ 
+ Phase 0 gates ("should this be a skill at all?" — invoked twice, real logic, real trigger phrase, one trigger family; prefer merging into an existing skill over a near-duplicate). Phase 1 audits and scores `<passed>/8` with a verdict: `properly skilled`, `close — create: <items>`, or `needs skillify`. Phase 2 elicits requirements, names the nearest-neighbor skill, and marks the volatile facts. Phase 3 scaffolds (the scaffolder also wires the repo) and writes. Phase 4 is the quality gate — with-skill vs baseline subagent runs on realistic prompts, at most 3 improve cycles, honest KNOWN_GAPS exit — because tests written first would lock in mediocrity. Phase 5 locks in script tests, the refresh contract or evergreen waiver, and the wiring TODOs. Phase 6 verifies with `bun run check`.
+ 
+ ## The scaffolder
+ 
+ ```sh
+ node scripts/scaffold-skill.mjs my-skill --dir ../..            # dry run: plan + wiring actions
+-node scripts/scaffold-skill.mjs my-skill --dir ../.. --write    # create skills/my-skill/ and wire the repo
++node scripts/scaffold-skill.mjs my-skill --dir ../.. --write                 # create skills/my-skill/ and wire the repo
++node scripts/scaffold-skill.mjs my-skill --dir ../.. --group dev-skills --write  # ...inside an existing group
+ node scripts/scaffold-skill.mjs my-skill --dir ../.. --json     # machine-readable plan
+ ```
+ 
+-It validates the full name grammar (starts with a lowercase letter, `[a-z0-9-]`, no consecutive hyphens, no trailing hyphen, max 64), refuses existing directories and symlinked `skills/` roots, stages the tree in a temp sibling and renames it into place, substitutes `{{name}}`/`{{date}}`, and then performs the three wiring actions itself: the `packages/cli/packaging.json` entry (default runtime files), a root README Skills-table row (with a TODO description to fill in), and the changeset. Each action is idempotent and degrades to an explicit `skipped:` status when its target is absent. Exit codes: `0` ok, `1` refusal or failure, `2` usage error.
++With `--group <name>` the skill lands at `skills/<group>/<name>/` and its README row goes into that group's section; an unknown group, a malformed `GROUP.md`, or a missing README section is a refusal, because creating a group belongs to `skill-maintainer`'s group workflow. It validates the full name grammar (starts with a lowercase letter, `[a-z0-9-]`, no consecutive hyphens, no trailing hyphen, max 64), refuses existing directories and symlinked `skills/` roots, stages the tree in a temp sibling and renames it into place, substitutes `{{name}}`/`{{date}}`/`{{validatorPath}}`, and then performs the three wiring actions itself: the `packages/cli/packaging.json` entry (default runtime files), a root README Skills-table row (with a TODO description to fill in), and the changeset. Each action is idempotent and degrades to an explicit `skipped:` status when its target is absent. Exit codes: `0` ok, `1` refusal or failure, `2` usage error.
+ 
+ ## Freshness
+ 
+ Skillify's registry is deliberately empty (`sources: []`). Its only time-decaying claims — the frontmatter/name/description numeric limits and harness listing budgets in [references/authoring.md](references/authoring.md), and the model guidance in [references/eval-playbook.md](references/eval-playbook.md) — are mirrored from the standards sources already tracked by the `skill-maintainer` registry, and are marked as mirrored/volatile at their location. See [refresh/REFRESH.md](refresh/REFRESH.md).
+ 
+ ## For agents: how to behave
+ 
+ Follow [SKILL.md](SKILL.md). The short version: gate before scaffolding (most things should not be skills, and near-duplicates get merged); audit means score-and-stop, not edit; every description states triggers and never the workflow; run the behavioral eval before writing lock-in tests; stop after three eval cycles and ship named gaps instead of polished mediocrity; evals are instructions executed with your own subagents, never custom tooling.
+diff --git a/skills/skillify/SKILL.md b/skills/skillify/SKILL.md
+index add6e3a..78ada62 100644
+--- a/skills/skillify/SKILL.md
++++ b/skills/skillify/SKILL.md
+@@ -1,18 +1,18 @@
+ ---
+ name: skillify
+ description: Repo-local skill factory and auditor for the vegastack-skills monorepo. Use when asked to "skillify this", "make this a skill", "turn this workflow into a skill", or scaffold a new skill under skills/; when asked to "audit this skill", "is this skill complete", "check skill completeness", or score a skill against the repo contract; when deciding whether a workflow, script, or prompt should become a skill at all; when a skill description under- or over-triggers and needs tuning; or when a skill in this repo is missing tests, a README, a refresh contract, behavioral eval evidence, or repo wiring. Only for skills inside this repository, not for authoring skills in other projects or installing third-party skills.
+ ---
+ 
+ # Skillify
+ 
+-Turn a raw workflow into a properly-skilled unit of this monorepo, or audit an existing `skills/<name>/` tree against the repo contract (CONTRIBUTING.md, "Adding a new skill"). Skillify is repo-only: it creates and scores skills in this repository, not anywhere else. Deep wiring/release mechanics belong to `skill-maintainer`; cross-reference it rather than restating it.
++Turn a raw workflow into a properly-skilled unit of this monorepo, or audit an existing skill tree — `skills/<name>/` or `skills/<group>/<name>/` — against the repo contract (CONTRIBUTING.md, "Adding a new skill"). Skillify is repo-only: it creates and scores skills in this repository, not anywhere else. Deep wiring/release mechanics belong to `skill-maintainer`; cross-reference it rather than restating it.
+ 
+ ## The contract checklist
+ 
+ Score every item pass / fail / N/A. N/A requires a one-line rationale; N/A without one is a fail. Numbering is stable and additive — future items append, existing items never renumber — so other skills can cite "skillify item 6".
+ 
+ 1. **SKILL.md spec-compliant** — frontmatter is exactly `name` + `description`; name matches the directory and the grammar (starts with a lowercase letter, `[a-z0-9-]`, no consecutive hyphens, max 64); description max 1024 chars with no angle brackets; body targets 50–150 lines with 300 as the ceiling; no harness-specific body syntax. `bun run validate:skill` agrees — it also verifies every relative link in the skill's prose resolves.
+ 2. **Description triggers well** — states triggering conditions only (never the workflow), third person, trigger words front-loaded, per [authoring](references/authoring.md); a query set of realistic positives and near-miss negatives exists at `tests/fixtures/trigger-queries.json`, with `ambiguous_with` naming the nearest competing skill where one exists.
+ 3. **Sharp boundary** — the SKILL.md body names its nearest-neighbor skill and the one-sentence axis of difference (or states it has no neighbor). Two skills answering the same trigger get merged, not shipped.
+ 4. **References routed** — `references/` holds detail only some invocations need, behind a routing table; SKILL.md keeps the workflow, one excellent example, and the routes. N/A for a self-contained skill.
+ 5. **Scripts deterministic and tested** — dependency-free Node under `scripts/`, `--json` for machine output, documented exit codes, atomic writes and symlink refusal for anything mutating, dry-run default; unit tests cover every deterministic branch. N/A when the skill ships no scripts — a prose-only skill needs no test theater; its quality bar is item 6.
+@@ -34,21 +34,21 @@ If any answer is no: it is a script or a doc, not a skill. Stop — do not scaff
+ 
+ Then search the existing skills. If one nearly covers the intent, **prefer merging into it** over creating a near-duplicate — a new neighbor that splits an existing trigger family makes both skills trigger worse.
+ 
+ Scope upper bound: **one skill = one capability = one coherent trigger family.** If the target spans distinct intents users would invoke separately ("run the build" / "roll back the deploy" / "notify the team" are three intents), do not build one skill covering them all. Propose the split and ask which target to skillify first.
+ 
+ ## Phase 1 — Audit
+ 
+ For an existing skill, score the checklist against the actual tree and stop with the verdict:
+ 
+ ```
+-Skill: <name>            Path: skills/<name>/
++Skill: <name>            Path: skills/<name>/ | skills/<group>/<name>/
+ Score: <passed>/8        Verdict: <verdict>
+ Missing: <item>: <one-line evidence> ...
+ ```
+ 
+ For a new skill the audit is trivially 0/8 — proceed. When the request was only "audit" / "is this complete", deliver the verdict and the shortest path to `properly skilled`; do not start editing unasked.
+ 
+ ## Phase 2 — Elicit requirements
+ 
+ Interview before writing (skip questions the conversation already answers):
+ 
+@@ -87,22 +87,23 @@ Iterate at most 3 cycles: eval → apply the top improvements to the skill → r
+ 
+ Now that quality is proven:
+ 
+ 1. Write unit tests for the deterministic branches of any bundled scripts, plus fixtures. A prose-only skill keeps just its trigger-query fixture.
+ 2. Write `refresh/sources.json` + `refresh/REFRESH.md` for the volatile facts marked in Phase 2 — or the one-line evergreen waiver.
+ 3. Finish `README.md` and `agents/openai.yaml`; fill in the wiring TODOs the scaffolder left (README row description, changeset text — shaped per dev-implement's changelog rule).
+ 
+ ## Phase 6 — Verify
+ 
+ ```sh
+-node packages/cli/scripts/validate-skill.mjs skills/<name>
+-bun test skills/<name>
++node packages/cli/scripts/validate-skill.mjs <skill-dir>
++bun test <skill-dir>
++node packages/cli/scripts/structure.mjs check
+ bun run check
+ ```
+ 
+ Re-score the checklist and report `<passed>/8` with the verdict. Anything below `properly skilled` ships only with named gaps.
+ 
+ ## Worked example: skillifying a "release-notes" workflow
+ 
+ ```
+ Phase 0: yes — run at every release, ~80 lines of conventions, trigger "draft the release notes";
+   nearest neighbor is skill-maintainer (release wiring) — different axis, proceed
+diff --git a/skills/skillify/assets/templates/skill.test.ts.template b/skills/skillify/assets/templates/skill.test.ts.template
+index ad32a2a..1e07c70 100644
+--- a/skills/skillify/assets/templates/skill.test.ts.template
++++ b/skills/skillify/assets/templates/skill.test.ts.template
+@@ -1,14 +1,14 @@
+ import { describe, expect, test } from 'bun:test'
+ import { readFileSync } from 'node:fs'
+ import { join, resolve } from 'node:path'
+-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
++import { validateSkill } from '{{validatorPath}}'
+ 
+ const skillRoot = resolve(import.meta.dir, '..')
+ 
+ describe('{{name}} contract', () => {
+   test('SKILL.md passes repo validation', () => {
+     const result = validateSkill(skillRoot)
+     expect(result.message).toBe('Skill is valid!')
+     expect(result.ok).toBe(true)
+   })
+ 
+diff --git a/skills/skillify/scripts/scaffold-skill.mjs b/skills/skillify/scripts/scaffold-skill.mjs
+index 21b2297..8012229 100644
+--- a/skills/skillify/scripts/scaffold-skill.mjs
++++ b/skills/skillify/scripts/scaffold-skill.mjs
+@@ -1,29 +1,34 @@
+ #!/usr/bin/env node
+-// Scaffold a new skill tree at skills/<name>/ from skillify's templates.
++// Scaffold a new skill tree at skills/<name>/ (or skills/<group>/<name>/) from skillify's
++// templates.
+ //
+-//   node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--write] [--json]
++//   node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--group <group>] [--write] [--json]
++//
++// --group places the skill in an existing group. Creating a group is skill-maintainer's job
++// (packages/cli/scripts/structure.mjs create-group), so an unknown group is refused rather than
++// invented: a mistyped group must never bring a stray family into existence.
+ //
+ // Dry-run by default: prints the plan (files that would be created plus the
+ // wiring actions that would be performed) and creates nothing. --write stages
+ // the tree in a temporary sibling inside skills/ and renames it into place,
+ // refusing existing directories and symlinks, then performs the repo wiring
+ // itself: packaging.json entry, root README row, changeset. Exit codes: 0 ok,
+ // 1 refusal or failure, 2 usage error.
+ import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
+ import { dirname, join, resolve } from 'node:path'
+ import { fileURLToPath } from 'node:url'
+ 
+ const here = dirname(fileURLToPath(import.meta.url))
+ const templatesRoot = resolve(here, '..', 'assets', 'templates')
+ 
+-// Template file -> output path inside skills/<name>/ (null = tests/<name>.test.ts).
++// Template file -> output path inside the skill (null = tests/<name>.test.ts).
+ export const templateFiles = [
+   ['SKILL.md.template', 'SKILL.md'],
+   ['README.md.template', 'README.md'],
+   ['sources.json.template', 'refresh/sources.json'],
+   ['REFRESH.md.template', 'refresh/REFRESH.md'],
+   ['openai.yaml.template', 'agents/openai.yaml'],
+   // Scaffolded empty so the shape test stays red until real queries are written.
+   ['trigger-queries.json.template', 'tests/fixtures/trigger-queries.json'],
+   ['skill.test.ts.template', null],
+ ]
+@@ -37,20 +42,33 @@ const defaultPackagedFiles = ['SKILL.md', 'agents/openai.yaml', 'refresh/REFRESH
+ export function validateName(name) {
+   if (typeof name !== 'string' || name.length === 0) return 'skill name is required'
+   if (name.length > 64) return `name is ${name.length} characters; the maximum is 64`
+   if (!/^[a-z]/.test(name)) return 'name must start with a lowercase letter'
+   if (!/^[a-z0-9-]+$/.test(name)) return 'name may contain only lowercase letters, digits, and hyphens'
+   if (name.includes('--')) return 'name must not contain consecutive hyphens'
+   if (name.endsWith('-')) return 'name must not end with a hyphen'
+   return null
+ }
+ 
++// This script ships inside the skillify skill, so it must stay dependency-free and cannot import
++// the repo's lib/skills.mjs. Deliberate small duplication of its GROUP.md title read; the two are
++// kept honest by structure.mjs check, which fails when the README and GROUP.md disagree.
++export function groupTitle(markdown) {
++  const lines = markdown.split('\n')
++  const headingIndex = lines.findIndex(line => /^#\s+\S/.test(line))
++  if (headingIndex === -1) return null
++  const title = lines[headingIndex].replace(/^#\s+/, '').trim()
++  const blurb = lines.slice(headingIndex + 1).find(line => line.trim() !== '')?.trim()
++  if (!title || !blurb || blurb.startsWith('#')) return null
++  return title
++}
++
+ async function entryAt(path) {
+   try {
+     return await lstat(path)
+   } catch {
+     return null
+   }
+ }
+ 
+ async function writeAtomic(path, body) {
+   const staging = `${path}.scaffold-tmp`
+@@ -66,113 +84,158 @@ async function wirePackaging(repoRoot, name, write) {
+   if (!(await entryAt(path))?.isFile()) return { step: 'packaging.json entry', status: 'skipped: packages/cli/packaging.json not found' }
+   const packaged = JSON.parse(await readFile(path, 'utf8'))
+   if (name in packaged) return { step: 'packaging.json entry', status: 'skipped: entry already exists' }
+   if (!write) return { step: 'packaging.json entry', status: 'planned' }
+   packaged[name] = defaultPackagedFiles
+   const sorted = Object.fromEntries(Object.keys(packaged).sort().map(key => [key, packaged[key]]))
+   await writeAtomic(path, `${JSON.stringify(sorted, null, 2)}\n`)
+   return { step: 'packaging.json entry', status: 'done' }
+ }
+ 
+-// Inserts a row for the new skill at the end of the root README's Skills table.
+-async function wireReadme(repoRoot, name, write) {
++// Inserts a row for the new skill at the end of the right Skills table: the ungrouped table for
++// an ungrouped skill, or the table under the group's "### <title>" section. Section-level README
++// edits belong to structure.mjs; this only ever adds a row.
++async function wireReadme(repoRoot, name, group, groupHeading, write) {
+   const path = join(repoRoot, 'README.md')
+   if (!(await entryAt(path))?.isFile()) return { step: 'root README row', status: 'skipped: README.md not found' }
+   const body = await readFile(path, 'utf8')
+-  if (body.includes(`](skills/${name}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
++  const relativePath = group ? `${group}/${name}` : name
++  if (body.includes(`](skills/${relativePath}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
+   const lines = body.split('\n')
+-  const header = lines.findIndex(line => /^\| *Skill *\|/.test(line))
++
++  // The search window is the group's section, or everything before the first "### " when
++  // ungrouped, so a row can never land in a neighbouring family's table.
++  let from = 0
++  let to = lines.length
++  if (group) {
++    from = lines.findIndex(line => line.trim() === `### ${groupHeading}`)
++    if (from < 0) throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
++    const next = lines.findIndex((line, index) => index > from && /^###?\s+/.test(line))
++    to = next < 0 ? lines.length : next
++  } else {
++    const firstSection = lines.findIndex(line => /^###\s+/.test(line))
++    if (firstSection >= 0) to = firstSection
++  }
++
++  const header = lines.findIndex((line, index) => index >= from && index < to && /^\| *Skill *\|/.test(line))
+   if (header < 0 || !/^\|[ -]*---/.test(lines[header + 1] ?? '')) {
+     return { step: 'root README row', status: 'skipped: Skills table not found' }
+   }
+   let last = header + 1
+-  while (lines[last + 1]?.startsWith('|')) last += 1
++  while (last + 1 < to && lines[last + 1]?.startsWith('|')) last += 1
+   if (!write) return { step: 'root README row', status: 'planned' }
+-  const row = `| [${name}](skills/${name}/) | TODO: one-line description | [Walkthrough](skills/${name}/README.md) · [SKILL.md](skills/${name}/SKILL.md) |`
++  const row = `| [${name}](skills/${relativePath}/) | TODO: one-line description | [Walkthrough](skills/${relativePath}/README.md) · [SKILL.md](skills/${relativePath}/SKILL.md) |`
+   lines.splice(last + 1, 0, row)
+   await writeAtomic(path, lines.join('\n'))
+   return { step: 'root README row', status: 'done' }
+ }
+ 
+ // Writes the changeset introducing the skill (content versioning: new skill = minor).
+ async function wireChangeset(repoRoot, name, write) {
+   const directory = join(repoRoot, '.changeset')
+   if (!(await entryAt(directory))?.isDirectory()) return { step: 'changeset', status: 'skipped: .changeset/ not found' }
+   const path = join(directory, `add-${name}.md`)
+   if (await entryAt(path)) return { step: 'changeset', status: 'skipped: changeset already exists' }
+   if (!write) return { step: 'changeset', status: 'planned' }
+   await writeAtomic(path, `---\n"@vegastack/skills": minor\n---\n\nAdd the ${name} skill.\n`)
+   return { step: 'changeset', status: 'done' }
+ }
+ 
+-export async function wireSkill({ name, repoRoot, write = false }) {
++export async function wireSkill({ name, repoRoot, group = null, groupHeading = null, write = false }) {
+   return [
+     await wirePackaging(repoRoot, name, write),
+-    await wireReadme(repoRoot, name, write),
++    await wireReadme(repoRoot, name, group, groupHeading, write),
+     await wireChangeset(repoRoot, name, write),
+   ]
+ }
+ 
+-export async function scaffoldSkill({ name, dir, write = false, now = new Date() }) {
++export async function scaffoldSkill({ name, dir, group = null, write = false, now = new Date() }) {
+   const nameError = validateName(name)
+   if (nameError) throw new Error(`Invalid skill name ${JSON.stringify(name ?? null)}: ${nameError}`)
+   if (!dir) throw new Error('--dir <repo-root> is required')
+   const repoRoot = resolve(dir)
+   const skillsRoot = join(repoRoot, 'skills')
+   const skillsEntry = await entryAt(skillsRoot)
+   // lstat does not follow symlinks, so a symlinked skills/ fails isDirectory().
+   if (!skillsEntry || !skillsEntry.isDirectory()) {
+     throw new Error(`${skillsRoot} is not a real directory - point --dir at the vegastack-skills repo root`)
+   }
+-  const target = join(skillsRoot, name)
++
++  // A group must already exist and carry a well-formed GROUP.md; creating one is
++  // skill-maintainer's structure.mjs create-group, never a side effect of scaffolding a skill.
++  let groupHeading = null
++  if (group) {
++    const groupError = validateName(group)
++    if (groupError) throw new Error(`Invalid group name ${JSON.stringify(group)}: ${groupError}`)
++    const groupRoot = join(skillsRoot, group)
++    const groupEntry = await entryAt(groupRoot)
++    if (!groupEntry || !groupEntry.isDirectory()) {
++      throw new Error(`Group "${group}" does not exist at ${groupRoot} - create it first with: node packages/cli/scripts/structure.mjs create-group ${group} --title <title> --blurb <blurb> --write`)
++    }
++    const groupDoc = await entryAt(join(groupRoot, 'GROUP.md'))
++    if (!groupDoc?.isFile()) throw new Error(`Group "${group}" has no GROUP.md - every group carries one; see skill-maintainer's group workflow`)
++    groupHeading = groupTitle(await readFile(join(groupRoot, 'GROUP.md'), 'utf8'))
++    if (!groupHeading) throw new Error(`skills/${group}/GROUP.md is malformed - it needs an H1 title followed by one non-empty blurb line`)
++  }
++
++  const parent = group ? join(skillsRoot, group) : skillsRoot
++  const target = join(parent, name)
+   if (await entryAt(target)) throw new Error(`Refusing to scaffold: ${target} already exists`)
+ 
++  // The generated test imports the repo validator by relative path, so its depth follows the
++  // skill's: skills/<name>/tests/ is three levels up, skills/<group>/<name>/tests/ is four.
++  const validatorPath = `${group ? '../../../..' : '../../..'}/packages/cli/scripts/validate-skill.mjs`
++
+   const outputs = templateFiles.map(([source, output]) => [source, output ?? `tests/${name}.test.ts`])
+-  const plan = { name, target, files: outputs.map(([, output]) => output), wrote: false }
+-  if (!write) return { ...plan, wiring: await wireSkill({ name, repoRoot }) }
++  const plan = { name, group, target, files: outputs.map(([, output]) => output), wrote: false }
++  if (!write) return { ...plan, wiring: await wireSkill({ name, repoRoot, group, groupHeading }) }
+ 
+   const date = now.toISOString().slice(0, 10)
+-  const staging = await mkdtemp(join(skillsRoot, `.${name}.scaffold-`))
++  const staging = await mkdtemp(join(parent, `.${name}.scaffold-`))
+   try {
+     for (const [source, output] of outputs) {
+       const body = await readFile(join(templatesRoot, source), 'utf8')
+-      const rendered = body.replaceAll('{{name}}', name).replaceAll('{{date}}', date)
++      const rendered = body.replaceAll('{{name}}', name).replaceAll('{{date}}', date).replaceAll('{{validatorPath}}', validatorPath)
+       const destination = join(staging, output)
+       await mkdir(dirname(destination), { recursive: true })
+       await writeFile(destination, rendered)
+     }
+     if (await entryAt(target)) throw new Error(`Refusing to scaffold: ${target} already exists`)
+     await rename(staging, target)
+   } catch (error) {
+     await rm(staging, { recursive: true, force: true })
+     throw error
+   }
+-  return { ...plan, wrote: true, wiring: await wireSkill({ name, repoRoot, write: true }) }
++  return { ...plan, wrote: true, wiring: await wireSkill({ name, repoRoot, group, groupHeading, write: true }) }
+ }
+ 
+ function parseArguments(argv) {
+-  const options = { name: undefined, dir: undefined, write: false, json: false }
++  const options = { name: undefined, dir: undefined, group: null, write: false, json: false }
+   const rest = [...argv]
+   while (rest.length) {
+     const flag = rest.shift()
+     if (flag === '--dir') {
+       const value = rest.shift()
+       if (value === undefined || value.startsWith('-')) throw new Error('--dir requires a value')
+       options.dir = value
++    } else if (flag === '--group') {
++      const value = rest.shift()
++      if (value === undefined || value.startsWith('-')) throw new Error('--group requires a value')
++      options.group = value
+     } else if (flag === '--write') options.write = true
+     else if (flag === '--json') options.json = true
+     else if (flag.startsWith('-')) throw new Error(`Unknown option: ${flag}`)
+     else if (options.name === undefined) options.name = flag
+     else throw new Error(`Unexpected argument: ${flag}`)
+   }
+   if (!options.name || !options.dir) {
+-    throw new Error('Usage: node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--write] [--json]')
++    throw new Error('Usage: node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--group <group>] [--write] [--json]')
+   }
+   return options
+ }
+ 
+ const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+ if (invokedDirectly) {
+   let options
+   try {
+     options = parseArguments(process.argv.slice(2))
+   } catch (error) {
+diff --git a/skills/skillify/tests/fixtures/trigger-queries.json b/skills/skillify/tests/fixtures/trigger-queries.json
+index 241399a..09af30b 100644
+--- a/skills/skillify/tests/fixtures/trigger-queries.json
++++ b/skills/skillify/tests/fixtures/trigger-queries.json
+@@ -1,12 +1,12 @@
+ [
+   { "query": "skillify this release-notes workflow I keep re-running by hand every Friday", "should_trigger": true },
+   { "query": "make this a skill - the deploy checklist we pasted above, it should live in skills/", "should_trigger": true },
+-  { "query": "audit skills/dev-architect and tell me exactly what's missing from the contract", "should_trigger": true },
++  { "query": "audit skills/dev-skills/dev-architect and tell me exactly what's missing from the contract", "should_trigger": true },
+   { "query": "is this skill complete? score it before I open the PR", "should_trigger": true, "ambiguous_with": ["skill-maintainer"] },
+   { "query": "should the k8s log-digging thing even be a skill, or just a script?", "should_trigger": true },
+   { "query": "our new skill never triggers when people ask casually - fix the description", "should_trigger": true },
+   { "query": "install the anthropic pdf skill into my project", "should_trigger": false },
+   { "query": "write a SKILL.md for my blog repo at ~/code/blog so codex picks it up there", "should_trigger": false },
+   { "query": "use dev-architect to review the tenancy design in this service", "should_trigger": false },
+   { "query": "bump the changeset and cut a release of @vegastack/skills", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] }
+ ]
+diff --git a/skills/skillify/tests/skillify.test.ts b/skills/skillify/tests/skillify.test.ts
+index 547349d..38c3364 100644
+--- a/skills/skillify/tests/skillify.test.ts
++++ b/skills/skillify/tests/skillify.test.ts
+@@ -251,10 +251,104 @@ describe('scaffold-skill runs', () => {
+       try {
+         await expect(scaffoldSkill({ name: 'demo-skill', dir: empty })).rejects.toThrow('not a real directory')
+       } finally {
+         await rm(empty, { recursive: true, force: true })
+       }
+     } finally {
+       await rm(root, { recursive: true, force: true })
+     }
+   })
+ })
++
++describe('scaffold-skill groups', () => {
++  // A group is a deliberate structural act owned by skill-maintainer, so the scaffolder places
++  // skills into groups that already exist and refuses to invent one.
++  async function makeGroupedRepo(title = 'Fam'): Promise<string> {
++    const root = await makeWiredRepo()
++    await mkdir(join(root, 'skills/fam'), { recursive: true })
++    await writeFile(join(root, 'skills/fam/GROUP.md'), `# ${title}\n\nThe blurb.\n`)
++    await writeFile(
++      join(root, 'README.md'),
++      [
++        '# Repo', '', '## Skills', '',
++        '| Skill | What it does | Docs |', '|---|---|---|',
++        '| [architect](skills/architect/) | advisor | [SKILL.md](skills/architect/SKILL.md) |', '',
++        `### ${title}`, '', 'The blurb.', '',
++        '| Skill | What it does | Docs |', '|---|---|---|', '',
++        'After the table.', '',
++      ].join('\n'),
++    )
++    return root
++  }
++
++  test('--group places the tree, the row, and a depth-correct validator import', async () => {
++    const repo = await makeGroupedRepo()
++    try {
++      const result = await scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true })
++      expect(result.target).toBe(join(repo, 'skills/fam/demo-skill'))
++
++      const testFile = await readFile(join(repo, 'skills/fam/demo-skill/tests/demo-skill.test.ts'), 'utf8')
++      expect(testFile).toContain("'../../../../packages/cli/scripts/validate-skill.mjs'")
++
++      const readme = await readFile(join(repo, 'README.md'), 'utf8')
++      expect(readme).toContain('| [demo-skill](skills/fam/demo-skill/) |')
++      expect(readme.indexOf('### Fam')).toBeLessThan(readme.indexOf('demo-skill'))
++
++      const packaged = JSON.parse(await readFile(join(repo, 'packages/cli/packaging.json'), 'utf8'))
++      expect(Object.keys(packaged)).toContain('demo-skill')
++      expect(Object.keys(packaged).some((key) => key.includes('/'))).toBe(false)
++
++      expect(validateSkill(join(repo, 'skills/fam/demo-skill')).ok).toBe(true)
++    } finally {
++      await rm(repo, { recursive: true, force: true })
++    }
++  })
++
++  test('without --group nothing changes: top-level tree, ungrouped row, three-dot import', async () => {
++    const repo = await makeGroupedRepo()
++    try {
++      await scaffoldSkill({ name: 'demo-skill', dir: repo, write: true })
++      const testFile = await readFile(join(repo, 'skills/demo-skill/tests/demo-skill.test.ts'), 'utf8')
++      expect(testFile).toContain("'../../../packages/cli/scripts/validate-skill.mjs'")
++      const readme = await readFile(join(repo, 'README.md'), 'utf8')
++      expect(readme).toContain('| [demo-skill](skills/demo-skill/) |')
++      // The row belongs to the ungrouped table, above the group section.
++      expect(readme.indexOf('| [demo-skill](skills/demo-skill/) |')).toBeLessThan(readme.indexOf('### Fam'))
++    } finally {
++      await rm(repo, { recursive: true, force: true })
++    }
++  })
++
++  test('an unknown group refuses and creates nothing', async () => {
++    const repo = await makeGroupedRepo()
++    try {
++      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'ghost', write: true }))
++        .rejects.toThrow(/group "ghost" does not exist/i)
++      expect(await readdir(join(repo, 'skills'))).toEqual(['fam'])
++    } finally {
++      await rm(repo, { recursive: true, force: true })
++    }
++  })
++
++  test('a group whose GROUP.md is malformed refuses rather than guessing a section', async () => {
++    const repo = await makeGroupedRepo()
++    try {
++      await writeFile(join(repo, 'skills/fam/GROUP.md'), '# Fam\n')
++      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true }))
++        .rejects.toThrow(/GROUP\.md/i)
++    } finally {
++      await rm(repo, { recursive: true, force: true })
++    }
++  })
++
++  test('a group section missing from the README refuses rather than writing a stray row', async () => {
++    const repo = await makeGroupedRepo()
++    try {
++      const readme = await readFile(join(repo, 'README.md'), 'utf8')
++      await writeFile(join(repo, 'README.md'), readme.replace('### Fam', '### Elsewhere'))
++      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true }))
++        .rejects.toThrow(/section/i)
++    } finally {
++      await rm(repo, { recursive: true, force: true })
++    }
++  })
++})

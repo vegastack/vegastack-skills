@@ -340,6 +340,24 @@ describe('scaffold-skill groups', () => {
     }
   })
 
+  test('an unrelated "###" heading elsewhere in the README does not move the row', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      // A heading outside the Skills region must not bound the ungrouped search window.
+      await writeFile(join(repo, 'README.md'), `### Prelude\n\nAn unrelated section.\n\n${readme}\n## Later\n\n### Also unrelated\n`)
+      await scaffoldSkill({ name: 'demo-skill', dir: repo, write: true })
+      const updated = await readFile(join(repo, 'README.md'), 'utf8')
+      const row = '| [demo-skill](skills/demo-skill/) |'
+      expect(updated).toContain(row)
+      // Still in the ungrouped table: after the architect row, before the group section.
+      expect(updated.indexOf('| [architect](skills/architect/) |')).toBeLessThan(updated.indexOf(row))
+      expect(updated.indexOf(row)).toBeLessThan(updated.indexOf('### Fam'))
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
   test('a group section missing from the README refuses rather than writing a stray row', async () => {
     const repo = await makeGroupedRepo()
     try {
