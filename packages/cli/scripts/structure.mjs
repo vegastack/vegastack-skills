@@ -326,7 +326,10 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   // is a refusal, not a "skipped:" success — otherwise create-group leaves a tree its own check
   // blocks and still exits 0.
   let plannedReadme = null
-  if (readmeBody !== null && !sectionExists) {
+  if (readmeBody === null) {
+    throw new Error(`README.md is missing or is not a readable file at ${readmePath} — every group needs its README section, so refusing rather than creating a group the structure check would block`)
+  }
+  if (!sectionExists) {
     plannedReadme = insertGroupSection(readmeBody, title, blurb)
     if (plannedReadme === null) {
       throw new Error(`README.md has no "## Skills" table to add a "### ${title}" section to — every group needs its section, so refusing rather than creating a group the structure check would block`)

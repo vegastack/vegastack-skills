@@ -51,7 +51,7 @@ and no machine-extracted rule format to follow.
 - New reference files or reference sections, and new/changed recorded decisions (e.g. a new
   "use/not/why" row, a new red line) are MINOR content changes — see the content-semver bullet
   in [.vegastack/dev.md](.vegastack/dev.md) (detail in
-  [skill-maintainer's release-ops](skills/skill-maintainer/references/release-ops.md)).
+  [skill-maintainer's release-ops](skills/repo-tooling/skill-maintainer/references/release-ops.md)).
 - Factual refreshes and non-normative wording clarifications are PATCH.
 - Removing a skill, or a breaking change to the per-project profile format, is MAJOR;
   renaming a skill ships MINOR by default — major only when the operator declares it.

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync } from 'node:fs'
-import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -340,6 +340,99 @@ describe('selecting a family', () => {
     expect(forced.exitCode).toBe(0)
     expect(existsSync(join(project, '.claude/skills/dev-plan'))).toBe(false)
     expect(existsSync(join(project, '.claude/skills/dev-ship'))).toBe(false)
+  })
+
+  test('the summary counts what installed, not what was selected', async () => {
+    const project = join(temporary, 'group-summary')
+    await mkdir(project, { recursive: true })
+    // One member already present and identical: a selection of ten installs nine.
+    run(temporary, ['add', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const mixed = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(mixed.exitCode).toBe(0)
+    expect(mixed.stdout.toString()).toContain('installed 9 skills from dev-skills, 1 already up to date')
+
+    // And when nothing needs doing at all, say so rather than printing no summary.
+    const noop = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(noop.exitCode).toBe(0)
+    expect(noop.stdout.toString()).toMatch(/10 skills already installed and unchanged/)
+  })
+
+  test('--all names the repo-only skills it skipped', async () => {
+    const project = join(temporary, 'all-notice')
+    await mkdir(project, { recursive: true })
+    const out = run(temporary, ['add', '--all', '--agent', 'claude', '--dir', project, '--non-interactive']).stdout.toString()
+    expect(out).toMatch(/skipped 2 repo-only/)
+    expect(out).toMatch(/skill-maintainer/)
+  })
+
+  test('--force replaces a drifted member of a group and leaves the family verifiable', async () => {
+    const project = join(temporary, 'group-force')
+    await mkdir(project, { recursive: true })
+    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    await writeFile(join(project, '.claude/skills/dev-ship/SKILL.md'), 'locally edited\n')
+    expect(run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
+    expect(run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive', '--force']).exitCode).toBe(0)
+    expect(run(temporary, ['verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+  })
+
+  test('remove settles a pending install journal, so removed skills stay removed', async () => {
+    const project = join(temporary, 'remove-recovers')
+    await mkdir(project, { recursive: true })
+    run(temporary, ['add', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const skills = join(project, '.claude/skills')
+
+    // An interrupted install leaves a backup plus a prepared journal naming it. Without settling
+    // those first, the removal "succeeds" and the next add rolls the backup forward.
+    await cp(join(skills, 'dev-plan'), join(skills, '.dev-plan.backup-deadbeef'), { recursive: true })
+    await mkdir(join(project, '.vegastack'), { recursive: true })
+    await writeFile(join(project, '.vegastack/.skills-install-transaction.json'), JSON.stringify({
+      schemaVersion: 2,
+      status: 'prepared',
+      operations: [{
+        skill: 'dev-plan',
+        agent: 'claude',
+        destination: join(skills, 'dev-plan'),
+        existed: true,
+        stage: join(skills, '.dev-plan.stage-deadbeef'),
+        backup: join(skills, '.dev-plan.backup-deadbeef'),
+      }],
+    }))
+
+    run(temporary, ['remove', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive', '--force'])
+    expect(existsSync(join(skills, 'dev-plan'))).toBe(false)
+    expect(existsSync(join(skills, '.dev-plan.backup-deadbeef'))).toBe(false)
+
+    run(temporary, ['add', 'dev-ship', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(existsSync(join(skills, 'dev-plan'))).toBe(false)
+  })
+
+  test('a dry run that the real run would refuse says so and exits non-zero', async () => {
+    const project = join(temporary, 'dry-refusal')
+    await mkdir(project, { recursive: true })
+    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    await writeFile(join(project, '.claude/skills/dev-status/SKILL.md'), 'locally edited\n')
+    const preview = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--dry-run', '--non-interactive'])
+    expect(preview.stdout.toString()).toMatch(/would replace .*dev-status/)
+    expect(preview.stdout.toString()).toMatch(/would install nothing/)
+    // The real run aborts, so a preview that exits 0 promises an install that cannot happen.
+    expect(preview.exitCode).not.toBe(0)
+  })
+
+  test('a repeated --group is refused rather than silently last-wins', () => {
+    const result = run(temporary, ['add', '--group', 'dev-skills', '--group', 'repo-tooling', '--dir', temporary, '--non-interactive'])
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toContain('only once')
+  })
+
+  test('an empty --group value is refused rather than read as no selector', () => {
+    const result = run(temporary, ['add', '--group', '', '--dir', temporary, '--non-interactive'])
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toContain('--group requires a value')
+  })
+
+  test('the no-selector error names the command you actually ran', () => {
+    expect(run(temporary, ['remove', '--dir', temporary, '--non-interactive']).stderr.toString()).toContain('Specify what to remove')
+    expect(run(temporary, ['add', '--dir', temporary, '--non-interactive']).stderr.toString()).toContain('Specify what to install')
   })
 
   test('list groups its output and teaches the group flag', () => {

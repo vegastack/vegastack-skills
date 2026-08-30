@@ -9,7 +9,7 @@ Instructions for the scheduled refresh agent (and any human running a manual ref
   - the numeric limits and harness listing budgets table in `references/authoring.md` (marked `<!-- mirrored -->`);
   - the model guidance section in `references/eval-playbook.md` (marked `<!-- volatile -->`).
 
-  Both mirror facts whose sources of truth are the agent-skills standards sources tracked in the **skill-maintainer** registry (`skills/skill-maintainer/refresh/sources.json`). `sources` here is therefore deliberately empty, and the refresh runner treats this registry as valid with nothing to fetch.
+  Both mirror facts whose sources of truth are the agent-skills standards sources tracked in the **skill-maintainer** registry (`skills/repo-tooling/skill-maintainer/refresh/sources.json`). `sources` here is therefore deliberately empty, and the refresh runner treats this registry as valid with nothing to fetch.
 
 ## How to refresh
 

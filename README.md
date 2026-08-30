@@ -12,19 +12,15 @@ Install the dev workflow into your project:
 npx @vegastack/skills add --group dev-skills
 ```
 
-Then, in your agent, bootstrap the project once:
-
-```
-run dev-setup
-```
+Then ask your agent to **set up the dev workflow** — that phrasing triggers the `dev-setup` skill.
 
 `dev-setup` writes `.vegastack/dev.md` — your project's handbook: stack, commands, review mode, shipping gates. Everything else reads from it. After that, work flows through GitHub issues: **dev-intake** turns an idea into a brief you approve → **dev-plan** turns the brief into a plan you approve → **dev-implement** builds it and posts evidence → **dev-review** reviews it independently → **dev-ship** opens the PR and merges, each step only on your explicit word.
 
-Requires Node >= 24. Nothing else to configure.
+**Prerequisites.** The installer needs Node >= 24 on macOS or Linux (Windows is not yet supported). The workflow itself also needs `git` and an authenticated GitHub CLI — check with `gh auth status` — because the dev skills work through GitHub issues. `dev-setup` tells you if either is missing, and handles a brand-new project with no remote.
 
 ### Other ways to select what you install
 
-`add`, `verify`, and `remove` each take **exactly one** selector:
+`add` and `remove` each take **exactly one** selector; `verify` takes at most one and checks everything installed when given none:
 
 ```sh
 npx @vegastack/skills add dev-plan              # one skill
@@ -49,6 +45,8 @@ Project-local by default; `--global` targets your home directory instead.
 
 The installer detects which agents you have and targets them without asking; `--agent codex|claude|hermes|both|all` overrides. Hermes discovers skills globally only, so `--agent hermes` requires `--global`.
 
+`--all` and `--agent all` are different axes and easy to confuse: **`--all` chooses which skills, `--agent all` chooses which agent runtimes.** `add --all --agent all --global` means every installable skill, on every runtime, in your home directory.
+
 Skills always install **flat**, as `<surface>/<skill-name>/`. Groups are a way of selecting and organising skills — they never appear in an installed path, so `--group` changes what you get, never where it lands.
 
 `verify` re-checks installed bytes against the shipped checksum manifest, `remove` uninstalls, and `doctor` diagnoses an install and reports installed-vs-latest. Every flag: [installer README](packages/cli/README.md).
@@ -65,6 +63,11 @@ If you are an agent reading this repository, or pointing a user at it:
 - **The install layout is flat.** A skill is always at `<surface>/<name>/`. Never construct a path containing a group.
 
 ## Skills
+
+Every skill currently belongs to a group; the table below is where an ungrouped one would be listed.
+
+<!-- Ungrouped skills go in this table. skillify's scaffold-skill.mjs anchors new ungrouped rows
+     on this header and refuses to scaffold without it, so do not delete it when it is empty. -->
 
 | Skill | What it does | Docs |
 |---|---|---|
