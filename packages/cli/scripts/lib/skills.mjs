@@ -33,9 +33,12 @@ export function nameError(name) {
 
 const isSkillDir = (path) => existsSync(join(path, 'SKILL.md'))
 
+// Dot-directories are never skills or groups: they are tool leftovers (a crashed scaffolder's
+// `.<name>.scaffold-XXXX` staging directory) or VCS/editor state. Treating one as a group made
+// every repo command fail with "Invalid group name" until it was found and deleted by hand.
 function childDirectories(path) {
   return readdirSync(path, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
     .map((entry) => entry.name)
     .sort()
 }

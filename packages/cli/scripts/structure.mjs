@@ -158,6 +158,14 @@ export function checkStructure(repoRoot) {
     return { blocks, warns }
   }
 
+  // A title is a group's address in the README, so two groups sharing one would silently merge
+  // both families into a single section — and each group needs a section to be addressable at all.
+  const byTitle = new Map()
+  for (const [name, doc] of groupDocs) {
+    const existing = byTitle.get(doc.title)
+    if (existing) blocks.push(`groups "${existing}" and "${name}" share the GROUP.md title "${doc.title}" — a title addresses exactly one README section, so they must differ`)
+    else byTitle.set(doc.title, name)
+  }
   const titleToGroup = new Map([...groupDocs].map(([name, doc]) => [doc.title, name]))
   const rowSection = new Map()
   for (const section of sections) {
@@ -182,6 +190,11 @@ export function checkStructure(repoRoot) {
     }
   }
 
+  for (const [name, doc] of groupDocs) {
+    if (!sections.some((section) => section.title === doc.title)) {
+      blocks.push(`group "${name}" has no "### ${doc.title}" section in README.md — create it with structure.mjs create-group, or remove the group`)
+    }
+  }
   for (const name of rowSection.keys()) {
     if (!skills.has(name)) blocks.push(`README.md lists "${name}" under Skills, but no such skill is authored`)
   }
@@ -245,6 +258,13 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   if (invalid) throw new Error(`Invalid group name ${JSON.stringify(name ?? null)}: ${invalid}`)
   if (!repoRoot) throw new Error('repoRoot is required')
   if (!title || !blurb) throw new Error('a group needs both a --title and a --blurb')
+  // Write only what readGroupDoc will accept: a single-line H1 title, then a single-line blurb
+  // that is not itself a heading. Otherwise the tool emits a GROUP.md its own checker rejects.
+  for (const [label, value] of [['title', title], ['blurb', blurb]]) {
+    if (value.includes('\n')) throw new Error(`--${label} must be a single line`)
+    if (value.trim() !== value || !value.trim()) throw new Error(`--${label} must not be blank or padded with whitespace`)
+    if (value.startsWith('#')) throw new Error(`--${label} must not start with "#" — GROUP.md's shape is an H1 title followed by one plain blurb line`)
+  }
   const root = resolve(repoRoot)
   const skillsRoot = join(root, 'skills')
   const skillsEntry = entryAt(skillsRoot)
@@ -262,9 +282,20 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   const clash = discoverSkills(skillsRoot).get(name)
   if (clash) throw new Error(`Refusing to create a group named "${name}": a skill of that name already lives at ${clash.path} — group and skill names share one namespace`)
 
+  // A different title on an existing group is a rename, not a create: it would leave the old
+  // section orphaned and add a second one. Refuse, and say which title is in force.
   const wiring = []
   const groupDocPath = join(target, 'GROUP.md')
   const docExists = Boolean(entryAt(groupDocPath))
+  if (docExists) {
+    const current = readGroupDoc(target)
+    if (current && current.title !== title) {
+      throw new Error(`Group "${name}" already exists with the title "${current.title}"; refusing to write a second section titled "${title}" — rename the heading in README.md and GROUP.md together instead`)
+    }
+  }
+  for (const [otherName, doc] of [...discoverGroups(skillsRoot)].filter(([other]) => other !== name).map(([other, group]) => [other, readGroupDoc(group.path)])) {
+    if (doc && doc.title === title) throw new Error(`Group "${otherName}" already uses the title "${title}" — a title addresses exactly one README section`)
+  }
   const readmePath = join(root, 'README.md')
   const readmeBody = entryAt(readmePath)?.isFile() ? readFileSync(readmePath, 'utf8') : null
   const sectionExists = readmeBody !== null && (parseSkillsRegion(readmeBody) ?? []).some((section) => section.title === title)
