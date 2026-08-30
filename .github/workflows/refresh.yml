@@ -47,7 +47,7 @@ jobs:
           # Depth-agnostic: skills live at skills/<name>/ or skills/<group>/<name>/, and a shell
           # glob would silently cover only one of the two. The name is still the registry's
           # grandparent directory at either depth.
-          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' -not -path '*/.*' | sort)
           for REGISTRY in "${REGISTRIES[@]}"; do
             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
             echo "== $SKILL"
@@ -78,7 +78,7 @@ jobs:
           set -euo pipefail
           RUNNER=tooling/refresh/refresh-evidence.mjs
           VERIFY=$(mktemp -d)
-          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' -not -path '*/.*' | sort)
           for REGISTRY in "${REGISTRIES[@]}"; do
             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
             node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
@@ -111,7 +111,7 @@ jobs:
           git config user.name "vegastack-refresh[bot]"
           git config user.email "noreply@vegastack.com"
           git checkout -B refresh/weekly
-          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' -not -path '*/.*' | sort)
           git add "${REGISTRIES[@]}"
           git commit -m "chore(refresh): weekly deterministic baseline refresh"
           git push -f origin refresh/weekly

@@ -103,7 +103,9 @@ export function checkStructure(repoRoot) {
       if (PLACEHOLDER.test(doc.blurb)) warns.push(`skills/${name}/GROUP.md still carries scaffolded placeholder text in its blurb`)
     }
     for (const entry of readdirSync(group.path, { withFileTypes: true })) {
-      if (entry.isDirectory() || entry.name === 'GROUP.md') continue
+      // Dotfiles are tool and OS leftovers (.DS_Store), consistent with discovery ignoring
+      // dot-directories; blocking on them would fail the check on a stock macOS checkout.
+      if (entry.isDirectory() || entry.name === 'GROUP.md' || entry.name.startsWith('.')) continue
       blocks.push(`skills/${name}/${entry.name} is not allowed — a group directory holds only skill directories and its GROUP.md`)
     }
     const members = [...skills.values()].filter((skill) => skill.group === name)
@@ -279,7 +281,13 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   // Group and skill names share one namespace, so a group named after a skill in ANOTHER group
   // would make the repo unbuildable. Discovery owns that rule; consult it before mutating, not
   // after — the whole point of a dry-run-by-default mutator is that a refusal writes nothing.
-  const clash = discoverSkills(skillsRoot).get(name)
+  let authored
+  try {
+    authored = discoverSkills(skillsRoot)
+  } catch (error) {
+    throw new Error(`Cannot create a group while the skills tree is already invalid: ${error.message}`)
+  }
+  const clash = authored.get(name)
   if (clash) throw new Error(`Refusing to create a group named "${name}": a skill of that name already lives at ${clash.path} — group and skill names share one namespace`)
 
   // A different title on an existing group is a rename, not a create: it would leave the old
@@ -289,7 +297,12 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   const docExists = Boolean(entryAt(groupDocPath))
   if (docExists) {
     const current = readGroupDoc(target)
-    if (current && current.title !== title) {
+    // A null here means the existing GROUP.md is malformed. Treating that as "no title to
+    // conflict with" is how the guard below got skipped and a second section written.
+    if (!current) {
+      throw new Error(`skills/${name}/GROUP.md exists but is malformed — repair it by hand (an H1 title, then one plain blurb line) or delete it; refusing to write over an unreadable group`)
+    }
+    if (current.title !== title) {
       throw new Error(`Group "${name}" already exists with the title "${current.title}"; refusing to write a second section titled "${title}" — rename the heading in README.md and GROUP.md together instead`)
     }
   }
@@ -299,6 +312,17 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   const readmePath = join(root, 'README.md')
   const readmeBody = entryAt(readmePath)?.isFile() ? readFileSync(readmePath, 'utf8') : null
   const sectionExists = readmeBody !== null && (parseSkillsRegion(readmeBody) ?? []).some((section) => section.title === title)
+
+  // Every group the checker accepts has a README section, so a section this command cannot write
+  // is a refusal, not a "skipped:" success — otherwise create-group leaves a tree its own check
+  // blocks and still exits 0.
+  let plannedReadme = null
+  if (readmeBody !== null && !sectionExists) {
+    plannedReadme = insertGroupSection(readmeBody, title, blurb)
+    if (plannedReadme === null) {
+      throw new Error(`README.md has no "## Skills" table to add a "### ${title}" section to — every group needs its section, so refusing rather than creating a group the structure check would block`)
+    }
+  }
 
   if (!write) {
     wiring.push({ step: 'GROUP.md', status: docExists ? 'skipped: already exists' : 'planned' })
@@ -319,13 +343,8 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   } else if (sectionExists) {
     wiring.push({ step: 'root README section', status: 'skipped: already exists' })
   } else {
-    const updated = insertGroupSection(readmeBody, title, blurb)
-    if (updated === null) {
-      wiring.push({ step: 'root README section', status: 'skipped: Skills table not found' })
-    } else {
-      writeAtomic(readmePath, updated)
-      wiring.push({ step: 'root README section', status: 'done' })
-    }
+    writeAtomic(readmePath, plannedReadme)
+    wiring.push({ step: 'root README section', status: 'done' })
   }
 
   return { name, path: target, files: ['GROUP.md'], wrote: true, wiring }
