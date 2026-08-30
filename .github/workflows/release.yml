@@ -39,12 +39,7 @@ permissions:
 
 jobs:
   publish:
-    # TEMPORARY (0.13.0): GitHub-hosted runners are suspended by an account-level
-    # billing lock, so hosted jobs never start. Self-hosted minutes are not metered
-    # and do dispatch. OIDC claims (repository + workflow_ref) are unchanged by the
-    # runner type, so npm trusted publishing and provenance work exactly as before.
-    # Revert to `ubuntu-latest` once the billing lock clears.
-    runs-on: [self-hosted, ephemeral-release]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
@@ -105,15 +100,7 @@ jobs:
           if npm view "@vegastack/skills@$VERSION" version >/dev/null 2>&1; then
             echo "@vegastack/skills@$VERSION is already on the registry; skipping publish."
           else
-            # TEMPORARY (0.13.0), revert with the runs-on change above.
-            # npm refuses a provenance bundle built anywhere but a GitHub-hosted
-            # runner: "Unsupported GitHub Actions runner environment: self-hosted.
-            # Only github-hosted runners are supported when publishing with
-            # provenance." Hosted runners are billing-locked, so this publish
-            # opts out of provenance to ship at all. Auth is unaffected — this is
-            # still token-free trusted publishing over OIDC. 0.13.1 gets cut from
-            # a hosted runner once the lock clears, to restore an attested version.
-            npm publish --access public --no-provenance
+            npm publish --access public
           fi
 
       # npm sbom needs an npm lockfile, which this Bun workspace does not keep.
