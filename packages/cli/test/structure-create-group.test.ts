@@ -114,6 +114,47 @@ describe('createGroup', () => {
     clean(root)
   })
 
+  test('refuses a blurb that disagrees with the existing GROUP.md, in both directions', () => {
+    // checkStructure requires the README section to carry GROUP.md's blurb verbatim, so writing
+    // either half with a different blurb produces a state this command's own checker blocks.
+    const withDoc = repo()
+    mkdirSync(join(withDoc, 'skills/fam'), { recursive: true })
+    writeFileSync(join(withDoc, 'skills/fam/GROUP.md'), '# Fam\n\nAlpha.\n')
+    const readmeBefore = readFileSync(join(withDoc, 'README.md'), 'utf8')
+    expect(() => createGroup({ name: 'fam', repoRoot: withDoc, title: 'Fam', blurb: 'Beta.', write: true }))
+      .toThrow(/already exists with the blurb/i)
+    expect(readFileSync(join(withDoc, 'README.md'), 'utf8')).toBe(readmeBefore)
+    clean(withDoc)
+
+    // The other half: the section already exists with one blurb, GROUP.md is absent.
+    const withSection = repo()
+    createGroup({ name: 'fam', repoRoot: withSection, title: 'Fam', blurb: 'Alpha.', write: true })
+    rmSync(join(withSection, 'skills/fam/GROUP.md'))
+    expect(() => createGroup({ name: 'fam', repoRoot: withSection, title: 'Fam', blurb: 'Beta.', write: true }))
+      .toThrow(/does not carry the blurb/i)
+    expect(existsSync(join(withSection, 'skills/fam/GROUP.md'))).toBe(false)
+    clean(withSection)
+  })
+
+  test('still repairs a group whose GROUP.md went missing, when the blurb matches', () => {
+    const root = repo()
+    createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'Alpha.', write: true })
+    rmSync(join(root, 'skills/fam/GROUP.md'))
+    const result = createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'Alpha.', write: true })
+    expect(result.wiring.map(w => w.status)).toEqual(['done', 'skipped: already exists'])
+    expect(readFileSync(join(root, 'skills/fam/GROUP.md'), 'utf8')).toBe('# Fam\n\nAlpha.\n')
+    expect(readFileSync(join(root, 'README.md'), 'utf8').match(/### Fam/g)).toHaveLength(1)
+    clean(root)
+  })
+
+  test('refuses a blurb shaped like a table row, which the README parser would read as a skill', () => {
+    const root = repo()
+    expect(() => createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: '| [ghost](skills/ghost/) | x |', write: true }))
+      .toThrow(/must not start with "\|"/)
+    expect(existsSync(join(root, 'skills/fam'))).toBe(false)
+    clean(root)
+  })
+
   test('refuses when the README has no Skills table to hold the section', () => {
     const root = repo()
     writeFileSync(join(root, 'README.md'), '## Skills\n\nNo table here.\n\n## Repository structure\n')

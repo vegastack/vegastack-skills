@@ -103,22 +103,14 @@ async function wirePackaging(repoRoot, name, write) {
   return { step: 'packaging.json entry', status: 'done' }
 }
 
-// Inserts a row for the new skill at the end of the right Skills table: the ungrouped table for
-// an ungrouped skill, or the table under the group's "### <title>" section. Section-level README
-// edits belong to structure.mjs; this only ever adds a row.
-async function wireReadme(repoRoot, name, group, groupHeading, write) {
-  const path = join(repoRoot, 'README.md')
-  if (!(await entryAt(path))?.isFile()) return { step: 'root README row', status: 'skipped: README.md not found' }
-  const body = await readFile(path, 'utf8')
-  const relativePath = group ? `${group}/${name}` : name
-  if (body.includes(`](skills/${relativePath}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
-  const lines = body.split('\n')
-
-  // The search window is the group's section, or the ungrouped table when there is no group.
-  // Both are bounded by the "## Skills" region, so a row can never land in a neighbouring
-  // family's table or in an unrelated table elsewhere in the README.
+// Resolves where a row belongs: the end of the ungrouped table, or of the table under the
+// group's "### <title>" section. Both windows are bounded by the "## Skills" region, so a row can
+// never land in a neighbouring family's table or in an unrelated table elsewhere in the README.
+// Returns null when the README has no usable table, so callers can refuse before writing rather
+// than report a "skipped:" success afterwards.
+export function findRowInsertion(lines, group, groupHeading) {
   const regionStart = lines.findIndex(line => /^##\s+Skills\s*$/.test(line))
-  if (regionStart < 0) return { step: 'root README row', status: 'skipped: Skills section not found' }
+  if (regionStart < 0) return null
   const afterRegion = lines.findIndex((line, index) => index > regionStart && /^##\s+/.test(line) && !/^###/.test(line))
   const regionEnd = afterRegion < 0 ? lines.length : afterRegion
 
@@ -126,7 +118,7 @@ async function wireReadme(repoRoot, name, group, groupHeading, write) {
   let to = regionEnd
   if (group) {
     from = lines.findIndex((line, index) => index > regionStart && index < regionEnd && line.trim() === `### ${groupHeading}`)
-    if (from < 0) throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
+    if (from < 0) return { missingSection: true }
     const next = lines.findIndex((line, index) => index > from && index < regionEnd && /^###\s+/.test(line))
     to = next < 0 ? regionEnd : next
   } else {
@@ -135,11 +127,24 @@ async function wireReadme(repoRoot, name, group, groupHeading, write) {
   }
 
   const header = lines.findIndex((line, index) => index >= from && index < to && /^\| *Skill *\|/.test(line))
-  if (header < 0 || !/^\|[ -]*---/.test(lines[header + 1] ?? '')) {
-    return { step: 'root README row', status: 'skipped: Skills table not found' }
-  }
+  if (header < 0 || !/^\|[ -]*---/.test(lines[header + 1] ?? '')) return null
   let last = header + 1
   while (last + 1 < to && lines[last + 1]?.startsWith('|')) last += 1
+  return { index: last }
+}
+
+async function wireReadme(repoRoot, name, group, groupHeading, write) {
+  const path = join(repoRoot, 'README.md')
+  if (!(await entryAt(path))?.isFile()) return { step: 'root README row', status: 'skipped: README.md not found' }
+  const body = await readFile(path, 'utf8')
+  const relativePath = group ? `${group}/${name}` : name
+  if (body.includes(`](skills/${relativePath}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
+  const lines = body.split('\n')
+
+  const target = findRowInsertion(lines, group, groupHeading)
+  if (target?.missingSection) throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
+  if (!target) return { step: 'root README row', status: 'skipped: Skills table not found' }
+  const last = target.index
   if (!write) return { step: 'root README row', status: 'planned' }
   const row = `| [${name}](skills/${relativePath}/) | TODO: one-line description | [Walkthrough](skills/${relativePath}/README.md) · [SKILL.md](skills/${relativePath}/SKILL.md) |`
   lines.splice(last + 1, 0, row)
@@ -215,14 +220,17 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   if (clash) throw new Error(`Refusing to scaffold: a skill named "${name}" already exists at ${clash} - the packaged bundle is flat, so skill names are unique across the whole tree`)
 
   // Every refusal belongs in this pre-flight. wireReadme runs after the tree is renamed into
-  // place, so a missing section discovered there would leave a half-wired skill on disk.
-  if (group) {
-    const readmePath = join(repoRoot, 'README.md')
-    if ((await entryAt(readmePath))?.isFile()) {
-      const body = await readFile(readmePath, 'utf8')
-      if (!body.split('\n').some(line => line.trim() === `### ${groupHeading}`)) {
-        throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
-      }
+  // place and the packaging entry written, so anything discovered there would leave a half-wired
+  // skill on disk while reporting a refusal - or, worse, report success with no row at all.
+  const readmePath = join(repoRoot, 'README.md')
+  if ((await entryAt(readmePath))?.isFile()) {
+    const lines = (await readFile(readmePath, 'utf8')).split('\n')
+    const target = findRowInsertion(lines, group, groupHeading)
+    if (target?.missingSection) {
+      throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
+    }
+    if (!target) {
+      throw new Error(`README.md has no ${group ? `table under "### ${groupHeading}"` : 'ungrouped Skills table'} to add a row to - every skill needs its row, so refusing rather than scaffolding a skill the structure check would block`)
     }
   }
 

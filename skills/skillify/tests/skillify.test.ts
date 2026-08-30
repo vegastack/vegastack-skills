@@ -376,6 +376,37 @@ describe('scaffold-skill groups', () => {
     }
   })
 
+  test('a README with no usable table refuses instead of reporting a skipped row after writing', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      // Previously: tree renamed into place, packaging entry and changeset written, then
+      // "skipped: Skills table not found" with wrote: true and exit 0 — and structure check
+      // blocking on the missing row.
+      await writeFile(join(repo, 'README.md'), '# Repo\n\n## Skills\n\nNo table here.\n\n## Elsewhere\n')
+      const packagingBefore = await readFile(join(repo, 'packages/cli/packaging.json'), 'utf8')
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, write: true }))
+        .rejects.toThrow(/no ungrouped Skills table/i)
+      expect(await readdir(join(repo, 'skills'))).toEqual(['fam'])
+      expect(await readFile(join(repo, 'packages/cli/packaging.json'), 'utf8')).toBe(packagingBefore)
+      expect(await readdir(join(repo, '.changeset'))).toEqual([])
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('a group section that exists but carries no table refuses the same way', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      await writeFile(join(repo, 'README.md'), readme.replace('| Skill | What it does | Docs |\n|---|---|---|\n\nAfter the table.', 'After the table.'))
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true }))
+        .rejects.toThrow(/no table under "### Fam"/i)
+      expect(await readdir(join(repo, 'skills/fam'))).toEqual(['GROUP.md'])
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
   test('a name already used at the other depth refuses, in both directions', async () => {
     const grouped = await makeGroupedRepo()
     try {

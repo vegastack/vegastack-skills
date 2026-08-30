@@ -19,7 +19,7 @@
 // Warnings deliberately do NOT fail: `check` is chained into the root `check` script with `&&`,
 // and the guard doctrine says judgement-level observations warn without blocking. `--strict`
 // exits 1 on warnings for a caller that wants them fatal.
-import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { discoverGroups, discoverSkills, nameError, readGroupDoc } from './lib/skills.mjs'
@@ -266,6 +266,7 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
     if (value.includes('\n')) throw new Error(`--${label} must be a single line`)
     if (value.trim() !== value || !value.trim()) throw new Error(`--${label} must not be blank or padded with whitespace`)
     if (value.startsWith('#')) throw new Error(`--${label} must not start with "#" — GROUP.md's shape is an H1 title followed by one plain blurb line`)
+    if (value.startsWith('|')) throw new Error(`--${label} must not start with "|" — the README's row parser would read it as a skill row`)
   }
   const root = resolve(repoRoot)
   const skillsRoot = join(root, 'skills')
@@ -305,12 +306,20 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
     if (current.title !== title) {
       throw new Error(`Group "${name}" already exists with the title "${current.title}"; refusing to write a second section titled "${title}" — rename the heading in README.md and GROUP.md together instead`)
     }
+    // The README section must carry GROUP.md's blurb verbatim (checkStructure enforces it), so a
+    // different blurb here would write a section this command's own checker then blocks.
+    if (current.blurb !== blurb) {
+      throw new Error(`Group "${name}" already exists with the blurb "${current.blurb}"; the README section must carry GROUP.md's blurb verbatim — pass that blurb, or edit skills/${name}/GROUP.md and the README section together`)
+    }
   }
   for (const [otherName, doc] of [...discoverGroups(skillsRoot)].filter(([other]) => other !== name).map(([other, group]) => [other, readGroupDoc(group.path)])) {
     if (doc && doc.title === title) throw new Error(`Group "${otherName}" already uses the title "${title}" — a title addresses exactly one README section`)
   }
   const readmePath = join(root, 'README.md')
-  const readmeBody = entryAt(readmePath)?.isFile() ? readFileSync(readmePath, 'utf8') : null
+  // statSync follows symlinks, matching how checkStructure reads this file. lstatSync did not,
+  // so a symlinked README.md was reported "not found" and the group was created without a section.
+  const readmeIsFile = existsSync(readmePath) && statSync(readmePath).isFile()
+  const readmeBody = readmeIsFile ? readFileSync(readmePath, 'utf8') : null
   const sectionExists = readmeBody !== null && (parseSkillsRegion(readmeBody) ?? []).some((section) => section.title === title)
 
   // Every group the checker accepts has a README section, so a section this command cannot write
@@ -321,6 +330,13 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
     plannedReadme = insertGroupSection(readmeBody, title, blurb)
     if (plannedReadme === null) {
       throw new Error(`README.md has no "## Skills" table to add a "### ${title}" section to — every group needs its section, so refusing rather than creating a group the structure check would block`)
+    }
+  } else if (sectionExists) {
+    // An existing section whose blurb disagrees is the same false success from the other side:
+    // GROUP.md would be written knowing the section does not carry its blurb.
+    const section = (parseSkillsRegion(readmeBody) ?? []).find((entry) => entry.title === title)
+    if (!section.body.some((line) => line.trim() === blurb)) {
+      throw new Error(`README.md's "### ${title}" section does not carry the blurb "${blurb}" — the section must carry GROUP.md's blurb verbatim; pass the blurb already in the README, or edit both together`)
     }
   }
 
