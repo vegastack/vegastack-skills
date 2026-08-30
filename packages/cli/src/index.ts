@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
+import { selectSkills, type SkillEntry } from './selection.ts'
 
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
@@ -14,6 +15,8 @@ type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'he
 interface Options {
   command: Command
   skill?: string
+  group?: string
+  all: boolean
   agent?: AgentChoice
   mode?: Mode
   dir?: string
@@ -21,7 +24,7 @@ interface Options {
   force: boolean
   nonInteractive: boolean
 }
-interface SkillIntegrity { files: Record<string, string> }
+interface SkillIntegrity { files: Record<string, string>; group?: string | null; repoOnly?: boolean }
 interface Integrity { schemaVersion: number; skills: Record<string, SkillIntegrity> }
 interface Operation { skill: string; agent: Agent; destination: string; stage: string; backup?: string; existed: boolean }
 interface InstallJournal { schemaVersion: 2; status: 'prepared' | 'committed'; operations: Operation[] }
@@ -36,9 +39,17 @@ const packageVersion = (JSON.parse(await readFile(join(packageRoot, 'package.jso
 
 function usage() {
   return `Usage: vegastack-skills <add|verify|remove> <skill> [options]
+       vegastack-skills <add|verify|remove> --group <group> [options]
+       vegastack-skills <add|verify|remove> --all [options]
        vegastack-skills <list|doctor> [options]
 
+Select exactly one of: a skill name, --group <group>, or --all.
+--all installs every skill except the repo-only ones; name those explicitly.
+A --group or --all install is one transaction: if any skill fails, none are installed.
+
 Options:
+  --group NAME                           install every skill in that group
+  --all                                  every bundled skill except the repo-only ones
   --agent codex|claude|hermes|both|all   (both = codex+claude; hermes is global-only)
   --project | --global
   --dir PATH
@@ -59,11 +70,17 @@ async function bundledSkills(): Promise<string[]> {
 function parse(argv: string[]): Options {
   // A leading flag (e.g. `vegastack-skills --version`) is not a command.
   const command = (argv[0] && !argv[0].startsWith('-') ? argv.shift()! : 'help') as Command
-  const options: Options = { command, dryRun: false, force: false, nonInteractive: false }
+  const options: Options = { command, all: false, dryRun: false, force: false, nonInteractive: false }
   if (argv[0] && !argv[0].startsWith('-')) options.skill = argv.shift()!
   while (argv.length) {
     const flag = argv.shift()!
-    if (flag === '--agent') options.agent = argv.shift() as AgentChoice
+    if (flag === '--group') {
+      const value = argv.shift()
+      if (value === undefined || value.startsWith('-')) throw new Error('--group requires a value')
+      options.group = value
+    }
+    else if (flag === '--all') options.all = true
+    else if (flag === '--agent') options.agent = argv.shift() as AgentChoice
     else if (flag === '--project') options.mode = 'project'
     else if (flag === '--global') options.mode = 'global'
     else if (flag === '--dir') options.dir = argv.shift()
@@ -80,11 +97,23 @@ function parse(argv: string[]): Options {
   return options
 }
 
-async function requireSkill(options: Options): Promise<string> {
-  const skills = await bundledSkills()
-  if (!options.skill) throw new Error(`Specify a skill: ${skills.join(', ')}`)
-  if (!skills.includes(options.skill)) throw new Error(`Unknown skill: ${options.skill}. Bundled skills: ${skills.join(', ')}`)
-  return options.skill
+// The manifest is the catalog: it carries each skill's group and repo-only marker alongside its
+// checksums, so selection never needs to walk the bundle.
+async function skillCatalog(): Promise<SkillEntry[]> {
+  const manifest = await loadManifest()
+  return Object.entries(manifest.skills).map(([name, entry]) => ({
+    name,
+    group: entry.group ?? null,
+    repoOnly: Boolean(entry.repoOnly),
+  }))
+}
+
+function hasSelector(options: Options): boolean {
+  return Boolean(options.skill || options.group || options.all)
+}
+
+async function requireSelection(options: Options): Promise<string[]> {
+  return selectSkills({ skill: options.skill, group: options.group, all: options.all }, await skillCatalog())
 }
 
 // skills.sh-style flow: detect which agents the user actually has and install to them without
@@ -305,38 +334,45 @@ async function compare(destination: string, files: Record<string, string>) {
 }
 
 async function install(options: Options) {
-  const skillName = await requireSkill(options)
+  const skillNames = await requireSelection(options)
   const choice = await prompt(options)
   const base = baseFor(choice.mode, options.dir)
   const agents = resolveAgents(choice.agent, choice.mode)
   if (!agents.length) return
-  if (!options.dryRun) return withInstallLock(base, () => installLocked(options, skillName, agents, base))
-  return installLocked(options, skillName, agents, base, false)
+  if (!options.dryRun) return withInstallLock(base, () => installLocked(options, skillNames, agents, base))
+  return installLocked(options, skillNames, agents, base, false)
 }
 
-async function installLocked(options: Options, skillName: string, agents: Agent[], base: string, recover = true) {
+// One selection, one transaction. Every skill is checked and staged before anything is committed,
+// so a refusal or a staging failure anywhere leaves the destination exactly as it was — the whole
+// point of installing a family with one command.
+async function installLocked(options: Options, skillNames: string[], agents: Agent[], base: string, recover = true) {
   if (recover) await recoverInstall(base)
-  const { source, files } = await loadSource(skillName)
+  const sources = new Map<string, { source: string; files: Record<string, string> }>()
+  for (const skillName of skillNames) sources.set(skillName, await loadSource(skillName))
   const operations: Operation[] = []
-  for (const agent of agents) {
-    const destination = join(base, surfaces[agent], skillName)
-    await assertNoSymlink(destination)
-    const parent = dirname(destination)
-    await assertNoSymlink(parent)
-    const existed = await exists(destination)
-    if (existed) {
-      const comparison = await compare(destination, files)
-      if (comparison.status === 'verified' && !options.force) {
-        console.log(`unchanged ${agent}: ${destination}`)
-        continue
+  for (const skillName of skillNames) {
+    const { files } = sources.get(skillName)!
+    for (const agent of agents) {
+      const destination = join(base, surfaces[agent], skillName)
+      await assertNoSymlink(destination)
+      const parent = dirname(destination)
+      await assertNoSymlink(parent)
+      const existed = await exists(destination)
+      if (existed) {
+        const comparison = await compare(destination, files)
+        if (comparison.status === 'verified' && !options.force) {
+          console.log(`unchanged ${agent}: ${destination}`)
+          continue
+        }
+        if (!options.force) {
+          if (options.dryRun) { console.log(`would replace ${agent} (requires --force; installed copy differs): ${destination}`); continue }
+          throw new Error(`Refusing differing installation without --force: ${destination}`)
+        }
       }
-      if (!options.force) {
-        if (options.dryRun) { console.log(`would replace ${agent} (requires --force; installed copy differs): ${destination}`); continue }
-        throw new Error(`Refusing differing installation without --force: ${destination}`)
-      }
+      const suffix = randomUUID()
+      operations.push({ skill: skillName, agent, destination, existed, stage: join(parent, `.${skillName}.stage-${suffix}`), backup: existed ? join(parent, `.${skillName}.backup-${suffix}`) : undefined })
     }
-    const suffix = randomUUID()
-    operations.push({ skill: skillName, agent, destination, existed, stage: join(parent, `.${skillName}.stage-${suffix}`), backup: existed ? join(parent, `.${skillName}.backup-${suffix}`) : undefined })
   }
   if (options.dryRun) {
     for (const operation of operations) console.log(`would install ${operation.agent}: ${operation.destination}`)
@@ -350,8 +386,9 @@ async function installLocked(options: Options, skillName: string, agents: Agent[
     for (const operation of operations) {
       await mkdir(dirname(operation.destination), { recursive: true })
       await assertNoSymlink(dirname(operation.destination), false)
+      const { source, files } = sources.get(operation.skill)!
       await cp(source, operation.stage, { recursive: true, dereference: false, errorOnExist: true })
-      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/skills', version: packageVersion, skill: skillName, files }, null, 2)}\n`, { flag: 'wx' })
+      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/skills', version: packageVersion, skill: operation.skill, files }, null, 2)}\n`, { flag: 'wx' })
       const stagedCheck = await compare(operation.stage, files)
       if (stagedCheck.status !== 'verified') throw new Error(`Staged copy failed verification: ${stagedCheck.issues.join(', ')}`)
       staged.push(operation)
@@ -386,14 +423,17 @@ async function installLocked(options: Options, skillName: string, agents: Agent[
   await rm(journalPath, { force: true })
   await syncDirectory(dirname(journalPath))
   for (const operation of applied) console.log(`installed ${operation.agent}: ${operation.destination}`)
+  if (skillNames.length > 1) console.log(`installed ${skillNames.length} skills${options.group ? ` from ${options.group}` : ''}`)
 }
 
 async function verify(options: Options) {
   const choice = await prompt(options)
   const base = baseFor(choice.mode, options.dir)
   const agents = resolveAgents(choice.agent, choice.mode)
-  const explicit = Boolean(options.skill)
-  const skills = explicit ? [await requireSkill(options)] : await bundledSkills()
+  // With no selector at all, verify keeps walking every bundled skill and reports missing ones
+  // rather than failing on them; an explicit selection treats a missing skill as a failure.
+  const explicit = hasSelector(options)
+  const skills = explicit ? await requireSelection(options) : await bundledSkills()
   let failed = false
   let found = 0
   for (const skillName of skills) {
@@ -432,41 +472,65 @@ async function latestPublishedVersion(): Promise<string | null> {
 }
 
 async function removeSkill(options: Options) {
-  const skillName = await requireSkill(options)
+  const skillNames = await requireSelection(options)
   const choice = await prompt(options)
   const base = baseFor(choice.mode, options.dir)
   const agents = resolveAgents(choice.agent, choice.mode)
-  if (!options.dryRun) return withInstallLock(base, () => removeLocked(options, skillName, agents, base))
-  return removeLocked(options, skillName, agents, base)
+  if (!options.dryRun) return withInstallLock(base, () => removeLocked(options, skillNames, agents, base))
+  return removeLocked(options, skillNames, agents, base)
 }
 
-async function removeLocked(options: Options, skillName: string, agents: Agent[], base: string) {
-  let removed = 0
-  for (const agent of agents) {
-    const destination = join(base, surfaces[agent], skillName)
-    if (!await exists(destination)) { console.log(`not installed ${agent}: ${destination}`); continue }
-    await assertNoSymlink(destination, false)
-    if (!options.force) {
-      const { files } = await loadSource(skillName)
-      const comparison = await compare(destination, files)
-      if (comparison.status === 'drifted') throw new Error(`Installation differs from the bundled skill (possibly locally modified); re-run with --force to remove anyway: ${destination}`)
+async function removeLocked(options: Options, skillNames: string[], agents: Agent[], base: string) {
+  // Every drift check runs across the whole selection BEFORE the first removal, so a locally
+  // modified member stops the run instead of leaving a half-removed family behind.
+  const targets: { skill: string; agent: Agent; destination: string }[] = []
+  for (const skill of skillNames) {
+    for (const agent of agents) {
+      const destination = join(base, surfaces[agent], skill)
+      if (!await exists(destination)) { console.log(`not installed ${agent}: ${destination}`); continue }
+      await assertNoSymlink(destination, false)
+      if (!options.force) {
+        const { files } = await loadSource(skill)
+        const comparison = await compare(destination, files)
+        if (comparison.status === 'drifted') throw new Error(`Installation differs from the bundled skill (possibly locally modified); re-run with --force to remove anyway: ${destination}`)
+      }
+      targets.push({ skill, agent, destination })
     }
-    if (options.dryRun) { console.log(`would remove ${agent}: ${destination}`); continue }
-    await rm(destination, { recursive: true, force: true })
-    removed += 1
-    console.log(`removed ${agent}: ${destination}`)
   }
-  if (!removed && !options.dryRun) process.exitCode = 1
+  if (options.dryRun) {
+    for (const target of targets) console.log(`would remove ${target.agent}: ${target.destination}`)
+    return
+  }
+  for (const target of targets) {
+    await rm(target.destination, { recursive: true, force: true })
+    console.log(`removed ${target.agent}: ${target.destination}`)
+  }
+  if (!targets.length) process.exitCode = 1
 }
 
 async function list() {
   const manifest = await loadManifest()
-  for (const skillName of await bundledSkills()) {
+  const entries = await skillCatalog()
+  const groups = [...new Set(entries.map(entry => entry.group).filter((group): group is string => group !== null))].sort()
+
+  const show = async (skillName: string) => {
     const skill = await readFile(join(bundleRoot, skillName, 'SKILL.md'), 'utf8')
     const description = skill.match(/^description: (.+)$/m)?.[1] ?? ''
     const fileCount = Object.keys(manifest.skills[skillName]?.files ?? {}).length
-    console.log(`${skillName} (${fileCount} files)`)
-    console.log(`  ${description.length > 160 ? `${description.slice(0, 157)}...` : description}`)
+    const repoOnly = entries.find(entry => entry.name === skillName)?.repoOnly
+    console.log(`  ${skillName} (${fileCount} files)${repoOnly ? '  [repo-only: not installed by --all]' : ''}`)
+    console.log(`    ${description.length > 160 ? `${description.slice(0, 157)}...` : description}`)
+  }
+
+  for (const group of groups) {
+    console.log(`${group}  —  vegastack-skills add --group ${group}`)
+    for (const entry of entries.filter(item => item.group === group).sort((a, b) => a.name.localeCompare(b.name))) await show(entry.name)
+    console.log('')
+  }
+  const ungrouped = entries.filter(entry => entry.group === null).sort((a, b) => a.name.localeCompare(b.name))
+  if (ungrouped.length) {
+    console.log('ungrouped')
+    for (const entry of ungrouped) await show(entry.name)
   }
 }
 
