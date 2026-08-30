@@ -48,6 +48,23 @@ if (unlistedSkills.length) throw new Error(`Authored skills without an entry in 
 const missingSkills = listedSkills.filter(name => !authoredSkills.includes(name))
 if (missingSkills.length) throw new Error(`Packaging allowlist names skills that do not exist: ${missingSkills.join(', ')}`)
 
+// Repo-only skills operate ON this monorepo and do nothing useful in a consumer project, so
+// `add --all` skips them. Membership is explicit data, never inferred from prose: a stale name
+// here fails the build rather than silently marking nothing.
+const repoOnlyPath = join(packageRoot, 'repo-only.json')
+let repoOnly = []
+try {
+  repoOnly = JSON.parse(await readFile(repoOnlyPath, 'utf8'))
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error
+}
+if (!Array.isArray(repoOnly) || repoOnly.some(name => typeof name !== 'string')) {
+  throw new Error('packages/cli/repo-only.json must be an array of skill names')
+}
+const unknownRepoOnly = repoOnly.filter(name => !skillPaths.has(name))
+if (unknownRepoOnly.length) throw new Error(`repo-only.json names skills that do not exist: ${unknownRepoOnly.join(', ')}`)
+const repoOnlySet = new Set(repoOnly)
+
 await rm(bundleRoot, { recursive: true, force: true })
 const manifest = { schemaVersion: 2, skills: {} }
 
@@ -82,7 +99,7 @@ for (const skillName of listedSkills) {
     await copyFile(from, to)
   }
 
-  const skillManifest = { files: {} }
+  const skillManifest = { group: skillPaths.get(skillName).group, repoOnly: repoOnlySet.has(skillName), files: {} }
   for (const path of await files(destination)) {
     const key = relative(destination, path).split(sep).join('/')
     skillManifest.files[key] = createHash('sha256').update(await readFile(path)).digest('hex')
