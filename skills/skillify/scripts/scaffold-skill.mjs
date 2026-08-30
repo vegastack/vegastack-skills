@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-// Scaffold a new skill tree at skills/<name>/ from skillify's templates.
+// Scaffold a new skill tree at skills/<name>/ (or skills/<group>/<name>/) from skillify's
+// templates.
 //
-//   node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--write] [--json]
+//   node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--group <group>] [--write] [--json]
+//
+// --group places the skill in an existing group. Creating a group is skill-maintainer's job
+// (packages/cli/scripts/structure.mjs create-group), so an unknown group is refused rather than
+// invented: a mistyped group must never bring a stray family into existence.
 //
 // Dry-run by default: prints the plan (files that would be created plus the
 // wiring actions that would be performed) and creates nothing. --write stages
@@ -16,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const templatesRoot = resolve(here, '..', 'assets', 'templates')
 
-// Template file -> output path inside skills/<name>/ (null = tests/<name>.test.ts).
+// Template file -> output path inside the skill (null = tests/<name>.test.ts).
 export const templateFiles = [
   ['SKILL.md.template', 'SKILL.md'],
   ['README.md.template', 'README.md'],
@@ -42,6 +47,19 @@ export function validateName(name) {
   if (name.includes('--')) return 'name must not contain consecutive hyphens'
   if (name.endsWith('-')) return 'name must not end with a hyphen'
   return null
+}
+
+// This script ships inside the skillify skill, so it must stay dependency-free and cannot import
+// the repo's lib/skills.mjs. Deliberate small duplication of its GROUP.md title read; the two are
+// kept honest by structure.mjs check, which fails when the README and GROUP.md disagree.
+export function groupTitle(markdown) {
+  const lines = markdown.split('\n')
+  const headingIndex = lines.findIndex(line => /^#\s+\S/.test(line))
+  if (headingIndex === -1) return null
+  const title = lines[headingIndex].replace(/^#\s+/, '').trim()
+  const blurb = lines.slice(headingIndex + 1).find(line => line.trim() !== '')?.trim()
+  if (!title || !blurb || blurb.startsWith('#')) return null
+  return title
 }
 
 async function entryAt(path) {
@@ -73,21 +91,39 @@ async function wirePackaging(repoRoot, name, write) {
   return { step: 'packaging.json entry', status: 'done' }
 }
 
-// Inserts a row for the new skill at the end of the root README's Skills table.
-async function wireReadme(repoRoot, name, write) {
+// Inserts a row for the new skill at the end of the right Skills table: the ungrouped table for
+// an ungrouped skill, or the table under the group's "### <title>" section. Section-level README
+// edits belong to structure.mjs; this only ever adds a row.
+async function wireReadme(repoRoot, name, group, groupHeading, write) {
   const path = join(repoRoot, 'README.md')
   if (!(await entryAt(path))?.isFile()) return { step: 'root README row', status: 'skipped: README.md not found' }
   const body = await readFile(path, 'utf8')
-  if (body.includes(`](skills/${name}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
+  const relativePath = group ? `${group}/${name}` : name
+  if (body.includes(`](skills/${relativePath}/)`)) return { step: 'root README row', status: 'skipped: row already exists' }
   const lines = body.split('\n')
-  const header = lines.findIndex(line => /^\| *Skill *\|/.test(line))
+
+  // The search window is the group's section, or everything before the first "### " when
+  // ungrouped, so a row can never land in a neighbouring family's table.
+  let from = 0
+  let to = lines.length
+  if (group) {
+    from = lines.findIndex(line => line.trim() === `### ${groupHeading}`)
+    if (from < 0) throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
+    const next = lines.findIndex((line, index) => index > from && /^###?\s+/.test(line))
+    to = next < 0 ? lines.length : next
+  } else {
+    const firstSection = lines.findIndex(line => /^###\s+/.test(line))
+    if (firstSection >= 0) to = firstSection
+  }
+
+  const header = lines.findIndex((line, index) => index >= from && index < to && /^\| *Skill *\|/.test(line))
   if (header < 0 || !/^\|[ -]*---/.test(lines[header + 1] ?? '')) {
     return { step: 'root README row', status: 'skipped: Skills table not found' }
   }
   let last = header + 1
-  while (lines[last + 1]?.startsWith('|')) last += 1
+  while (last + 1 < to && lines[last + 1]?.startsWith('|')) last += 1
   if (!write) return { step: 'root README row', status: 'planned' }
-  const row = `| [${name}](skills/${name}/) | TODO: one-line description | [Walkthrough](skills/${name}/README.md) · [SKILL.md](skills/${name}/SKILL.md) |`
+  const row = `| [${name}](skills/${relativePath}/) | TODO: one-line description | [Walkthrough](skills/${relativePath}/README.md) · [SKILL.md](skills/${relativePath}/SKILL.md) |`
   lines.splice(last + 1, 0, row)
   await writeAtomic(path, lines.join('\n'))
   return { step: 'root README row', status: 'done' }
@@ -104,15 +140,15 @@ async function wireChangeset(repoRoot, name, write) {
   return { step: 'changeset', status: 'done' }
 }
 
-export async function wireSkill({ name, repoRoot, write = false }) {
+export async function wireSkill({ name, repoRoot, group = null, groupHeading = null, write = false }) {
   return [
     await wirePackaging(repoRoot, name, write),
-    await wireReadme(repoRoot, name, write),
+    await wireReadme(repoRoot, name, group, groupHeading, write),
     await wireChangeset(repoRoot, name, write),
   ]
 }
 
-export async function scaffoldSkill({ name, dir, write = false, now = new Date() }) {
+export async function scaffoldSkill({ name, dir, group = null, write = false, now = new Date() }) {
   const nameError = validateName(name)
   if (nameError) throw new Error(`Invalid skill name ${JSON.stringify(name ?? null)}: ${nameError}`)
   if (!dir) throw new Error('--dir <repo-root> is required')
@@ -123,19 +159,42 @@ export async function scaffoldSkill({ name, dir, write = false, now = new Date()
   if (!skillsEntry || !skillsEntry.isDirectory()) {
     throw new Error(`${skillsRoot} is not a real directory - point --dir at the vegastack-skills repo root`)
   }
-  const target = join(skillsRoot, name)
+
+  // A group must already exist and carry a well-formed GROUP.md; creating one is
+  // skill-maintainer's structure.mjs create-group, never a side effect of scaffolding a skill.
+  let groupHeading = null
+  if (group) {
+    const groupError = validateName(group)
+    if (groupError) throw new Error(`Invalid group name ${JSON.stringify(group)}: ${groupError}`)
+    const groupRoot = join(skillsRoot, group)
+    const groupEntry = await entryAt(groupRoot)
+    if (!groupEntry || !groupEntry.isDirectory()) {
+      throw new Error(`Group "${group}" does not exist at ${groupRoot} - create it first with: node packages/cli/scripts/structure.mjs create-group ${group} --title <title> --blurb <blurb> --write`)
+    }
+    const groupDoc = await entryAt(join(groupRoot, 'GROUP.md'))
+    if (!groupDoc?.isFile()) throw new Error(`Group "${group}" has no GROUP.md - every group carries one; see skill-maintainer's group workflow`)
+    groupHeading = groupTitle(await readFile(join(groupRoot, 'GROUP.md'), 'utf8'))
+    if (!groupHeading) throw new Error(`skills/${group}/GROUP.md is malformed - it needs an H1 title followed by one non-empty blurb line`)
+  }
+
+  const parent = group ? join(skillsRoot, group) : skillsRoot
+  const target = join(parent, name)
   if (await entryAt(target)) throw new Error(`Refusing to scaffold: ${target} already exists`)
 
+  // The generated test imports the repo validator by relative path, so its depth follows the
+  // skill's: skills/<name>/tests/ is three levels up, skills/<group>/<name>/tests/ is four.
+  const validatorPath = `${group ? '../../../..' : '../../..'}/packages/cli/scripts/validate-skill.mjs`
+
   const outputs = templateFiles.map(([source, output]) => [source, output ?? `tests/${name}.test.ts`])
-  const plan = { name, target, files: outputs.map(([, output]) => output), wrote: false }
-  if (!write) return { ...plan, wiring: await wireSkill({ name, repoRoot }) }
+  const plan = { name, group, target, files: outputs.map(([, output]) => output), wrote: false }
+  if (!write) return { ...plan, wiring: await wireSkill({ name, repoRoot, group, groupHeading }) }
 
   const date = now.toISOString().slice(0, 10)
-  const staging = await mkdtemp(join(skillsRoot, `.${name}.scaffold-`))
+  const staging = await mkdtemp(join(parent, `.${name}.scaffold-`))
   try {
     for (const [source, output] of outputs) {
       const body = await readFile(join(templatesRoot, source), 'utf8')
-      const rendered = body.replaceAll('{{name}}', name).replaceAll('{{date}}', date)
+      const rendered = body.replaceAll('{{name}}', name).replaceAll('{{date}}', date).replaceAll('{{validatorPath}}', validatorPath)
       const destination = join(staging, output)
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, rendered)
@@ -146,11 +205,11 @@ export async function scaffoldSkill({ name, dir, write = false, now = new Date()
     await rm(staging, { recursive: true, force: true })
     throw error
   }
-  return { ...plan, wrote: true, wiring: await wireSkill({ name, repoRoot, write: true }) }
+  return { ...plan, wrote: true, wiring: await wireSkill({ name, repoRoot, group, groupHeading, write: true }) }
 }
 
 function parseArguments(argv) {
-  const options = { name: undefined, dir: undefined, write: false, json: false }
+  const options = { name: undefined, dir: undefined, group: null, write: false, json: false }
   const rest = [...argv]
   while (rest.length) {
     const flag = rest.shift()
@@ -158,6 +217,10 @@ function parseArguments(argv) {
       const value = rest.shift()
       if (value === undefined || value.startsWith('-')) throw new Error('--dir requires a value')
       options.dir = value
+    } else if (flag === '--group') {
+      const value = rest.shift()
+      if (value === undefined || value.startsWith('-')) throw new Error('--group requires a value')
+      options.group = value
     } else if (flag === '--write') options.write = true
     else if (flag === '--json') options.json = true
     else if (flag.startsWith('-')) throw new Error(`Unknown option: ${flag}`)
@@ -165,7 +228,7 @@ function parseArguments(argv) {
     else throw new Error(`Unexpected argument: ${flag}`)
   }
   if (!options.name || !options.dir) {
-    throw new Error('Usage: node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--write] [--json]')
+    throw new Error('Usage: node scripts/scaffold-skill.mjs <skill-name> --dir <repo-root> [--group <group>] [--write] [--json]')
   }
   return options
 }

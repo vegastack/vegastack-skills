@@ -258,3 +258,97 @@ describe('scaffold-skill runs', () => {
     }
   })
 })
+
+describe('scaffold-skill groups', () => {
+  // A group is a deliberate structural act owned by skill-maintainer, so the scaffolder places
+  // skills into groups that already exist and refuses to invent one.
+  async function makeGroupedRepo(title = 'Fam'): Promise<string> {
+    const root = await makeWiredRepo()
+    await mkdir(join(root, 'skills/fam'), { recursive: true })
+    await writeFile(join(root, 'skills/fam/GROUP.md'), `# ${title}\n\nThe blurb.\n`)
+    await writeFile(
+      join(root, 'README.md'),
+      [
+        '# Repo', '', '## Skills', '',
+        '| Skill | What it does | Docs |', '|---|---|---|',
+        '| [architect](skills/architect/) | advisor | [SKILL.md](skills/architect/SKILL.md) |', '',
+        `### ${title}`, '', 'The blurb.', '',
+        '| Skill | What it does | Docs |', '|---|---|---|', '',
+        'After the table.', '',
+      ].join('\n'),
+    )
+    return root
+  }
+
+  test('--group places the tree, the row, and a depth-correct validator import', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      const result = await scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true })
+      expect(result.target).toBe(join(repo, 'skills/fam/demo-skill'))
+
+      const testFile = await readFile(join(repo, 'skills/fam/demo-skill/tests/demo-skill.test.ts'), 'utf8')
+      expect(testFile).toContain("'../../../../packages/cli/scripts/validate-skill.mjs'")
+
+      const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      expect(readme).toContain('| [demo-skill](skills/fam/demo-skill/) |')
+      expect(readme.indexOf('### Fam')).toBeLessThan(readme.indexOf('demo-skill'))
+
+      const packaged = JSON.parse(await readFile(join(repo, 'packages/cli/packaging.json'), 'utf8'))
+      expect(Object.keys(packaged)).toContain('demo-skill')
+      expect(Object.keys(packaged).some((key) => key.includes('/'))).toBe(false)
+
+      expect(validateSkill(join(repo, 'skills/fam/demo-skill')).ok).toBe(true)
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('without --group nothing changes: top-level tree, ungrouped row, three-dot import', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      await scaffoldSkill({ name: 'demo-skill', dir: repo, write: true })
+      const testFile = await readFile(join(repo, 'skills/demo-skill/tests/demo-skill.test.ts'), 'utf8')
+      expect(testFile).toContain("'../../../packages/cli/scripts/validate-skill.mjs'")
+      const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      expect(readme).toContain('| [demo-skill](skills/demo-skill/) |')
+      // The row belongs to the ungrouped table, above the group section.
+      expect(readme.indexOf('| [demo-skill](skills/demo-skill/) |')).toBeLessThan(readme.indexOf('### Fam'))
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('an unknown group refuses and creates nothing', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'ghost', write: true }))
+        .rejects.toThrow(/group "ghost" does not exist/i)
+      expect(await readdir(join(repo, 'skills'))).toEqual(['fam'])
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('a group whose GROUP.md is malformed refuses rather than guessing a section', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      await writeFile(join(repo, 'skills/fam/GROUP.md'), '# Fam\n')
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true }))
+        .rejects.toThrow(/GROUP\.md/i)
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('a group section missing from the README refuses rather than writing a stray row', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      await writeFile(join(repo, 'README.md'), readme.replace('### Fam', '### Elsewhere'))
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true }))
+        .rejects.toThrow(/section/i)
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+})
