@@ -6,6 +6,7 @@ The project's narrative memory. Every behavior-changing branch carries one story
 
 ```sh
 npx @vegastack/skills add dev-chronicle
+npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
 ```
 
 ## What's in this skill

@@ -6,6 +6,7 @@ The operator's board: one ask — "status", "what needs me" — answers whose mo
 
 ```sh
 npx @vegastack/skills add dev-status
+npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
 ```
 
 ## What's in this skill

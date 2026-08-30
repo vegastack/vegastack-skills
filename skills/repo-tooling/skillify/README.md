@@ -7,7 +7,7 @@ This README is the walkthrough for humans and for agents reading outside a skill
 ## Install
 
 ```sh
-npx @vegastack/skills add skillify
+npx @vegastack/skills add skillify   # repo-only: not installed by --all
 ```
 
 Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex); `--global` targets the home directory. See the [installer README](../../../packages/cli/README.md) for all flags.

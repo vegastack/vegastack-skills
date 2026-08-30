@@ -6,6 +6,7 @@ Reproduce-first bug work, as a hard phase order with checkable completion criter
 
 ```sh
 npx @vegastack/skills add dev-debug
+npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
 ```
 
 ## What's in this skill

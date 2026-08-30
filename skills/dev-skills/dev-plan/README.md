@@ -6,6 +6,7 @@ The planning stage of the dev workflow: an approved brief goes in, an operator-a
 
 ```sh
 npx @vegastack/skills add dev-plan
+npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
 ```
 
 ## What's in this skill
