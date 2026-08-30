@@ -7,3 +7,4 @@ One dated line per directional decision (see `## Decisions` in dev.md for what q
 - 28-08-2026 (kmanojkumar) — Dev-skills v2 profile-format changes ship as a minor release: pre-1.0, zero deployed consumers, and the only existing profile (this repo's) is rewritten in the same release.
 - 28-08-2026 (kmanojkumar) — architect → dev-architect; arch.md folded into dev.md as ## Architecture; ADRs retired — decisions.md is the only decision record.
 - 28-08-2026 (kmanojkumar) — Renaming a skill ships minor by default; major only on the operator's explicit call (removal stays major).
+- 30-08-2026 (kmanojkumar) — Authored skills may be grouped one level deep under skills/<group>/ with a GROUP.md; packaging keys and the published bundle stay flat, so install commands never carry a group.
