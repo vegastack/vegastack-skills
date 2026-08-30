@@ -1,6 +1,68 @@
 # VegaStack Skills
 
-Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/skills` npm installer that ships them. Each skill is self-contained: its own entry point, references, deterministic scripts, freshness contract, and walkthrough README.
+Agent Skills for [Claude Code](https://code.claude.com), [Codex](https://developers.openai.com/codex), and [Hermes](https://hermes-agent.nousresearch.com) — plus the `@vegastack/skills` installer that ships them. Each skill is self-contained: its own entry point, references, deterministic scripts, freshness contract, and walkthrough.
+
+The headline set is **`dev-skills`**: a ten-stage, issue-driven development workflow where every gate that matters is held by a person, not an agent.
+
+## Getting started
+
+Install the dev workflow into your project:
+
+```sh
+npx @vegastack/skills add --group dev-skills
+```
+
+Then, in your agent, bootstrap the project once:
+
+```
+run dev-setup
+```
+
+`dev-setup` writes `.vegastack/dev.md` — your project's handbook: stack, commands, review mode, shipping gates. Everything else reads from it. After that, work flows through GitHub issues: **dev-intake** turns an idea into a brief you approve → **dev-plan** turns the brief into a plan you approve → **dev-implement** builds it and posts evidence → **dev-review** reviews it independently → **dev-ship** opens the PR and merges, each step only on your explicit word.
+
+Requires Node >= 24. Nothing else to configure.
+
+### Other ways to select what you install
+
+`add`, `verify`, and `remove` each take **exactly one** selector:
+
+```sh
+npx @vegastack/skills add dev-plan              # one skill
+npx @vegastack/skills add --group dev-skills    # a whole family
+npx @vegastack/skills add --all                 # everything worth installing in a project
+npx @vegastack/skills list                      # what is bundled, by group
+```
+
+A `--group` or `--all` install is **one transaction**: every skill is staged before any is committed, so if one fails, none are installed.
+
+`--all` deliberately skips the **repo-only** skills (`skill-maintainer`, `skillify`) — those operate on this repository itself and do nothing useful elsewhere. Name one explicitly if you are contributing here.
+
+## Where skills install
+
+Project-local by default; `--global` targets your home directory instead.
+
+| Agent | Project | Global |
+|---|---|---|
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Codex | `.agents/skills/` | `~/.agents/skills/` |
+| Hermes | — not supported | `~/.hermes/skills/` |
+
+The installer detects which agents you have and targets them without asking; `--agent codex|claude|hermes|both|all` overrides. Hermes discovers skills globally only, so `--agent hermes` requires `--global`.
+
+Skills always install **flat**, as `<surface>/<skill-name>/`. Groups are a way of selecting and organising skills — they never appear in an installed path, so `--group` changes what you get, never where it lands.
+
+`verify` re-checks installed bytes against the shipped checksum manifest, `remove` uninstalls, and `doctor` diagnoses an install and reports installed-vs-latest. Every flag: [installer README](packages/cli/README.md).
+
+The installer is fully offline with one exception: `doctor` checks npmjs.org for a newer release. No telemetry.
+
+## Working with an agent
+
+If you are an agent reading this repository, or pointing a user at it:
+
+- **Load a skill by name.** Each skill's `SKILL.md` is the entry point; its `description` states when to trigger. Detail lives in `references/` and loads only when the workflow routes to it.
+- **`dev.md` outranks the skills.** A project's `.vegastack/dev.md` is its handbook, and where it disagrees with a skill's default, it wins.
+- **Gates are human-held.** No skill authorises approving a brief or a plan, pushing to the default branch, merging, or releasing. Those need the operator's explicit words, every time.
+- **The install layout is flat.** A skill is always at `<surface>/<name>/`. Never construct a path containing a group.
 
 ## Skills
 
@@ -33,21 +95,11 @@ Skills that work on this repository itself: they are not installed by --all, and
 | [skill-maintainer](skills/repo-tooling/skill-maintainer/) | The verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create, update, rename, and release runs through it | [Walkthrough](skills/repo-tooling/skill-maintainer/README.md) · [SKILL.md](skills/repo-tooling/skill-maintainer/SKILL.md) |
 | [skillify](skills/repo-tooling/skillify/) | The repo-local skill factory: gates whether something should be a skill at all, scaffolds the contract with its repo wiring, and audits existing skills | [Walkthrough](skills/repo-tooling/skillify/README.md) · [SKILL.md](skills/repo-tooling/skillify/SKILL.md) |
 
-Install any skill by name:
-
-```sh
-npx @vegastack/skills add dev-architect
-```
-
-Requires Node >= 24. Project installs target `.claude/skills` (Claude Code) and `.agents/skills` (Codex); `--global` additionally supports `--agent hermes` (`~/.hermes/skills` — Hermes discovers skills globally only). `list` shows bundled skills; `verify` re-checks installed bytes against the shipped checksum manifest; `remove` uninstalls; `doctor` diagnoses. All commands and flags: [installer README](packages/cli/README.md).
-
-The installer is fully offline with one exception: `doctor` checks npmjs.org for a newer release. No telemetry.
-
 ## Repository structure
 
 | Path | Purpose |
 |---|---|
-| `skills/<name>/`<br>`skills/<group>/<name>/` | Authored skill content — the source of truth. A skill sits at the top level or inside a group, one level deep and no deeper; both are fully supported. Every skill carries `SKILL.md` (agent entry), `README.md` (human/agent walkthrough), `tests/`, and `refresh/` (freshness contract), plus `references/`, `scripts/`, and `assets/` where the skill needs them. A group adds a `GROUP.md` (display title plus one blurb line) beside its skills; groups are an authoring convenience only — the packaged bundle is flat, so `add <skill>` never names one |
+| `skills/<name>/`<br>`skills/<group>/<name>/` | Authored skill content — the source of truth. A skill sits at the top level or inside a group, one level deep and no deeper; both are fully supported. Every skill carries `SKILL.md` (agent entry), `README.md` (human/agent walkthrough), `tests/`, and `refresh/` (freshness contract), plus `references/`, `scripts/`, and `assets/` where the skill needs them. A group adds a `GROUP.md` (display title plus one blurb line) beside its skills; the packaged bundle is flat, so a group is a way of selecting and organising skills (`add --group <name>`) and never appears in an installed path |
 | `tooling/refresh/` | Repo-shared deterministic refresh runner (checksum/version verification), used by every skill's `refresh/sources.json` and both refresh workflows |
 | `packages/cli/` | The `@vegastack/skills` installer. Its skill copy and checksum manifest are generated at build time and are never committed |
 | `.vegastack/` | This repo's own dev workflow instance (dogfooding the dev skills): [dev.md](.vegastack/dev.md) — the canonical process doc with the release runbook, versioning, and rollback — and [decisions.md](.vegastack/decisions.md) |
