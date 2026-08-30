@@ -14,7 +14,7 @@ Any work in this repo: scaffolding a new skill, editing an existing one (SKILL.m
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point: operating rules, routing table, the six workflows (group / scaffold / update / rename-remove / release / portability check), hard numeric limits |
 | [references/standards.md](references/standards.md) | The complete tri-harness standards: per-harness discovery paths, frontmatter rules, context budgets, install surfaces, the seven portability rules, and the UNVERIFIED register |
-| [references/release-ops.md](references/release-ops.md) | Expanded release / rename / rollback detail behind the `## Ship` runbook in [.vegastack/dev.md](../../.vegastack/dev.md), subordinate to it |
+| [references/release-ops.md](references/release-ops.md) | Expanded release / rename / rollback detail behind the `## Ship` runbook in [.vegastack/dev.md](../../../.vegastack/dev.md), subordinate to it |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the four standards pages this skill's claims are pinned to (all critical) |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract: standards drift is always semantic and always human-reviewed |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |

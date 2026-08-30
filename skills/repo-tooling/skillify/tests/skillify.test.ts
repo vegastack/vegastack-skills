@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
+import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
 import { scaffoldSkill, templateFiles, validateName, wireSkill } from '../scripts/scaffold-skill.mjs'
 
 const skillRoot = resolve(import.meta.dir, '..')
@@ -308,6 +308,8 @@ describe('scaffold-skill groups', () => {
     try {
       await scaffoldSkill({ name: 'demo-skill', dir: repo, write: true })
       const testFile = await readFile(join(repo, 'skills/demo-skill/tests/demo-skill.test.ts'), 'utf8')
+      // Ungrouped: three levels up, not four. This assertion is about generated output, not
+      // about where this test file itself lives.
       expect(testFile).toContain("'../../../packages/cli/scripts/validate-skill.mjs'")
       const readme = await readFile(join(repo, 'README.md'), 'utf8')
       expect(readme).toContain('| [demo-skill](skills/demo-skill/) |')

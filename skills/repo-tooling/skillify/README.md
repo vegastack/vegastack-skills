@@ -10,7 +10,7 @@ This README is the walkthrough for humans and for agents reading outside a skill
 npx @vegastack/skills add skillify
 ```
 
-Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex); `--global` targets the home directory. See the [installer README](../../packages/cli/README.md) for all flags.
+Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex); `--global` targets the home directory. See the [installer README](../../../packages/cli/README.md) for all flags.
 
 ## What's in this skill
 
