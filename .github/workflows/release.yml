@@ -105,7 +105,15 @@ jobs:
           if npm view "@vegastack/skills@$VERSION" version >/dev/null 2>&1; then
             echo "@vegastack/skills@$VERSION is already on the registry; skipping publish."
           else
-            npm publish --access public
+            # TEMPORARY (0.13.0), revert with the runs-on change above.
+            # npm refuses a provenance bundle built anywhere but a GitHub-hosted
+            # runner: "Unsupported GitHub Actions runner environment: self-hosted.
+            # Only github-hosted runners are supported when publishing with
+            # provenance." Hosted runners are billing-locked, so this publish
+            # opts out of provenance to ship at all. Auth is unaffected — this is
+            # still token-free trusted publishing over OIDC. 0.13.1 gets cut from
+            # a hosted runner once the lock clears, to restore an attested version.
+            npm publish --access public --no-provenance
           fi
 
       # npm sbom needs an npm lockfile, which this Bun workspace does not keep.
