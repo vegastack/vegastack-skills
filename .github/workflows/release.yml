@@ -39,7 +39,12 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    # TEMPORARY (0.13.0): GitHub-hosted runners are suspended by an account-level
+    # billing lock, so hosted jobs never start. Self-hosted minutes are not metered
+    # and do dispatch. OIDC claims (repository + workflow_ref) are unchanged by the
+    # runner type, so npm trusted publishing and provenance work exactly as before.
+    # Revert to `ubuntu-latest` once the billing lock clears.
+    runs-on: [self-hosted, ephemeral-release]
     steps:
       - uses: actions/checkout@v7
 
