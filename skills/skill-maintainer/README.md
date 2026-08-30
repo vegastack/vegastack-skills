@@ -12,7 +12,7 @@ Any work in this repo: scaffolding a new skill, editing an existing one (SKILL.m
 
 | Path | Purpose |
 |---|---|
-| [SKILL.md](SKILL.md) | Agent entry point: operating rules, routing table, the five workflows (scaffold / update / rename-remove / release / portability check), hard numeric limits |
+| [SKILL.md](SKILL.md) | Agent entry point: operating rules, routing table, the six workflows (group / scaffold / update / rename-remove / release / portability check), hard numeric limits |
 | [references/standards.md](references/standards.md) | The complete tri-harness standards: per-harness discovery paths, frontmatter rules, context budgets, install surfaces, the seven portability rules, and the UNVERIFIED register |
 | [references/release-ops.md](references/release-ops.md) | Expanded release / rename / rollback detail behind the `## Ship` runbook in [.vegastack/dev.md](../../.vegastack/dev.md), subordinate to it |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the four standards pages this skill's claims are pinned to (all critical) |
@@ -33,10 +33,11 @@ The four source pages (agentskills.io spec, Claude Code, Codex, Hermes skills do
 ```sh
 node packages/cli/scripts/validate-skill.mjs skills/skill-maintainer   # from repo root
 bun test skills/skill-maintainer
+node packages/cli/scripts/structure.mjs check                         # repo shape: groups, GROUP.md, README sections
 ```
 
 The tests eat the skill's own dog food: structural validation via the repo validator, the 500-line SKILL.md cap, the two-key frontmatter policy, resolution of every relative link, and a bijection check between `source:` markers in references and registry IDs.
 
 ## For agents: how to behave
 
-Follow [SKILL.md](SKILL.md). The short version: repo policy docs win over this skill on conflict; wiring (the packaging.json entry, root README table, changesets) travels in the same PR as the content change; never hand-edit refresh checksums; and finish nothing without the validator and the skill's tests passing.
+Follow [SKILL.md](SKILL.md). The short version: repo policy docs win over this skill on conflict; wiring (the packaging.json entry, root README table, changesets) travels in the same PR as the content change; never hand-edit refresh checksums; and finish nothing without the validator, the skill's tests, and the structure check passing.

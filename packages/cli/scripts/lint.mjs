@@ -1,7 +1,8 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-// Lints both the CLI package and the shipped runtime scripts under skills/*.
+// Lints both the CLI package and the shipped runtime scripts under skills/ (at either legal
+// depth - the walk is recursive, so grouping changes nothing here).
 const packageRoot = resolve(import.meta.dirname, '..')
 const skillsRoot = resolve(packageRoot, '../../skills')
 const checked = []
