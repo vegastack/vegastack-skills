@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -253,3 +254,101 @@ describe('@vegastack/skills installer', () => {
 })
 
 function skill() { return 'dev-architect' }
+
+describe('selecting a family', () => {
+  test('add --group installs every member flat, on both surfaces', async () => {
+    const project = join(temporary, 'group-install')
+    await mkdir(project, { recursive: true })
+    const result = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'both', '--dir', project, '--non-interactive'])
+    expect(result.exitCode).toBe(0)
+    for (const name of ['dev-plan', 'dev-ship', 'dev-setup']) {
+      expect(existsSync(join(project, `.claude/skills/${name}/SKILL.md`))).toBe(true)
+      expect(existsSync(join(project, `.agents/skills/${name}/SKILL.md`))).toBe(true)
+    }
+    // The invariant from issue 54: a selection may name a group, an install path never does.
+    expect(existsSync(join(project, '.claude/skills/dev-skills'))).toBe(false)
+  })
+
+  test('a failure anywhere in the selection leaves the destination untouched', async () => {
+    const project = join(temporary, 'group-rollback')
+    // A pre-existing, differing copy of one member makes the run refuse without --force.
+    await mkdir(join(project, '.claude/skills/dev-ship'), { recursive: true })
+    await writeFile(join(project, '.claude/skills/dev-ship/SKILL.md'), 'not the bundled copy\n')
+    const result = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(result.exitCode).not.toBe(0)
+    // No other member may have been written: the whole selection refuses together.
+    expect(existsSync(join(project, '.claude/skills/dev-plan'))).toBe(false)
+    expect(await readFile(join(project, '.claude/skills/dev-ship/SKILL.md'), 'utf8')).toBe('not the bundled copy\n')
+  })
+
+  test('--all installs the dev family but not the repo-only meta skills', async () => {
+    const project = join(temporary, 'all-install')
+    await mkdir(project, { recursive: true })
+    expect(run(temporary, ['add', '--all', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(existsSync(join(project, '.claude/skills/dev-plan/SKILL.md'))).toBe(true)
+    expect(existsSync(join(project, '.claude/skills/skillify'))).toBe(false)
+    expect(existsSync(join(project, '.claude/skills/skill-maintainer'))).toBe(false)
+    // Still installable deliberately — this is how this repo sets itself up.
+    expect(run(temporary, ['add', 'skill-maintainer', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(existsSync(join(project, '.claude/skills/skill-maintainer/SKILL.md'))).toBe(true)
+  })
+
+  test('conflicting selectors and an unknown group are refused before any write', async () => {
+    const project = join(temporary, 'selector-refusal')
+    await mkdir(project, { recursive: true })
+    expect(run(temporary, ['add', 'dev-plan', '--all', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
+    const unknown = run(temporary, ['add', '--group', 'ghost', '--dir', project, '--non-interactive'])
+    expect(unknown.exitCode).not.toBe(0)
+    expect(unknown.stderr.toString()).toMatch(/dev-skills/)
+    expect(existsSync(join(project, '.claude'))).toBe(false)
+  })
+
+  test('re-running a group install reports unchanged and exits 0', async () => {
+    const project = join(temporary, 'group-idempotent')
+    await mkdir(project, { recursive: true })
+    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const again = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(again.exitCode).toBe(0)
+    expect(again.stdout.toString()).toContain('unchanged')
+  })
+
+  test('verify --group reports each member, and fails when one is missing', async () => {
+    const project = join(temporary, 'group-verify')
+    await mkdir(project, { recursive: true })
+    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const clean = run(temporary, ['verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(clean.exitCode).toBe(0)
+    expect(clean.stdout.toString()).toContain('verified claude dev-plan')
+
+    await rm(join(project, '.claude/skills/dev-ship'), { recursive: true, force: true })
+    const missing = run(temporary, ['verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(missing.exitCode).not.toBe(0)
+    expect(missing.stdout.toString()).toMatch(/dev-ship/)
+  })
+
+  test('remove --group refuses on a drifted member before removing anything', async () => {
+    const project = join(temporary, 'group-remove')
+    await mkdir(project, { recursive: true })
+    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    await writeFile(join(project, '.claude/skills/dev-ship/SKILL.md'), 'locally edited\n')
+    const refused = run(temporary, ['remove', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    expect(refused.exitCode).not.toBe(0)
+    // Nothing removed: an untouched member must still be there.
+    expect(existsSync(join(project, '.claude/skills/dev-plan/SKILL.md'))).toBe(true)
+
+    const forced = run(temporary, ['remove', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive', '--force'])
+    expect(forced.exitCode).toBe(0)
+    expect(existsSync(join(project, '.claude/skills/dev-plan'))).toBe(false)
+    expect(existsSync(join(project, '.claude/skills/dev-ship'))).toBe(false)
+  })
+
+  test('list groups its output and teaches the group flag', () => {
+    const out = run(temporary, ['list']).stdout.toString()
+    expect(out).toMatch(/dev-skills/)
+    expect(out).toMatch(/add --group dev-skills/)
+    expect(out.indexOf('dev-plan')).toBeGreaterThan(out.indexOf('dev-skills'))
+    // Repo-only skills are visible, and marked so the reason is legible without docs.
+    expect(out).toMatch(/skillify/)
+    expect(out).toMatch(/repo-only/i)
+  })
+})
