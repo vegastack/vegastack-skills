@@ -6,8 +6,6 @@ Authored Agent Skills for Claude Code, Codex, and Hermes, plus the `@vegastack/s
 
 | Skill | What it does | Docs |
 |---|---|---|
-| [skill-maintainer](skills/skill-maintainer/) | The verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create, update, rename, and release runs through it | [Walkthrough](skills/skill-maintainer/README.md) · [SKILL.md](skills/skill-maintainer/SKILL.md) |
-| [skillify](skills/skillify/) | The repo-local skill factory: gates whether something should be a skill at all, scaffolds the contract with its repo wiring, and audits existing skills | [Walkthrough](skills/skillify/README.md) · [SKILL.md](skills/skillify/SKILL.md) |
 
 ### Dev workflow
 
@@ -25,6 +23,15 @@ The issue-driven development workflow: ten stages from project bootstrap to the 
 | [dev-ship](skills/dev-skills/dev-ship/) | The shipping gates, each spent only by the operator's words: PR, merge per the `merge:` knob, then the project's `## Ship` runbook | [Walkthrough](skills/dev-skills/dev-ship/README.md) · [SKILL.md](skills/dev-skills/dev-ship/SKILL.md) |
 | [dev-status](skills/dev-skills/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev-skills/dev-status/README.md) · [SKILL.md](skills/dev-skills/dev-status/SKILL.md) |
 | [dev-chronicle](skills/dev-skills/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev-skills/dev-chronicle/README.md) · [SKILL.md](skills/dev-skills/dev-chronicle/SKILL.md) |
+
+### Repo tooling
+
+Skills that work on this repository itself: they are not installed by --all, and do nothing useful in another project.
+
+| Skill | What it does | Docs |
+|---|---|---|
+| [skill-maintainer](skills/repo-tooling/skill-maintainer/) | The verified Agent Skills standards for Claude Code, Codex, Hermes, and agentskills.io — every create, update, rename, and release runs through it | [Walkthrough](skills/repo-tooling/skill-maintainer/README.md) · [SKILL.md](skills/repo-tooling/skill-maintainer/SKILL.md) |
+| [skillify](skills/repo-tooling/skillify/) | The repo-local skill factory: gates whether something should be a skill at all, scaffolds the contract with its repo wiring, and audits existing skills | [Walkthrough](skills/repo-tooling/skillify/README.md) · [SKILL.md](skills/repo-tooling/skillify/SKILL.md) |
 
 Install any skill by name:
 
