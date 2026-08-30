@@ -222,14 +222,18 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   // Every refusal belongs in this pre-flight. wireReadme runs after the tree is renamed into
   // place and the packaging entry written, so anything discovered there would leave a half-wired
   // skill on disk while reporting a refusal - or, worse, report success with no row at all.
+  // When a README exists, its row target must be resolvable BEFORE the tree is staged, so a
+  // refusal writes nothing. A wholly absent README or packaging.json keeps the documented
+  // degrade-to-`skipped:` contract (skillify's README, and the bare-repo test) - tightening that
+  // is a behaviour change of its own, tracked separately.
   const readmePath = join(repoRoot, 'README.md')
   if ((await entryAt(readmePath))?.isFile()) {
     const lines = (await readFile(readmePath, 'utf8')).split('\n')
-    const target = findRowInsertion(lines, group, groupHeading)
-    if (target?.missingSection) {
+    const rowTarget = findRowInsertion(lines, group, groupHeading)
+    if (rowTarget?.missingSection) {
       throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
     }
-    if (!target) {
+    if (!rowTarget) {
       throw new Error(`README.md has no ${group ? `table under "### ${groupHeading}"` : 'ungrouped Skills table'} to add a row to - every skill needs its row, so refusing rather than scaffolding a skill the structure check would block`)
     }
   }
@@ -237,6 +241,9 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   // The generated test imports the repo validator by relative path, so its depth follows the
   // skill's: skills/<name>/tests/ is three levels up, skills/<group>/<name>/tests/ is four.
   const validatorPath = `${group ? '../../../..' : '../../..'}/packages/cli/scripts/validate-skill.mjs`
+  // Only a grouped skill gets the family-install line; an ungrouped one would otherwise ship a
+  // command naming a group that does not exist.
+  const groupInstallLine = group ? `\nnpx @vegastack/skills add --group ${group}   # or the whole ${group} family` : ''
 
   const outputs = templateFiles.map(([source, output]) => [source, output ?? `tests/${name}.test.ts`])
   const plan = { name, group, target, files: outputs.map(([, output]) => output), wrote: false }
@@ -247,7 +254,11 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   try {
     for (const [source, output] of outputs) {
       const body = await readFile(join(templatesRoot, source), 'utf8')
-      const rendered = body.replaceAll('{{name}}', name).replaceAll('{{date}}', date).replaceAll('{{validatorPath}}', validatorPath)
+      const rendered = body
+        .replaceAll('{{name}}', name)
+        .replaceAll('{{date}}', date)
+        .replaceAll('{{validatorPath}}', validatorPath)
+        .replaceAll('{{groupInstallLine}}', groupInstallLine)
       const destination = join(staging, output)
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, rendered)

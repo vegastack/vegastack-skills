@@ -132,6 +132,18 @@ describe('sync-skill with groups', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
+  test('a malformed repo-only.json fails the build rather than marking nothing', () => {
+    for (const bad of ['{"a":1}', '["ok", 3]', '"skillify"']) {
+      const root = repo(skills => writeSkill(join(skills, 'solo'), 'solo'))
+      writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ solo: ['SKILL.md'] }))
+      writeFileSync(join(root, 'packages/cli/repo-only.json'), bad)
+      const result = run(root)
+      expect(result.exitCode).not.toBe(0)
+      expect(result.stderr.toString()).toMatch(/array of skill names/)
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   test('an ungrouped-only tree still builds, unchanged by group support', () => {
     const root = repo(skills => {
       writeSkill(join(skills, 'one'), 'one')

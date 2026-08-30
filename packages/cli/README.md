@@ -73,10 +73,12 @@ npx @vegastack/skills remove --group dev-skills # uninstall it again
 | `--group NAME` | Select every skill in a group (see `list` for the groups) |
 | `--all` | Select every bundled skill except the repo-only ones |
 | `--agent codex\|claude\|hermes\|both\|all` | Target agent runtime(s); `both` = codex+claude |
-| `--dir PATH` | Operate on a different project directory |
+| `--dir PATH` | Operate on a different project directory; not valid with `--global` |
 | `--dry-run` | Show what would change without writing |
 | `--force` | Overwrite a modified installed copy |
 | `--non-interactive` | Skip prompts and use defaults: `--agent both`, project-local (for automation) |
+| `--version` / `-v` | Print the installer version |
+| `--help` / `-h` | Print usage |
 
 `--all` and `--agent all` are different axes and are easy to confuse: `--all` chooses **which skills**, `--agent all` chooses **which agent runtimes**. `add --all --agent all --global` is valid and means every installable skill, on every runtime, in your home directory.
 

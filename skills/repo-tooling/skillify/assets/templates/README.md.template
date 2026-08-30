@@ -5,8 +5,7 @@ TODO: one-paragraph summary for humans and agents browsing the repo. The agent e
 ## Install
 
 ```sh
-npx @vegastack/skills add {{name}}
-npx @vegastack/skills add --group <group>   # if this skill belongs to a group
+npx @vegastack/skills add {{name}}{{groupInstallLine}}
 ```
 
 ## What's in this skill

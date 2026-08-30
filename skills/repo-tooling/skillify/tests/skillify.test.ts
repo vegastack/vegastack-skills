@@ -303,6 +303,31 @@ describe('scaffold-skill groups', () => {
     }
   })
 
+  test('the scaffolded README carries a working group-install line, or none at all', async () => {
+    const grouped = await makeGroupedRepo()
+    try {
+      await scaffoldSkill({ name: 'demo-skill', dir: grouped, group: 'fam', write: true })
+      const readme = await readFile(join(grouped, 'skills/fam/demo-skill/README.md'), 'utf8')
+      expect(readme).toContain('npx @vegastack/skills add --group fam')
+      // A literal placeholder would ship a command that always errors.
+      expect(readme).not.toContain('<group>')
+      expect(readme).not.toContain('{{group')
+    } finally {
+      await rm(grouped, { recursive: true, force: true })
+    }
+
+    const flat = await makeGroupedRepo()
+    try {
+      await scaffoldSkill({ name: 'demo-skill', dir: flat, write: true })
+      const readme = await readFile(join(flat, 'skills/demo-skill/README.md'), 'utf8')
+      // Ungrouped: no group line at all, rather than one naming a group that does not apply.
+      expect(readme).not.toContain('--group')
+      expect(readme).toContain('npx @vegastack/skills add demo-skill')
+    } finally {
+      await rm(flat, { recursive: true, force: true })
+    }
+  })
+
   test('without --group nothing changes: top-level tree, ungrouped row, three-dot import', async () => {
     const repo = await makeGroupedRepo()
     try {

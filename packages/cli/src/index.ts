@@ -76,7 +76,9 @@ function parse(argv: string[]): Options {
     const flag = argv.shift()!
     if (flag === '--group') {
       const value = argv.shift()
-      if (value === undefined || value.startsWith('-')) throw new Error('--group requires a value')
+      if (value === undefined || value === '' || value.startsWith('-')) throw new Error('--group requires a value')
+      // Last-wins would silently drop the first group from a two-group request and still exit 0.
+      if (options.group !== undefined) throw new Error('--group may be given only once; select one group per run')
       options.group = value
     }
     else if (flag === '--all') options.all = true
@@ -112,8 +114,8 @@ function hasSelector(options: Options): boolean {
   return Boolean(options.skill || options.group || options.all)
 }
 
-async function requireSelection(options: Options): Promise<string[]> {
-  return selectSkills({ skill: options.skill, group: options.group, all: options.all }, await skillCatalog())
+async function requireSelection(options: Options, verb = 'install'): Promise<string[]> {
+  return selectSkills({ skill: options.skill, group: options.group, all: options.all }, await skillCatalog(), verb)
 }
 
 // skills.sh-style flow: detect which agents the user actually has and install to them without
@@ -351,6 +353,7 @@ async function installLocked(options: Options, skillNames: string[], agents: Age
   const sources = new Map<string, { source: string; files: Record<string, string> }>()
   for (const skillName of skillNames) sources.set(skillName, await loadSource(skillName))
   const operations: Operation[] = []
+  const refusals: { agent: Agent; path: string }[] = []
   for (const skillName of skillNames) {
     const { files } = sources.get(skillName)!
     for (const agent of agents) {
@@ -359,6 +362,9 @@ async function installLocked(options: Options, skillNames: string[], agents: Age
       const parent = dirname(destination)
       await assertNoSymlink(parent)
       const existed = await exists(destination)
+      if (existed && !(await stat(destination)).isDirectory()) {
+        throw new Error(`Refusing to install over a non-directory: ${destination} — remove it and retry`)
+      }
       if (existed) {
         const comparison = await compare(destination, files)
         if (comparison.status === 'verified' && !options.force) {
@@ -366,7 +372,7 @@ async function installLocked(options: Options, skillNames: string[], agents: Age
           continue
         }
         if (!options.force) {
-          if (options.dryRun) { console.log(`would replace ${agent} (requires --force; installed copy differs): ${destination}`); continue }
+          if (options.dryRun) { refusals.push({ agent, path: destination }); continue }
           throw new Error(`Refusing differing installation without --force: ${destination}`)
         }
       }
@@ -376,9 +382,20 @@ async function installLocked(options: Options, skillNames: string[], agents: Age
   }
   if (options.dryRun) {
     for (const operation of operations) console.log(`would install ${operation.agent}: ${operation.destination}`)
+    for (const destination of refusals) console.log(`would replace ${destination.agent} (requires --force; installed copy differs): ${destination.path}`)
+    // For a multi-skill selection the transaction is all-or-nothing, so a preview that exits 0
+    // would promise an install the real run refuses outright. A single-skill dry run keeps its
+    // established report-and-exit-0 behaviour.
+    if (refusals.length && skillNames.length > 1) {
+      console.log(`this run would install nothing: ${refusals.length} destination(s) differ and --force was not given`)
+      process.exitCode = 1
+    }
     return
   }
-  if (!operations.length) return
+  if (!operations.length) {
+    if (skillNames.length > 1) console.log(`${skillNames.length} skills already installed and unchanged${options.group ? ` (${options.group})` : ''}`)
+    return
+  }
   const journalPath = join(base, '.vegastack', '.skills-install-transaction.json')
   const staged: Operation[] = []
   const applied: Operation[] = []
@@ -423,7 +440,18 @@ async function installLocked(options: Options, skillNames: string[], agents: Age
   await rm(journalPath, { force: true })
   await syncDirectory(dirname(journalPath))
   for (const operation of applied) console.log(`installed ${operation.agent}: ${operation.destination}`)
-  if (skillNames.length > 1) console.log(`installed ${skillNames.length} skills${options.group ? ` from ${options.group}` : ''}`)
+  if (skillNames.length > 1) {
+    // --all silently leaving two skills out is a surprise at the terminal even though both
+    // READMEs explain it, so name them where the confusion actually happens.
+    const skipped = options.all ? (await skillCatalog()).filter(entry => entry.repoOnly).map(entry => entry.name) : []
+    const note = skipped.length ? ` (skipped ${skipped.length} repo-only: ${skipped.join(', ')} — name one explicitly to install it)` : ''
+    // Count the skills that actually committed, not the ones selected: with one member already
+    // present and unchanged, a selection of ten installs nine.
+    const installedCount = new Set(applied.map(operation => operation.skill)).size
+    const unchanged = skillNames.length - installedCount
+    const unchangedNote = unchanged > 0 ? `, ${unchanged} already up to date` : ''
+    console.log(`installed ${installedCount} skills${options.group ? ` from ${options.group}` : ''}${unchangedNote}${note}`)
+  }
 }
 
 async function verify(options: Options) {
@@ -433,7 +461,7 @@ async function verify(options: Options) {
   // With no selector at all, verify keeps walking every bundled skill and reports missing ones
   // rather than failing on them; an explicit selection treats a missing skill as a failure.
   const explicit = hasSelector(options)
-  const skills = explicit ? await requireSelection(options) : await bundledSkills()
+  const skills = explicit ? await requireSelection(options, 'verify') : await bundledSkills()
   let failed = false
   let found = 0
   for (const skillName of skills) {
@@ -472,15 +500,19 @@ async function latestPublishedVersion(): Promise<string | null> {
 }
 
 async function removeSkill(options: Options) {
-  const skillNames = await requireSelection(options)
+  const skillNames = await requireSelection(options, 'remove')
   const choice = await prompt(options)
   const base = baseFor(choice.mode, options.dir)
   const agents = resolveAgents(choice.agent, choice.mode)
   if (!options.dryRun) return withInstallLock(base, () => removeLocked(options, skillNames, agents, base))
-  return removeLocked(options, skillNames, agents, base)
+  return removeLocked(options, skillNames, agents, base, false)
 }
 
-async function removeLocked(options: Options, skillNames: string[], agents: Agent[], base: string) {
+async function removeLocked(options: Options, skillNames: string[], agents: Agent[], base: string, recover = true) {
+  // An interrupted install leaves a journal plus .<skill>.backup-* directories. Without settling
+  // them first, a removal "succeeds" and the next add rolls those backups forward, bringing the
+  // removed skills back. installLocked already recovers; remove must too, under the same lock.
+  if (recover) await recoverInstall(base)
   // Every drift check runs across the whole selection BEFORE the first removal, so a locally
   // modified member stops the run instead of leaving a half-removed family behind.
   const targets: { skill: string; agent: Agent; destination: string }[] = []
@@ -505,6 +537,10 @@ async function removeLocked(options: Options, skillNames: string[], agents: Agen
     await rm(target.destination, { recursive: true, force: true })
     console.log(`removed ${target.agent}: ${target.destination}`)
   }
+  if (options.all) {
+    const skipped = (await skillCatalog()).filter(entry => entry.repoOnly).map(entry => entry.name)
+    if (skipped.length) console.log(`left ${skipped.length} repo-only skills in place: ${skipped.join(', ')} — name one explicitly to remove it`)
+  }
   if (!targets.length) process.exitCode = 1
 }
 
@@ -513,24 +549,23 @@ async function list() {
   const entries = await skillCatalog()
   const groups = [...new Set(entries.map(entry => entry.group).filter((group): group is string => group !== null))].sort()
 
-  const show = async (skillName: string) => {
-    const skill = await readFile(join(bundleRoot, skillName, 'SKILL.md'), 'utf8')
+  const show = async (entry: SkillEntry) => {
+    const skill = await readFile(join(bundleRoot, entry.name, 'SKILL.md'), 'utf8')
     const description = skill.match(/^description: (.+)$/m)?.[1] ?? ''
-    const fileCount = Object.keys(manifest.skills[skillName]?.files ?? {}).length
-    const repoOnly = entries.find(entry => entry.name === skillName)?.repoOnly
-    console.log(`  ${skillName} (${fileCount} files)${repoOnly ? '  [repo-only: not installed by --all]' : ''}`)
+    const fileCount = Object.keys(manifest.skills[entry.name]?.files ?? {}).length
+    console.log(`  ${entry.name} (${fileCount} files)${entry.repoOnly ? '  [repo-only: not installed by --all]' : ''}`)
     console.log(`    ${description.length > 160 ? `${description.slice(0, 157)}...` : description}`)
   }
 
   for (const group of groups) {
     console.log(`${group}  —  vegastack-skills add --group ${group}`)
-    for (const entry of entries.filter(item => item.group === group).sort((a, b) => a.name.localeCompare(b.name))) await show(entry.name)
+    for (const entry of entries.filter(item => item.group === group).sort((a, b) => a.name.localeCompare(b.name))) await show(entry)
     console.log('')
   }
   const ungrouped = entries.filter(entry => entry.group === null).sort((a, b) => a.name.localeCompare(b.name))
   if (ungrouped.length) {
     console.log('ungrouped')
-    for (const entry of ungrouped) await show(entry.name)
+    for (const entry of ungrouped) await show(entry)
   }
 }
 

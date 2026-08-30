@@ -21,7 +21,7 @@ function groupsIn(catalog: SkillEntry[]): string[] {
   return sorted(catalog.map(entry => entry.group).filter((group): group is string => group !== null))
 }
 
-export function selectSkills(selector: Selector, catalog: SkillEntry[]): string[] {
+export function selectSkills(selector: Selector, catalog: SkillEntry[], verb = 'install'): string[] {
   const chosen = [
     selector.skill ? 'a skill name' : null,
     selector.group ? '--group' : null,
@@ -58,7 +58,7 @@ export function selectSkills(selector: Selector, catalog: SkillEntry[]): string[
 
   const groups = groupsIn(catalog)
   throw new Error(
-    `Specify what to install: a skill name (${sorted(catalog.map(entry => entry.name)).join(', ')})` +
+    `Specify what to ${verb}: a skill name (${sorted(catalog.map(entry => entry.name)).join(', ')})` +
     `${groups.length ? `, --group (${groups.join(', ')})` : ''}, or --all`,
   )
 }
