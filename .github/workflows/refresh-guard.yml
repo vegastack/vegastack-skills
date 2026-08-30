@@ -44,7 +44,7 @@ jobs:
             -e '^skills/([^/]+/)?[^/]+/refresh/' \
             || true)
           if [ -n "$OUT_OF_SCOPE" ]; then
-            echo "::error::Refresh PRs may only touch skills/*/refresh/. Out of scope:"
+            echo "::error::Refresh PRs may only touch a skill's refresh/ directory (skills/<name>/refresh/ or skills/<group>/<name>/refresh/). Out of scope:"
             echo "$OUT_OF_SCOPE"
             exit 1
           fi

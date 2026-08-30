@@ -14,7 +14,7 @@
 // refusing existing directories and symlinks, then performs the repo wiring
 // itself: packaging.json entry, root README row, changeset. Exit codes: 0 ok,
 // 1 refusal or failure, 2 usage error.
-import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -60,6 +60,18 @@ export function groupTitle(markdown) {
   const blurb = lines.slice(headingIndex + 1).find(line => line.trim() !== '')?.trim()
   if (!title || !blurb || blurb.startsWith('#')) return null
   return title
+}
+
+// Two-level scan mirroring lib/skills.mjs's discovery. Duplicated for the same reason as
+// groupTitle: this script ships inside the skillify skill and cannot import repo tooling.
+async function findSkillAnywhere(skillsRoot, name) {
+  if ((await entryAt(join(skillsRoot, name, 'SKILL.md')))?.isFile()) return join(skillsRoot, name)
+  for (const entry of await readdir(skillsRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const path = join(skillsRoot, entry.name, name)
+    if ((await entryAt(join(path, 'SKILL.md')))?.isFile()) return path
+  }
+  return null
 }
 
 async function entryAt(path) {
@@ -147,6 +159,15 @@ async function wireChangeset(repoRoot, name, write) {
 }
 
 export async function wireSkill({ name, repoRoot, group = null, groupHeading = null, write = false }) {
+  // groupHeading is an optimisation for scaffoldSkill, which has already read GROUP.md. A caller
+  // using the documented { name, repoRoot, group, write } shape gets it derived here rather than
+  // a row addressed to "### null".
+  if (group && !groupHeading) {
+    const doc = await entryAt(join(repoRoot, 'skills', group, 'GROUP.md'))
+    if (!doc?.isFile()) throw new Error(`Group "${group}" has no GROUP.md - every group carries one`)
+    groupHeading = groupTitle(await readFile(join(repoRoot, 'skills', group, 'GROUP.md'), 'utf8'))
+    if (!groupHeading) throw new Error(`skills/${group}/GROUP.md is malformed - it needs an H1 title followed by one non-empty blurb line`)
+  }
   return [
     await wirePackaging(repoRoot, name, write),
     await wireReadme(repoRoot, name, group, groupHeading, write),
@@ -186,6 +207,24 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   const parent = group ? join(skillsRoot, group) : skillsRoot
   const target = join(parent, name)
   if (await entryAt(target)) throw new Error(`Refusing to scaffold: ${target} already exists`)
+
+  // Skill names are unique across the whole tree, not just within one directory: the packaged
+  // bundle is flat, so a duplicate at the other depth would break the next build. Checked here,
+  // before anything is written, rather than left to that build.
+  const clash = await findSkillAnywhere(skillsRoot, name)
+  if (clash) throw new Error(`Refusing to scaffold: a skill named "${name}" already exists at ${clash} - the packaged bundle is flat, so skill names are unique across the whole tree`)
+
+  // Every refusal belongs in this pre-flight. wireReadme runs after the tree is renamed into
+  // place, so a missing section discovered there would leave a half-wired skill on disk.
+  if (group) {
+    const readmePath = join(repoRoot, 'README.md')
+    if ((await entryAt(readmePath))?.isFile()) {
+      const body = await readFile(readmePath, 'utf8')
+      if (!body.split('\n').some(line => line.trim() === `### ${groupHeading}`)) {
+        throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
+      }
+    }
+  }
 
   // The generated test imports the repo validator by relative path, so its depth follows the
   // skill's: skills/<name>/tests/ is three levels up, skills/<group>/<name>/tests/ is four.

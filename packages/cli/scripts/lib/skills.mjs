@@ -11,7 +11,7 @@
 // group name. Documentation-level rules (GROUP.md shape, README rows, per-skill meta files)
 // belong to structure.mjs, which reports them without breaking the build.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { join } from 'node:path'
 
 // Synchronous on purpose: validate-skill.mjs exposes a sync validateSkill() that twelve skill
 // test files import, and mixing an async discovery into it would ripple through all of them.
@@ -31,7 +31,6 @@ export function nameError(name) {
   return null
 }
 
-const isDirectory = (path) => existsSync(path) && statSync(path).isDirectory()
 const isSkillDir = (path) => existsSync(join(path, 'SKILL.md'))
 
 function childDirectories(path) {
@@ -117,5 +116,3 @@ export function readGroupDoc(groupPath) {
   return { title, blurb }
 }
 
-// The bundle directory for a skill is always its bare name, whatever its authored depth.
-export const bundleName = (skillPath) => basename(skillPath)

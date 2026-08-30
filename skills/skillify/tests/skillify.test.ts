@@ -358,13 +358,57 @@ describe('scaffold-skill groups', () => {
     }
   })
 
-  test('a group section missing from the README refuses rather than writing a stray row', async () => {
+  test('a group section missing from the README refuses and writes nothing at all', async () => {
     const repo = await makeGroupedRepo()
     try {
       const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      const packagingBefore = await readFile(join(repo, 'packages/cli/packaging.json'), 'utf8')
       await writeFile(join(repo, 'README.md'), readme.replace('### Fam', '### Elsewhere'))
       await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, group: 'fam', write: true }))
         .rejects.toThrow(/section/i)
+      // A refusal that has already renamed the tree into place and written a packaging entry is
+      // not a refusal — it is a half-wired skill plus an error message.
+      expect(await readdir(join(repo, 'skills'))).toEqual(['fam'])
+      expect(await readdir(join(repo, 'skills/fam'))).toEqual(['GROUP.md'])
+      expect(await readFile(join(repo, 'packages/cli/packaging.json'), 'utf8')).toBe(packagingBefore)
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('a name already used at the other depth refuses, in both directions', async () => {
+    const grouped = await makeGroupedRepo()
+    try {
+      await scaffoldSkill({ name: 'demo-skill', dir: grouped, group: 'fam', write: true })
+      // Same name, ungrouped this time: the flat bundle allows only one "demo-skill".
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: grouped, write: true }))
+        .rejects.toThrow(/already exists at/i)
+      expect(await readdir(join(grouped, 'skills'))).toEqual(['fam'])
+    } finally {
+      await rm(grouped, { recursive: true, force: true })
+    }
+
+    const flat = await makeGroupedRepo()
+    try {
+      await scaffoldSkill({ name: 'demo-skill', dir: flat, write: true })
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: flat, group: 'fam', write: true }))
+        .rejects.toThrow(/already exists at/i)
+      expect(await readdir(join(flat, 'skills/fam'))).toEqual(['GROUP.md'])
+    } finally {
+      await rm(flat, { recursive: true, force: true })
+    }
+  })
+
+  test('wireSkill works from its documented shape, deriving the group heading itself', async () => {
+    const repo = await makeGroupedRepo()
+    try {
+      // The plan documents wireSkill({ name, repoRoot, group, write }); groupHeading is an
+      // internal optimisation and must not be required of a caller.
+      await wireSkill({ name: 'demo-skill', repoRoot: repo, group: 'fam', write: true })
+      const readme = await readFile(join(repo, 'README.md'), 'utf8')
+      expect(readme).toContain('| [demo-skill](skills/fam/demo-skill/) |')
+      expect(readme).not.toContain('### null')
+      expect(readme.indexOf('### Fam')).toBeLessThan(readme.indexOf('demo-skill'))
     } finally {
       await rm(repo, { recursive: true, force: true })
     }

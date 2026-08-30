@@ -3,8 +3,11 @@
 // skill-maintainer owns the rules; this script is the deterministic method behind them, and is
 // cited from the repo root the same way validate-skill.mjs already is.
 //
-//   node packages/cli/scripts/structure.mjs check [--json]
-//   node packages/cli/scripts/structure.mjs create-group <name> [--title T] [--blurb B] [--write] [--json]
+//   node packages/cli/scripts/structure.mjs check [--strict] [--json] [--dir PATH]
+//   node packages/cli/scripts/structure.mjs create-group <name> --title T --blurb B [--write] [--json] [--dir PATH]
+//
+// --dir points at a repo root other than this checkout (the tests use it); it defaults to the
+// repo this script lives in.
 //
 // Division of labour: invariants that would corrupt the flat bundle (illegal depth, duplicate
 // skill names, a group named like a skill) raise inside lib/skills.mjs at build time. Everything
@@ -12,7 +15,10 @@
 // packaging correspondence — and is reported, never repaired. Machine-verifiable facts block;
 // judgement-level observations only warn, per the guard doctrine in dev-setup's conventions.
 //
-// Exit codes: 0 clean · 1 warnings only (or a create-group refusal) · 2 blocked · 2 usage error.
+// Exit codes: 0 clean or warnings-only · 2 blocked · 1 create-group refusal · 2 usage error.
+// Warnings deliberately do NOT fail: `check` is chained into the root `check` script with `&&`,
+// and the guard doctrine says judgement-level observations warn without blocking. `--strict`
+// exits 1 on warnings for a caller that wants them fatal.
 import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -33,14 +39,23 @@ const posix = (path) => path.split(sep).join('/')
 // must equal that group's GROUP.md title.
 // ---------------------------------------------------------------------------
 
-export function parseSkillsRegion(readmeBody) {
-  const lines = readmeBody.split('\n')
+// One home for the region bounds: the checker and the writer must never disagree about where
+// the Skills region begins and ends.
+export function skillsRegion(lines) {
   const start = lines.findIndex((line) => /^##\s+Skills\s*$/.test(line))
   if (start === -1) return null
   let end = lines.length
   for (let i = start + 1; i < lines.length; i += 1) {
     if (/^##\s+/.test(lines[i]) && !/^###/.test(lines[i])) { end = i; break }
   }
+  return { start, end }
+}
+
+export function parseSkillsRegion(readmeBody) {
+  const lines = readmeBody.split('\n')
+  const region = skillsRegion(lines)
+  if (!region) return null
+  const { start, end } = region
 
   const sections = [{ title: null, heading: null, rows: [], body: [] }]
   for (const line of lines.slice(start + 1, end)) {
@@ -92,7 +107,8 @@ export function checkStructure(repoRoot) {
       blocks.push(`skills/${name}/${entry.name} is not allowed — a group directory holds only skill directories and its GROUP.md`)
     }
     const members = [...skills.values()].filter((skill) => skill.group === name)
-    if (members.length === 1) warns.push(`group "${name}" holds a single skill (${members[0].name}) — a family of one is usually better ungrouped`)
+    if (members.length === 0) warns.push(`group "${name}" holds no skills — finish moving skills into it, or remove skills/${name}/`)
+    else if (members.length === 1) warns.push(`group "${name}" holds a single skill (${members[0].name}) — a family of one is usually better ungrouped`)
   }
 
   // --- per-skill meta files ---
@@ -213,12 +229,9 @@ function entryAt(path) {
 // that follows the tables stays where it is.
 export function insertGroupSection(readmeBody, title, blurb) {
   const lines = readmeBody.split('\n')
-  const start = lines.findIndex((line) => /^##\s+Skills\s*$/.test(line))
-  if (start === -1) return null
-  let end = lines.length
-  for (let i = start + 1; i < lines.length; i += 1) {
-    if (/^##\s+/.test(lines[i]) && !/^###/.test(lines[i])) { end = i; break }
-  }
+  const region = skillsRegion(lines)
+  if (!region) return null
+  const { start, end } = region
   let lastRow = -1
   for (let i = start + 1; i < end; i += 1) if (lines[i].startsWith('|')) lastRow = i
   if (lastRow === -1) return null
@@ -243,6 +256,11 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   // lstat does not follow symlinks, so a symlinked group path fails isDirectory() and refuses.
   if (existing && !existing.isDirectory()) throw new Error(`Refusing to create a group at ${target}: it exists and is not a directory`)
   if (existing && existsSync(join(target, 'SKILL.md'))) throw new Error(`Refusing to create a group at ${target}: a skill already lives there`)
+  // Group and skill names share one namespace, so a group named after a skill in ANOTHER group
+  // would make the repo unbuildable. Discovery owns that rule; consult it before mutating, not
+  // after — the whole point of a dry-run-by-default mutator is that a refusal writes nothing.
+  const clash = discoverSkills(skillsRoot).get(name)
+  if (clash) throw new Error(`Refusing to create a group named "${name}": a skill of that name already lives at ${clash.path} — group and skill names share one namespace`)
 
   const wiring = []
   const groupDocPath = join(target, 'GROUP.md')
@@ -289,20 +307,23 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
 function parseArguments(argv) {
   const rest = [...argv]
   const command = rest.shift()
-  const options = { command, name: undefined, title: undefined, blurb: undefined, write: false, json: false, dir: undefined }
+  const options = { command, name: undefined, title: undefined, blurb: undefined, write: false, json: false, strict: false, dir: undefined }
   while (rest.length) {
     const flag = rest.shift()
-    if (flag === '--title') options.title = rest.shift()
-    else if (flag === '--blurb') options.blurb = rest.shift()
-    else if (flag === '--dir') options.dir = rest.shift()
+    if (['--title', '--blurb', '--dir'].includes(flag)) {
+      const value = rest.shift()
+      if (value === undefined || value.startsWith('-')) throw new Error(`${flag} requires a value`)
+      options[flag.slice(2)] = value
+    }
     else if (flag === '--write') options.write = true
+    else if (flag === '--strict') options.strict = true
     else if (flag === '--json') options.json = true
     else if (flag.startsWith('-')) throw new Error(`Unknown option: ${flag}`)
     else if (options.name === undefined) options.name = flag
     else throw new Error(`Unexpected argument: ${flag}`)
   }
   if (!['check', 'create-group'].includes(options.command)) {
-    throw new Error('Usage: structure.mjs <check|create-group> [name] [--title T] [--blurb B] [--write] [--json] [--dir PATH]')
+    throw new Error('Usage: structure.mjs <check|create-group> [name] [--title T] [--blurb B] [--write] [--strict] [--json] [--dir PATH]')
   }
   if (options.command === 'create-group' && !options.name) throw new Error('create-group requires a group name')
   return options
@@ -328,7 +349,7 @@ if (invokedDirectly) {
       for (const warn of warns) console.warn(`warn:  ${warn}`)
       if (!blocks.length && !warns.length) console.log('structure: ok')
     }
-    process.exit(blocks.length ? 2 : warns.length ? 1 : 0)
+    process.exit(blocks.length ? 2 : (warns.length && options.strict) ? 1 : 0)
   }
 
   try {
