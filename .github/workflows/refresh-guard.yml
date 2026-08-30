@@ -41,7 +41,7 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED"
           OUT_OF_SCOPE=$(echo "$CHANGED" | grep -Ev \
-            -e '^skills/[^/]+/refresh/' \
+            -e '^skills/([^/]+/)?[^/]+/refresh/' \
             || true)
           if [ -n "$OUT_OF_SCOPE" ]; then
             echo "::error::Refresh PRs may only touch skills/*/refresh/. Out of scope:"
@@ -72,7 +72,8 @@ jobs:
           # registry is re-verified.
           RUNNER=tooling/refresh/refresh-evidence.mjs
           SCRATCH=$(mktemp -d)
-          for REGISTRY in skills/*/refresh/sources.json; do
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          for REGISTRY in "${REGISTRIES[@]}"; do
             echo "== $REGISTRY"
             node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
               --cache "$SCRATCH/evidence-cache-$(basename "$(dirname "$(dirname "$REGISTRY")")").json" \

@@ -44,7 +44,11 @@ jobs:
           mkdir -p "$SCRATCH/reports"
           # Vendor hosts occasionally refuse a datacenter IP for one request;
           # retry before letting fail-closed kill a scheduled run.
-          for REGISTRY in skills/*/refresh/sources.json; do
+          # Depth-agnostic: skills live at skills/<name>/ or skills/<group>/<name>/, and a shell
+          # glob would silently cover only one of the two. The name is still the registry's
+          # grandparent directory at either depth.
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          for REGISTRY in "${REGISTRIES[@]}"; do
             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
             echo "== $SKILL"
             for ATTEMPT in 1 2 3; do
@@ -74,7 +78,8 @@ jobs:
           set -euo pipefail
           RUNNER=tooling/refresh/refresh-evidence.mjs
           VERIFY=$(mktemp -d)
-          for REGISTRY in skills/*/refresh/sources.json; do
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          for REGISTRY in "${REGISTRIES[@]}"; do
             SKILL=$(basename "$(dirname "$(dirname "$REGISTRY")")")
             node "$RUNNER" --registry "$REGISTRY" --verify-baselines \
               --cache "$VERIFY/cache-$SKILL.json" \
@@ -106,7 +111,8 @@ jobs:
           git config user.name "vegastack-refresh[bot]"
           git config user.email "noreply@vegastack.com"
           git checkout -B refresh/weekly
-          git add skills/*/refresh/sources.json
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          git add "${REGISTRIES[@]}"
           git commit -m "chore(refresh): weekly deterministic baseline refresh"
           git push -f origin refresh/weekly
           if gh pr list --head refresh/weekly --state open --json number --jq length | grep -qv '^0$'; then
