@@ -7,7 +7,7 @@ description: The project's narrative record — what got built, why, and how it 
 
 `.vegastack/chronicle.md` is the project's story, newest first — the answer to "what did I build here and what happened?" months later, when the operator remembers nothing. Entries are **story language for a human**, never commit-log prose: the changelog tells consumers what changed; the chronicle tells the operator what happened.
 
-Nearest neighbors: `dev-implement` writes the entries at hand-back (the write rule lives there; the format lives here); `dev-status` answers "what needs me now" — this skill answers "how did we get here". `dev-ship`'s ship-gate checks entry presence when dev.md says `chronicle: on`.
+Nearest neighbors: `dev-implement` writes the entries at hand-back (the write rule lives there; the format lives here); `dev-status` answers "what needs me now" — this skill answers "how did we get here". `dev-ship`'s ship-gate checks entry presence when dev.md says `chronicle: on`. Artifact formats follow the `dev-setup` skill's `references/conventions.md`.
 
 ## The entry — one per behavior-changing branch
 
