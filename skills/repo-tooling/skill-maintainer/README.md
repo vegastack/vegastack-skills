@@ -4,6 +4,14 @@ The skill an agent loads when working **on** this repository — creating, updat
 
 This README is the walkthrough for humans and for agents reading outside a skill-invocation context. The agent entry point is [SKILL.md](SKILL.md); everything else loads progressively from there.
 
+## Install
+
+```sh
+npx @vegastack/skills add skill-maintainer   # repo-only: not installed by --all
+```
+
+Only useful if you are contributing to the vegastack-skills repository itself — it encodes that repo's contract and wiring. See the [installer README](../../../packages/cli/README.md) for all flags.
+
 ## When to load it
 
 Any work in this repo: scaffolding a new skill, editing an existing one (SKILL.md, references, refresh registry, tests), rename/deprecate/remove operations, cutting or rolling back a release, or checking a skill's cross-agent portability.
