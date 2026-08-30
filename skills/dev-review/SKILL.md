@@ -5,7 +5,7 @@ description: Independent review of finished implementation work — a diff again
 
 # dev-review
 
-Review is a specified system, not a vibe: fresh eyes per axis, severities with teeth, a bounded fix loop, and every dismissal on the record. The reviewer's job is findings or verified absence of findings — never praise. Formats follow the `dev-setup` skill's `references/conventions.md`; the reviewer briefs live in [dispatch-prompts](references/dispatch-prompts.md).
+Review is a specified system, not a vibe: fresh eyes per axis, severities with teeth, a bounded fix loop, and every dismissal on the record. The reviewer's job is findings or verified absence of findings — never praise. Formats follow `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of; the reviewer briefs live in [dispatch-prompts](references/dispatch-prompts.md).
 
 Nearest neighbors: `dev-implement` invokes this per dev.md's `review:` knob and applies the findings; `dev-ship` consumes the verdict marker; `dev-plan`'s approval gate reviews plans before build — this skill reviews built work after.
 

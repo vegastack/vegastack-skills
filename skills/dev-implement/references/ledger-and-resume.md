@@ -1,6 +1,6 @@
 # Using the ledger
 
-The ledger comment's format, line vocabulary, and the resume read-order (brief → plan → ledger → `git log`, nothing else) live in the `dev-setup` skill's `references/conventions.md` — this file owns only how dev-implement **uses** them. The ledger is the build's recovery map and the operator's live progress view.
+The ledger comment's format, line vocabulary, and the resume read-order (brief → plan → ledger → `git log`, nothing else) live in `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of — this file owns only how dev-implement **uses** them. The ledger is the build's recovery map and the operator's live progress view.
 
 ## When to checkpoint
 

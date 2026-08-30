@@ -5,7 +5,7 @@ description: Write the implementation plan for an approved issue before any code
 
 # dev-plan
 
-The planning stage: an approved brief goes in, an operator-approved plan comes out, and only then does code exist. Plans are written against the repo **as it is now** — a separate session from intake for `full-plan` issues, because code drifts between brief approval and build. Formats follow the `dev-setup` skill's `references/conventions.md` (cited by name — read it wherever dev-setup is installed).
+The planning stage: an approved brief goes in, an operator-approved plan comes out, and only then does code exist. Plans are written against the repo **as it is now** — a separate session from intake for `full-plan` issues, because code drifts between brief approval and build. Formats follow `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of.
 
 Nearest neighbors: `dev-intake` owns the brief and its approval mechanics — this skill owns the how; `dev-implement` executes what this produces, task by task. If `.vegastack/dev.md` is missing → run `dev-setup` first.
 
@@ -37,7 +37,7 @@ Checkboxes belong to the implement session — never pre-tick them.
 
 ## Labels and approval
 
-Post the plan → flip to `needs-operator`. On the operator's "plan approved": record `<!-- vsk:v1 type=approval scope=plan -->` with their quoted words (`operator (<username>)` format), flip to `ready`, stop — building is dev-implement's.
+Post the plan → flip to `needs-operator`. On the operator's "plan approved": record the approval marker comment per conventions with `scope=plan`, quoting their words in its operator-identity format, flip to `ready`, stop — building is dev-implement's.
 
 ## The ratchet — one home, this file
 
