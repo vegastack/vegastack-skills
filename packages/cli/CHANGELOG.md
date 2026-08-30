@@ -1,5 +1,25 @@
 # @vegastack/skills
 
+## 0.13.0
+
+### Minor Changes
+
+- 995571f: Authored skills may now be grouped one level deep under `skills/<group>/`, and the ten dev-workflow skills have moved into a `dev-skills` group.
+
+  - Installed layout and install commands are unchanged: the packaged bundle stays flat, keyed by bare skill name, so `npx @vegastack/skills add dev-plan` is exactly what it was and existing installations are untouched.
+  - `skillify`'s scaffolder gains `--group <name>`, which places a new skill in an existing group and writes its README row into that group's section. An unknown group is refused rather than created.
+  - `skill-maintainer` gains the group rules and a create-or-maintain-a-group workflow, backed by a new repo-side structure check that blocks on illegal depth, name collisions, a malformed `GROUP.md`, missing skill meta files, packaging entries that disagree with the authored tree, and README rows that are absent, mispathed, or in the wrong section.
+  - Ungrouped skills at `skills/<name>/` remain fully supported; `skill-maintainer` and `skillify` deliberately stay ungrouped.
+
+### Patch Changes
+
+- 05285a5: Every dev-family skill now cites `references/conventions.md` from its own SKILL.md, in one shape, and the register-line format is stated in one place instead of three.
+
+  - dev-architect, dev-ship, dev-chronicle, and dev-debug shipped the packaged copy with no pointer to it from the agent entry point.
+  - dev-architect, dev-ship, and dev-setup each spelled out their own variant of the register line; all three now point at conventions' Operator identity section.
+  - dev-plan restated the approval marker and operator-identity format for an artifact it does not own, and told the reader to find the file "wherever dev-setup is installed" — wrong on a standalone install, which ships its own copy.
+  - All ten citations now name the path the copy actually occupies, so they resolve on a single-skill install.
+
 ## 0.12.1
 
 ### Patch Changes
