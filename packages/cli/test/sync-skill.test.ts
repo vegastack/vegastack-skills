@@ -88,6 +88,50 @@ describe('sync-skill with groups', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
+  test('the manifest records each skill group, null when ungrouped', () => {
+    const root = repo(skills => {
+      writeSkill(join(skills, 'solo'), 'solo')
+      writeGroup(skills, 'fam', 'Fam')
+      writeSkill(join(skills, 'fam', 'member'), 'member')
+    })
+    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ solo: ['SKILL.md'], member: ['SKILL.md'] }))
+    expect(run(root).exitCode).toBe(0)
+    const manifest = JSON.parse(readFileSync(join(root, 'packages/cli/skill-integrity.json'), 'utf8'))
+    expect(manifest.schemaVersion).toBe(2)
+    expect(manifest.skills.member.group).toBe('fam')
+    expect(manifest.skills.solo.group).toBeNull()
+    // repoOnly defaults to false and comes only from the explicit list.
+    expect(manifest.skills.member.repoOnly).toBe(false)
+    expect(manifest.skills.solo.repoOnly).toBe(false)
+    // Integrity still compares files only — the new fields must not affect it.
+    expect(Object.keys(manifest.skills.member.files)).toEqual(['SKILL.md'])
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  test('repo-only.json marks the skills it names, and only those', () => {
+    const root = repo(skills => {
+      writeSkill(join(skills, 'solo'), 'solo')
+      writeSkill(join(skills, 'meta'), 'meta')
+    })
+    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ solo: ['SKILL.md'], meta: ['SKILL.md'] }))
+    writeFileSync(join(root, 'packages/cli/repo-only.json'), JSON.stringify(['meta']))
+    expect(run(root).exitCode).toBe(0)
+    const manifest = JSON.parse(readFileSync(join(root, 'packages/cli/skill-integrity.json'), 'utf8'))
+    expect(manifest.skills.meta.repoOnly).toBe(true)
+    expect(manifest.skills.solo.repoOnly).toBe(false)
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  test('a repo-only.json naming a skill that does not exist fails the build', () => {
+    const root = repo(skills => writeSkill(join(skills, 'solo'), 'solo'))
+    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ solo: ['SKILL.md'] }))
+    writeFileSync(join(root, 'packages/cli/repo-only.json'), JSON.stringify(['ghost']))
+    const result = run(root)
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toMatch(/ghost/)
+    rmSync(root, { recursive: true, force: true })
+  })
+
   test('an ungrouped-only tree still builds, unchanged by group support', () => {
     const root = repo(skills => {
       writeSkill(join(skills, 'one'), 'one')
