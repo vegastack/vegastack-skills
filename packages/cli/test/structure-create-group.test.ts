@@ -101,6 +101,30 @@ describe('createGroup', () => {
     clean(root)
   })
 
+  test('refuses when the existing GROUP.md is malformed, rather than writing a second section', () => {
+    const root = repo()
+    createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.', write: true })
+    // readGroupDoc returns null here, which previously skipped the rename guard entirely.
+    writeFileSync(join(root, 'skills/fam/GROUP.md'), '# Fam\n')
+    expect(() => createGroup({ name: 'fam', repoRoot: root, title: 'Brand New', blurb: 'b', write: true }))
+      .toThrow(/malformed/i)
+    const readme = readFileSync(join(root, 'README.md'), 'utf8')
+    expect(readme).toContain('### Fam')
+    expect(readme).not.toContain('### Brand New')
+    clean(root)
+  })
+
+  test('refuses when the README has no Skills table to hold the section', () => {
+    const root = repo()
+    writeFileSync(join(root, 'README.md'), '## Skills\n\nNo table here.\n\n## Repository structure\n')
+    // Reporting "skipped: Skills table not found" and exiting 0 would leave a group that the
+    // structure check blocks on for having no section.
+    expect(() => createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'b', write: true }))
+      .toThrow(/no "## Skills" table/i)
+    expect(existsSync(join(root, 'skills/fam'))).toBe(false)
+    clean(root)
+  })
+
   test('refuses a title another group already uses', () => {
     const root = repo()
     createGroup({ name: 'fam', repoRoot: root, title: 'Shared', blurb: 'One.', write: true })

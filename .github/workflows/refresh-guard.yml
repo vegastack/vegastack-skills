@@ -72,7 +72,7 @@ jobs:
           # registry is re-verified.
           RUNNER=tooling/refresh/refresh-evidence.mjs
           SCRATCH=$(mktemp -d)
-          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' | sort)
+          mapfile -t REGISTRIES < <(find skills -path '*/refresh/sources.json' -not -path '*/.*' | sort)
           for REGISTRY in "${REGISTRIES[@]}"; do
             echo "== $REGISTRY"
             node "$RUNNER" --registry "$REGISTRY" --verify-baselines \

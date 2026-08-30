@@ -196,6 +196,13 @@ describe('checkStructure', () => {
     clean(root)
   })
 
+  test('ignores a dotfile in a group directory, the same way it ignores dot-directories', () => {
+    // .DS_Store on the platform this repo is developed on must not fail the check.
+    const root = fixture(({ skills }) => writeFileSync(join(skills, 'fam', '.DS_Store'), 'x'))
+    expect(checkStructure(root)).toEqual({ blocks: [], warns: [] })
+    clean(root)
+  })
+
   test('ignores a crashed scaffolder\'s dot-prefixed staging directory', () => {
     const root = fixture(({ skills }) => {
       mkdirSync(join(skills, '.demo-skill.scaffold-abc123'), { recursive: true })

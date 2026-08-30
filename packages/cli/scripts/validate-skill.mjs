@@ -142,7 +142,20 @@ export function discoverSkillDirs(skillsRoot) {
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
   const args = process.argv.slice(2);
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+  // --dir points at a repo root other than this checkout, matching structure.mjs and the
+  // skillify scaffolder. Without it this script could only ever validate its own repo, which
+  // also left its layout-error path untestable.
+  const dirIndex = args.indexOf('--dir');
+  let repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+  if (dirIndex !== -1) {
+    const value = args[dirIndex + 1];
+    if (!value || value.startsWith('-')) {
+      console.error('validate-skill: --dir requires a value');
+      process.exit(2);
+    }
+    repoRoot = resolve(value);
+    args.splice(dirIndex, 2);
+  }
   let targets;
   try {
     targets = args.length > 0 ? args.map((arg) => resolve(arg)) : discoverSkillDirs(join(repoRoot, 'skills'));

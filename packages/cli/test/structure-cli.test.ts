@@ -92,6 +92,23 @@ describe('structure.mjs check — exit codes', () => {
   })
 })
 
+describe('validate-skill.mjs — layout errors are reported, not crashed', () => {
+  // This stage runs FIRST in `bun run check`, so an unhandled throw here buries the structure
+  // check's readable report under a Node stack trace.
+  test('an illegal layout exits 1 with a message and a pointer, and no stack trace', () => {
+    const root = fixture()
+    mkdirSync(join(root, 'skills/fam/nested/deep'), { recursive: true })
+    writeFileSync(join(root, 'skills/fam/nested/deep/SKILL.md'), '---\nname: deep\ndescription: d\n---\n')
+    const result = Bun.spawnSync(['node', join(import.meta.dir, '../scripts/validate-skill.mjs'), '--dir', root])
+    const stderr = result.stderr.toString()
+    expect(result.exitCode).toBe(1)
+    expect(stderr).toMatch(/nested too deep/i)
+    expect(stderr).toMatch(/structure\.mjs check/)
+    expect(stderr).not.toMatch(/at Module|node:internal/)
+    clean(root)
+  })
+})
+
 describe('structure.mjs create-group — exit codes and atomicity', () => {
   test('a dry run exits 0 and writes nothing', () => {
     const root = fixture()
