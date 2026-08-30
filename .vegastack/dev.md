@@ -3,7 +3,7 @@
 This file is the project's handbook and its only process document: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log. A section left as TODO because its machinery didn't exist yet: re-run dev-setup detection when the machinery appears.
 
 repo: vegastack/vegastack-skills · default branch main
-stack: Bun monorepo — authored skills under skills/, @vegastack/skills installer under packages/cli (Node >= 24)
+stack: Bun monorepo — authored skills under skills/<name>/ or skills/<group>/<name>/ (one level, GROUP.md per group; the packaged bundle stays flat), @vegastack/skills installer under packages/cli (Node >= 24)
 commands: test `bun test` · check `bun run check` · build `bun run build`
 authority: CONTRIBUTING.md → this file → skill-maintainer's release-ops.md (expanded release/rename detail) → skill defaults
 

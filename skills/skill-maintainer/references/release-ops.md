@@ -46,14 +46,14 @@ Skill names are consumer-facing identifiers — treat a rename as a stable-ID br
 2. Update every wiring point in the same PR: the skill's entry in `packages/cli/packaging.json`, the root README skills table row, and any cross-skill or docs links.
 3. Changeset: MINOR by default — major only when the operator declares it. Either way, note the migration in `CHANGELOG.md`: copies installed under the old name are orphaned, and installer operations addressed to the old name stop resolving once the shipped manifest no longer knows it.
 4. Registry source IDs inside `refresh/sources.json` are skill-internal and unaffected, but every `affected` ref must still resolve to a real reference in the renamed tree.
-5. Re-run `node packages/cli/scripts/validate-skill.mjs skills/<new-name>` and the skill's tests — name/directory equality is validated.
+5. Re-run `node packages/cli/scripts/validate-skill.mjs <new-skill-dir>`, the skill's tests, and `node packages/cli/scripts/structure.mjs check` — name/directory equality is validated, and the structure check catches a README row left pointing at the old path.
 
 ## Deprecate / remove a skill
 
 1. Announce deprecation in the root README table and `CHANGELOG.md` at least one release before removal when practical.
-2. Removal: delete `skills/<name>/`, remove its allowlist entries and README row, MAJOR changeset with migration notes.
+2. Removal: delete the skill's directory, remove its allowlist entries and README row, MAJOR changeset with migration notes. Removing the last skill from a group also removes the group's `GROUP.md` and its README section.
 3. Removing a skill in a new MAJOR does **not** deprecate previously published package versions — `npm deprecate` only versions that are themselves broken.
 
 ## Refresh branches
 
-Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/`. Human content changes go on normal branches. Never hand-edit checksums/versions/timestamps anywhere — CI re-fetches claimed baselines, so hand-edited values cannot merge.
+Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to refresh metadata at either legal depth (`skills/<name>/refresh/` and `skills/<group>/<name>/refresh/`). Human content changes go on normal branches. Never hand-edit checksums/versions/timestamps anywhere — CI re-fetches claimed baselines, so hand-edited values cannot merge.

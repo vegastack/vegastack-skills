@@ -34,11 +34,12 @@ Phase 0 gates ("should this be a skill at all?" — invoked twice, real logic, r
 
 ```sh
 node scripts/scaffold-skill.mjs my-skill --dir ../..            # dry run: plan + wiring actions
-node scripts/scaffold-skill.mjs my-skill --dir ../.. --write    # create skills/my-skill/ and wire the repo
+node scripts/scaffold-skill.mjs my-skill --dir ../.. --write                 # create skills/my-skill/ and wire the repo
+node scripts/scaffold-skill.mjs my-skill --dir ../.. --group dev-skills --write  # ...inside an existing group
 node scripts/scaffold-skill.mjs my-skill --dir ../.. --json     # machine-readable plan
 ```
 
-It validates the full name grammar (starts with a lowercase letter, `[a-z0-9-]`, no consecutive hyphens, no trailing hyphen, max 64), refuses existing directories and symlinked `skills/` roots, stages the tree in a temp sibling and renames it into place, substitutes `{{name}}`/`{{date}}`, and then performs the three wiring actions itself: the `packages/cli/packaging.json` entry (default runtime files), a root README Skills-table row (with a TODO description to fill in), and the changeset. Each action is idempotent and degrades to an explicit `skipped:` status when its target is absent. Exit codes: `0` ok, `1` refusal or failure, `2` usage error.
+With `--group <name>` the skill lands at `skills/<group>/<name>/` and its README row goes into that group's section; an unknown group, a malformed `GROUP.md`, or a missing README section is a refusal, because creating a group belongs to `skill-maintainer`'s group workflow. It validates the full name grammar (starts with a lowercase letter, `[a-z0-9-]`, no consecutive hyphens, no trailing hyphen, max 64), refuses existing directories and symlinked `skills/` roots, stages the tree in a temp sibling and renames it into place, substitutes `{{name}}`/`{{date}}`/`{{validatorPath}}`, and then performs the three wiring actions itself: the `packages/cli/packaging.json` entry (default runtime files), a root README Skills-table row (with a TODO description to fill in), and the changeset. Each action is idempotent and degrades to an explicit `skipped:` status when its target is absent. Exit codes: `0` ok, `1` refusal or failure, `2` usage error.
 
 ## Freshness
 

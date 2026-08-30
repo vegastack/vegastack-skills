@@ -16,9 +16,9 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 
 | Path | What it is |
 |---|---|
-| `skills/` | Authored skill content — the single source of truth. Edit here. |
-| `skills/dev-*/` | The ten dev-workflow skills (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
-| `skills/*/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
+| `skills/` | Authored skill content — the single source of truth. Edit here. A skill sits at `skills/<name>/` or, inside a group, at `skills/<group>/<name>/` — one level, never deeper. |
+| `skills/dev-skills/` | The dev-workflow group (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): a `GROUP.md` plus ten skills, each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
+| `<skill>/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
 | `.vegastack/` | The project's own dev workflow instance: `dev.md` (the canonical process doc — release runbook, versioning, rollback) and `decisions.md` (the decision register). |
 
@@ -28,7 +28,7 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 
 ## Adding a new skill
 
-Every skill lives at `skills/<name>/` and is self-contained:
+Every skill lives at `skills/<name>/` or `skills/<group>/<name>/` and is self-contained:
 
 | File/dir | Required | Purpose |
 |---|---|---|
@@ -60,8 +60,8 @@ and no machine-extracted rule format to follow.
 
 ## Refresh PRs
 
-Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to `skills/*/refresh/`. Human content changes go on normal branches.
+Branches named `refresh/**` are reserved for the automated freshness loop and are CI-restricted to refresh metadata at either legal depth. Human content changes go on normal branches.
 
 ## Releases
 
-Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. Changeset entries follow the shape in the dev-implement skill's changelog rule ([skills/dev-implement/SKILL.md](skills/dev-implement/SKILL.md)) — the published changelog and the release notes reproduce them verbatim.
+Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. Changeset entries follow the shape in the dev-implement skill's changelog rule ([skills/dev-skills/dev-implement/SKILL.md](skills/dev-skills/dev-implement/SKILL.md)) — the published changelog and the release notes reproduce them verbatim.

@@ -23,4 +23,4 @@ Only the latest published minor of `@vegastack/skills` receives security fixes.
 
 - The installer makes no network calls at install time; `doctor` performs a single version check against registry.npmjs.org. Anything contradicting that is a vulnerability — report it.
 - The bundled checksum manifest proves package-internal consistency; publisher identity is attested by npm provenance. Weaknesses in either model are in scope.
-- Fake credentials under `skills/*/tests/fixtures/` are intentional test fixtures, not leaks (see `.gitleaks.toml`).
+- Fake credentials under any skill's `tests/fixtures/` are intentional test fixtures, not leaks (see `.gitleaks.toml`).
