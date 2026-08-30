@@ -2,10 +2,14 @@ import { copyFile, lstat, mkdir, readFile, readdir, rm, stat, writeFile } from '
 import { createHash } from 'node:crypto'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { discoverSkills } from './lib/skills.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const packageRoot = resolve(here, '..')
-const skillsRoot = resolve(packageRoot, '../../skills')
+// VSK_REPO_ROOT lets the tests drive this script against a miniature repo; unset, it resolves
+// the real checkout exactly as before.
+const repoRoot = process.env.VSK_REPO_ROOT ? resolve(process.env.VSK_REPO_ROOT) : resolve(here, '../../..')
+const packageRoot = join(repoRoot, 'packages/cli')
+const skillsRoot = join(repoRoot, 'skills')
 const bundleRoot = join(packageRoot, 'skill')
 
 // Explicit per-skill packaging allowlists live in packaging.json (data, not code) so the
@@ -30,8 +34,11 @@ async function files(root) {
   return output.sort()
 }
 
-// Every authored skill must have a packaging allowlist, and vice versa.
-const authoredSkills = (await readdir(skillsRoot, { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
+// Every authored skill must have a packaging allowlist, and vice versa. Where the skills live —
+// skills/<name>/ or skills/<group>/<name>/ — is discovery's business, not this script's; the
+// bundle it produces is flat either way.
+const skillPaths = discoverSkills(skillsRoot)
+const authoredSkills = [...skillPaths.keys()].sort()
 const listedSkills = Object.keys(packagedSkills).sort()
 const unlistedSkills = authoredSkills.filter(name => !listedSkills.includes(name))
 if (unlistedSkills.length) throw new Error(`Authored skills without an entry in packages/cli/packaging.json: ${unlistedSkills.join(', ')}`)
@@ -42,7 +49,7 @@ await rm(bundleRoot, { recursive: true, force: true })
 const manifest = { schemaVersion: 2, skills: {} }
 
 for (const skillName of listedSkills) {
-  const source = join(skillsRoot, skillName)
+  const source = skillPaths.get(skillName).path
   const destination = join(bundleRoot, skillName)
   const runtimeFiles = packagedSkills[skillName]
 
@@ -63,7 +70,9 @@ for (const skillName of listedSkills) {
   if (missing.length) throw new Error(`${skillName}: allowlisted runtime files missing from the authored skill: ${missing.join(', ')}`)
 
   for (const { key, sourceSkill } of entries) {
-    const from = sourceSkill ? join(skillsRoot, sourceSkill, key) : join(source, key)
+    const sourceRoot = sourceSkill ? skillPaths.get(sourceSkill)?.path : source
+    if (!sourceRoot) throw new Error(`${skillName}: allowlist entry names an unknown source skill: ${key}@${sourceSkill}`)
+    const from = join(sourceRoot, key)
     if (!(await lstat(from)).isFile()) throw new Error(`${skillName}: runtime allowlist entry is not a regular file: ${sourceSkill ? `${key}@${sourceSkill}` : key}`)
     const to = join(destination, key)
     await mkdir(dirname(to), { recursive: true })
