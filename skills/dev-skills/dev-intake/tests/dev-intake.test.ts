@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
+import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
 
 const skillRoot = resolve(import.meta.dir, '..')
 

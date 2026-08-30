@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 // Untyped repo-shared validator; bun resolves the .mjs at runtime.
-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
+import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
 
 const skillDir = resolve(import.meta.dir, '..')
 const skillMd = readFileSync(join(skillDir, 'SKILL.md'), 'utf8')

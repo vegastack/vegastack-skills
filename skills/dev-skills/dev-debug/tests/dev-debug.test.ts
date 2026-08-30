@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { validateSkill } from '../../../packages/cli/scripts/validate-skill.mjs'
+import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
 
 const skillRoot = resolve(import.meta.dir, '..')
 
-describe('dev-ship contract', () => {
+describe('dev-debug contract', () => {
   test('SKILL.md passes repo validation', () => {
     const result = validateSkill(skillRoot)
     expect(result.message).toBe('Skill is valid!')
