@@ -7,7 +7,7 @@ description: Land finished work, each step only on the operator's explicit word.
 
 Gates spent only by the user's words: their words asking for a PR authorize the PR and nothing more; their words asking to merge authorize the merge. The dev.md `gates` knob sets how many actions one word covers — `3` keeps PR and merge as separate words, `2` lets one "ship it" cover both, `1` is direct-to-main (the ship word merges locally and pushes; no PR object, everything else identical). Passing checks, PR permissions, and the calendar authorize nothing by themselves.
 
-Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evidence comment; ship packages and lands it. Corrections found here go back through implement's corrections loop.
+Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evidence comment; ship packages and lands it. Corrections found here go back through implement's corrections loop. Artifact formats — the register line included — follow the `dev-setup` skill's `references/conventions.md`.
 
 ## Gate 1 — the PR
 
@@ -33,7 +33,7 @@ With `gates: 1` there is no PR: the same verifications run, then the ship word t
 On the user's merge instruction:
 
 - Re-check that the PR head is still the revision the evidence comment names and checks are green — a branch that moved since review gets re-verified before it lands.
-- Pending `Decision:` lines exist (issue comments, or the evidence comment's `**Decision:**` line) → name them in the merge confirmation — "merging will record: …" — so the operator's word demonstrably covers them; never append on inferred consent. On the word, append each to the register dev.md names (`decisions:` knob) in its `- DD-MM-YYYY operator (github-username) — …` format; the register is append-only and this is its moment.
+- Pending `Decision:` lines exist (issue comments, or the evidence comment's `**Decision:**` line) → name them in the merge confirmation — "merging will record: …" — so the operator's word demonstrably covers them; never append on inferred consent. On the word, append each to the register dev.md names (`decisions:` knob) in conventions' Operator identity format; the register is append-only and this is its moment.
 - A merge conflict with the default branch is corrections work: update the branch, re-verify what the update touched, and the standing merge instruction holds once checks are green again — unless the update changed behavior, or more than 7 days have passed since the word; either way, re-confirm with one sentence rather than acting on a stale instruction.
 - Merge per the dev.md `merge` knob (default `gh pr merge --squash`; `gates: 1` merges locally per the same knob and pushes). `Closes #<n>` closes the issue; confirm both happened.
 - A bot PR (Renovate, Dependabot) has no issue or evidence comment and merging it is still shipping: green checks qualify it, only the operator's explicit word — per PR or per named batch — merges it; majors and security advisories get named before their word is acted on.
