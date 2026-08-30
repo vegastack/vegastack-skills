@@ -26,6 +26,9 @@ async function files(root) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name)
       if (entry.isSymbolicLink()) throw new Error(`Refusing canonical skill symlink: ${path}`)
+      // Dot-prefixed entries are tool and OS leftovers (.DS_Store), never authored content —
+      // ignored here exactly as discovery and the structure check ignore them.
+      if (entry.name.startsWith('.')) continue
       if (entry.isDirectory()) await walk(path)
       else if (entry.isFile()) output.push(path)
     }

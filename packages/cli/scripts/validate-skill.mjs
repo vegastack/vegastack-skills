@@ -145,6 +145,10 @@ if (invokedDirectly) {
   // --dir points at a repo root other than this checkout, matching structure.mjs and the
   // skillify scaffolder. Without it this script could only ever validate its own repo, which
   // also left its layout-error path untestable.
+  if (args.filter((arg) => arg === '--dir').length > 1) {
+    console.error('validate-skill: --dir may be given at most once');
+    process.exit(2);
+  }
   const dirIndex = args.indexOf('--dir');
   let repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
   if (dirIndex !== -1) {
