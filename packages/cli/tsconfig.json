@@ -6,7 +6,8 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "types": ["node", "bun"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowJs": true
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

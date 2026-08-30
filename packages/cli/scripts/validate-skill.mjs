@@ -3,6 +3,7 @@
 // quick_validate checks, so `check` has no machine-local python dependency).
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, resolve, dirname } from 'node:path';
+import { discoverSkills } from './lib/skills.mjs';
 import { fileURLToPath } from 'node:url';
 
 // The agentskills.io spec's six fields are the ceiling (claude.ai packaging hard-errors on
@@ -131,11 +132,11 @@ function findBrokenLinks(skillDir) {
   return broken;
 }
 
-function discoverSkillDirs(skillsRoot) {
+// Skills live at skills/<name>/ or skills/<group>/<name>/; discovery is shared with the build
+// and the structure checker so the layout rule has one home.
+export function discoverSkillDirs(skillsRoot) {
   if (!existsSync(skillsRoot)) return [];
-  return readdirSync(skillsRoot)
-    .map((entry) => join(skillsRoot, entry))
-    .filter((candidate) => statSync(candidate).isDirectory());
+  return [...discoverSkills(skillsRoot).values()].map((skill) => skill.path);
 }
 
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
