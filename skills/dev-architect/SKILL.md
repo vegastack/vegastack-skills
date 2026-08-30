@@ -14,7 +14,8 @@ honestly. VegaStack is a 3-4 person team; every extra service is maintenance som
 Nearest neighbors: `dev-setup` writes `.vegastack/dev.md` including its `## Architecture`
 section — setup owns the file, this skill owns the judgment reading it. `dev-intake` routes
 stack-bearing approach choices here while writing a brief; `vegastack-design-system` owns
-component and token choices inside the UI.
+component and token choices inside the UI. Artifact formats — register lines included — follow
+the `dev-setup` skill's `references/conventions.md`.
 
 ## Every task
 
@@ -32,8 +33,8 @@ component and token choices inside the UI.
 3. Load only the references the task touches (table below). Do not bulk-read the set.
 4. Separate what is fact, what is assumption, and what is MK's recorded decision. A
    directive tagged "(inferred)" is a researched extrapolation MK has not ratified —
-   confirm on first use, and a confirmation is proposed as a register line
-   (`- DD-MM-YYYY operator (<username>) — ratified: <the directive>`); recording it drops
+   confirm on first use, and a confirmation is proposed as a register line (conventions'
+   Operator identity format) whose text is `ratified: <the directive>`; recording it drops
    the tag from the reference file in the same change, so inferred never lingers as
    ratified-in-practice. Everything untagged is his recorded decision or a verified fact.
    Never re-litigate a recorded decision to route around a blocker — surface the blocker.
