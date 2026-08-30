@@ -34,6 +34,7 @@ decision register — this skill ships no templates of its own.
 
 ```sh
 npx @vegastack/skills add dev-architect
+npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
 ```
 
 Then in a project session: "Should I add Redis for caching?" (expect a trigger-based no),

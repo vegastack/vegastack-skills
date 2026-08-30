@@ -6,6 +6,7 @@ Independent review as a specified system instead of a vibe. Finished work (a dif
 
 ```sh
 npx @vegastack/skills add dev-review
+npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
 ```
 
 ## What's in this skill

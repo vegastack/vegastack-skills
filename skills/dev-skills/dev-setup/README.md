@@ -8,6 +8,7 @@ The agent entry point is [SKILL.md](SKILL.md); everything else loads progressive
 
 ```sh
 npx @vegastack/skills add dev-setup
+npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
 ```
 
 ## What's in this skill
