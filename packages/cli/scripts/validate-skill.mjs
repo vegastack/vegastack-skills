@@ -143,7 +143,16 @@ const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLT
 if (invokedDirectly) {
   const args = process.argv.slice(2);
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-  const targets = args.length > 0 ? args.map((arg) => resolve(arg)) : discoverSkillDirs(join(repoRoot, 'skills'));
+  let targets;
+  try {
+    targets = args.length > 0 ? args.map((arg) => resolve(arg)) : discoverSkillDirs(join(repoRoot, 'skills'));
+  } catch (error) {
+    // A layout error belongs to the structure check, which reports it readably. This stage runs
+    // first, so without this it would bury the same fact under a raw stack trace.
+    console.error(`validate-skill: ${error.message}`);
+    console.error('validate-skill: run `node packages/cli/scripts/structure.mjs check` for the full structural report');
+    process.exit(1);
+  }
   if (targets.length === 0) {
     console.error('validate-skill: no skill directories found');
     process.exit(1);

@@ -177,6 +177,34 @@ describe('checkStructure', () => {
     clean(root)
   })
 
+  test('blocks two groups sharing one GROUP.md title', () => {
+    const root = fixture(({ root, skills }) => {
+      mkdirSync(join(skills, 'kin'), { recursive: true })
+      writeFileSync(join(skills, 'kin', 'GROUP.md'), '# Fam\n\nThe fam blurb.\n')
+      rewriteReadme(root, body => body.replace('## Repository structure', '### Fam\n\nThe fam blurb.\n\n| Skill | What it does | Docs |\n|---|---|---|\n\n## Repository structure'))
+    })
+    expect(checkStructure(root).blocks.join()).toMatch(/share the GROUP\.md title/i)
+    clean(root)
+  })
+
+  test('blocks a group with a valid GROUP.md but no README section', () => {
+    const root = fixture(({ root, skills }) => {
+      mkdirSync(join(skills, 'kin'), { recursive: true })
+      writeFileSync(join(skills, 'kin', 'GROUP.md'), '# Kin\n\nA second blurb.\n')
+    })
+    expect(checkStructure(root).blocks.join()).toMatch(/has no "### Kin" section/i)
+    clean(root)
+  })
+
+  test('ignores a crashed scaffolder\'s dot-prefixed staging directory', () => {
+    const root = fixture(({ skills }) => {
+      mkdirSync(join(skills, '.demo-skill.scaffold-abc123'), { recursive: true })
+    })
+    // Before: discovery treated it as a group and every command died on "Invalid group name".
+    expect(checkStructure(root)).toEqual({ blocks: [], warns: [] })
+    clean(root)
+  })
+
   test('warns without blocking on a group holding a single skill', () => {
     const root = fixture(({ root, skills }) => {
       rmSync(join(skills, 'fam', 'two'), { recursive: true, force: true })

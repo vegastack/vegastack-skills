@@ -90,6 +90,48 @@ describe('createGroup', () => {
     clean(root)
   })
 
+  test('refuses a re-run with a different title rather than writing a second section', () => {
+    const root = repo()
+    createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.', write: true })
+    expect(() => createGroup({ name: 'fam', repoRoot: root, title: 'Renamed', blurb: 'The blurb.', write: true }))
+      .toThrow(/already exists with the title/i)
+    const readme = readFileSync(join(root, 'README.md'), 'utf8')
+    expect(readme).toContain('### Fam')
+    expect(readme).not.toContain('### Renamed')
+    clean(root)
+  })
+
+  test('refuses a title another group already uses', () => {
+    const root = repo()
+    createGroup({ name: 'fam', repoRoot: root, title: 'Shared', blurb: 'One.', write: true })
+    expect(() => createGroup({ name: 'kin', repoRoot: root, title: 'Shared', blurb: 'Two.', write: true }))
+      .toThrow(/already uses the title/i)
+    expect(existsSync(join(root, 'skills/kin'))).toBe(false)
+    clean(root)
+  })
+
+  test('refuses a title or blurb that would produce a GROUP.md its own reader rejects', () => {
+    const root = repo()
+    for (const bad of [{ title: '# Heading', blurb: 'ok' }, { title: 'Fine', blurb: '# Heading' }, { title: 'Fine', blurb: 'a\nb' }]) {
+      expect(() => createGroup({ name: 'fam', repoRoot: root, ...bad, write: true })).toThrow()
+      expect(existsSync(join(root, 'skills/fam'))).toBe(false)
+    }
+    clean(root)
+  })
+
+  test('refuses a group name taken by a skill inside another group, writing nothing', () => {
+    const root = repo()
+    mkdirSync(join(root, 'skills/fam/one'), { recursive: true })
+    writeFileSync(join(root, 'skills/fam/GROUP.md'), '# Fam\n\nThe blurb.\n')
+    writeFileSync(join(root, 'skills/fam/one/SKILL.md'), '---\nname: one\ndescription: d\n---\n')
+    const before = readFileSync(join(root, 'README.md'), 'utf8')
+    expect(() => createGroup({ name: 'one', repoRoot: root, title: 'One', blurb: 'b', write: true }))
+      .toThrow(/already lives at/i)
+    expect(existsSync(join(root, 'skills/one'))).toBe(false)
+    expect(readFileSync(join(root, 'README.md'), 'utf8')).toBe(before)
+    clean(root)
+  })
+
   test('the section it writes is the one checkStructure expects', () => {
     const root = repo()
     // Build a complete, valid repo around a group created by the command itself.
