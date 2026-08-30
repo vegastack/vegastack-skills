@@ -20,6 +20,7 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 | `skills/dev-skills/` | The dev-workflow group (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): a `GROUP.md` plus ten skills, each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
 | `<skill>/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
+| `packages/cli/repo-only.json` | The skills `add --all` skips because they only make sense inside this repository. Hand-maintained; validated by the build. |
 | `.vegastack/` | The project's own dev workflow instance: `dev.md` (the canonical process doc — release runbook, versioning, rollback) and `decisions.md` (the decision register). |
 
 ## Never commit generated files
@@ -42,6 +43,8 @@ Every skill lives at `skills/<name>/` or `skills/<group>/<name>/` and is self-co
 | `agents/openai.yaml` | for Codex | Codex interface metadata |
 
 The skillify scaffolder creates this tree and performs the repo wiring itself: the per-skill packaging allowlist entry in `packages/cli/packaging.json` (the build fails loudly on authored files that are neither allowlisted nor deliberately unpackaged), the root README skills-table row, and the changeset. Files added to a skill after scaffolding must be appended to its `packaging.json` entry by hand.
+
+One wiring file the scaffolder does **not** write: `packages/cli/repo-only.json` lists the skills that operate on this repository itself, so `add --all` skips them. Add a skill there by hand if it is useless in a consumer project; the build fails if the list names a skill that does not exist.
 
 ## Adding or modifying content
 
