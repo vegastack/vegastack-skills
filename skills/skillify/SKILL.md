@@ -5,7 +5,7 @@ description: Repo-local skill factory and auditor for the vegastack-skills monor
 
 # Skillify
 
-Turn a raw workflow into a properly-skilled unit of this monorepo, or audit an existing `skills/<name>/` tree against the repo contract (CONTRIBUTING.md, "Adding a new skill"). Skillify is repo-only: it creates and scores skills in this repository, not anywhere else. Deep wiring/release mechanics belong to `skill-maintainer`; cross-reference it rather than restating it.
+Turn a raw workflow into a properly-skilled unit of this monorepo, or audit an existing skill tree — `skills/<name>/` or `skills/<group>/<name>/` — against the repo contract (CONTRIBUTING.md, "Adding a new skill"). Skillify is repo-only: it creates and scores skills in this repository, not anywhere else. Deep wiring/release mechanics belong to `skill-maintainer`; cross-reference it rather than restating it.
 
 ## The contract checklist
 
@@ -41,7 +41,7 @@ Scope upper bound: **one skill = one capability = one coherent trigger family.**
 For an existing skill, score the checklist against the actual tree and stop with the verdict:
 
 ```
-Skill: <name>            Path: skills/<name>/
+Skill: <name>            Path: skills/<name>/ | skills/<group>/<name>/
 Score: <passed>/8        Verdict: <verdict>
 Missing: <item>: <one-line evidence> ...
 ```
@@ -94,8 +94,9 @@ Now that quality is proven:
 ## Phase 6 — Verify
 
 ```sh
-node packages/cli/scripts/validate-skill.mjs skills/<name>
-bun test skills/<name>
+node packages/cli/scripts/validate-skill.mjs <skill-dir>
+bun test <skill-dir>
+node packages/cli/scripts/structure.mjs check
 bun run check
 ```
 

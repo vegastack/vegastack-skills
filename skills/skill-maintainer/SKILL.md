@@ -9,14 +9,14 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 
 ## Operating rules
 
-1. Skill content lives only in `skills/<name>/`. Wiring lives outside it: the per-skill packaging allowlist in `packages/cli/packaging.json`, the root `README.md` skills table, and `CHANGELOG.md` (via changesets). The skillify scaffolder writes all three when creating a skill.
+1. Skill content lives only in the skill's own directory, at one of exactly two depths: `skills/<name>/` ungrouped, or `skills/<group>/<name>/` inside a group. Both are first-class; deeper is a build error. A group is a directory holding skills plus a `GROUP.md` (an H1 display title, then one blurb line), and group and skill names share one namespace and one grammar. Wiring lives outside the skill: the per-skill packaging allowlist in `packages/cli/packaging.json` — always keyed by **bare** skill name, because the packaged bundle is flat and an install command never carries a group — the root `README.md` skills table, and `CHANGELOG.md` (via changesets). The skillify scaffolder writes all three when creating a skill.
 2. Frontmatter is exactly two keys: `name` and `description`. The open spec also allows `license`, `compatibility`, and `metadata`, but this repo defaults to the minimal two; adding any other key is a policy exception needing maintainer sign-off.
 3. `name` must equal the directory name. Grammar: starts with a lowercase letter, then only lowercase letters, digits, and hyphens; no leading/trailing hyphen, no consecutive hyphens; at most 64 chars.
 4. `description`: at most 1024 chars, third person, states WHAT the skill does and WHEN to load it, trigger words front-loaded, no angle brackets. Never summarize the workflow in it — agents follow the summary and skip the body. Err slightly pushy: agents under-trigger.
 5. `SKILL.md` under 500 lines (target under 150) and roughly under 5k tokens. Detail goes to `references/`, executables to `scripts/`, templates to `assets/`. Relative links stay inside the skill, one level deep.
 6. No Claude-only body syntax anywhere in a skill: no dynamic command injection, no argument placeholders, no Claude environment-variable paths — the exact token list is in [standards](references/standards.md). Reference scripts as plain relative paths runnable from the skill directory.
 7. Never hand-edit checksums, versions, or timestamps in any `refresh/sources.json` — they must come from a refresh-runner run.
-8. Before finishing any change: `node packages/cli/scripts/validate-skill.mjs skills/<name>` and `bun test skills/<name>` (both from repo root) must pass.
+8. Before finishing any change: `node packages/cli/scripts/validate-skill.mjs <skill-dir>` and `bun test <skill-dir>` for the skill you touched, plus `node packages/cli/scripts/structure.mjs check` for the repo shape (all from repo root) must pass. `bun run check` runs the structure check as one of its stages.
 
 ## Route progressively
 
@@ -24,13 +24,24 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 |---|---|
 | tri-harness standards: discovery paths, frontmatter rules, context budgets, install surfaces, portability rules, unverified items | [standards](references/standards.md) |
 | new skill: should-it-exist gate, scaffolding, the 8-item contract audit, behavioral evals | the `skillify` skill |
+| repo shape: groups, `GROUP.md`, the README sections, the structure check | the group workflow below |
 | release, rename, deprecate, rollback mechanics | [release ops](references/release-ops.md) |
 | this skill's own freshness contract | [REFRESH](refresh/REFRESH.md), [sources](refresh/sources.json) |
 | authoritative repo policy | `CONTRIBUTING.md` and `.vegastack/dev.md` at the repo root (release runbook, content semver, rollback) |
 
+## Workflow: create or maintain a group
+
+Groups are this skill's responsibility: the repo shape, its `GROUP.md` files, and the root README sections that mirror them. The deterministic method is `packages/cli/scripts/structure.mjs`, run from the repo root.
+
+1. **Create a group** — `node packages/cli/scripts/structure.mjs create-group <name> --title "<Display Title>" --blurb "<one line>"` prints the plan; add `--write` to apply. It writes `skills/<name>/GROUP.md` and inserts the matching `### <Display Title>` README section after the existing tables. Dry-run by default, idempotent, and it refuses a name that breaks the grammar, collides with a skill, or resolves to a symlink.
+2. **Put skills in it** — skillify's scaffolder places a new skill with `--group <name>`; it refuses an unknown group rather than inventing one, so a mistyped group never creates a stray family. Moving an existing skill into a group is a `git mv` plus its README row and its test's validator-import depth; `structure.mjs check` names anything left inconsistent.
+3. **Check the shape** — `node packages/cli/scripts/structure.mjs check` blocks on illegal depth, name collisions, a missing or malformed `GROUP.md`, stray files in a group, a skill missing a contract meta file, packaging entries that disagree with the authored tree, a group-qualified packaging key, and README rows that are absent, duplicated, mispathed, or in the wrong section. It warns — without blocking — on a group of one and on scaffolded placeholder text.
+
+A group never reaches an installer: the bundle is flat, so `GROUP.md` ships nowhere and `add <skill>` never names a group. Ungrouped skills at `skills/<name>/` stay fully supported; grouping is a choice, not a migration.
+
 ## Workflow: scaffold a new skill
 
-1. Run skillify's `scripts/scaffold-skill.mjs` — it creates the contract tree (`SKILL.md`, `README.md`, `refresh/`, `agents/openai.yaml`, tests and the trigger fixture) and performs the repo wiring itself: the `packages/cli/packaging.json` entry, the root README row, and the changeset (a new skill is MINOR). Fill in the README row description and changeset text it leaves as TODOs; files added after scaffolding go into the skill's `packaging.json` entry by hand (the build fails loudly on unlisted files).
+1. Run skillify's `scripts/scaffold-skill.mjs` — it creates the contract tree (`SKILL.md`, `README.md`, `refresh/`, `agents/openai.yaml`, tests and the trigger fixture) and performs the repo wiring itself: the `packages/cli/packaging.json` entry, the root README row in the right section, and the changeset (a new skill is MINOR). Pass `--group <name>` to place it in an existing group. Fill in the README row description and changeset text it leaves as placeholders; files added after scaffolding go into the skill's `packaging.json` entry by hand (the build fails loudly on unlisted files).
 2. Write frontmatter and body per operating rules 2–6; the body routes to references, it does not inline them. `skillify` owns the full authoring and eval discipline.
 3. Seed refresh baselines with the deterministic runner, never by hand — invocation in [REFRESH](refresh/REFRESH.md).
 4. Run the checks in operating rule 8.
@@ -61,7 +72,7 @@ Run this checklist before merging any skill change; per-harness detail in [stand
 - [ ] No Claude-only body syntax (token list in standards).
 - [ ] `agents/openai.yaml` present for Codex; extra files are safely ignored by the other harnesses.
 - [ ] Install surfaces respected: Claude Code `.claude/skills` (project) / `~/.claude/skills` (global); Codex `.agents/skills` (project and global); Hermes `~/.hermes/skills` **global only** — never assume Hermes project-level discovery.
-- [ ] `node packages/cli/scripts/validate-skill.mjs skills/<name>` and `bun test skills/<name>` pass.
+- [ ] `node packages/cli/scripts/validate-skill.mjs <skill-dir>` and `bun test <skill-dir>` pass, and `node packages/cli/scripts/structure.mjs check` is clean.
 
 ## Hard limits
 
