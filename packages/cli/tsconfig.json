@@ -7,7 +7,11 @@
     "noUncheckedIndexedAccess": true,
     "types": ["node", "bun"],
     "skipLibCheck": true,
-    "allowJs": true
+    "allowJs": true,
+    // Tests import the TypeScript sources directly; bun runs them and `bun build` does the
+    // bundling, so tsc is only ever a checker here.
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }
