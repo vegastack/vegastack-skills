@@ -145,7 +145,8 @@ const skill = (over = {}) => ({
   severity: 'LOW',
   executionSuccessful: true,
   suppressedCount: 0,
-  completeness: { status: 'complete', limitations: [], entirelyUninspected: 0 },
+  completeness: { status: 'complete', limitations: [], entirelyUninspected: 0, partiallyInspected: 0 },
+  suppressed: [],
   issues: [],
   ...over,
 })
@@ -235,9 +236,23 @@ describe('evaluateScan', () => {
 
   test('an unrecognised completeness status blocks rather than being read as clean', () => {
     const r = evaluateScan(
-      facts({ skills: [skill({ completeness: { status: 'failed', limitations: [], entirelyUninspected: 0 } })] }),
+      facts({ skills: [skill({ completeness: { status: 'failed', limitations: [], entirelyUninspected: 0, partiallyInspected: 0 } })] }),
     )
     expect(r.blocks[0]).toContain('completeness')
+  })
+
+  // Codex cross-agent review, round 2 on Finding [2]: distinct from `status:
+  // "partial"`, which is normal here. Measured across all twelve skills,
+  // partially_inspected_files is 0 on a healthy run — so this blocks only
+  // genuinely truncated coverage, at no cost to normal operation.
+  test('a partly-inspected file blocks even when nothing else is degraded', () => {
+    const r = evaluateScan(
+      facts({
+        skills: [skill({ completeness: { status: 'partial', limitations: [], entirelyUninspected: 0, partiallyInspected: 1 } })],
+      }),
+    )
+    expect(r.blocks).toHaveLength(1)
+    expect(r.blocks[0]).toContain('partly inspected')
   })
 
   test('a missing binary blocks with the install command', () => {
@@ -429,23 +444,63 @@ describe('gatherFacts', () => {
         executionSuccessful: true,
       })
       expect(entry.issues[0]).toEqual({ id: 'AE1', severity: 'HIGH', file: 'SKILL.md', line: 16 })
-      expect(entry.completeness).toEqual({ status: 'partial', limitations: [], entirelyUninspected: 0 })
+      expect(entry.completeness).toEqual({
+        status: 'partial',
+        limitations: [],
+        entirelyUninspected: 0,
+        partiallyInspected: 0,
+        fullyInspected: 0,
+        coveragePercent: null,
+      })
     })
   })
 
   // Codex cross-agent review, Finding [2]: the analyzer-limitation signal must
   // survive normalization, or the verdict function can never see it.
-  test('analyzer limitations survive into the facts shape', () => {
+  test('analyzer limitations and coverage counts survive into the facts shape', () => {
     const report = JSON.stringify({
       risk_assessment: { score: 98, severity: 'CRITICAL' },
       issues: [],
       execution_successful: true,
-      analysis_completeness: { status: 'partial', limitations: ['LLM stage degraded'], entirely_uninspected_files: 1 },
+      analysis_completeness: {
+        status: 'partial',
+        limitations: ['LLM stage degraded'],
+        entirely_uninspected_files: 1,
+        partially_inspected_files: 2,
+        fully_inspected_files: 3,
+        coverage_percent: 50.0,
+      },
     })
     withFake({ VSK_FAKE_REPORT: report }, () => {
       const entry = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).skills[0]
-      expect(entry.completeness.limitations).toEqual(['LLM stage degraded'])
-      expect(entry.completeness.entirelyUninspected).toBe(1)
+      expect(entry.completeness).toEqual({
+        status: 'partial',
+        limitations: ['LLM stage degraded'],
+        entirelyUninspected: 1,
+        partiallyInspected: 2,
+        fullyInspected: 3,
+        coveragePercent: 50.0,
+      })
+    })
+  })
+
+  // Codex cross-agent review, round 2 on Finding [1]: the scanner emits the
+  // suppressed entries themselves, not just a count, and the Security axis is
+  // told to judge each one against its cause. Discarding them made that
+  // impossible while the evidence sat in the report.
+  test('the scanner suppressed-entry list is carried through, not just its count', () => {
+    const report = JSON.stringify({
+      risk_assessment: { score: 0, severity: 'LOW' },
+      issues: [],
+      suppressed_count: 1,
+      suppressed: [{ rule_id: 'P2', file: 'references/conventions.md', reason: 'documented protocol. Still flag if: ...' }],
+      execution_successful: true,
+      analysis_completeness: { status: 'partial', limitations: [], entirely_uninspected_files: 0, partially_inspected_files: 0 },
+    })
+    withFake({ VSK_FAKE_REPORT: report }, () => {
+      const entry = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).skills[0]
+      expect(entry.suppressed).toHaveLength(1)
+      expect(entry.suppressed[0]).toMatchObject({ rule_id: 'P2', file: 'references/conventions.md' })
     })
   })
 })
