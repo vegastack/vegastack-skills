@@ -84,7 +84,7 @@ The issue-driven development workflow: ten stages from project bootstrap to the 
 | [dev-architect](skills/dev-skills/dev-architect/) | VegaStack's architecture advisor: the locked stack, recorded rejections, and dated platform facts behind a verify-before-you-recommend protocol | [Walkthrough](skills/dev-skills/dev-architect/README.md) · [SKILL.md](skills/dev-skills/dev-architect/SKILL.md) |
 | [dev-implement](skills/dev-skills/dev-implement/) | Implements an approved issue end to end without user input: preflight, claim, dark build, tests, independent review, evidence comment, hand-back | [Walkthrough](skills/dev-skills/dev-implement/README.md) · [SKILL.md](skills/dev-skills/dev-implement/SKILL.md) |
 | [dev-debug](skills/dev-skills/dev-debug/) | Reproduce-first bug work: a red repro command before any theory, ranked falsifiable suspects, and the regression test before the fix | [Walkthrough](skills/dev-skills/dev-debug/README.md) · [SKILL.md](skills/dev-skills/dev-debug/SKILL.md) |
-| [dev-review](skills/dev-skills/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop | [Walkthrough](skills/dev-skills/dev-review/README.md) · [SKILL.md](skills/dev-skills/dev-review/SKILL.md) |
+| [dev-review](skills/dev-skills/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop; ships the skill-scan vulnerability guard | [Walkthrough](skills/dev-skills/dev-review/README.md) · [SKILL.md](skills/dev-skills/dev-review/SKILL.md) |
 | [dev-ship](skills/dev-skills/dev-ship/) | The shipping gates, each spent only by the operator's words: PR, merge per the `merge:` knob, then the project's `## Ship` runbook | [Walkthrough](skills/dev-skills/dev-ship/README.md) · [SKILL.md](skills/dev-skills/dev-ship/SKILL.md) |
 | [dev-status](skills/dev-skills/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev-skills/dev-status/README.md) · [SKILL.md](skills/dev-skills/dev-status/SKILL.md) |
 | [dev-chronicle](skills/dev-skills/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev-skills/dev-chronicle/README.md) · [SKILL.md](skills/dev-skills/dev-chronicle/SKILL.md) |
@@ -124,11 +124,27 @@ bun run check    # validate skills + test + lint + typecheck
 bun run build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, content-versioning rules, the no-generated-files policy, and how to add a new skill.
+The skill scan is a separate step, not part of `bun run check` — `check` runs on Bun and Node alone, while the scanner needs Python 3.12. Both are required before a push; see [Security](#security) for the command and CONTRIBUTING for the suppression rules.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, content-versioning rules, the no-generated-files policy, the skill-scan suppression discipline, and how to add a new skill.
 
 ## Security
 
-Report vulnerabilities via [GitHub Security Advisories](SECURITY.md) — not public issues.
+**These skills are scanned before they ship.** Every skill in this bundle is checked by [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) — 71 vulnerability patterns across prompt injection, data exfiltration, excessive agency, supply chain, and MCP-specific risks — twice: before any push, and again before a release, on the built bundle that npm actually serves. The gate blocks on any unsuppressed HIGH or CRITICAL finding. Suppressions are not a switch: each one is a reviewed entry in [`.vegastack/skillspector-baseline.json`](.vegastack/skillspector-baseline.json) whose written reason must say what would make the pattern a real finding again.
+
+**You can scan any skill the same way — including one you're about to install from someone else.** Agent skills execute with your agent's authority, so "who wrote this and what does it actually do" is a fair question to ask of any of them, ours included:
+
+```sh
+uv tool install git+https://github.com/NVIDIA/skillspector.git
+npx @vegastack/skills add dev-review --agent claude
+node .claude/skills/dev-review/scripts/skill-scan.mjs --root path/to/some-skill
+```
+
+Point `--root` at a single skill directory or at a directory of them. Exit `0` is clean, `1` clean with warnings, `2` blocked with the rule, severity, and `file:line` of every finding. Without `--root` it reads the `skill-scan:` knob from your project's `.vegastack/dev.md`, and a project with no skills (`skill-scan: none`) is told it was skipped rather than erroring. Add `--llm` for the semantic pass — it needs a provider, is non-deterministic, and is advisory: a run whose analyzer fails scores *higher* than a clean one, which is why the gate never uses it.
+
+The judgement is still yours. A scanner hit is evidence, not a verdict — the `dev-review` skill's [security axis](skills/dev-skills/dev-review/references/security-axis.md) sets out how to trace one before acting on it.
+
+Report vulnerabilities in these skills via [GitHub Security Advisories](SECURITY.md) — not public issues.
 
 ## License
 

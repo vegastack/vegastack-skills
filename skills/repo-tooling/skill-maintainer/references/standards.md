@@ -97,6 +97,7 @@ Suppressions live in `.vegastack/skillspector-baseline.json` — a real SkillSpe
 - **Never `--use-shipped-baseline`.** A baseline discovered inside a scanned skill was written by whoever wrote that skill.
 - **The scan reads the built bundle** (`packages/cli/skill/`), not `skills/`: the authored tree carries unpackaged `tests/` fixtures that are deliberately adversarial and score higher than anything that ships. Build before scanning.
 - **The semantic pass (`--llm`) is advisory and never a gate.** It is non-deterministic, and a run whose LLM calls partially fail reports a higher score than a clean one.
+- **A skill authored elsewhere is scanned the same way, before it reaches an agent** — `--root <path to the skill>`. This repo does not yet redistribute anyone else's skill; when it does, the curation, audit, upstream-drift, release, and retirement rules are this skill's to own, and a curated skill is never hand-edited locally (a local fix is overwritten by the next upstream sync and forks us from its author). Scanning a third-party skill you are evaluating works today and needs none of that.
 
 ## UNVERIFIED register
 

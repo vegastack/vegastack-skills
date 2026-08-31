@@ -38,4 +38,14 @@ node scripts/skill-scan.mjs --root path/to/skills --baseline .vegastack/skillspe
 node scripts/skill-scan.mjs --llm             # adds the semantic pass — advisory, never a gate
 ```
 
-It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score: that score is inflated by documentation of the very mechanics being scanned and deflated by unrelated suppressions. Suppressions live in a JSON baseline whose every rule carries a `reason` with a **"Still flag if:"** clause — the same discipline as the known-patterns file, enforced here rather than trusted.
+It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score: that score is inflated by documentation of the very mechanics being scanned and deflated by unrelated suppressions. Suppressions live in a JSON baseline whose every rule carries a `reason` with a **"Still flag if:"** clause — the same discipline as the known-patterns file, enforced here rather than trusted. A degraded scan blocks too: a run whose analyzer failed reports a *higher* score with fewer filtered findings, so its silence proves nothing.
+
+### Vetting a skill you did not write
+
+The same guard answers "should I install this?" for a third-party skill — point `--root` at the directory before it reaches your agent, since an installed skill runs with your agent's authority:
+
+```sh
+node scripts/skill-scan.mjs --root ~/Downloads/some-skill
+```
+
+The report carries each finding's rule, severity, and `file:line`, plus every entry the baseline suppressed, so the [security axis](references/security-axis.md) can trace them rather than take a score on trust. Treat a hit as a candidate finding, not a verdict — and never downgrade an unexplained HIGH or CRITICAL on the strength of who published it.
