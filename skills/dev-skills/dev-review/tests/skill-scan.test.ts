@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { readFileSync } from 'node:fs'
@@ -728,6 +728,27 @@ describe('adversarial regressions', () => {
 
   test('a walk that cannot finish blocks instead of reporting partial coverage', () => {
     expect(evaluateScan(facts({ coverageExhausted: true, skills: [] })).blocks[0]).toContain('too large')
+  })
+
+  // Round-3 verification: the walk caught readdirSync failures and gave up
+  // silently, so a skill behind a chmod 000 directory was flagged by nobody
+  // while the run reported success — and the function's own comment claimed the
+  // budget was its only early exit. Same quiet give-up, one level down.
+  test('a directory that cannot be read is reported, not silently skipped', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vsk-eacces-'))
+    mkdirSync(join(root, 'visible'), { recursive: true })
+    writeFileSync(join(root, 'visible/SKILL.md'), SKILL_MD)
+    const locked = join(root, 'locked')
+    mkdirSync(join(locked, 'hidden'), { recursive: true })
+    writeFileSync(join(locked, 'hidden/SKILL.md'), SKILL_MD)
+    chmodSync(locked, 0o000)
+    try {
+      const { unreadable } = findUnscannable(root)
+      expect(unreadable).toHaveLength(1)
+      expect(evaluateScan(facts({ unreadableDirs: unreadable, skills: [] })).blocks[0]).toContain('could not be read')
+    } finally {
+      chmodSync(locked, 0o755)
+    }
   })
 
   test('a dot-prefixed skill directory is reported rather than silently skipped', () => {
