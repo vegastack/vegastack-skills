@@ -145,6 +145,7 @@ const skill = (over = {}) => ({
   severity: 'LOW',
   executionSuccessful: true,
   suppressedCount: 0,
+  completeness: { status: 'complete', limitations: [], entirelyUninspected: 0 },
   issues: [],
   ...over,
 })
@@ -193,6 +194,50 @@ describe('evaluateScan', () => {
   test('a degraded scan blocks rather than reporting its partial score', () => {
     const r = evaluateScan(facts({ skills: [skill({ executionSuccessful: false })] }))
     expect(r.blocks[0]).toContain('did not complete')
+  })
+
+  // Codex cross-agent review, Finding [2]: execution_successful alone is not
+  // enough. A run whose analyzer failed reports a HIGHER score with FEWER
+  // filtered findings, so passing it because nothing blocking survived is
+  // exactly backwards.
+  test('an analyzer that did not finish blocks even when execution_successful is true', () => {
+    const r = evaluateScan(
+      facts({
+        skills: [
+          skill({
+            executionSuccessful: true,
+            issues: [],
+            completeness: { status: 'partial', limitations: ['LLM stage degraded: 2/4 calls failed'], entirelyUninspected: 0 },
+          }),
+        ],
+      }),
+    )
+    expect(r.blocks).toHaveLength(1)
+    expect(r.blocks[0]).toContain('did not finish')
+  })
+
+  // ...but `partial` on its own is the NORMAL result here: unresolved path-like
+  // references in documentation produce it on a perfectly healthy scan. Blocking
+  // on it would block every scan forever.
+  test('plain partial completeness passes — it is the normal result for documentation-heavy skills', () => {
+    const r = evaluateScan(
+      facts({ skills: [skill({ completeness: { status: 'partial', limitations: [], entirelyUninspected: 0 } })] }),
+    )
+    expect(r.blocks).toEqual([])
+  })
+
+  test('a file that was never inspected blocks', () => {
+    const r = evaluateScan(
+      facts({ skills: [skill({ completeness: { status: 'partial', limitations: [], entirelyUninspected: 2 } })] }),
+    )
+    expect(r.blocks[0]).toContain('never inspected')
+  })
+
+  test('an unrecognised completeness status blocks rather than being read as clean', () => {
+    const r = evaluateScan(
+      facts({ skills: [skill({ completeness: { status: 'failed', limitations: [], entirelyUninspected: 0 } })] }),
+    )
+    expect(r.blocks[0]).toContain('completeness')
   })
 
   test('a missing binary blocks with the install command', () => {
@@ -372,6 +417,7 @@ describe('gatherFacts', () => {
       issues: [{ id: 'AE1', severity: 'HIGH', location: { file: 'SKILL.md', start_line: 16 } }],
       suppressed_count: 2,
       execution_successful: true,
+      analysis_completeness: { status: 'partial', limitations: [], entirely_uninspected_files: 0 },
     })
     withFake({ VSK_FAKE_REPORT: report }, () => {
       const entry = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).skills[0]
@@ -383,6 +429,23 @@ describe('gatherFacts', () => {
         executionSuccessful: true,
       })
       expect(entry.issues[0]).toEqual({ id: 'AE1', severity: 'HIGH', file: 'SKILL.md', line: 16 })
+      expect(entry.completeness).toEqual({ status: 'partial', limitations: [], entirelyUninspected: 0 })
+    })
+  })
+
+  // Codex cross-agent review, Finding [2]: the analyzer-limitation signal must
+  // survive normalization, or the verdict function can never see it.
+  test('analyzer limitations survive into the facts shape', () => {
+    const report = JSON.stringify({
+      risk_assessment: { score: 98, severity: 'CRITICAL' },
+      issues: [],
+      execution_successful: true,
+      analysis_completeness: { status: 'partial', limitations: ['LLM stage degraded'], entirely_uninspected_files: 1 },
+    })
+    withFake({ VSK_FAKE_REPORT: report }, () => {
+      const entry = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).skills[0]
+      expect(entry.completeness.limitations).toEqual(['LLM stage degraded'])
+      expect(entry.completeness.entirelyUninspected).toBe(1)
     })
   })
 })
