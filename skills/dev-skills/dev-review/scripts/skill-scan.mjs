@@ -167,18 +167,22 @@ export function discoverSkills(root) {
 }
 
 // Anything that LOOKS like a skill but discovery did not scan. Defined as the
-// difference between a deep walk and `discoverSkills`, rather than as a list of
+// difference between a full walk and `discoverSkills`, rather than as a list of
 // known-bad shapes — so it stays correct by construction when discovery changes.
-// It catches: skills nested deeper than the layout allows, dot-prefixed
-// directories, and symlinked directories that either are a skill or contain
-// one. Symlinks are still never followed for scanning (a scanner that walks out
-// of its root reports on something it was not pointed at) — but dropping them
-// silently is coverage loss dressed as a clean run, so they are named and the
-// caller blocks.
-const WALK_DEPTH = 4;
+// It catches skills nested deeper than the layout allows, dot-prefixed
+// directories, and symlinked directories that are or contain a skill.
+//
+// The walk is NOT depth-capped. A cap is a cliff: an earlier version stopped at
+// depth 4, and a deliberately malicious skill at depth 5 was then scanned by
+// nobody and flagged by nobody — the exact silent-coverage-loss this function
+// exists to prevent, reintroduced one level down. Real directories cannot cycle
+// and symlinks are never descended, so the walk terminates; the only bound is a
+// budget on directories visited, and exceeding it BLOCKS rather than quietly
+// truncating.
+const WALK_BUDGET = 50_000;
 
-function deepSkillDirs(dir, depth, seen) {
-  if (depth > WALK_DEPTH) return;
+function deepSkillDirs(dir, state) {
+  if (state.exhausted) return;
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
@@ -186,31 +190,45 @@ function deepSkillDirs(dir, depth, seen) {
     return;
   }
   for (const entry of entries) {
+    if (state.visited++ > WALK_BUDGET) {
+      state.exhausted = true;
+      return;
+    }
     const child = join(dir, entry.name);
     if (entry.isSymbolicLink()) {
-      // Not descended. Flag it if the target is, or holds, a skill.
+      // Never descended — a scanner that walks out of its root reports on
+      // something it was not pointed at. Flagged when the target is, or holds,
+      // a skill, so it is refused rather than dropped.
       if (existsSync(join(child, 'SKILL.md'))) {
-        seen.add(child);
+        state.seen.add(child);
         continue;
       }
       for (const nested of childDirectories(child)) {
-        if (existsSync(join(nested, 'SKILL.md'))) seen.add(child);
+        if (existsSync(join(nested, 'SKILL.md'))) {
+          state.seen.add(child);
+          break;
+        }
       }
       continue;
     }
     if (!entry.isDirectory()) continue;
-    if (existsSync(join(child, 'SKILL.md'))) seen.add(child);
-    deepSkillDirs(child, depth + 1, seen);
+    if (existsSync(join(child, 'SKILL.md'))) state.seen.add(child);
+    deepSkillDirs(child, state);
   }
 }
 
+// Returns { unscannable, exhausted }. `exhausted` means the walk hit its budget
+// and coverage could NOT be verified — the caller blocks on it.
 export function findUnscannable(root) {
-  if (!root || !existsSync(root)) return [];
+  if (!root || !existsSync(root)) return { unscannable: [], exhausted: false };
   const absolute = resolve(root);
   const scanned = new Set(discoverSkills(absolute));
-  const seen = new Set();
-  deepSkillDirs(absolute, 1, seen);
-  return [...seen].filter((dir) => !scanned.has(dir)).sort();
+  const state = { seen: new Set(), visited: 0, exhausted: false };
+  deepSkillDirs(absolute, state);
+  return {
+    unscannable: [...state.seen].filter((dir) => !scanned.has(dir)).sort(),
+    exhausted: state.exhausted,
+  };
 }
 
 // The severities that stop a push. Deliberately NOT the aggregate risk score:
@@ -252,6 +270,9 @@ export function evaluateScan(facts) {
   }
   for (const { skill, message } of scanErrors) {
     blocks.push(`${skill}: the scan did not produce a readable report (${message}) — an unscanned skill is not a clean skill`);
+  }
+  if (facts.coverageExhausted) {
+    blocks.push('the scan root is too large to verify coverage — the walk hit its budget, so an unscanned skill could be hiding in it; point --root at a narrower directory');
   }
   for (const path of facts.unscannable ?? []) {
     blocks.push(`${path} holds a SKILL.md but was not scanned — nested deeper than the layout allows, dot-prefixed, or behind a symlink discovery will not follow out of the scan root. Move it into place, or scan it directly with --root`);
@@ -430,7 +451,9 @@ export function gatherFacts({ root, baselinePath, llm }) {
 
   // Paths here are attacker-chosen directory names in a third-party tree, and
   // they are printed verbatim in block lines.
-  base.unscannable = findUnscannable(root).map(safe);
+  const coverage = findUnscannable(root);
+  base.unscannable = coverage.unscannable.map(safe);
+  base.coverageExhausted = coverage.exhausted;
 
   const outDir = mkdtempSync(join(tmpdir(), 'vsk-skill-scan-'));
   const discovered = discoverSkills(root);
