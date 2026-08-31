@@ -173,6 +173,26 @@ export function evaluateScan(facts) {
       blocks.push(`${entry.name}: the scan did not complete (execution_successful: false) — a partial score is not a verdict`);
       continue;
     }
+    // A degraded run reports a HIGHER score than a clean one (a failed analyzer
+    // leaves its findings unfiltered), so "no blocking finding" from a degraded
+    // scan proves nothing. But `status: "partial"` on its own is the NORMAL
+    // result for documentation-heavy skills — it is what unresolved path-like
+    // references produce — so blocking on it would block every scan forever,
+    // the same trap as gating on the aggregate score. Block only on the signals
+    // that mean work did not happen.
+    const { status, limitations, entirelyUninspected } = entry.completeness ?? {};
+    if (status && status !== 'complete' && status !== 'partial') {
+      blocks.push(`${entry.name}: the scan reported completeness "${status}" — only "complete" or "partial" is a result you can act on`);
+      continue;
+    }
+    if (limitations?.length) {
+      blocks.push(`${entry.name}: an analyzer did not finish (${limitations.join('; ')}) — a degraded scan scores HIGHER than a clean one, so its silence proves nothing`);
+      continue;
+    }
+    if (entirelyUninspected > 0) {
+      blocks.push(`${entry.name}: ${entirelyUninspected} file(s) were never inspected — an unread file is not a clean file`);
+      continue;
+    }
     for (const issue of entry.issues ?? []) {
       if (!BLOCKING.has(String(issue.severity).toUpperCase())) continue;
       const at = issue.line == null ? issue.file : `${issue.file}:${issue.line}`;
@@ -274,12 +294,24 @@ export function gatherFacts({ root, baselinePath, llm }) {
     }
 
     const assessment = report.risk_assessment ?? {};
+    const completeness = report.analysis_completeness ?? {};
     base.skills.push({
       name,
       score: assessment.score ?? null,
       severity: assessment.severity ?? 'UNKNOWN',
       executionSuccessful: report.execution_successful !== false,
       suppressedCount: report.suppressed_count ?? 0,
+      // The scanner derives status from: "failed" when a ledger exception was
+      // fatal, else "partial" when anything was left uninspected or an analyzer
+      // reported a limitation, else "complete". `limitations` is the signal that
+      // an ANALYZER did not finish — distinct from the reference-resolution
+      // exceptions that make a healthy scan of documentation-heavy skills
+      // "partial". See the degradation rules in evaluateScan.
+      completeness: {
+        status: completeness.status ?? 'unknown',
+        limitations: Array.isArray(completeness.limitations) ? completeness.limitations : [],
+        entirelyUninspected: completeness.entirely_uninspected_files ?? 0,
+      },
       issues: (report.issues ?? []).map(normalizeIssue),
     });
   }
@@ -324,8 +356,12 @@ if (invokedDirectly) {
       ok,
       skipped,
       ...outcome,
-      skills: facts.skills.map(({ name, score, severity, issues }) => ({
-        name, score, severity, findings: issues.length,
+      // The full normalized issue list, not a count: dev-review's Security axis
+      // is told to read the source at each finding's file:line and to judge
+      // whether a suppression was scoped to its cause. A count makes both
+      // impossible, and this report is the axis's input.
+      skills: facts.skills.map(({ name, score, severity, suppressedCount, completeness, issues }) => ({
+        name, score, severity, suppressedCount, completeness, findings: issues.length, issues,
       })),
     }, null, 2));
   } else if (skipped) {
