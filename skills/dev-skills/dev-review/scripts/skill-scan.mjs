@@ -307,6 +307,10 @@ export function evaluateScan(facts) {
   }
 
   for (const entry of skills) {
+    // The ONLY short-circuit: a failed execution means no field of this report
+    // can be trusted. Every other coverage problem still yields real findings,
+    // and suppressing them behind the coverage block would tell the operator
+    // less than the guard actually knows.
     if (!entry.executionSuccessful) {
       blocks.push(`${entry.name}: the scan did not complete (execution_successful: false) — a partial score is not a verdict`);
       continue;
@@ -325,18 +329,15 @@ export function evaluateScan(facts) {
     }
     if (limitations?.length) {
       blocks.push(`${entry.name}: an analyzer did not finish (${limitations.join('; ')}) — a degraded scan scores HIGHER than a clean one, so its silence proves nothing`);
-      continue;
     }
     if (entirelyUninspected > 0) {
       blocks.push(`${entry.name}: ${entirelyUninspected} file(s) were never inspected — an unread file is not a clean file`);
-      continue;
     }
     // Distinct from `status: "partial"`, which every healthy scan here reports.
     // Measured across all twelve skills, `partially_inspected_files` is 0 on a
     // healthy run, so this blocks only genuinely truncated coverage.
     if (partiallyInspected > 0) {
       blocks.push(`${entry.name}: ${partiallyInspected} file(s) were only partly inspected — the unread remainder is exactly where something would hide`);
-      continue;
     }
     // A scan that read nothing reports "complete" with zero findings, which is
     // indistinguishable from a clean skill. Reachable with a symlinked or
@@ -344,7 +345,6 @@ export function evaluateScan(facts) {
     // them, which is the only place this shows up.
     if (entry.completeness?.fullyInspected === 0) {
       blocks.push(`${entry.name}: the scanner inspected 0 files — an empty read is not a clean result (unreadable or symlinked content?)`);
-      continue;
     }
     for (const issue of entry.issues ?? []) {
       const severity = String(issue.severity).toUpperCase();
