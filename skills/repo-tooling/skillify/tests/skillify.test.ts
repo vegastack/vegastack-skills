@@ -214,19 +214,78 @@ describe('scaffold-skill runs', () => {
     }
   })
 
-  test('wiring is idempotent and degrades to skipped in a bare repo', async () => {
+  // wireSkill is the wiring primitive, not a tree creator: called on its own it still
+  // degrades to `skipped:` for a target that is not there. scaffoldSkill does not - it
+  // creates a tree, so a wiring target it cannot write is a refusal (the tests below).
+  test('wireSkill is idempotent and degrades to skipped in a bare repo', async () => {
     const wired = await makeWiredRepo()
     const bare = await makeRepo()
     try {
       await wireSkill({ name: 'demo-skill', repoRoot: wired, write: true })
       const again = await wireSkill({ name: 'demo-skill', repoRoot: wired, write: true })
       for (const { status } of again) expect(status).toStartWith('skipped:')
-      const bareResult = await scaffoldSkill({ name: 'demo-skill', dir: bare, write: true })
-      expect(bareResult.wrote).toBe(true)
-      for (const { status } of bareResult.wiring) expect(status).toStartWith('skipped:')
+      const bareWiring = await wireSkill({ name: 'demo-skill', repoRoot: bare, write: true })
+      for (const { status } of bareWiring) expect(status).toStartWith('skipped:')
     } finally {
       await rm(wired, { recursive: true, force: true })
       await rm(bare, { recursive: true, force: true })
+    }
+  })
+
+  test('scaffoldSkill refuses a repo with no README.md, and writes nothing', async () => {
+    const bare = await makeRepo()
+    try {
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: bare, write: true })).rejects.toThrow(
+        /README\.md.*not found/s,
+      )
+      expect(await readdir(join(bare, 'skills'))).toEqual([])
+    } finally {
+      await rm(bare, { recursive: true, force: true })
+    }
+  })
+
+  test('scaffoldSkill refuses a repo with no packages/cli/packaging.json, and writes nothing', async () => {
+    const repo = await makeWiredRepo()
+    try {
+      await rm(join(repo, 'packages/cli/packaging.json'))
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: repo, write: true })).rejects.toThrow(
+        /packaging\.json.*not found/s,
+      )
+      expect(await readdir(join(repo, 'skills'))).toEqual([])
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  // A dry run exists to say what would happen; "it would refuse" is that answer. The
+  // existing Skills-table refusal already throws before the !write return, so this
+  // matches it rather than introducing a second convention.
+  test('scaffoldSkill refuses a bare repo in dry-run too', async () => {
+    const bare = await makeRepo()
+    try {
+      await expect(scaffoldSkill({ name: 'demo-skill', dir: bare })).rejects.toThrow(/README\.md.*not found/s)
+      expect(await readdir(join(bare, 'skills'))).toEqual([])
+    } finally {
+      await rm(bare, { recursive: true, force: true })
+    }
+  })
+
+  // .changeset/ is deliberately NOT a refusal: a missing changeset is not a state
+  // structure.mjs check rejects, so it is not the false-success shape this guards.
+  test('scaffoldSkill succeeds with no .changeset/, reporting it skipped', async () => {
+    const repo = await makeWiredRepo()
+    try {
+      await rm(join(repo, '.changeset'), { recursive: true })
+      const result = await scaffoldSkill({ name: 'demo-skill', dir: repo, write: true })
+      expect(result.wrote).toBe(true)
+      const statuses = Object.fromEntries(
+        result.wiring.map((entry: { step: string; status: string }) => [entry.step, entry.status]),
+      )
+      expect(statuses['packaging.json entry']).toBe('done')
+      expect(statuses['root README row']).toBe('done')
+      expect(statuses.changeset).toBe('skipped: .changeset/ not found')
+    } finally {
+      await rm(repo, { recursive: true, force: true })
     }
   })
 
