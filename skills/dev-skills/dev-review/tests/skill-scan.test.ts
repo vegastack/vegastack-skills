@@ -852,10 +852,14 @@ describe('adversarial regressions', () => {
 // a template literal in assignment position as backtick command substitution and
 // degrades. Isolated experimentally in issue 62.
 describe('coverage acceptances', () => {
+  // `actualSha256` is what gatherFacts computed from disk; `sha256` is what the
+  // baseline recorded. They match only while the accepted file is unchanged.
   const cov = (over = {}) => ({
     skill: 'dev-review',
     file: 'scripts/skill-scan.mjs',
-    reason: 'Scanner parser limitation, traced. Still flag if: the file gains a real shell invocation.',
+    sha256: 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    actualSha256: 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    reason: 'Scanner parser limitation, traced. Still flag if: the reported reason code changes.',
     ...over,
   })
   const degraded = (over = {}) =>
@@ -912,13 +916,34 @@ describe('coverage acceptances', () => {
     expect(evaluateScan(facts({ skills: [withP2], coverageAccepted: accepted })).blocks).toHaveLength(1)
   })
 
-  test('a coverage entry needs a literal skill, a literal file, and a clause-carrying reason', () => {
+  // An acceptance that outlives the file it describes is a reason on a page with
+  // nothing behind it. Content-binding makes every "Still flag if:" clause real.
+  test('an acceptance whose file changed no longer applies, and says so', () => {
+    const r = evaluateScan(
+      facts({
+        skills: [degraded()],
+        coverageAccepted: [cov({ actualSha256: 'c'.repeat(64) })],
+      }),
+    )
+    expect(r.blocks.some((b: string) => b.includes('changed since its coverage acceptance'))).toBe(true)
+  })
+
+  test('an acceptance for a file that cannot be read accepts nothing', () => {
+    const r = evaluateScan(
+      facts({ skills: [degraded()], coverageAccepted: [cov({ actualSha256: null })] }),
+    )
+    expect(r.blocks.some((b: string) => b.includes('could not be read to verify'))).toBe(true)
+  })
+
+  test('a coverage entry needs a literal skill and file, a content hash, and a clause-carrying reason', () => {
     const bad = [
-      { file: 'a.mjs', reason: 'x. Still flag if: y' },
-      { skill: 'dev-review', reason: 'x. Still flag if: y' },
-      { skill: 'dev-review', file: 'scripts/*.mjs', reason: 'x. Still flag if: y' },
-      { skill: 'dev-review', file: 'a.mjs', reason: 'no clause here' },
-      { skill: 'dev-review', file: 'a.mjs' },
+      { file: 'a.mjs', sha256: 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', reason: 'x. Still flag if: y' },
+      { skill: 'dev-review', sha256: 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', reason: 'x. Still flag if: y' },
+      { skill: 'dev-review', file: 'scripts/*.mjs', sha256: 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', reason: 'x. Still flag if: y' },
+      { skill: 'dev-review', file: 'a.mjs', sha256: 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', reason: 'no clause here' },
+      { skill: 'dev-review', file: 'a.mjs', sha256: 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+      { skill: 'dev-review', file: 'a.mjs', reason: 'x. Still flag if: y' },
+      { skill: 'dev-review', file: 'a.mjs', sha256: 'not-a-hash', reason: 'x. Still flag if: y' },
     ]
     for (const entry of bad) {
       const r = parseBaseline(JSON.stringify({ version: 2, rules: [], fingerprints: [], coverage: [entry] }))

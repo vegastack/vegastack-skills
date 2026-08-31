@@ -10,6 +10,7 @@
 //        [--llm] [--json]
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -151,6 +152,13 @@ export function parseBaseline(text) {
       errors.push(`${label}: not an object`);
       return;
     }
+    // Content-bound, like a fingerprint. Without this an acceptance outlives the
+    // file it was written about: the reason stays on the page while the content
+    // it describes changes underneath, and every "Still flag if:" clause becomes
+    // decorative because nothing re-triggers the adjudication.
+    if (typeof raw.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(raw.sha256.trim())) {
+      errors.push(`${label}: "sha256" must be the 64-hex digest of the accepted file — an acceptance that is not content-bound never expires`);
+    }
     for (const field of ['skill', 'file']) {
       const value = raw[field];
       if (typeof value !== 'string' || !value.trim()) {
@@ -162,7 +170,7 @@ export function parseBaseline(text) {
     const reasoned = reasonErrors(raw, label, true);
     errors.push(...reasoned.errors);
     warns.push(...reasoned.warns);
-    coverage.push({ skill: raw.skill, file: raw.file, reason: raw.reason });
+    coverage.push({ skill: raw.skill, file: raw.file, sha256: raw.sha256, reason: raw.reason });
   });
 
   return { rules, fingerprints: rawFingerprints, coverage, errors, warns };
@@ -365,8 +373,16 @@ export function evaluateScan(facts) {
     // ONLY when it names every file the scanner said it could not finish. Accept
     // one file and leave another unread, and the skill still blocks — otherwise
     // an acceptance written for a known cause would silently cover an unknown one.
+    const forThisSkill = (facts.coverageAccepted ?? []).filter((c) => c.skill === entry.name);
+    for (const c of forThisSkill) {
+      if (c.actualSha256 && c.actualSha256 !== c.sha256) {
+        blocks.push(`${entry.name}: ${c.file} changed since its coverage acceptance was written (baseline ${c.sha256.slice(0, 12)}…, on disk ${c.actualSha256.slice(0, 12)}…) — re-adjudicate it rather than carrying the old reasoning forward`);
+      } else if (!c.actualSha256) {
+        blocks.push(`${entry.name}: ${c.file} has a coverage acceptance but could not be read to verify it — an acceptance for a file that is not there accepts nothing`);
+      }
+    }
     const acceptedFiles = new Set(
-      (facts.coverageAccepted ?? []).filter((c) => c.skill === entry.name).map((c) => c.file),
+      forThisSkill.filter((c) => c.actualSha256 && c.actualSha256 === c.sha256).map((c) => c.file),
     );
     const unaccounted = (entry.partialPaths ?? []).filter((path) => !acceptedFiles.has(path));
     const coverageClassAccepted = new Set();
@@ -390,10 +406,6 @@ export function evaluateScan(facts) {
       const where = unaccounted.length ? `: ${unaccounted.join(', ')}` : '';
       blocks.push(`${entry.name}: ${partiallyInspected} file(s) were only partly inspected${where} — the unread remainder is exactly where something would hide`);
     }
-    if (coverageAccepted || coverageClassAccepted.size > 0) {
-      const files = [...new Set([...(coverageAccepted ? acceptedFiles : []), ...coverageClassAccepted])].sort();
-      warns.push(`${entry.name}: reduced coverage accepted by the baseline for ${files.join(', ')} — the scan of those files is incomplete by acknowledged cause`);
-    }
     // A scan that read nothing reports "complete" with zero findings, which is
     // indistinguishable from a clean skill. Reachable with a symlinked or
     // unreadable SKILL.md: the scanner sees no bytes and says so by counting
@@ -414,6 +426,16 @@ export function evaluateScan(facts) {
         continue;
       }
       blocks.push(`${entry.name}: ${issue.severity} ${issue.id} at ${at} — fix it, or add a justified baseline rule on the operator's word`);
+    }
+
+    // AFTER the issue loop: an accepted AE1 is only known here. Emitting this
+    // earlier meant an accepted HIGH finding vanished with no block and no
+    // warning — a suppression nobody could see is indistinguishable from a
+    // finding that never existed.
+    if (coverageAccepted || coverageClassAccepted.size > 0) {
+      const files = [...new Set([...(coverageAccepted ? acceptedFiles : []), ...coverageClassAccepted])].sort();
+      const suppressedHigh = coverageClassAccepted.size > 0 ? ` — including HIGH ${COVERAGE_CLASS_RULE} finding(s)` : '';
+      warns.push(`${entry.name}: reduced coverage accepted by the baseline for ${files.join(', ')}${suppressedHigh} — the scan of those files is incomplete by acknowledged cause`);
     }
   }
 
@@ -537,6 +559,21 @@ export function gatherFacts({ root, baselinePath, llm }) {
 
   // Paths here are attacker-chosen directory names in a third-party tree, and
   // they are printed verbatim in block lines.
+  // Hash each accepted file as it is on disk now, so a changed file drops its
+  // acceptance and blocks until it is re-adjudicated.
+  base.coverageAccepted = (base.coverageAccepted ?? []).map((entry) => {
+    const skillDir = discoverSkills(root).find((dir) => basename(dir) === entry.skill);
+    let actual = null;
+    if (skillDir) {
+      try {
+        actual = createHash('sha256').update(readFileSync(join(skillDir, entry.file))).digest('hex');
+      } catch {
+        actual = null;
+      }
+    }
+    return { ...entry, actualSha256: actual };
+  });
+
   const coverage = findUnscannable(root);
   base.unscannable = coverage.unscannable.map(safe);
   base.coverageExhausted = coverage.exhausted;
