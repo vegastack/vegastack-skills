@@ -1,6 +1,18 @@
 # The security axis
 
-Runs on `risky` issues, and whenever the diff's touch points hit an auth surface, money, user data, or externally-controlled input — the trigger is the surface, not the label alone.
+Runs on `risky` issues, whenever the diff's touch points hit an auth surface, money, user data, or externally-controlled input, and whenever the diff touches a skill under dev.md's `skill-scan:` root — the trigger is the surface, not the label alone.
+
+## Scanner evidence — a finding's start, never its end
+
+Where the project runs a scanner (this family ships `scripts/skill-scan.mjs` for agent skills; a project may name others), its report is an **input to this axis**, on the same footing as the diff. It is evidence, not a verdict:
+
+- **A scanner hit is a candidate finding.** It arrives with a rule ID and a `file:line` and nothing else — no data flow, no attacker, no exploitability. Promote it to a finding only after the Method below fills those in; a hit you cannot trace goes to the collapsed low-confidence block like any other hunch.
+- **Read the source at the location before judging it.** The scanner matched text; whether that text is a vulnerability is your call, made against the file, not the summary.
+- **Severity is yours, not the scanner's.** Map its finding onto this file's ladder by exploitability. A scanner HIGH that cannot be exploited is not `[CRITICAL]`; a scanner MEDIUM with a traced path to a real sink can be.
+- **Never downgrade an unexplained HIGH or CRITICAL** on reputation, score, or "it's our own code". Either the trace shows why it does not hold, or it stands.
+- **The aggregate risk score is not a finding.** It is distorted upward by documentation of the very mechanics being scanned and downward by unrelated suppressions. Quote it for context; never rank on it.
+- **Suppressions are in scope for this axis.** A finding silenced by a baseline rule rather than fixed is reviewable: check the rule is scoped as narrowly as its cause and that its stated re-trigger condition is one that would actually fire.
+- **A degraded or partial scan is not a clean scan.** If the report says the run did not complete, say so in the verdict line rather than reporting its numbers.
 
 ## Method — evidence before severity
 

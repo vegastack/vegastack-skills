@@ -13,13 +13,15 @@ Nearest neighbors: `dev-implement` invokes this per dev.md's `review:` knob and 
 
 Build the review package first: `git log --oneline <base>..<head>` + `git diff --stat` + `git diff -U10`, written to `.vegastack/.tmp/<issue>-<slug>/review-<base7>..<head7>.diff`. Reviewers get paths — the brief (issue body), the plan comment, the package file, the project's `.vegastack/review-known-patterns.md` — plus the binding constraints copied verbatim. Reviewers write their full reports to `.tmp` files and return short status; a dead reviewer's findings survive on disk.
 
+When dev.md names a `skill-scan:` root, the security dispatch also gets the scan report: `node <path-to-this-skill>/scripts/skill-scan.mjs --json > .vegastack/.tmp/<issue>-<slug>/skill-scan.json` (add `--llm` for the semantic pass — advisory only, never a gate; it is non-deterministic and a degraded run inflates scores). The same guard runs at `dev-implement`'s Verify gate, so by review time it has already passed; the axis is here to triage what sits below the blocking bar and to judge whether anything above it was suppressed rather than fixed.
+
 ## The axes — parallel, fresh, never merged
 
 | Axis | Runs | Judges |
 |---|---|---|
 | **Spec** | always | the diff vs the CURRENT brief + plan: missing, scope creep, implemented-but-wrong — quoting the brief line per finding; includes the tests-are-real rubric |
 | **Standards** | always | project rules (known-patterns file + repo docs, which override) + the fixed smell baseline pasted in full into its prompt |
-| **Security** | on `risky`, or when touch points hit auth, money, user data, or external input | data-flow traces, exploitability before severity — method in [security-axis](references/security-axis.md) |
+| **Security** | on `risky`, when touch points hit auth, money, user data, or external input, **or when the diff touches a skill under dev.md's `skill-scan:` root** | data-flow traces, exploitability before severity, and triage of the skill scan's findings — method in [security-axis](references/security-axis.md) |
 
 Each axis is a fresh subagent with no memory of writing the code (its prompt: [dispatch-prompts](references/dispatch-prompts.md)). Axes report separately and are never re-ranked into one list — a change can pass one axis and fail another, and merging lets one mask the other.
 
@@ -59,6 +61,11 @@ Severities: `[CRITICAL]` (security axis: exploitable now — blocks) > `[MUST-FI
 
 - Default quiet profile: spec, bugs, and security always; style only where a documented rule exists. The comment count is the noise metric.
 - `.vegastack/review-known-patterns.md` (seed: [template](assets/review-known-patterns.md.template)) holds the project's never-flag patterns — each entry REQUIRES a **"Still flag if:"** exception clause; a suppression without one is a blind spot. Operator dismissals of findings get appended there by dev-implement's corrections loop, so a dismissed pattern stays dismissed.
+- The skill scan's suppressions follow the same discipline in its own baseline file, and the guard enforces the clause rather than trusting it — a rule scoped `id:` with no `path:` is a repo-wide blind spot. A finding suppressed rather than fixed is a review finding, not a settled matter.
+
+## A scan with no issue attached
+
+A scan run outside an issue — a standalone check, or the pre-publish guard in dev.md's `## Ship` — has no review comment to land in, and never gets attached to an unrelated issue. Findings there route to `dev-intake`: offer the operator one `risky` issue whose **brief body** carries the findings, their locations, and what is already known about each cause. That is intake's job, with its questions, its scope call, and its approval — not a comment posted somewhere convenient.
 
 ## Cross-agent — the independence upgrade
 
