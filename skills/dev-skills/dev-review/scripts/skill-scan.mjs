@@ -180,7 +180,7 @@ export function evaluateScan(facts) {
     // references produce — so blocking on it would block every scan forever,
     // the same trap as gating on the aggregate score. Block only on the signals
     // that mean work did not happen.
-    const { status, limitations, entirelyUninspected } = entry.completeness ?? {};
+    const { status, limitations, entirelyUninspected, partiallyInspected } = entry.completeness ?? {};
     if (status && status !== 'complete' && status !== 'partial') {
       blocks.push(`${entry.name}: the scan reported completeness "${status}" — only "complete" or "partial" is a result you can act on`);
       continue;
@@ -191,6 +191,13 @@ export function evaluateScan(facts) {
     }
     if (entirelyUninspected > 0) {
       blocks.push(`${entry.name}: ${entirelyUninspected} file(s) were never inspected — an unread file is not a clean file`);
+      continue;
+    }
+    // Distinct from `status: "partial"`, which every healthy scan here reports.
+    // Measured across all twelve skills, `partially_inspected_files` is 0 on a
+    // healthy run, so this blocks only genuinely truncated coverage.
+    if (partiallyInspected > 0) {
+      blocks.push(`${entry.name}: ${partiallyInspected} file(s) were only partly inspected — the unread remainder is exactly where something would hide`);
       continue;
     }
     for (const issue of entry.issues ?? []) {
@@ -311,7 +318,14 @@ export function gatherFacts({ root, baselinePath, llm }) {
         status: completeness.status ?? 'unknown',
         limitations: Array.isArray(completeness.limitations) ? completeness.limitations : [],
         entirelyUninspected: completeness.entirely_uninspected_files ?? 0,
+        partiallyInspected: completeness.partially_inspected_files ?? 0,
+        fullyInspected: completeness.fully_inspected_files ?? 0,
+        coveragePercent: completeness.coverage_percent ?? null,
       },
+      // The scanner's own list of what the baseline silenced. The Security axis
+      // is told to judge whether each suppression was scoped to its cause, which
+      // it cannot do from a count — and this evidence is right here in the report.
+      suppressed: Array.isArray(report.suppressed) ? report.suppressed : [],
       issues: (report.issues ?? []).map(normalizeIssue),
     });
   }
@@ -360,8 +374,8 @@ if (invokedDirectly) {
       // is told to read the source at each finding's file:line and to judge
       // whether a suppression was scoped to its cause. A count makes both
       // impossible, and this report is the axis's input.
-      skills: facts.skills.map(({ name, score, severity, suppressedCount, completeness, issues }) => ({
-        name, score, severity, suppressedCount, completeness, findings: issues.length, issues,
+      skills: facts.skills.map(({ name, score, severity, suppressedCount, suppressed, completeness, issues }) => ({
+        name, score, severity, suppressedCount, suppressed, completeness, findings: issues.length, issues,
       })),
     }, null, 2));
   } else if (skipped) {
