@@ -845,3 +845,87 @@ describe('adversarial regressions', () => {
     expect(r.warns.join(' ')).toContain('1 HIGH')
   })
 })
+
+// The `coverage:` section accepts a COMPLETENESS signal, which the scanner's own
+// baseline cannot express — it suppresses findings only. Without it a skill
+// shipping ordinary JavaScript blocks forever: SkillSpector's shell parser reads
+// a template literal in assignment position as backtick command substitution and
+// degrades. Isolated experimentally in issue 62.
+describe('coverage acceptances', () => {
+  const cov = (over = {}) => ({
+    skill: 'dev-review',
+    file: 'scripts/skill-scan.mjs',
+    reason: 'Scanner parser limitation, traced. Still flag if: the file gains a real shell invocation.',
+    ...over,
+  })
+  const degraded = (over = {}) =>
+    skill({
+      name: 'dev-review',
+      partialPaths: ['scripts/skill-scan.mjs'],
+      completeness: { status: 'partial', limitations: ['Analyzer x degraded.'], entirelyUninspected: 0, partiallyInspected: 1 },
+      ...over,
+    })
+
+  test('an acceptance naming the unread file clears the block and leaves a warning', () => {
+    const r = evaluateScan(facts({ skills: [degraded()], coverageAccepted: [cov()] }))
+    expect(r.blocks).toEqual([])
+    expect(r.warns.join(' ')).toContain('reduced coverage accepted')
+  })
+
+  test('without an acceptance the same state blocks', () => {
+    const r = evaluateScan(facts({ skills: [degraded()], coverageAccepted: [] }))
+    expect(r.blocks.length).toBeGreaterThan(0)
+  })
+
+  // The acceptance is per skill AND per file — the whole point is that accepting
+  // one known cause must not silently cover an unknown one.
+  test('an acceptance for another skill does not apply', () => {
+    const r = evaluateScan(facts({ skills: [degraded()], coverageAccepted: [cov({ skill: 'dev-ship' })] }))
+    expect(r.blocks.length).toBeGreaterThan(0)
+  })
+
+  test('a second unread file that is not accepted still blocks', () => {
+    const r = evaluateScan(
+      facts({
+        skills: [degraded({ partialPaths: ['scripts/skill-scan.mjs', 'scripts/mystery.mjs'] })],
+        coverageAccepted: [cov()],
+      }),
+    )
+    expect(r.blocks.length).toBeGreaterThan(0)
+    expect(r.blocks[0]).toContain('mystery.mjs')
+  })
+
+  // AE1 is the completeness signal reported through the findings channel; a
+  // coverage entry naming its file accepts it. Nothing else does.
+  test('AE1 at an accepted file is accepted; another rule at the same file is not', () => {
+    const withAe1 = skill({
+      name: 'skill-maintainer',
+      issues: [{ id: 'AE1', severity: 'HIGH', file: 'SKILL.md', line: 16 }],
+    })
+    const accepted = [cov({ skill: 'skill-maintainer', file: 'SKILL.md' })]
+    expect(evaluateScan(facts({ skills: [withAe1], coverageAccepted: accepted })).blocks).toEqual([])
+
+    const withP2 = skill({
+      name: 'skill-maintainer',
+      issues: [{ id: 'P2', severity: 'HIGH', file: 'SKILL.md', line: 16 }],
+    })
+    expect(evaluateScan(facts({ skills: [withP2], coverageAccepted: accepted })).blocks).toHaveLength(1)
+  })
+
+  test('a coverage entry needs a literal skill, a literal file, and a clause-carrying reason', () => {
+    const bad = [
+      { file: 'a.mjs', reason: 'x. Still flag if: y' },
+      { skill: 'dev-review', reason: 'x. Still flag if: y' },
+      { skill: 'dev-review', file: 'scripts/*.mjs', reason: 'x. Still flag if: y' },
+      { skill: 'dev-review', file: 'a.mjs', reason: 'no clause here' },
+      { skill: 'dev-review', file: 'a.mjs' },
+    ]
+    for (const entry of bad) {
+      const r = parseBaseline(JSON.stringify({ version: 2, rules: [], fingerprints: [], coverage: [entry] }))
+      expect(r.errors.length).toBeGreaterThan(0)
+    }
+    const good = parseBaseline(JSON.stringify({ version: 2, rules: [], fingerprints: [], coverage: [cov()] }))
+    expect(good.errors).toEqual([])
+    expect(good.coverage).toHaveLength(1)
+  })
+})

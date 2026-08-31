@@ -100,6 +100,26 @@ Suppressions live in `.vegastack/skillspector-baseline.json` — a real SkillSpe
 - **Never `--use-shipped-baseline`.** A baseline discovered inside a scanned skill was written by whoever wrote that skill.
 - **The scan reads the built bundle** (`packages/cli/skill/`), not `skills/`: the authored tree carries unpackaged `tests/` fixtures that are deliberately adversarial and score higher than anything that ships. Build before scanning.
 - **The semantic pass (`--llm`) is advisory and never a gate.** It is non-deterministic, and a run whose LLM calls partially fail reports a higher score than a clean one.
+### Triaging a scan finding — the decision order
+
+Work down this list; stop at the first that fits. Every acceptance needs the operator's word and a `reason` carrying its "Still flag if:" clause.
+
+1. **Is it real?** Trace it before anything else. A real finding gets fixed, not accepted. Two on this repo turned out real and were fixed at source — a detection row whose wording introduced an `AE1`, and a template placeholder that shipped a literal `<group>`.
+2. **Is the cause one file, shared by many skills?** Use a **rule** with a literal `id` + `path`. One cause, one entry, however many skills report it — the `references/conventions.md` marker protocol produces ten findings from one rule.
+3. **Is it a one-off in specific content?** Use a **fingerprint**. Content-hashed, so it re-triggers the moment that content changes. Beware: the scanner's own `skillspector baseline` **deduplicates** what it emits, so a group of occurrences can come back as fewer hashes than the matcher needs — check the count actually drops before trusting it.
+4. **Is it a completeness signal rather than a behaviour?** Use a **`coverage:`** entry, naming the skill and the file. This is ours, not the scanner's — SkillSpector's baseline suppresses findings only, and has no way to accept "I could not finish reading this". `AE1` belongs here despite arriving as a HIGH finding: its own text is *"Referenced artifact was not completely inspected."*
+5. **None of the above?** Park it with a written ruling. Do not widen an entry to make a guard green — that is the failure this whole system exists to prevent.
+
+### Known SkillSpector behaviours on this repo
+
+Recorded so nobody re-derives them. All traced in issue 62.
+
+- **A JavaScript template literal in assignment position degrades the static analyzers for the whole skill.** ``const at = `${a.file}:${a.line}`;`` trips the bounded shell parser, which reads the backticks as command substitution and exhausts its span limit. Verified experimentally: string concatenation scans clean, and forty template literals *inside function calls* do not degrade at all. It is the shape, not the volume. Any skill shipping a script with this idiom needs a `coverage:` entry — the alternative is banning ordinary JavaScript from skills.
+- **`AE1` on a `SKILL.md` usually means its references, not its behaviour** — either repo-root paths that cannot resolve relative to a skill directory (correct for a repo-scoped meta-skill), or a file it links to that the parser could not finish. Check which before accepting.
+- **`P2` fires on every HTML comment**, because a hidden instruction is a genuine injection vector. This repo uses HTML comments as machine-readable markers — `vsk:v1`, `vsk-dev:start`, `<!-- source: … -->`, `<!-- mirrored -->` — so the finding is the documentation of a mechanism, not an instance of one. Scope the rule to the file, never to the id alone.
+- **`RA1` on a `refresh/REFRESH.md` is correct about the pattern.** The refresh contract genuinely instructs an agent to rewrite the skill's own files. It is acceptable only because the runner is the only writer, it edits marked sections, checksums are runner-only, and every change lands as a reviewed PR — write those bounds into the reason.
+- **The aggregate risk score is not a gate.** It is inflated by unresolvable-path artifacts in meta-content and deflated by unrelated suppressions.
+
 - **A skill authored elsewhere is scanned the same way, before it reaches an agent** — `--root <path to the skill>`. This repo does not yet redistribute anyone else's skill; when it does, the curation, audit, upstream-drift, release, and retirement rules are this skill's to own, and a curated skill is never hand-edited locally (a local fix is overwritten by the next upstream sync and forks us from its author). Scanning a third-party skill you are evaluating works today and needs none of that.
 
 ## UNVERIFIED register
