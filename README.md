@@ -124,7 +124,7 @@ bun run check    # validate skills + test + lint + typecheck
 bun run build
 ```
 
-The skill scan is a separate step, not part of `bun run check` — `check` runs on Bun and Node alone, while the scanner needs Python 3.12. Both are required before a push; see [Security](#security) for the command and CONTRIBUTING for the suppression rules.
+The skill scan is a separate step, not part of `bun run check` — `check` runs on Bun and Node alone, while the scanner needs Python 3.12. `bun run check` must pass before every PR; the scan runs alongside it as pre-merge verification. See [Security](#security) for the command and [CONTRIBUTING.md](CONTRIBUTING.md) for the suppression rules.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, content-versioning rules, the no-generated-files policy, the skill-scan suppression discipline, and how to add a new skill.
 
@@ -140,7 +140,9 @@ npx @vegastack/skills add dev-review --agent claude
 node .claude/skills/dev-review/scripts/skill-scan.mjs --root path/to/some-skill
 ```
 
-Point `--root` at a single skill directory or at a directory of them. Exit `0` is clean, `1` clean with warnings, `2` blocked with the rule, severity, and `file:line` of every finding. Without `--root` it reads the `skill-scan:` knob from your project's `.vegastack/dev.md`, and a project with no skills (`skill-scan: none`) is told it was skipped rather than erroring. Add `--llm` for the semantic pass — it needs a provider, is non-deterministic, and is advisory: a run whose analyzer fails scores *higher* than a clean one, which is why the gate never uses it.
+The guard ships inside `dev-review` — if `scripts/skill-scan.mjs` is not there, your installed copy predates it; re-run `add` against `@vegastack/skills@latest`.
+
+Point `--root` at a single skill directory or at a directory of them. Exit `0` is clean, `1` clean with warnings, `2` blocked — either by a finding, reported with its rule, severity and `file:line`, or because the scan itself could not be trusted: the scanner missing from PATH, an unreadable report, a baseline that fails its own discipline, or coverage the scanner says it never completed. Without `--root` it reads the `skill-scan:` knob from your project's `.vegastack/dev.md`, and a project with no skills (`skill-scan: none`) is told it was skipped rather than erroring. Add `--llm` for the semantic pass — it needs a provider, is non-deterministic, and is advisory: a run whose analyzer fails scores *higher* than a clean one, which is why the gate never uses it.
 
 The judgement is still yours. A scanner hit is evidence, not a verdict — the `dev-review` skill's [security axis](skills/dev-skills/dev-review/references/security-axis.md) sets out how to trace one before acting on it.
 
