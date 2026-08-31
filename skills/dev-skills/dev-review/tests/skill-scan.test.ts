@@ -55,7 +55,22 @@ describe('parseBaseline', () => {
         fingerprints: [],
       }),
     )
-    expect(r.errors[0]).toContain('placeholder')
+    expect(r.errors[0]).toContain("default reason, unedited")
+  })
+
+  // Guard doctrine (conventions): facts block, regex judgement only warns. An
+  // exact match on the scanner's default string is a fact; a reason that merely
+  // mentions the phrase is a heuristic, so it warns and does not block.
+  test('a reason that only resembles the default warns rather than blocking', () => {
+    const r = parseBaseline(
+      JSON.stringify({
+        version: 2,
+        rules: [rule({ reason: 'Adapted from the auto-generated baseline output. Still flag if: the file changes.' })],
+        fingerprints: [],
+      }),
+    )
+    expect(r.errors).toEqual([])
+    expect(r.warns).toHaveLength(1)
   })
 
   test('rejects a rule that matches everything', () => {
@@ -90,7 +105,7 @@ describe('parseBaseline', () => {
       }),
     )
     expect(r.errors).toHaveLength(1)
-    expect(r.errors[0]).toContain('placeholder')
+    expect(r.errors[0]).toContain("default reason, unedited")
   })
 
   // The scanner rejects such a baseline on every invocation, so without this the
@@ -767,7 +782,7 @@ describe('adversarial regressions', () => {
       env: { ...process.env },
     })
     expect(proc.exitCode).toBe(2)
-    expect(proc.stdout.toString()).toContain('declares skill-scan more than once')
+    expect(proc.stdout.toString()).toContain('conflicting values')
   })
 
   test('declarations are collected in order so the caller can see disagreement', () => {
