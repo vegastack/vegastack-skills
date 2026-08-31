@@ -66,13 +66,27 @@ export function parseBaseline(text) {
       errors.push(`${label}: not an object`);
       return;
     }
-    // SkillSpector accepts either key; normalize so callers see one shape.
+    // SkillSpector normalizes `id`/`rule_id` and `path`/`file` to one field each
+    // (`path=raw.get("path") or raw.get("file")`). Missing the `file` alias would
+    // both reject a valid baseline AND let `{"file": "*"}` past the wildcard
+    // check below into a scanner that honours it.
     const id = raw.id ?? raw.rule_id;
-    if (id === undefined && raw.path === undefined && raw.message === undefined) {
+    const path = raw.path ?? raw.file;
+    const matchers = { id, path, message: raw.message };
+    const present = Object.entries(matchers).filter(([, value]) => value !== undefined);
+    if (present.length === 0) {
       errors.push(`${label}: no matcher (id, path, or message) — a rule with no matcher suppresses every finding`);
     }
+    // A field set to a bare wildcard matches everything the field can hold, so
+    // `{"path": "*"}` is a total-silence rule that passes a naive presence check.
+    // The scanner treats `**` as an alias for `*`; an empty string matches too.
+    for (const [field, value] of present) {
+      if (typeof value !== 'string' || /^\**$/.test(value.trim())) {
+        errors.push(`${label}: "${field}" is a bare wildcard ("${value}") — scope a rule as narrowly as its cause, never to everything`);
+      }
+    }
     errors.push(...reasonErrors(raw, label, true));
-    rules.push({ id, path: raw.path, message: raw.message, reason: raw.reason });
+    rules.push({ id, path, message: raw.message, reason: raw.reason });
   });
 
   // The scanner rejects a v2 baseline that carries fingerprints without pinning
@@ -85,9 +99,12 @@ export function parseBaseline(text) {
 
   // Fingerprints get the same reason discipline minus the clause: they are
   // content-hashed, so editing the surrounding file re-triggers the finding on
-  // its own — the re-trigger condition a rule has to state in prose. Without
-  // this check the whole discipline is bypassed by committing the output of
-  // `skillspector baseline`, which writes every finding as a fingerprint.
+  // its own — the re-trigger condition a rule has to state in prose. This check
+  // catches the common accident, committing `skillspector baseline` output
+  // verbatim, since that writes every finding as a fingerprint carrying the
+  // default reason. It does NOT stop someone passing `--reason` with a clause
+  // in it: a deliberate mass-suppression is caught by review of the diff and by
+  // the suppression counts in the report, not by this guard.
   rawFingerprints.forEach((raw, index) => {
     const label = `fingerprint ${index + 1}`;
     if (!raw || typeof raw !== 'object') {
@@ -102,27 +119,69 @@ export function parseBaseline(text) {
 
 // Absolute paths, sorted, of the skill directories under `root`. A directory is
 // a skill iff it holds a SKILL.md. The root itself counts when it holds one;
-// otherwise its immediate children are examined — ONE level, matching the
-// authored layout's own depth cap. Dot-prefixed entries are skipped: a crashed
-// scaffolder's `.name.scaffold-XXXX` leftover must never read as a skill.
-// Symlinks are not followed — a scanner that traverses out of its root is a
-// scanner that scans something other than what it reports on.
+// otherwise children AND grandchildren are examined — two levels, matching the
+// authored layout's own cap (`skills/<name>/` and `skills/<group>/<name>/`), so
+// pointing the knob at a grouped tree scans it instead of silently finding
+// nothing. Dot-prefixed entries are skipped: a crashed scaffolder's
+// `.name.scaffold-XXXX` leftover must never read as a skill. Symlinked
+// directories are not followed — a scanner that traverses out of its root scans
+// something other than what it reports on.
+function childDirectories(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .map((entry) => join(dir, entry.name));
+  } catch {
+    return [];
+  }
+}
+
 export function discoverSkills(root) {
   if (!root || !existsSync(root)) return [];
   const absolute = resolve(root);
   if (existsSync(join(absolute, 'SKILL.md'))) return [absolute];
 
-  let entries;
-  try {
-    entries = readdirSync(absolute, { withFileTypes: true });
-  } catch {
-    return [];
+  const found = [];
+  for (const child of childDirectories(absolute)) {
+    if (existsSync(join(child, 'SKILL.md'))) {
+      found.push(child);
+      continue;
+    }
+    // One level deeper, for the grouped authored layout (`<root>/<group>/<skill>/`).
+    // Without this a grouped tree scans as ZERO skills while reporting success on
+    // whatever else it found — coverage silently lost, which is the whole defect
+    // class this guard exists to stop.
+    for (const grandchild of childDirectories(child)) {
+      if (existsSync(join(grandchild, 'SKILL.md'))) found.push(grandchild);
+    }
   }
-  return entries
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
-    .map((entry) => join(absolute, entry.name))
-    .filter((dir) => existsSync(join(dir, 'SKILL.md')))
-    .sort();
+  return found.sort();
+}
+
+// Directories that look like skills but discovery refuses to follow. Symlinks
+// are not traversed — a scanner that walks out of its root reports on something
+// other than what it was pointed at — but dropping them silently is coverage
+// loss disguised as a clean run, so they are named and the caller blocks.
+export function findUnscannable(root) {
+  if (!root || !existsSync(root)) return [];
+  const absolute = resolve(root);
+  const unscannable = [];
+  const inspect = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry.isSymbolicLink() || entry.name.startsWith('.')) continue;
+      const target = join(dir, entry.name);
+      if (existsSync(join(target, 'SKILL.md'))) unscannable.push(target);
+    }
+  };
+  inspect(absolute);
+  for (const child of childDirectories(absolute)) inspect(child);
+  return unscannable.sort();
 }
 
 // The severities that stop a push. Deliberately NOT the aggregate risk score:
@@ -130,6 +189,11 @@ export function discoverSkills(root) {
 // deflated by suppressing unrelated findings, so it answers a question nobody
 // asked. Individual findings are what a reviewer triages.
 const BLOCKING = new Set(['HIGH', 'CRITICAL']);
+// Everything the scanner is known to emit. A severity outside this set is
+// upstream drift, and drift must fail CLOSED: silently sorting an unrecognised
+// severity under the blocking bar and then calling it "MEDIUM/LOW" would be a
+// false success dressed as a summary line.
+const KNOWN_SEVERITIES = new Set(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']);
 
 const INSTALL_HINT = 'install it with `uv tool install git+https://github.com/NVIDIA/skillspector.git`';
 
@@ -159,6 +223,9 @@ export function evaluateScan(facts) {
   }
   for (const { skill, message } of scanErrors) {
     blocks.push(`${skill}: the scan did not produce a readable report (${message}) — an unscanned skill is not a clean skill`);
+  }
+  for (const path of facts.unscannable ?? []) {
+    blocks.push(`${path} is a symlinked skill directory — discovery does not follow symlinks out of the scan root, so it would go unscanned; replace it with a real directory or scan it directly with --root`);
   }
 
   if (blocks.length > 0) return { blocks, warns };
@@ -200,9 +267,22 @@ export function evaluateScan(facts) {
       blocks.push(`${entry.name}: ${partiallyInspected} file(s) were only partly inspected — the unread remainder is exactly where something would hide`);
       continue;
     }
+    // A scan that read nothing reports "complete" with zero findings, which is
+    // indistinguishable from a clean skill. Reachable with a symlinked or
+    // unreadable SKILL.md: the scanner sees no bytes and says so by counting
+    // them, which is the only place this shows up.
+    if (entry.completeness?.fullyInspected === 0) {
+      blocks.push(`${entry.name}: the scanner inspected 0 files — an empty read is not a clean result (unreadable or symlinked content?)`);
+      continue;
+    }
     for (const issue of entry.issues ?? []) {
-      if (!BLOCKING.has(String(issue.severity).toUpperCase())) continue;
+      const severity = String(issue.severity).toUpperCase();
       const at = issue.line == null ? issue.file : `${issue.file}:${issue.line}`;
+      if (!KNOWN_SEVERITIES.has(severity)) {
+        blocks.push(`${entry.name}: unrecognised severity "${issue.severity}" for ${issue.id} at ${at} — refusing to rank an unknown severity below the bar`);
+        continue;
+      }
+      if (!BLOCKING.has(severity)) continue;
       blocks.push(`${entry.name}: ${issue.severity} ${issue.id} at ${at} — fix it, or add a justified baseline rule on the operator's word`);
     }
   }
@@ -212,10 +292,31 @@ export function evaluateScan(facts) {
   }
   const suppressed = skills.reduce((total, entry) => total + (entry.suppressedCount ?? 0), 0);
   if (suppressed > 0) {
-    warns.push(`${suppressed} finding(s) suppressed by the baseline — read it when a result surprises you`);
+    // A bare count hides what was silenced. Ten LOW suppressions and ten HIGH
+    // ones are very different facts about a baseline, and the second is the one
+    // worth reading before trusting a green run.
+    const bySeverity = {};
+    for (const entry of skills) {
+      for (const item of entry.suppressed ?? []) {
+        const key = String(item?.severity ?? 'UNKNOWN').toUpperCase();
+        bySeverity[key] = (bySeverity[key] ?? 0) + 1;
+      }
+    }
+    const breakdown = Object.entries(bySeverity)
+      .sort()
+      .map(([severity, count]) => `${count} ${severity}`)
+      .join(', ');
+    warns.push(
+      `${suppressed} finding(s) suppressed by the baseline${breakdown ? ` (${breakdown})` : ''} — read it when a result surprises you`,
+    );
   }
   const belowBar = skills.reduce(
-    (total, entry) => total + (entry.issues ?? []).filter((i) => !BLOCKING.has(String(i.severity).toUpperCase())).length,
+    (total, entry) =>
+      total +
+      (entry.issues ?? []).filter((i) => {
+        const severity = String(i.severity).toUpperCase();
+        return KNOWN_SEVERITIES.has(severity) && !BLOCKING.has(severity);
+      }).length,
     0,
   );
   if (belowBar > 0) {
@@ -232,18 +333,30 @@ export function evaluateScan(facts) {
 // knob, and it means the documented one-command invocation actually applies them.
 export const DEFAULT_BASELINE = '.vegastack/skillspector-baseline.json';
 
+// Tolerates the shapes a hand-edited profile actually takes — indented under a
+// heading, or written as a list item. A knob the guard cannot see reads as
+// absent, and absent silently disables the gate, so the match is deliberately
+// forgiving about layout and strict about the value.
 export function resolveScanRoot(devMdText) {
-  const value = (/^skill-scan:\s*(\S+)/m.exec(devMdText ?? '') || [])[1];
+  const value = (/^[ \t]*(?:[-*+][ \t]+)?skill-scan:[ \t]*(\S+)/m.exec(devMdText ?? '') || [])[1];
   if (!value || value === 'none') return null;
   return value;
+}
+
+// Findings carry file names and rule ids that originate in SCANNED content, and
+// this guard's output is read in a terminal. Strip C0/C1 controls (ANSI escapes
+// included) so a crafted path cannot repaint or forge lines of the report.
+function safe(text) {
+  // eslint-disable-next-line no-control-regex
+  return String(text).replace(/[\u0000-\u001f\u007f-\u009f]/g, '?');
 }
 
 function normalizeIssue(raw) {
   const location = raw.location ?? {};
   return {
-    id: raw.id ?? raw.rule_id ?? raw.finding_id ?? 'UNKNOWN',
-    severity: raw.severity ?? 'UNKNOWN',
-    file: location.file ?? raw.file ?? '(unknown file)',
+    id: safe(raw.id ?? raw.rule_id ?? raw.finding_id ?? 'UNKNOWN'),
+    severity: safe(raw.severity ?? 'UNKNOWN'),
+    file: safe(location.file ?? raw.file ?? '(unknown file)'),
     line: location.start_line ?? null,
   };
 }
@@ -274,6 +387,8 @@ export function gatherFacts({ root, baselinePath, llm }) {
   // skill anyway. Block on the real reason instead of after N wasted invocations.
   if (base.baselineErrors.length > 0) return base;
 
+  base.unscannable = findUnscannable(root);
+
   const outDir = mkdtempSync(join(tmpdir(), 'vsk-skill-scan-'));
   for (const dir of discoverSkills(root)) {
     const name = basename(dir);
@@ -286,7 +401,13 @@ export function gatherFacts({ root, baselinePath, llm }) {
       // `env` is passed explicitly, as ship-gate.mjs does: under Bun a mutated
       // process.env is NOT inherited by execFileSync children, so the seam and
       // any scanner configuration (SKILLSPECTOR_PROVIDER, etc.) would be lost.
-      execFileSync(binary, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } });
+      execFileSync(binary, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env },
+        // A hung or runaway scanner must fail the gate, not hold it open forever.
+        timeout: Number(process.env.VSK_SKILLSPECTOR_TIMEOUT_MS) || 300_000,
+        maxBuffer: 64 * 1024 * 1024,
+      });
     } catch (error) {
       // ENOENT means the binary itself is absent — a fact about the environment,
       // not about any skill, and it stops the whole run.

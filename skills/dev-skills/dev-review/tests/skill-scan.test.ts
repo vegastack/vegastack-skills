@@ -1,9 +1,16 @@
 import { describe, expect, test } from 'bun:test'
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { readFileSync } from 'node:fs'
-import { discoverSkills, evaluateScan, gatherFacts, parseBaseline, resolveScanRoot } from '../scripts/skill-scan.mjs'
+import {
+  discoverSkills,
+  evaluateScan,
+  findUnscannable,
+  gatherFacts,
+  parseBaseline,
+  resolveScanRoot,
+} from '../scripts/skill-scan.mjs'
 
 const SKILL_MD = '---\nname: x\ndescription: y\n---\n'
 
@@ -96,6 +103,36 @@ describe('parseBaseline', () => {
       }),
     )
     expect(r.errors.some((e: string) => e.includes('scanner_version'))).toBe(true)
+  })
+
+  // Adversarial review, CRITICAL: `{"id":"*"}` with a clause-carrying reason
+  // silenced EVERY finding — 39 on this repo — and the guard reported
+  // "pass with warnings". A present-but-wildcard matcher is not a matcher.
+  test('a bare wildcard matcher is rejected on every field, including the file alias', () => {
+    for (const matcher of [{ id: '*' }, { path: '*' }, { message: '**' }, { file: '*' }, { path: '   ' }]) {
+      const r = parseBaseline(
+        JSON.stringify({
+          version: 2,
+          rules: [{ ...matcher, reason: 'x. Still flag if: never' }],
+          fingerprints: [],
+        }),
+      )
+      expect(r.errors.some((e: string) => e.includes('bare wildcard'))).toBe(true)
+    }
+  })
+
+  // SkillSpector resolves `path` as `raw.get("path") or raw.get("file")`, so a
+  // baseline using the alias is valid and must not be rejected as "no matcher".
+  test('the file alias is accepted as a path matcher', () => {
+    const r = parseBaseline(
+      JSON.stringify({
+        version: 2,
+        rules: [{ file: 'references/conventions.md', reason: 'documented. Still flag if: it stops being documented.' }],
+        fingerprints: [],
+      }),
+    )
+    expect(r.errors).toEqual([])
+    expect(r.rules[0].path).toBe('references/conventions.md')
   })
 
   test('a fingerprint needs a reason but not the clause — content hashing is its re-trigger', () => {
@@ -584,5 +621,58 @@ describe('CLI', () => {
     writeFileSync(profile, `skill-scan: ${notADir}\n`)
     const r = run(['--dev-md', profile], { VSK_SKILLSPECTOR: fake })
     expect(r.code).toBe(2)
+  })
+})
+
+describe('adversarial regressions', () => {
+  // Grouped layouts (`<root>/<group>/<skill>/`) scanned as ZERO skills while the
+  // run reported success on whatever else it found.
+  test('grouped skill layouts are discovered, not silently skipped', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vsk-grouped-'))
+    mkdirSync(join(root, 'flat-skill'), { recursive: true })
+    writeFileSync(join(root, 'flat-skill/SKILL.md'), SKILL_MD)
+    mkdirSync(join(root, 'a-group/grouped-skill'), { recursive: true })
+    writeFileSync(join(root, 'a-group/grouped-skill/SKILL.md'), SKILL_MD)
+    // Sorted by full path, so a group's members stay together in the report.
+    expect(discoverSkills(root).map((p: string) => basename(p))).toEqual(['grouped-skill', 'flat-skill'])
+  })
+
+  test('a symlinked skill directory is named and blocked, never silently dropped', () => {
+    const real = mkdtempSync(join(tmpdir(), 'vsk-real-'))
+    mkdirSync(join(real, 'victim'), { recursive: true })
+    writeFileSync(join(real, 'victim/SKILL.md'), SKILL_MD)
+    const root = mkdtempSync(join(tmpdir(), 'vsk-link-'))
+    symlinkSync(join(real, 'victim'), join(root, 'linked-skill'))
+
+    expect(discoverSkills(root)).toEqual([])
+    const unscannable = findUnscannable(root)
+    expect(unscannable).toHaveLength(1)
+    expect(evaluateScan(facts({ unscannable, skills: [] })).blocks[0]).toContain('symlinked')
+  })
+
+  // An unrecognised severity was sorted below the blocking bar and then
+  // described as "MEDIUM/LOW" in the summary.
+  test('an unrecognised severity blocks instead of being ranked below the bar', () => {
+    const r = evaluateScan(
+      facts({ skills: [skill({ issues: [{ id: 'X9', severity: 'SEVERE', file: 'a.md', line: 3 }] })] }),
+    )
+    expect(r.blocks).toHaveLength(1)
+    expect(r.blocks[0]).toContain('unrecognised severity')
+    expect(r.warns.join(' ')).not.toContain('MEDIUM/LOW')
+  })
+
+  test('an indented or bulleted knob is still read — an unseen knob disables the gate', () => {
+    expect(resolveScanRoot('## Knobs\n\n  skill-scan: packages/cli/skill\n')).toBe('packages/cli/skill')
+    expect(resolveScanRoot('- skill-scan: skills/\n')).toBe('skills/')
+    expect(resolveScanRoot('  - skill-scan: none\n')).toBeNull()
+  })
+
+  test('the suppression warning names severities, not just a count', () => {
+    const r = evaluateScan(
+      facts({
+        skills: [skill({ suppressedCount: 2, suppressed: [{ severity: 'HIGH' }, { severity: 'LOW' }] })],
+      }),
+    )
+    expect(r.warns.join(' ')).toContain('1 HIGH')
   })
 })
