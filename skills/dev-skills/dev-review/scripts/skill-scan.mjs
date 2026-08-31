@@ -390,9 +390,20 @@ export function gatherFacts({ root, baselinePath, llm }) {
   base.unscannable = findUnscannable(root);
 
   const outDir = mkdtempSync(join(tmpdir(), 'vsk-skill-scan-'));
-  for (const dir of discoverSkills(root)) {
-    const name = basename(dir);
-    const reportPath = join(outDir, `${name}.json`);
+  const discovered = discoverSkills(root);
+  // Two skills can share a basename across groups; the report must say which is
+  // which, so an ambiguous name is qualified with its parent directory.
+  const basenameCounts = {};
+  for (const dir of discovered) basenameCounts[basename(dir)] = (basenameCounts[basename(dir)] ?? 0) + 1;
+
+  for (const [index, dir] of discovered.entries()) {
+    const bare = basename(dir);
+    const name = basenameCounts[bare] > 1 ? `${basename(resolve(dir, '..'))}/${bare}` : bare;
+    // Indexed, not named: two-level discovery makes duplicate basenames possible
+    // (`<root>/a/foo/` and `<root>/b/foo/`), and a shared report path would let
+    // one skill's result stand in for another's — a wrong verdict that looks
+    // exactly like a right one. `index` is unique per run by construction.
+    const reportPath = join(outDir, `${index}.json`);
     const args = ['scan', dir, '--format', 'json', '--output', reportPath];
     if (!llm) args.push('--no-llm');
     if (baselineUsable) args.push('--baseline', baselinePath);

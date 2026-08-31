@@ -667,6 +667,30 @@ describe('adversarial regressions', () => {
     expect(resolveScanRoot('  - skill-scan: none\n')).toBeNull()
   })
 
+  // Two-level discovery makes duplicate basenames reachable. A report path keyed
+  // on the basename would let one skill's result stand in for another's — a
+  // wrong verdict indistinguishable from a right one.
+  test('two skills sharing a basename across groups get distinct reports and distinct names', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vsk-collide-'))
+    for (const group of ['group-a', 'group-b']) {
+      mkdirSync(join(root, group, 'twin'), { recursive: true })
+      writeFileSync(join(root, group, 'twin/SKILL.md'), SKILL_MD)
+    }
+    expect(discoverSkills(root)).toHaveLength(2)
+
+    const saved = { ...process.env }
+    try {
+      process.env.VSK_SKILLSPECTOR = fake
+      const f = gatherFacts({ root, baselinePath: null, llm: false })
+      expect(f.skills).toHaveLength(2)
+      // Both must be present and distinguishable, not one name twice.
+      expect(new Set(f.skills.map((e: { name: string }) => e.name)).size).toBe(2)
+      expect(f.skills.map((e: { name: string }) => e.name).sort()).toEqual(['group-a/twin', 'group-b/twin'])
+    } finally {
+      process.env = saved
+    }
+  })
+
   test('the suppression warning names severities, not just a count', () => {
     const r = evaluateScan(
       facts({
