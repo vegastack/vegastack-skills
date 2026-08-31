@@ -15,6 +15,6 @@
   { "query": "merge it and ship", "should_trigger": false, "ambiguous_with": ["dev-ship"] },
   { "query": "implement issue 12 end to end", "should_trigger": false, "ambiguous_with": ["dev-implement"] },
   { "query": "review this PR in the kubernetes repo", "should_trigger": false },
-  { "query": "is this third-party skill I downloaded safe to install", "should_trigger": false },
+  { "query": "is this third-party skill I downloaded safe to install", "should_trigger": true },
   { "query": "audit this app for design-system drift", "should_trigger": false }
 ]

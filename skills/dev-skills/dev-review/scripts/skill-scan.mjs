@@ -228,6 +228,10 @@ export function evaluateScan(facts) {
 // The dev.md knob naming the directory to scan. `none` or absent means this
 // project authors no skills — the guard skips rather than erroring, so callers
 // run one unconditional command instead of honouring a rule written in prose.
+// Conventional home for the project's suppressions, beside dev.md — one fewer
+// knob, and it means the documented one-command invocation actually applies them.
+export const DEFAULT_BASELINE = '.vegastack/skillspector-baseline.json';
+
 export function resolveScanRoot(devMdText) {
   const value = (/^skill-scan:\s*(\S+)/m.exec(devMdText ?? '') || [])[1];
   if (!value || value === 'none') return null;
@@ -299,6 +303,17 @@ export function gatherFacts({ root, baselinePath, llm }) {
       base.scanErrors.push({ skill: name, message: error.message });
       continue;
     }
+    // A report whose shape we do not recognise must fail loudly. Reading a
+    // missing `issues` key as "no findings" is the exact false-success this
+    // guard exists to prevent, and the scanner is upstream software on a fast
+    // cadence — a renamed key would otherwise turn every skill green.
+    if (!report || typeof report !== 'object' || Array.isArray(report) || !Array.isArray(report.issues)) {
+      base.scanErrors.push({
+        skill: name,
+        message: 'report has no "issues" array — unrecognised shape, refusing to read it as "no findings"',
+      });
+      continue;
+    }
 
     const assessment = report.risk_assessment ?? {};
     const completeness = report.analysis_completeness ?? {};
@@ -344,23 +359,44 @@ if (invokedDirectly) {
   const devMdPath = get('--dev-md') || '.vegastack/dev.md';
 
   let root = get('--root');
+  const explicitRoot = Boolean(root);
   let skipped = false;
-  if (!root) {
-    let devMd = '';
-    try {
-      devMd = readFileSync(devMdPath, 'utf8');
-    } catch {
-      devMd = '';
-    }
-    root = resolveScanRoot(devMd);
-    skipped = root === null;
-  }
-
   let outcome = { blocks: [], warns: [] };
   let facts = { skills: [] };
-  if (!skipped) {
-    facts = gatherFacts({ root, baselinePath: get('--baseline') ?? null, llm: argv.includes('--llm') });
-    outcome = evaluateScan(facts);
+  let baselinePath = get('--baseline') ?? null;
+
+  if (!explicitRoot) {
+    // "Could not read the profile" and "the profile says none" are different
+    // answers. Collapsing them let the guard report a clean skip from any
+    // directory that simply has no dev.md — a gate that silently disables
+    // itself when run from the wrong cwd.
+    let devMd = null;
+    try {
+      devMd = readFileSync(devMdPath, 'utf8');
+    } catch (error) {
+      outcome.blocks.push(`cannot read ${devMdPath} (${error.code ?? error.message}) — pass --dev-md <path>, or --root to scan a directory directly`);
+    }
+    if (devMd !== null) {
+      root = resolveScanRoot(devMd);
+      skipped = root === null;
+      // The project's own suppressions apply to the project's own skills. They
+      // are NOT inherited by an ad-hoc `--root` scan of someone else's skill,
+      // where a rule written for our content could silence a real finding in
+      // theirs.
+      if (!skipped && !baselinePath && existsSync(DEFAULT_BASELINE)) baselinePath = DEFAULT_BASELINE;
+    }
+  }
+
+  if (!skipped && outcome.blocks.length === 0) {
+    // An uncaught throw would leave node exiting 1 — which in this guard's own
+    // scheme reads as "pass with warnings". A crash is not a pass.
+    try {
+      facts = gatherFacts({ root, baselinePath, llm: argv.includes('--llm') });
+      outcome = evaluateScan(facts);
+    } catch (error) {
+      facts = { skills: [] };
+      outcome = { blocks: [`the scan failed unexpectedly: ${error.message}`], warns: [] };
+    }
   }
 
   const ok = outcome.blocks.length === 0;
@@ -380,6 +416,9 @@ if (invokedDirectly) {
     }, null, 2));
   } else if (skipped) {
     console.log(`skill-scan: skipped — ${devMdPath} names no scan root (skill-scan: none or absent)`);
+  } else if (facts.skills.length === 0 && outcome.blocks.length > 0) {
+    console.log('skill-scan: BLOCKED');
+    for (const b of outcome.blocks) console.log(`  block: ${b}`);
   } else {
     console.log(`skill-scan: ${ok ? (outcome.warns.length ? 'pass with warnings' : 'pass') : 'BLOCKED'}`);
     for (const entry of facts.skills) {

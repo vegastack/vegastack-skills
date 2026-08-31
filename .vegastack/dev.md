@@ -28,7 +28,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 - auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main — the install is there to carry dependency changes
 - guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
-- guard: the published bundle carries no unsuppressed HIGH/CRITICAL skill finding — `bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --baseline .vegastack/skillspector-baseline.json --json` — runs here because the tag push below is what publishes, and the bundle is what the world installs; a failure stops the sequence and goes to the operator
+- guard: the published bundle carries no unsuppressed HIGH/CRITICAL skill finding — `bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --json` — runs here because the tag push below is what publishes, and the bundle is what the world installs; a failure stops the sequence and goes to the operator
 - auto: tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` — covered by the operator's release word (release: on-request); deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
 - auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
 - Publishing is tag-triggered trusted publishing (OIDC, token-free, provenance by default — never pass `--provenance` explicitly, it conflicts with trusted-publishing config)
@@ -38,7 +38,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 ## Verify — how to see it working (pre-merge)
 
 - `bun run check` is the whole local verification (validate + tests + lint + typecheck); CI adds a packed-tarball install smoke test
-- Skill scanning is separate from `check` because it needs Python 3.12 + SkillSpector, while `check` must stay Bun+Node only: `bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --baseline .vegastack/skillspector-baseline.json --json` — build first, the knob names the built bundle. Exit 2 blocks the hand-back; a new suppression needs the operator's word, never a widened rule to reach green
+- Skill scanning is separate from `check` because it needs Python 3.12 + SkillSpector, while `check` must stay Bun+Node only: `bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --json` — build first, the knob names the built bundle and `.vegastack/skillspector-baseline.json` is picked up by convention. Exit 2 blocks the hand-back; a new suppression needs the operator's word, never a widened rule to reach green
 
 ## Environments
 

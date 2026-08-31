@@ -22,7 +22,19 @@ if (outputIndex !== -1 && argv[outputIndex + 1]) {
       risk_assessment: { score: 17, severity: 'LOW', recommendation: 'SAFE' },
       issues: [],
       suppressed_count: 0,
+      suppressed: [],
       execution_successful: true,
+      // Mirrors a healthy real report: `partial` with no limitations and full
+      // coverage. Omitting this made the fixture unrealistic — the guard fails
+      // closed on an unknown completeness, which is correct behaviour.
+      analysis_completeness: {
+        status: 'partial',
+        limitations: [],
+        entirely_uninspected_files: 0,
+        partially_inspected_files: 0,
+        fully_inspected_files: 1,
+        coverage_percent: 100.0,
+      },
     });
   writeFileSync(argv[outputIndex + 1], body);
 }

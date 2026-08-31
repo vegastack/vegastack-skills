@@ -484,10 +484,50 @@ describe('gatherFacts', () => {
     })
   })
 
+  // Adversarial review: the brief names this coupling risk by name — "fail
+  // loudly on an unrecognised report shape rather than reading a missing key as
+  // 'no findings'". A renamed key upstream would otherwise turn every skill
+  // green while reporting a CRITICAL score.
+  test('a report with no "issues" array is a scanError, never "no findings"', () => {
+    const report = JSON.stringify({
+      risk_assessment: { score: 95, severity: 'CRITICAL' },
+      findings: [{ id: 'X', severity: 'CRITICAL' }],
+      execution_successful: true,
+    })
+    withFake({ VSK_FAKE_REPORT: report }, () => {
+      const f = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false })
+      expect(f.skills).toEqual([])
+      expect(f.scanErrors).toHaveLength(1)
+      expect(f.scanErrors[0].message).toContain('unrecognised shape')
+      // and the verdict must block on it
+      expect(evaluateScan(f).blocks[0]).toContain('alpha')
+    })
+  })
+
+  test('a report that is valid JSON but not an object is a scanError', () => {
+    withFake({ VSK_FAKE_REPORT: '[1,2,3]' }, () => {
+      expect(gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).scanErrors).toHaveLength(1)
+    })
+  })
+
   // Codex cross-agent review, round 2 on Finding [1]: the scanner emits the
   // suppressed entries themselves, not just a count, and the Security axis is
   // told to judge each one against its cause. Discarding them made that
   // impossible while the evidence sat in the report.
+  test('the project baseline is never inherited by an ad-hoc --root scan of someone else’s skill', () => {
+    const log = argvLogPath()
+    const proc = Bun.spawnSync(
+      ['node', join(import.meta.dir, '../scripts/skill-scan.mjs'), '--root', oneSkill(), '--json'],
+      {
+        cwd: join(import.meta.dir, '../../../..'),
+        env: { ...process.env, VSK_SKILLSPECTOR: fake, VSK_FAKE_ARGV: log },
+      },
+    )
+    expect(proc.exitCode).not.toBe(2)
+    // A rule written for our content could silence a real finding in theirs.
+    expect(argvLines(log)[0]).not.toContain('--baseline')
+  })
+
   test('the scanner suppressed-entry list is carried through, not just its count', () => {
     const report = JSON.stringify({
       risk_assessment: { score: 0, severity: 'LOW' },
@@ -502,5 +542,47 @@ describe('gatherFacts', () => {
       expect(entry.suppressed).toHaveLength(1)
       expect(entry.suppressed[0]).toMatchObject({ rule_id: 'P2', file: 'references/conventions.md' })
     })
+  })
+})
+
+// The CLI branch. Two adversarial-review findings lived here and neither was
+// reachable from the exported functions, so it gets its own tests despite no
+// other guard in this repo testing its CLI.
+describe('CLI', () => {
+  const script = join(import.meta.dir, '../scripts/skill-scan.mjs')
+  const repoRoot = join(import.meta.dir, '../../../..')
+
+  const run = (args: string[], env: Record<string, string> = {}) => {
+    const proc = Bun.spawnSync(['node', script, ...args], {
+      cwd: repoRoot,
+      env: { ...process.env, ...env },
+    })
+    return { code: proc.exitCode, out: proc.stdout.toString() + proc.stderr.toString() }
+  }
+
+  test('an unreadable dev.md blocks — it is not the same answer as "skill-scan: none"', () => {
+    const r = run(['--dev-md', join(tmpdir(), 'vsk-no-such-profile.md'), '--json'])
+    expect(r.code).toBe(2)
+    expect(r.out).toContain('cannot read')
+  })
+
+  test('skill-scan: none still skips cleanly', () => {
+    const profile = join(mkdtempSync(join(tmpdir(), 'vsk-prof-')), 'dev.md')
+    writeFileSync(profile, 'skill-scan: none\n')
+    const r = run(['--dev-md', profile])
+    expect(r.code).toBe(0)
+    expect(r.out).toContain('skipped')
+  })
+
+  // A crash must never land on exit 1, which this guard's own scheme reads as
+  // "pass with warnings".
+  test('an unexpected failure exits 2, not 1', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-file-'))
+    const notADir = join(dir, 'a-file')
+    writeFileSync(notADir, 'not a directory')
+    const profile = join(mkdtempSync(join(tmpdir(), 'vsk-prof-')), 'dev.md')
+    writeFileSync(profile, `skill-scan: ${notADir}\n`)
+    const r = run(['--dev-md', profile], { VSK_SKILLSPECTOR: fake })
+    expect(r.code).toBe(2)
   })
 })

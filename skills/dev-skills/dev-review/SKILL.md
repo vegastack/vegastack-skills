@@ -1,6 +1,6 @@
 ---
 name: dev-review
-description: Independent review of finished implementation work — a diff against its brief and plan. Use when dev-implement's review step runs, when asked to "review this branch/diff/issue", "give this a second pair of eyes", "check the finished work on issue N", when a cross-agent session (Claude or Codex) is handed a REVIEW REQUEST, or when review findings need a fix loop, re-review, or adjudication. Not for reviewing an unbuilt plan (dev-plan's approval gate), architecture review (dev-architect), shipping gates (dev-ship), or generic PR review in repos outside this workflow.
+description: Independent review of finished implementation work — a diff against its brief and plan — and the skill-scan vulnerability guard. Use when dev-implement's review step runs, when asked to "review this branch/diff/issue", "give this a second pair of eyes", "check the finished work on issue N", when a cross-agent session (Claude or Codex) is handed a REVIEW REQUEST, when review findings need a fix loop, re-review, or adjudication, or when asked to scan skills for vulnerabilities, triage scanner findings, or judge whether a third-party skill is safe to install. Not for reviewing an unbuilt plan (dev-plan's approval gate), architecture review (dev-architect), shipping gates (dev-ship), or generic PR review in repos outside this workflow.
 ---
 
 # dev-review
