@@ -221,6 +221,8 @@ function normalizeIssue(raw) {
 // together with `--recursive` ("scan each sub-skill with its own baseline"), so
 // the loop is the supported path, not an optimization we passed up.
 export function gatherFacts({ root, baselinePath, llm }) {
+  // VSK_SKILLSPECTOR is a TEST SEAM (stubs the scanner in unit tests), mirroring
+  // ship-gate.mjs's VSK_GH. Normal runs resolve `skillspector` from PATH.
   const binary = process.env.VSK_SKILLSPECTOR || 'skillspector';
   const base = {
     binaryMissing: false,
