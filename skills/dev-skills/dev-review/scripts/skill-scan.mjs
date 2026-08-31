@@ -236,6 +236,10 @@ export function gatherFacts({ root, baselinePath, llm }) {
   const baselineUsable = Boolean(baselinePath) && existsSync(baselinePath);
   if (baselinePath && !baselineUsable) base.baselineMissing = true;
   if (baselineUsable) base.baselineErrors = parseBaseline(readFileSync(baselinePath, 'utf8')).errors;
+  // Short-circuit: with a bad baseline nothing the scan reports is trustworthy —
+  // suppressions may not apply — and the scanner would reject the file once per
+  // skill anyway. Block on the real reason instead of after N wasted invocations.
+  if (base.baselineErrors.length > 0) return base;
 
   const outDir = mkdtempSync(join(tmpdir(), 'vsk-skill-scan-'));
   for (const dir of discoverSkills(root)) {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { readFileSync } from 'node:fs'
@@ -305,14 +305,19 @@ describe('gatherFacts', () => {
     expect(argvLines(log)[0]).not.toContain('--baseline')
   })
 
-  test('baseline errors are gathered so the verdict can block on them', () => {
+  test('baseline errors are gathered so the verdict can block on them, and no scan runs', () => {
+    const log = argvLogPath()
     const path = join(mkdtempSync(join(tmpdir(), 'vsk-base-')), 'baseline.json')
     writeFileSync(path, JSON.stringify({ version: 2, rules: [rule({ reason: 'no clause here' })], fingerprints: [] }))
-    withFake({}, () => {
+    withFake({ VSK_FAKE_ARGV: log }, () => {
       const f = gatherFacts({ root: oneSkill(), baselinePath: path, llm: false })
       expect(f.baselineErrors).toHaveLength(1)
       expect(f.baselineErrors[0]).toContain('Still flag if:')
+      expect(f.skills).toEqual([])
     })
+    // Nothing the scan reports is trustworthy with a bad baseline, and the
+    // scanner would reject the file once per skill — so it must not be invoked.
+    expect(existsSync(log)).toBe(false)
   })
 
   test('--llm drops --no-llm, and is the only way to reach the semantic pass', () => {
