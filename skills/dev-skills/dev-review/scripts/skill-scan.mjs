@@ -188,9 +188,12 @@ export function discoverSkills(root) {
 // depth 4, and a deliberately malicious skill at depth 5 was then scanned by
 // nobody and flagged by nobody — the exact silent-coverage-loss this function
 // exists to prevent, reintroduced one level down. Real directories cannot cycle
-// and symlinks are never descended, so the walk terminates; the only bound is a
-// budget on directories visited, and exceeding it BLOCKS rather than quietly
-// truncating.
+// and symlinks are never descended, so the walk terminates. TWO things can stop it early, and BOTH are reported rather than
+// swallowed: the visit budget, and a directory it cannot read (EACCES, or a
+// path past PATH_MAX). An earlier version caught the read failure and gave up
+// silently, so a skill hidden behind a `chmod 000` directory was flagged by
+// nobody while the run reported success — the same quiet give-up this whole
+// function exists to prevent, one level down.
 const WALK_BUDGET = 50_000;
 
 function deepSkillDirs(dir, state) {
@@ -198,7 +201,9 @@ function deepSkillDirs(dir, state) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
+  } catch (error) {
+    // Not silence: an unreadable directory is unverified coverage.
+    state.unreadable.add(`${dir} (${error.code ?? error.message})`);
     return;
   }
   for (const entry of entries) {
@@ -235,11 +240,12 @@ export function findUnscannable(root) {
   if (!root || !existsSync(root)) return { unscannable: [], exhausted: false };
   const absolute = resolve(root);
   const scanned = new Set(discoverSkills(absolute));
-  const state = { seen: new Set(), visited: 0, exhausted: false };
+  const state = { seen: new Set(), visited: 0, exhausted: false, unreadable: new Set() };
   deepSkillDirs(absolute, state);
   return {
     unscannable: [...state.seen].filter((dir) => !scanned.has(dir)).sort(),
     exhausted: state.exhausted,
+    unreadable: [...state.unreadable].sort(),
   };
 }
 
@@ -282,6 +288,9 @@ export function evaluateScan(facts) {
   }
   for (const { skill, message } of scanErrors) {
     blocks.push(`${skill}: the scan did not produce a readable report (${message}) — an unscanned skill is not a clean skill`);
+  }
+  for (const dir of facts.unreadableDirs ?? []) {
+    blocks.push(`${dir} could not be read, so coverage under it is unverified — a skill hidden there would be reported by nobody`);
   }
   if (facts.coverageExhausted) {
     blocks.push('the scan root is too large to verify coverage — the walk hit its budget, so an unscanned skill could be hiding in it; point --root at a narrower directory');
@@ -471,6 +480,7 @@ export function gatherFacts({ root, baselinePath, llm }) {
   const coverage = findUnscannable(root);
   base.unscannable = coverage.unscannable.map(safe);
   base.coverageExhausted = coverage.exhausted;
+  base.unreadableDirs = coverage.unreadable.map(safe);
 
   const outDir = mkdtempSync(join(tmpdir(), 'vsk-skill-scan-'));
   const discovered = discoverSkills(root);
