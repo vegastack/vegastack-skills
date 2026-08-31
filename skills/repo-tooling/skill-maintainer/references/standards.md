@@ -84,6 +84,20 @@ One authored tree, three harnesses. Every skill in `skills/` follows all seven:
 
 Repo enforcement: `packages/cli/scripts/validate-skill.mjs` (run by `bun run check`) accepts exactly the spec six (`name`, `description`, `license`, `compatibility`, `allowed-tools`, `metadata`) and rejects everything else, enforces the full name grammar (lowercase-letter start, no consecutive hyphens, ≤64 chars, name equals the skill directory name), and rejects empty or over-length descriptions and angle brackets. Policy (rule 1) is stricter than the validator; the minimal two keys are the default.
 
+## Skill scanning and the suppression baseline
+
+Every skill this repo ships is scanned by [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) through `dev-review`'s `scripts/skill-scan.mjs`, at the Verify gate before a push and again as a blocking `guard:` before publish. The guard blocks on any unsuppressed **HIGH or CRITICAL** finding and ignores the aggregate risk score: a skills repo documents the very mechanics the scanner matches on, so the score reflects our subject matter more than our risk.
+
+Suppressions live in `.vegastack/skillspector-baseline.json` — a real SkillSpector baseline, passed with `--baseline`, so nothing here forks the scanner's own matching and upstream changes to it arrive for free. The rules this repo adds on top:
+
+- **A suppression needs the operator's word.** It is a security decision on the record, the same as an operator dismissal appended to `.vegastack/review-known-patterns.md` — never a step taken to get a guard green.
+- **Scope a rule as narrowly as its cause.** `{"id": "P2"}` alone silences prompt injection across every skill forever; `{"id": "P2", "path": "references/conventions.md"}` silences one documented protocol in one file. A rule with no `path` needs a reason that explains why the whole repo is the cause.
+- **Every `reason` carries a "Still flag if:" clause**, naming the condition that makes the pattern a real finding again. The guard blocks on a missing, empty, scanner-placeholder, or clause-less reason — this is enforced, not trusted.
+- **`fingerprints:` are for one-off accepted findings only.** They are content-hashed, so any edit to the surrounding file re-triggers them — which is their re-trigger condition, and why they need a real reason but not the clause. A structural pattern suppressed by fingerprint will reappear at the worst possible moment; use a rule.
+- **Never `--use-shipped-baseline`.** A baseline discovered inside a scanned skill was written by whoever wrote that skill.
+- **The scan reads the built bundle** (`packages/cli/skill/`), not `skills/`: the authored tree carries unpackaged `tests/` fixtures that are deliberately adversarial and score higher than anything that ships. Build before scanning.
+- **The semantic pass (`--llm`) is advisory and never a gate.** It is non-deterministic, and a run whose LLM calls partially fail reports a higher score than a clean one.
+
 ## UNVERIFIED register
 
 Do not assert any of these; if one becomes load-bearing, verify against the live source first and move it into a marked sentence:
