@@ -75,6 +75,14 @@ export function parseBaseline(text) {
     rules.push({ id, path: raw.path, message: raw.message, reason: raw.reason });
   });
 
+  // The scanner rejects a v2 baseline that carries fingerprints without pinning
+  // the version they were computed against, and it does so per invocation — so
+  // catching it here turns twelve confusing "no readable report" failures into
+  // one sentence naming the actual problem.
+  if (rawFingerprints.length > 0 && !data.scanner_version) {
+    errors.push('a v2 baseline with fingerprints must set "scanner_version" (the scanner rejects it otherwise)');
+  }
+
   // Fingerprints get the same reason discipline minus the clause: they are
   // content-hashed, so editing the surrounding file re-triggers the finding on
   // its own — the re-trigger condition a rule has to state in prose. Without
