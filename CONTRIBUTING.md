@@ -18,8 +18,10 @@ Every skill this repo ships is scanned by [NVIDIA SkillSpector](https://github.c
 
 ```sh
 uv tool install git+https://github.com/NVIDIA/skillspector.git
-bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --baseline .vegastack/skillspector-baseline.json --json
+bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --json
 ```
+
+Run it from the repo root: with no `--root` it reads the `skill-scan:` knob from `.vegastack/dev.md` and applies `.vegastack/skillspector-baseline.json` by convention. A profile it cannot read is an error, not a skip — the guard refuses rather than quietly passing from the wrong directory.
 
 The guard refuses (exit 2) when the binary is missing rather than passing quietly. It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score — a skills repo documents the mechanics the scanner matches on, so the score says more about our subject matter than our risk. Build first: the knob names `packages/cli/skill/`, because the authored tree's unpackaged `tests/` fixtures are deliberately adversarial.
 

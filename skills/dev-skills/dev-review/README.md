@@ -30,13 +30,17 @@ Invoked by dev-implement per the project's `review:` knob, by a direct "review t
 
 ## Scanning skills
 
-Projects that author agent skills set a `skill-scan:` root in `.vegastack/dev.md`; `none` (or no line) turns the whole thing off, and the guard says it skipped rather than erroring. The guard needs [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) on PATH — `uv tool install git+https://github.com/NVIDIA/skillspector.git` — and refuses with that instruction when it is absent, rather than passing quietly.
+Projects that author agent skills set a `skill-scan:` root in `.vegastack/dev.md`; `none` (or no line) turns the whole thing off and the guard says it skipped. A profile it cannot read is a different answer — that blocks, so the gate can never disable itself by being run from the wrong directory. The guard needs [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) on PATH — `uv tool install git+https://github.com/NVIDIA/skillspector.git` — and refuses with that instruction when it is absent, rather than passing quietly.
+
+Run it **from your project root**, with `SKILL` standing in for wherever the skill is installed (`.claude/skills/dev-review`, `.agents/skills/dev-review`, …):
 
 ```sh
-node scripts/skill-scan.mjs --json            # reads the knob itself; exit 2 = blocked
-node scripts/skill-scan.mjs --root path/to/skills --baseline .vegastack/skillspector-baseline.json
-node scripts/skill-scan.mjs --llm             # adds the semantic pass — advisory, never a gate
+node $SKILL/scripts/skill-scan.mjs --json      # reads the knob and the project baseline; exit 2 = blocked
+node $SKILL/scripts/skill-scan.mjs --llm       # adds the semantic pass — advisory, never a gate
+node $SKILL/scripts/skill-scan.mjs --root path/to/skills --baseline path/to/baseline.json
 ```
+
+With no `--root`, the knob names what to scan and `.vegastack/skillspector-baseline.json` is applied by convention. An explicit `--root` never inherits that baseline — a rule written for your own content should not silence a finding in someone else's skill.
 
 It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score: that score is inflated by documentation of the very mechanics being scanned and deflated by unrelated suppressions. Suppressions live in a JSON baseline whose every rule carries a `reason` with a **"Still flag if:"** clause — the same discipline as the known-patterns file, enforced here rather than trusted. A degraded scan blocks too: a run whose analyzer failed reports a *higher* score with fewer filtered findings, so its silence proves nothing.
 
@@ -45,7 +49,7 @@ It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggrega
 The same guard answers "should I install this?" for a third-party skill — point `--root` at the directory before it reaches your agent, since an installed skill runs with your agent's authority:
 
 ```sh
-node scripts/skill-scan.mjs --root ~/Downloads/some-skill
+node $SKILL/scripts/skill-scan.mjs --root ~/Downloads/some-skill
 ```
 
 The report carries each finding's rule, severity, and `file:line`, plus every entry the baseline suppressed, so the [security axis](references/security-axis.md) can trace them rather than take a score on trust. Treat a hit as a candidate finding, not a verdict — and never downgrade an unexplained HIGH or CRITICAL on the strength of who published it.
