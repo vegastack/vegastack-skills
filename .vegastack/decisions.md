@@ -1,6 +1,6 @@
 # Decision register
 
-One dated line per directional decision (see `## Decisions` in dev.md for what qualifies); append-only. Format: `- DD-MM-YYYY operator (github-username) — the decision`. (Entries before 28-08-2026 use the older `(github-username)` form; the register is never rewritten.)
+One dated line per directional decision (see `## Decisions` in dev.md for what qualifies); append-only. Format: `- DD-MM-YYYY (github-username) — the decision`. The register is never rewritten.
 
 - 27-08-2026 (kmanojkumar) — Adopted the dev workflow skills for this repo itself (dev.md handbook, operator labels, Ship runbook = the changesets release flow).
 - 28-08-2026 (kmanojkumar) — .vegastack/dev.md is each project's single canonical process doc: policy docs fold into it as Ship bullets, the decision register lives beside it at .vegastack/decisions.md, and every rule that can be a deterministic check becomes a guard (local first, CI backstop).

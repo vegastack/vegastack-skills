@@ -3,7 +3,7 @@ import { GhUnavailable, findMarkerComment, ghJson, parseFlags, parseMarker, rend
 import { evaluatePreflight } from '../scripts/preflight.mjs'
 import { checkEvidence } from '../scripts/evidence-check.mjs'
 
-const approval = (scope = 'brief') => ({ body: `<!-- vsk:v1 type=approval scope=${scope} -->\nApproved by operator (kmanojkumar) on 28-08-2026: "yes"` })
+const approval = (scope = 'brief') => ({ body: `<!-- vsk:v1 type=approval scope=${scope} -->\nApproved by (kmanojkumar) on 28-08-2026: "yes"` })
 const baseIssue = () => ({
   body: '## Outcome\nA thing.\n',
   state: 'open',

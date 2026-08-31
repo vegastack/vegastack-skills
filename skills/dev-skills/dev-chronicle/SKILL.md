@@ -20,7 +20,7 @@ Nearest neighbors: `dev-implement` writes the entries at hand-back (the write ru
 - **Changed:** <the user-visible changes, simple words — sub-bullets or one ·-separated line>
 - **Decisions:** <register lines it produced, or "none">
 
-— approved by operator (<username>) · built by <agent> · branch <name>
+— approved by (<username>) · built by <agent> · branch <name>
 ```
 
 - Titles name the outcome ("Invoice reminders now chase late payers"), never the mechanism ("add reminderAt column"). The issue reference is a full markdown link to `…/issues/<n>` (correct for PRs too — GitHub redirects); a bare `#N` never appears anywhere in an entry, because file views don't auto-link it.

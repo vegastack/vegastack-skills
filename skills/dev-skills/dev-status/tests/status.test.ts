@@ -27,7 +27,7 @@ describe('status helpers', () => {
     expect(ledgerMovedAt([])).toBeNull()
   })
   test('pendingDecisions: unrecorded decision comments and evidence Decision lines, recorded ones excluded', () => {
-    const register = '- 28-08-2026 operator (mk) — keep D1 for the search index\n'
+    const register = '- 28-08-2026 (mk) — keep D1 for the search index\n'
     const comments = [
       { body: '<!-- vsk:v1 type=decision -->\nkeep D1 for the search index', updated_at: '' },
       { body: '<!-- vsk:v1 type=decision -->\nexports stay client-side until >10k rows is real', updated_at: '' },
@@ -38,7 +38,7 @@ describe('status helpers', () => {
     expect(pending).toEqual(['exports stay client-side until >10k rows is real', 'retire the legacy webhook path'])
   })
   test('a recorded decision is not pending just because its gist carries a link', () => {
-    const register = '- 29-08-2026 operator (mk) — retire the legacy webhook path\n'
+    const register = '- 29-08-2026 (mk) — retire the legacy webhook path\n'
     const comments = [{ body: '<!-- vsk:v1 type=decision -->\nretire the [legacy webhook path](https://example.com/webhooks)', updated_at: '' }]
     expect(pendingDecisions(comments, register)).toEqual([])
   })
