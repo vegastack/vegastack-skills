@@ -12,6 +12,19 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 
 `bun run check` must pass before every PR. CI runs it on Node 24 plus a packed-tarball install smoke test.
 
+### Scanning the skills
+
+Every skill this repo ships is scanned by [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) before a push, and again before a release. It is **not** part of `bun run check` — `check` must keep running on Bun and Node alone, while SkillSpector needs Python 3.12 and ~70 packages — so install it once:
+
+```sh
+uv tool install git+https://github.com/NVIDIA/skillspector.git
+bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --baseline .vegastack/skillspector-baseline.json --json
+```
+
+The guard refuses (exit 2) when the binary is missing rather than passing quietly. It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score — a skills repo documents the mechanics the scanner matches on, so the score says more about our subject matter than our risk. Build first: the knob names `packages/cli/skill/`, because the authored tree's unpackaged `tests/` fixtures are deliberately adversarial.
+
+Suppressions live in `.vegastack/skillspector-baseline.json`. Adding one is a security decision needing the maintainer's word, scoped as narrowly as its cause, with a `reason` carrying a **"Still flag if:"** clause the guard enforces. Widening a rule to make the guard green is the failure mode, not the fix.
+
 ## Repo layout
 
 | Path | What it is |
@@ -21,7 +34,7 @@ bun run build      # builds the CLI and syncs the skill copy into packages/cli
 | `<skill>/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
 | `packages/cli/repo-only.json` | The skills `add --all` skips because they only make sense inside this repository. Hand-maintained; validated by the build. |
-| `.vegastack/` | The project's own dev workflow instance: `dev.md` (the canonical process doc — release runbook, versioning, rollback) and `decisions.md` (the decision register). |
+| `.vegastack/` | The project's own dev workflow instance: `dev.md` (the canonical process doc — release runbook, versioning, rollback), `decisions.md` (the decision register), and `skillspector-baseline.json` (audited skill-scan suppressions). |
 
 ## Never commit generated files
 

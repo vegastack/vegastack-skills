@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "_comment": [
+    "SkillSpector suppressions for this repo, passed to the scanner with --baseline by",
+    "dev-review's scripts/skill-scan.mjs. Discipline lives in skill-maintainer's",
+    "references/standards.md: a rule is added only on the operator's word, is scoped as",
+    "narrowly as its cause, and its reason carries a 'Still flag if:' clause the guard",
+    "enforces. SEED ONLY - this covers the two causes traced during issue 61. The",
+    "remaining findings are adjudicated one by one in issue 62; until then the guard",
+    "correctly blocks, and widening a rule to reach green is the failure mode, not the fix."
+  ],
+  "rules": [
+    {
+      "id": "P2",
+      "path": "references/conventions.md",
+      "reason": "conventions.md documents the workflow's own comment protocol - the '<!-- vsk:v1 type=... -->' marker every artifact opens with - so a scanner looking for instructions hidden in HTML comments matches the documentation of the mechanism, not an instance of it. The markers are metadata read by guard scripts, carry no imperative, and the file is shared by ten skills, which is why one cause produces ten findings. Still flag if: a marker example gains text addressed to the agent rather than key=value metadata, or the pattern appears in a file that is not documenting the protocol."
+    },
+    {
+      "id": "AE1",
+      "path": "SKILL.md",
+      "reason": "AE1 fires as 'reference_unresolved': skill-maintainer's SKILL.md cites repo-root paths (packages/cli/packaging.json, CONTRIBUTING.md, .vegastack/dev.md) that cannot resolve inside a skill directory, so the scanner reports the file as only partially inspected. Those citations are correct and load-bearing for a repo-scoped meta-skill; rewriting them to resolve locally would make the instructions wrong. Still flag if: the unresolved reference points outside the repository, or resolves to a URL or an archive rather than a path a reader can open."
+    }
+  ],
+  "fingerprints": []
+}
