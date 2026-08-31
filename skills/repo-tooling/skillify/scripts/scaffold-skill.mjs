@@ -222,20 +222,26 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   // Every refusal belongs in this pre-flight. wireReadme runs after the tree is renamed into
   // place and the packaging entry written, so anything discovered there would leave a half-wired
   // skill on disk while reporting a refusal - or, worse, report success with no row at all.
-  // When a README exists, its row target must be resolvable BEFORE the tree is staged, so a
-  // refusal writes nothing. A wholly absent README or packaging.json keeps the documented
-  // degrade-to-`skipped:` contract (skillify's README, and the bare-repo test) - tightening that
-  // is a behaviour change of its own, tracked separately.
+  // Both wiring targets a scaffolded skill cannot do without must therefore be resolvable BEFORE
+  // the tree is staged: an absent one is a refusal, not a `skipped:` status, because a skill with
+  // no README row or no packaging entry is exactly the state structure.mjs check blocks. Only
+  // `.changeset/` still degrades to `skipped:` - a missing changeset breaks no check.
   const readmePath = join(repoRoot, 'README.md')
-  if ((await entryAt(readmePath))?.isFile()) {
-    const lines = (await readFile(readmePath, 'utf8')).split('\n')
-    const rowTarget = findRowInsertion(lines, group, groupHeading)
-    if (rowTarget?.missingSection) {
-      throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
-    }
-    if (!rowTarget) {
-      throw new Error(`README.md has no ${group ? `table under "### ${groupHeading}"` : 'ungrouped Skills table'} to add a row to - every skill needs its row, so refusing rather than scaffolding a skill the structure check would block`)
-    }
+  if (!(await entryAt(readmePath))?.isFile()) {
+    throw new Error(`README.md not found at ${readmePath} - every skill needs its Skills-table row, so refusing rather than scaffolding a skill the structure check would block`)
+  }
+  const lines = (await readFile(readmePath, 'utf8')).split('\n')
+  const rowTarget = findRowInsertion(lines, group, groupHeading)
+  if (rowTarget?.missingSection) {
+    throw new Error(`README.md has no "### ${groupHeading}" section for group "${group}" - create it with structure.mjs create-group`)
+  }
+  if (!rowTarget) {
+    throw new Error(`README.md has no ${group ? `table under "### ${groupHeading}"` : 'ungrouped Skills table'} to add a row to - every skill needs its row, so refusing rather than scaffolding a skill the structure check would block`)
+  }
+
+  const packagingPath = join(repoRoot, 'packages/cli/packaging.json')
+  if (!(await entryAt(packagingPath))?.isFile()) {
+    throw new Error(`packages/cli/packaging.json not found at ${packagingPath} - every skill needs its packaging entry, so refusing rather than scaffolding a skill the structure check would block`)
   }
 
   // The generated test imports the repo validator by relative path, so its depth follows the

@@ -2,6 +2,16 @@
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 
+## 01-09-2026 — The scaffolder stopped saying "done" to a job it had not done ([#59](https://github.com/vegastack/vegastack-skills/issues/59))
+
+- **What:** `skillify`'s scaffolder now refuses, before writing anything, when the repo it is pointed at has no `README.md` or no `packages/cli/packaging.json`. It exits 1 and names the missing path and what it was needed for. Until now it built the whole seven-file tree, printed `Created …`, exited 0, and listed the two missing wiring steps as `skipped:` — leaving a skill that `structure.mjs check` blocks on the very next run.
+- **Why:** it is the twelfth instance of this repo's signature defect — a command reporting success while leaving state its own checker rejects. An adversarial reviewer found it during #58 and it was deliberately left alone there, because fixing it changes a documented, tested contract that #58's brief did not authorise. So it got its own issue rather than a quiet fix.
+- **How it went:** straightforwardly, and the interesting part was what did *not* change. Three things stay permissive on purpose, and each now has a test saying why: `wireSkill` called on its own is a wiring primitive rather than a tree creator; `.changeset/` still degrades to `skipped:`, because a missing changeset is not a state any checker rejects and refusing on it would be tightening for its own sake; and the refusal fires in dry-run too, matching the Skills-table refusal that already threw before the write branch. The other discovery was that skillify's README had been *ahead* of its code: it already claimed "no README … is a pre-flight refusal", which was simply untrue. The fix made the documentation honest rather than the other way round.
+- **Changed:** two pre-flight refusals in `scaffold-skill.mjs` · the stale comment that described the old contract as deliberate · four new tests (README-absent, packaging-absent, dry-run, and the `.changeset/` case that must keep working) · the existing bare-repo test split so its `wireSkill` half survives intact · the README sentence, now true in both halves · a refreshed sha256 in the skill-scan baseline, because the edit expired the file's coverage acceptance exactly as designed.
+- **Decisions:** none — a bug fix against an existing rule.
+
+— approved by (kmanojkumar) · built by claude · branch fix/59-scaffold-refuse
+
 ## 01-09-2026 — The word "operator" left the artifacts that name one ([#55](https://github.com/vegastack/vegastack-skills/issues/55))
 
 - **What:** every workflow artifact that names a human now writes `(<github-username>)` on its own. Approval markers read `Approved by (kmanojkumar) on DD-MM-YYYY: "…"`, register lines `- DD-MM-YYYY (kmanojkumar) — …`, revision lines `per (kmanojkumar) correction`, and a chronicle footer `— approved by (kmanojkumar) · …`. The rule is stated once, in `conventions.md`, which all ten dev-family skills ship.
