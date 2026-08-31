@@ -88,6 +88,18 @@ violations of documented standards may be [MUST-FIX]; baseline smells are
 
 Compose the security dispatch from [security-axis](security-axis.md): the shared preamble above, then that file's Method steps, finding format (the three extra lines), severity definitions, and standing red lines, quoted into the prompt — the reviewer must receive them in full, not a pointer it cannot follow.
 
+Where a scanner report exists, add its path and that file's "Scanner evidence" rules to the same dispatch:
+
+```
+Scanner report: <path to skill-scan.json or the project's equivalent>.
+Treat every entry as a CANDIDATE finding, never a verdict: read the source at
+its file:line, trace the flow, and assign severity yourself by exploitability.
+The report's aggregate score is context, not a ranking. Entries the baseline
+suppressed are in scope — judge whether each rule is scoped as narrowly as its
+cause and whether its stated re-trigger condition would actually fire. Say so
+in your verdict line if the report says the scan did not complete.
+```
+
 ## Re-review brief (scoped, every fix round)
 
 ```

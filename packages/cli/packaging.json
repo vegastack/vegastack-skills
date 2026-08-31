@@ -67,6 +67,7 @@
     "references/security-axis.md",
     "references/cross-agent.md",
     "assets/review-known-patterns.md.template",
+    "scripts/skill-scan.mjs",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
