@@ -10,7 +10,7 @@ Format, one entry per pattern:
 - **Pattern:** <what the reviewer keeps flagging, concretely — code shape, file area>
 - **Why it's safe here:** <the project fact that makes it a false positive>
 - **Still flag if:** <the exception that makes it a real finding after all>
-- **Origin:** <date + issue where the dismissal happened — operator (<username>)>
+- **Origin:** <date + issue where the dismissal happened — (<username>)>
 ```
 
 The four fields are LIST ITEMS — this file is read in a repo's file view, where single newlines soft-wrap into one paragraph; bullets are what guarantee a line per field. Appended entries (dev-implement's corrections loop) keep the same shape.

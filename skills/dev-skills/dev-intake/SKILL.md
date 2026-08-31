@@ -55,7 +55,7 @@ Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs 
 
 - A new issue starts at `needs-operator`, plus its scope label; add `risky` when it touches security, money, user data, or production. (Names come from dev.md's `labels:` knob.)
 - Approval is only the operator's explicit words, clearly tied to the issue. Labels, silence, or time never create approval.
-- Record it as one approval marker comment per conventions — `scope=brief`, or `scope=brief+plan` when the inline plan was posted with it — quoting the operator's words in the operator (username) format. That comment is what preflight verifies.
+- Record it as one approval marker comment per conventions — `scope=brief`, or `scope=brief+plan` when the inline plan was posted with it — quoting the operator's words in the (username) format. That comment is what preflight verifies.
 - Then flip the state: `research` and `quick-build` → `ready`; `full-plan` → `needs-plan` (dev-plan takes it from there).
 - An issue with an unresolved Assumptions entry cannot leave `needs-operator` — resolve every entry (confirmed, corrected, or moved to a spike) first; the section is deleted once resolved.
 - A directional decision this work settles — one passing the Decisions test in dev.md — is proposed as one register line on the operator's yes; `dev-ship` records at merge.

@@ -25,14 +25,14 @@ Every workflow-generated issue comment opens with an invisible HTML marker follo
 
 ## Operator identity
 
-Every human reference in every artifact — approvals, revisions, decisions, changelog attributions, review adjudications — is written `operator (<github-username>)`:
+Every human reference in every artifact — approvals, revisions, decisions, changelog attributions, review adjudications — names the operator by their GitHub username in parentheses, with no title before it — `(<github-username>)`:
 
-- Approval: `Approved by operator (<username>) on DD-MM-YYYY: "<their words>"`
-- Register line: `- DD-MM-YYYY operator (<username>) — <decision>`
+- Approval: `Approved by (<username>) on DD-MM-YYYY: "<their words>"`
+- Register line: `- DD-MM-YYYY (<username>) — <decision>`
 
 ## Revision markers
 
-Any artifact edited after its first approval: the heading gains `(v2)`, the marker gains `rev=2`, and a `Revisions:` line is appended at the bottom — `v2 — DD-MM-YYYY: <what changed>, per operator (<username>) correction`. Existing revision lines are never rewritten.
+Any artifact edited after its first approval: the heading gains `(v2)`, the marker gains `rev=2`, and a `Revisions:` line is appended at the bottom — `v2 — DD-MM-YYYY: <what changed>, per (<username>) correction`. Existing revision lines are never rewritten.
 
 ## Scope classes
 

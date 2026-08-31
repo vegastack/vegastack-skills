@@ -49,7 +49,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 Record a decision only when it is directional — it steers work beyond this issue: a real alternative was rejected; it constrains work not yet written; and no dev.md line, lint rule, or guard can enforce it instead (if one can, write the rule). Feature requests, one-off fixes, and routine implementation choices never qualify. Every entry needs the user's explicit yes. One line in the register (`decisions:` knob), append-only, no other metadata:
 
-- DD-MM-YYYY operator (github-username) — the decision
+- DD-MM-YYYY (github-username) — the decision
 
 ## Stop and ask
 
