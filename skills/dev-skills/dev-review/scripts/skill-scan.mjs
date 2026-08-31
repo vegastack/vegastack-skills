@@ -113,3 +113,76 @@ export function discoverSkills(root) {
     .filter((dir) => existsSync(join(dir, 'SKILL.md')))
     .sort();
 }
+
+// The severities that stop a push. Deliberately NOT the aggregate risk score:
+// a score is inflated by unresolvable-path artifacts in meta-content and
+// deflated by suppressing unrelated findings, so it answers a question nobody
+// asked. Individual findings are what a reviewer triages.
+const BLOCKING = new Set(['HIGH', 'CRITICAL']);
+
+const INSTALL_HINT = 'install it with `uv tool install git+https://github.com/NVIDIA/skillspector.git`';
+
+// Pure evaluation over gathered facts — unit tests drive this directly.
+export function evaluateScan(facts) {
+  const blocks = [];
+  const warns = [];
+  const {
+    binaryMissing,
+    rootMissing,
+    baselineMissing,
+    baselineErrors = [],
+    skills = [],
+    scanErrors = [],
+  } = facts;
+
+  // Environment failures first: when the scanner never ran, a finding list is
+  // not evidence of anything, and the real cause must read before the noise.
+  if (binaryMissing) {
+    blocks.push(`the \`skillspector\` binary is not on PATH — ${INSTALL_HINT}, or set skill-scan: none if this project has no skills`);
+  }
+  if (rootMissing) {
+    blocks.push(`scan root "${rootMissing}" does not exist — build it first if it is a build output, or correct dev.md's skill-scan: knob`);
+  }
+  for (const error of baselineErrors) {
+    blocks.push(`baseline: ${error}`);
+  }
+  for (const { skill, message } of scanErrors) {
+    blocks.push(`${skill}: the scan did not produce a readable report (${message}) — an unscanned skill is not a clean skill`);
+  }
+
+  if (blocks.length > 0) return { blocks, warns };
+
+  if (skills.length === 0) {
+    blocks.push('no skills found under the scan root — a root with nothing in it is a misconfigured knob, not a clean result');
+    return { blocks, warns };
+  }
+
+  for (const entry of skills) {
+    if (!entry.executionSuccessful) {
+      blocks.push(`${entry.name}: the scan did not complete (execution_successful: false) — a partial score is not a verdict`);
+      continue;
+    }
+    for (const issue of entry.issues ?? []) {
+      if (!BLOCKING.has(String(issue.severity).toUpperCase())) continue;
+      const at = issue.line == null ? issue.file : `${issue.file}:${issue.line}`;
+      blocks.push(`${entry.name}: ${issue.severity} ${issue.id} at ${at} — fix it, or add a justified baseline rule on the operator's word`);
+    }
+  }
+
+  if (baselineMissing) {
+    warns.push('no baseline file — every finding counts, including ones previously adjudicated as structural');
+  }
+  const suppressed = skills.reduce((total, entry) => total + (entry.suppressedCount ?? 0), 0);
+  if (suppressed > 0) {
+    warns.push(`${suppressed} finding(s) suppressed by the baseline — read it when a result surprises you`);
+  }
+  const belowBar = skills.reduce(
+    (total, entry) => total + (entry.issues ?? []).filter((i) => !BLOCKING.has(String(i.severity).toUpperCase())).length,
+    0,
+  );
+  if (belowBar > 0) {
+    warns.push(`${belowBar} MEDIUM/LOW finding(s) below the blocking bar — the security axis triages these`);
+  }
+
+  return { blocks, warns };
+}
