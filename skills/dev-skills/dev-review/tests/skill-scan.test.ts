@@ -1,5 +1,19 @@
 import { describe, expect, test } from 'bun:test'
-import { parseBaseline } from '../scripts/skill-scan.mjs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
+import { discoverSkills, parseBaseline } from '../scripts/skill-scan.mjs'
+
+const SKILL_MD = '---\nname: x\ndescription: y\n---\n'
+
+const tree = (spec: Record<string, boolean>) => {
+  const root = mkdtempSync(join(tmpdir(), 'vsk-scan-'))
+  for (const [name, hasSkillMd] of Object.entries(spec)) {
+    mkdirSync(join(root, name), { recursive: true })
+    if (hasSkillMd) writeFileSync(join(root, name, 'SKILL.md'), SKILL_MD)
+  }
+  return root
+}
 
 const rule = (over = {}) => ({
   id: 'P2',
@@ -79,5 +93,27 @@ describe('parseBaseline', () => {
 
     const withoutReason = JSON.stringify({ version: 2, rules: [], fingerprints: [{ hash: 'sha256:abc' }] })
     expect(parseBaseline(withoutReason).errors[0]).toContain('missing reason')
+  })
+})
+
+describe('discoverSkills', () => {
+  test('finds child directories holding SKILL.md and skips the rest', () => {
+    const root = tree({ alpha: true, beta: false, '.scaffold-tmp': true })
+    expect(discoverSkills(root).map((p: string) => basename(p))).toEqual(['alpha'])
+  })
+
+  test('a root that is itself a skill returns just itself', () => {
+    const root = tree({})
+    writeFileSync(join(root, 'SKILL.md'), SKILL_MD)
+    expect(discoverSkills(root)).toEqual([root])
+  })
+
+  test('a missing root returns an empty list rather than throwing', () => {
+    expect(discoverSkills(join(tmpdir(), 'vsk-does-not-exist'))).toEqual([])
+  })
+
+  test('results are sorted, so the report order is stable', () => {
+    const root = tree({ zeta: true, alpha: true, mid: true })
+    expect(discoverSkills(root).map((p: string) => basename(p))).toEqual(['alpha', 'mid', 'zeta'])
   })
 })
