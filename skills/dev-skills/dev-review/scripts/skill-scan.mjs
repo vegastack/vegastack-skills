@@ -9,6 +9,9 @@
 // Usage: node skill-scan.mjs [--root <path>] [--dev-md <path>] [--baseline <path>]
 //        [--llm] [--json]
 
+import { existsSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
 // The clause every suppression must carry, mirroring the "Still flag if:"
 // requirement on .vegastack/review-known-patterns.md entries: a suppression
 // without a stated re-trigger condition is a blind spot, not a decision.
@@ -84,4 +87,29 @@ export function parseBaseline(text) {
   });
 
   return { rules, fingerprints: rawFingerprints, errors };
+}
+
+// Absolute paths, sorted, of the skill directories under `root`. A directory is
+// a skill iff it holds a SKILL.md. The root itself counts when it holds one;
+// otherwise its immediate children are examined — ONE level, matching the
+// authored layout's own depth cap. Dot-prefixed entries are skipped: a crashed
+// scaffolder's `.name.scaffold-XXXX` leftover must never read as a skill.
+// Symlinks are not followed — a scanner that traverses out of its root is a
+// scanner that scans something other than what it reports on.
+export function discoverSkills(root) {
+  if (!root || !existsSync(root)) return [];
+  const absolute = resolve(root);
+  if (existsSync(join(absolute, 'SKILL.md'))) return [absolute];
+
+  let entries;
+  try {
+    entries = readdirSync(absolute, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+    .map((entry) => join(absolute, entry.name))
+    .filter((dir) => existsSync(join(dir, 'SKILL.md')))
+    .sort();
 }
