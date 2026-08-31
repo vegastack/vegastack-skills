@@ -681,7 +681,7 @@ describe('adversarial regressions', () => {
     symlinkSync(real, join(root, 'linked-group'))
 
     expect(discoverSkills(root)).toEqual([])
-    const unscannable = findUnscannable(root)
+    const { unscannable } = findUnscannable(root)
     expect(unscannable).toHaveLength(1)
     expect(evaluateScan(facts({ unscannable, skills: [] })).blocks[0]).toContain('linked-group')
   })
@@ -691,7 +691,28 @@ describe('adversarial regressions', () => {
     mkdirSync(join(root, 'a/b/too-deep'), { recursive: true })
     writeFileSync(join(root, 'a/b/too-deep/SKILL.md'), SKILL_MD)
     expect(discoverSkills(root)).toEqual([])
-    expect(findUnscannable(root).some((p: string) => p.endsWith('too-deep'))).toBe(true)
+    expect(findUnscannable(root).unscannable.some((p: string) => p.endsWith('too-deep'))).toBe(true)
+  })
+
+  // The eleventh defect of this branch's recurring class, found by the round-3
+  // adversarial pass: the previous fix capped the walk at depth 4, so a
+  // deliberately malicious skill at depth 5 was scanned by nobody and flagged by
+  // nobody — "pass with warnings", exit 1. A cap IS a cliff; the walk is now
+  // unbounded and only a visit budget stops it, which blocks rather than
+  // truncating.
+  test('a skill buried arbitrarily deep is still reported — a depth cap is a cliff', () => {
+    for (const depth of [3, 4, 5, 6, 9]) {
+      const root = mkdtempSync(join(tmpdir(), `vsk-depth${depth}-`))
+      const buried = join(root, ...Array.from({ length: depth - 1 }, (_, i) => `lvl${i}`), 'buried')
+      mkdirSync(buried, { recursive: true })
+      writeFileSync(join(buried, 'SKILL.md'), SKILL_MD)
+      const { unscannable } = findUnscannable(root)
+      expect(unscannable.some((p: string) => p.endsWith('buried'))).toBe(true)
+    }
+  })
+
+  test('a walk that cannot finish blocks instead of reporting partial coverage', () => {
+    expect(evaluateScan(facts({ coverageExhausted: true, skills: [] })).blocks[0]).toContain('too large')
   })
 
   test('a dot-prefixed skill directory is reported rather than silently skipped', () => {
@@ -699,7 +720,7 @@ describe('adversarial regressions', () => {
     mkdirSync(join(root, '.scaffold-leftover'), { recursive: true })
     writeFileSync(join(root, '.scaffold-leftover/SKILL.md'), SKILL_MD)
     expect(discoverSkills(root)).toEqual([])
-    expect(findUnscannable(root)).toHaveLength(1)
+    expect(findUnscannable(root).unscannable).toHaveLength(1)
   })
 
   test('a symlinked skill directory is named and blocked, never silently dropped', () => {
@@ -710,7 +731,7 @@ describe('adversarial regressions', () => {
     symlinkSync(join(real, 'victim'), join(root, 'linked-skill'))
 
     expect(discoverSkills(root)).toEqual([])
-    const unscannable = findUnscannable(root)
+    const { unscannable } = findUnscannable(root)
     expect(unscannable).toHaveLength(1)
     expect(evaluateScan(facts({ unscannable, skills: [] })).blocks[0]).toContain('was not scanned')
   })
