@@ -95,7 +95,7 @@
     {
       "skill": "skill-maintainer",
       "file": "references/standards.md",
-      "sha256": "38739884e78fc601f237374a8cdc396a96af1ed5d9cff29ba0fc32560ba7ec68",
+      "sha256": "b44122822a320a305728ee023ed8e3140bf87aaaef400a43d45b778e53ad2c02",
       "reason": "The scanner reports static_parse_limit on this file and degrades 1 static analyzer(s) for the whole skill. What is established: the degradation is the scanner's bounded shell parser giving up, not a property of this file's behaviour - a control experiment isolated one trigger, a JavaScript template literal in assignment position, which degrades a two-line file while forty template literals inside function calls do not degrade at all. What is NOT established: that this is the trigger in this particular file. The specific span was not isolated per file, and this acceptance does not claim it was. It is accepted because the alternative is banning ordinary syntax from every skill that ships a script, and because the acceptance is bound to this file's exact contents - any edit drops it and forces re-adjudication. Still flag if: the reported reason code changes from static_parse_limit, or the number of degraded analyzers rises above 1 - either means a cause other than the one accepted here."
     },
     {
