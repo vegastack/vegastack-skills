@@ -9,8 +9,11 @@
 // Usage: node skill-scan.mjs [--root <path>] [--dev-md <path>] [--baseline <path>]
 //        [--llm] [--json]
 
-import { existsSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // The clause every suppression must carry, mirroring the "Still flag if:"
 // requirement on .vegastack/review-known-patterns.md entries: a suppression
@@ -185,4 +188,141 @@ export function evaluateScan(facts) {
   }
 
   return { blocks, warns };
+}
+
+// The dev.md knob naming the directory to scan. `none` or absent means this
+// project authors no skills — the guard skips rather than erroring, so callers
+// run one unconditional command instead of honouring a rule written in prose.
+export function resolveScanRoot(devMdText) {
+  const value = (/^skill-scan:\s*(\S+)/m.exec(devMdText ?? '') || [])[1];
+  if (!value || value === 'none') return null;
+  return value;
+}
+
+function normalizeIssue(raw) {
+  const location = raw.location ?? {};
+  return {
+    id: raw.id ?? raw.rule_id ?? raw.finding_id ?? 'UNKNOWN',
+    severity: raw.severity ?? 'UNKNOWN',
+    file: location.file ?? raw.file ?? '(unknown file)',
+    line: location.start_line ?? null,
+  };
+}
+
+// Impure: shells out to the scanner, once per skill. `--baseline` is rejected
+// together with `--recursive` ("scan each sub-skill with its own baseline"), so
+// the loop is the supported path, not an optimization we passed up.
+export function gatherFacts({ root, baselinePath, llm }) {
+  const binary = process.env.VSK_SKILLSPECTOR || 'skillspector';
+  const base = {
+    binaryMissing: false,
+    rootMissing: null,
+    baselineMissing: !baselinePath,
+    baselineErrors: [],
+    skills: [],
+    scanErrors: [],
+  };
+
+  if (!root || !existsSync(root)) return { ...base, rootMissing: root ?? '(unset)' };
+
+  const baselineUsable = Boolean(baselinePath) && existsSync(baselinePath);
+  if (baselinePath && !baselineUsable) base.baselineMissing = true;
+  if (baselineUsable) base.baselineErrors = parseBaseline(readFileSync(baselinePath, 'utf8')).errors;
+
+  const outDir = mkdtempSync(join(tmpdir(), 'vsk-skill-scan-'));
+  for (const dir of discoverSkills(root)) {
+    const name = basename(dir);
+    const reportPath = join(outDir, `${name}.json`);
+    const args = ['scan', dir, '--format', 'json', '--output', reportPath];
+    if (!llm) args.push('--no-llm');
+    if (baselineUsable) args.push('--baseline', baselinePath);
+
+    try {
+      // `env` is passed explicitly, as ship-gate.mjs does: under Bun a mutated
+      // process.env is NOT inherited by execFileSync children, so the seam and
+      // any scanner configuration (SKILLSPECTOR_PROVIDER, etc.) would be lost.
+      execFileSync(binary, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } });
+    } catch (error) {
+      // ENOENT means the binary itself is absent — a fact about the environment,
+      // not about any skill, and it stops the whole run.
+      if (error.code === 'ENOENT') return { ...base, binaryMissing: true };
+      // Any other non-zero exit is expected: the scanner exits 1 whenever the
+      // score exceeds 50, which says nothing about whether a finding blocks.
+      // The report is the evidence; only its absence is a failure.
+    }
+
+    let report;
+    try {
+      report = JSON.parse(readFileSync(reportPath, 'utf8'));
+    } catch (error) {
+      base.scanErrors.push({ skill: name, message: error.message });
+      continue;
+    }
+
+    const assessment = report.risk_assessment ?? {};
+    base.skills.push({
+      name,
+      score: assessment.score ?? null,
+      severity: assessment.severity ?? 'UNKNOWN',
+      executionSuccessful: report.execution_successful !== false,
+      suppressedCount: report.suppressed_count ?? 0,
+      issues: (report.issues ?? []).map(normalizeIssue),
+    });
+  }
+
+  return base;
+}
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  const argv = process.argv.slice(2);
+  const get = (flag) => {
+    const index = argv.indexOf(flag);
+    return index === -1 ? undefined : argv[index + 1];
+  };
+  const json = argv.includes('--json');
+  const devMdPath = get('--dev-md') || '.vegastack/dev.md';
+
+  let root = get('--root');
+  let skipped = false;
+  if (!root) {
+    let devMd = '';
+    try {
+      devMd = readFileSync(devMdPath, 'utf8');
+    } catch {
+      devMd = '';
+    }
+    root = resolveScanRoot(devMd);
+    skipped = root === null;
+  }
+
+  let outcome = { blocks: [], warns: [] };
+  let facts = { skills: [] };
+  if (!skipped) {
+    facts = gatherFacts({ root, baselinePath: get('--baseline') ?? null, llm: argv.includes('--llm') });
+    outcome = evaluateScan(facts);
+  }
+
+  const ok = outcome.blocks.length === 0;
+  if (json) {
+    console.log(JSON.stringify({
+      guard: 'skill-scan',
+      ok,
+      skipped,
+      ...outcome,
+      skills: facts.skills.map(({ name, score, severity, issues }) => ({
+        name, score, severity, findings: issues.length,
+      })),
+    }, null, 2));
+  } else if (skipped) {
+    console.log(`skill-scan: skipped — ${devMdPath} names no scan root (skill-scan: none or absent)`);
+  } else {
+    console.log(`skill-scan: ${ok ? (outcome.warns.length ? 'pass with warnings' : 'pass') : 'BLOCKED'}`);
+    for (const entry of facts.skills) {
+      console.log(`  ${entry.name}: score ${entry.score} ${entry.severity} — ${entry.issues.length} finding(s)`);
+    }
+    for (const b of outcome.blocks) console.log(`  block: ${b}`);
+    for (const w of outcome.warns) console.log(`  warn: ${w}`);
+  }
+  process.exit(ok ? (outcome.warns.length > 0 ? 1 : 0) : 2);
 }

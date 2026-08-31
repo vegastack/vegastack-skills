@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { discoverSkills, evaluateScan, parseBaseline } from '../scripts/skill-scan.mjs'
+import { readFileSync } from 'node:fs'
+import { discoverSkills, evaluateScan, gatherFacts, parseBaseline, resolveScanRoot } from '../scripts/skill-scan.mjs'
 
 const SKILL_MD = '---\nname: x\ndescription: y\n---\n'
 
@@ -217,5 +218,146 @@ describe('evaluateScan', () => {
       }),
     )
     expect(r.blocks[0]).toContain('uv tool install')
+  })
+})
+
+describe('resolveScanRoot', () => {
+  test('reads the knob', () => {
+    expect(resolveScanRoot('## Knobs\n\nskill-scan: packages/cli/skill   # built bundle\n')).toBe('packages/cli/skill')
+  })
+
+  test('none and absent both mean no scan', () => {
+    expect(resolveScanRoot('skill-scan: none\n')).toBeNull()
+    expect(resolveScanRoot('review: subagent\n')).toBeNull()
+  })
+})
+
+const fake = join(import.meta.dir, 'fixtures/fake-skillspector.mjs')
+const oneSkill = () => tree({ alpha: true })
+const argvLogPath = () => join(mkdtempSync(join(tmpdir(), 'vsk-argv-')), 'argv.jsonl')
+const argvLines = (path: string) =>
+  readFileSync(path, 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line) as string[])
+
+describe('gatherFacts', () => {
+  const withFake = (env: Record<string, string | undefined>, run: () => void) => {
+    const saved = { ...process.env }
+    Object.assign(process.env, { VSK_SKILLSPECTOR: fake, ...env })
+    try {
+      run()
+    } finally {
+      process.env = saved
+    }
+  }
+
+  const baselineFile = () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'vsk-base-')), 'baseline.json')
+    writeFileSync(path, JSON.stringify({ version: 2, rules: [rule()], fingerprints: [] }))
+    return path
+  }
+
+  test('always passes --no-llm and the baseline, and never --use-shipped-baseline or --recursive', () => {
+    const log = argvLogPath()
+    const baseline = baselineFile()
+    withFake({ VSK_FAKE_ARGV: log }, () => {
+      gatherFacts({ root: oneSkill(), baselinePath: baseline, llm: false })
+    })
+    const argv = argvLines(log)[0]
+    expect(argv).toContain('--no-llm')
+    expect(argv).toContain('--baseline')
+    expect(argv).toContain(baseline)
+    expect(argv).not.toContain('--use-shipped-baseline')
+    expect(argv).not.toContain('--recursive')
+  })
+
+  // A path the operator named but that is not there must not read as "no
+  // baseline configured" — the scan silently counts findings that were
+  // previously adjudicated as structural.
+  test('a baseline path that does not exist is reported as missing, not passed to the scanner', () => {
+    const log = argvLogPath()
+    let f: ReturnType<typeof gatherFacts>
+    withFake({ VSK_FAKE_ARGV: log }, () => {
+      f = gatherFacts({ root: oneSkill(), baselinePath: join(tmpdir(), 'vsk-no-baseline.json'), llm: false })
+    })
+    expect(f!.baselineMissing).toBe(true)
+    expect(argvLines(log)[0]).not.toContain('--baseline')
+  })
+
+  test('baseline errors are gathered so the verdict can block on them', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'vsk-base-')), 'baseline.json')
+    writeFileSync(path, JSON.stringify({ version: 2, rules: [rule({ reason: 'no clause here' })], fingerprints: [] }))
+    withFake({}, () => {
+      const f = gatherFacts({ root: oneSkill(), baselinePath: path, llm: false })
+      expect(f.baselineErrors).toHaveLength(1)
+      expect(f.baselineErrors[0]).toContain('Still flag if:')
+    })
+  })
+
+  test('--llm drops --no-llm, and is the only way to reach the semantic pass', () => {
+    const log = argvLogPath()
+    withFake({ VSK_FAKE_ARGV: log }, () => {
+      gatherFacts({ root: oneSkill(), baselinePath: null, llm: true })
+    })
+    expect(argvLines(log)[0]).not.toContain('--no-llm')
+  })
+
+  test('invokes the scanner once per discovered skill', () => {
+    const log = argvLogPath()
+    withFake({ VSK_FAKE_ARGV: log }, () => {
+      gatherFacts({ root: tree({ alpha: true, beta: true, gamma: true }), baselinePath: null, llm: false })
+    })
+    expect(argvLines(log)).toHaveLength(3)
+  })
+
+  test('a missing binary is reported as a fact, not an exception', () => {
+    withFake({ VSK_SKILLSPECTOR: '/nonexistent/skillspector' }, () => {
+      expect(gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).binaryMissing).toBe(true)
+    })
+  })
+
+  test('a missing root is reported as a fact', () => {
+    withFake({}, () => {
+      const f = gatherFacts({ root: join(tmpdir(), 'vsk-absent-root'), baselinePath: null, llm: false })
+      expect(f.rootMissing).toContain('vsk-absent-root')
+    })
+  })
+
+  test('an unparseable report becomes a scanError for that skill', () => {
+    withFake({ VSK_FAKE_REPORT: 'not json' }, () => {
+      expect(gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).scanErrors).toHaveLength(1)
+    })
+  })
+
+  // The scanner exits 1 whenever the score exceeds 50, which says nothing about
+  // whether a blocking FINDING exists. Treating that exit as an error would make
+  // every medium-scoring skill unscannable.
+  test('a non-zero scanner exit with a readable report is data, not an error', () => {
+    withFake({ VSK_FAKE_EXIT: '1' }, () => {
+      const f = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false })
+      expect(f.scanErrors).toEqual([])
+      expect(f.skills).toHaveLength(1)
+    })
+  })
+
+  test('report fields map onto the facts shape the verdict function reads', () => {
+    const report = JSON.stringify({
+      risk_assessment: { score: 80, severity: 'HIGH' },
+      issues: [{ id: 'AE1', severity: 'HIGH', location: { file: 'SKILL.md', start_line: 16 } }],
+      suppressed_count: 2,
+      execution_successful: true,
+    })
+    withFake({ VSK_FAKE_REPORT: report }, () => {
+      const entry = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false }).skills[0]
+      expect(entry).toMatchObject({
+        name: 'alpha',
+        score: 80,
+        severity: 'HIGH',
+        suppressedCount: 2,
+        executionSuccessful: true,
+      })
+      expect(entry.issues[0]).toEqual({ id: 'AE1', severity: 'HIGH', file: 'SKILL.md', line: 16 })
+    })
   })
 })
