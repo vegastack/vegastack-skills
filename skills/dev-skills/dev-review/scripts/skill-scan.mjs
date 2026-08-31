@@ -20,24 +20,31 @@ import { fileURLToPath } from 'node:url';
 // without a stated re-trigger condition is a blind spot, not a decision.
 const CLAUSE = /still flag if:/i;
 
-// SkillSpector's own default when `skillspector baseline` writes a file without
-// --reason. Committing one of those suppresses every current finding at once.
-const PLACEHOLDER = /auto-generated baseline/i;
+// SkillSpector's exact default when `skillspector baseline` writes a file
+// without --reason. Committing one of those suppresses every current finding at
+// once. Exact equality is a FACT and blocks; the looser phrase match below is a
+// heuristic and only warns — conventions' guard doctrine is that regex judgement
+// never blocks.
+const PLACEHOLDER_EXACT = 'Accepted finding (auto-generated baseline)';
+const PLACEHOLDER_LIKE = /auto-generated baseline/i;
 
 function reasonErrors(entry, label, requireClause) {
   const errors = [];
+  const warns = [];
   const reason = typeof entry.reason === 'string' ? entry.reason.trim() : '';
   if (!reason) {
     errors.push(`${label}: missing reason — every suppression states why the pattern is structural here`);
-    return errors;
+    return { errors, warns };
   }
-  if (PLACEHOLDER.test(reason)) {
-    errors.push(`${label}: placeholder reason ("${reason}") — write why this pattern is structural, never the scanner's default`);
+  if (reason === PLACEHOLDER_EXACT) {
+    errors.push(`${label}: the scanner's default reason, unedited — write why this pattern is structural here`);
+  } else if (PLACEHOLDER_LIKE.test(reason)) {
+    warns.push(`${label}: reason mentions an auto-generated baseline ("${reason}") — check it was actually written, not adapted from the default`);
   }
   if (requireClause && !CLAUSE.test(reason)) {
     errors.push(`${label}: reason has no "Still flag if:" clause — a suppression without a re-trigger condition is a blind spot`);
   }
-  return errors;
+  return { errors, warns };
 }
 
 // Returns { rules, fingerprints, errors }. Never throws: unreadable content comes
@@ -47,13 +54,14 @@ export function parseBaseline(text) {
   try {
     data = JSON.parse(text);
   } catch (error) {
-    return { rules: [], fingerprints: [], errors: [`baseline is not valid JSON: ${error.message}`] };
+    return { rules: [], fingerprints: [], errors: [`baseline is not valid JSON: ${error.message}`], warns: [] };
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
-    return { rules: [], fingerprints: [], errors: ['baseline must be a JSON object'] };
+    return { rules: [], fingerprints: [], errors: ['baseline must be a JSON object'], warns: [] };
   }
 
   const errors = [];
+  const warns = [];
   const rawRules = Array.isArray(data.rules) ? data.rules : [];
   const rawFingerprints = Array.isArray(data.fingerprints) ? data.fingerprints : [];
   if (data.rules !== undefined && !Array.isArray(data.rules)) errors.push('baseline "rules" must be an array');
@@ -93,7 +101,9 @@ export function parseBaseline(text) {
         errors.push(`${label}: "${field}" contains the glob character "${glob[0]}" ("${value}") — matchers must be literal so a rule cannot silence more than the cause it names; write one rule per file`);
       }
     }
-    errors.push(...reasonErrors(raw, label, true));
+    const reasoned = reasonErrors(raw, label, true);
+    errors.push(...reasoned.errors);
+    warns.push(...reasoned.warns);
     rules.push({ id, path, message: raw.message, reason: raw.reason });
   });
 
@@ -119,10 +129,12 @@ export function parseBaseline(text) {
       errors.push(`${label}: not an object`);
       return;
     }
-    errors.push(...reasonErrors(raw, label, false));
+    const reasoned = reasonErrors(raw, label, false);
+    errors.push(...reasoned.errors);
+    warns.push(...reasoned.warns);
   });
 
-  return { rules, fingerprints: rawFingerprints, errors };
+  return { rules, fingerprints: rawFingerprints, errors, warns };
 }
 
 // Absolute paths, sorted, of the skill directories under `root`. A directory is
@@ -337,6 +349,7 @@ export function evaluateScan(facts) {
     }
   }
 
+  for (const warning of facts.baselineWarns ?? []) warns.push(`baseline: ${warning}`);
   if (baselineMissing) {
     warns.push('no baseline file — every finding counts, including ones previously adjudicated as structural');
   }
@@ -443,7 +456,11 @@ export function gatherFacts({ root, baselinePath, llm }) {
 
   const baselineUsable = Boolean(baselinePath) && existsSync(baselinePath);
   if (baselinePath && !baselineUsable) base.baselineMissing = true;
-  if (baselineUsable) base.baselineErrors = parseBaseline(readFileSync(baselinePath, 'utf8')).errors;
+  if (baselineUsable) {
+    const parsed = parseBaseline(readFileSync(baselinePath, 'utf8'));
+    base.baselineErrors = parsed.errors;
+    base.baselineWarns = parsed.warns;
+  }
   // Short-circuit: with a bad baseline nothing the scan reports is trustworthy —
   // suppressions may not apply — and the scanner would reject the file once per
   // skill anyway. Block on the real reason instead of after N wasted invocations.
@@ -583,7 +600,7 @@ if (invokedDirectly) {
       const declared = [...new Set(scanRootDeclarations(devMd))];
       if (declared.length > 1) {
         outcome.blocks.push(
-          `${devMdPath} declares skill-scan more than once (${declared.join(', ')}) — an example line above the real knob silently disables the gate; leave exactly one`,
+          `${devMdPath} gives skill-scan conflicting values (${declared.join(', ')}) — an example line above the real knob would otherwise silently decide the gate; leave exactly one`,
         );
       }
       root = resolveScanRoot(devMd);

@@ -42,6 +42,10 @@ node $SKILL/scripts/skill-scan.mjs --root path/to/skills --baseline path/to/base
 
 With no `--root`, the knob names what to scan and `.vegastack/skillspector-baseline.json` is applied by convention. An explicit `--root` never inherits that baseline — a rule written for your own content should not silence a finding in someone else's skill.
 
+Discovery reads two levels — `<root>/<skill>/` and `<root>/<group>/<skill>/` — matching the authored layout. Anything else holding a `SKILL.md` **blocks rather than being skipped**: buried deeper, dot-prefixed, or behind a symlink (never followed, since a scanner that walks out of its root reports on something it wasn't pointed at). An unscanned skill nobody mentions looks exactly like a clean one, which is the failure this guard exists to prevent.
+
+Baseline matchers must be **literal** — `*`, `?`, `[` and `]` are rejected. A single `{"id": "*"}` once silenced every finding while the run reported success, and a fix that rejected `*` was bypassed by `?*` immediately; naming the file is the only version of "as narrow as its cause" a guard can actually check.
+
 It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score: that score is inflated by documentation of the very mechanics being scanned and deflated by unrelated suppressions. Suppressions live in a JSON baseline whose every rule carries a `reason` with a **"Still flag if:"** clause — the same discipline as the known-patterns file, enforced here rather than trusted. A degraded scan blocks too: a run whose analyzer failed reports a *higher* score with fewer filtered findings, so its silence proves nothing.
 
 ### Vetting a skill you did not write
