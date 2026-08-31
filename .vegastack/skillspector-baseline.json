@@ -3,30 +3,99 @@
   "_comment": [
     "SkillSpector suppressions for this repo, passed to the scanner with --baseline by",
     "dev-review's scripts/skill-scan.mjs. Discipline lives in skill-maintainer's",
-    "references/standards.md: a rule is added only on the operator's word, is scoped as",
-    "narrowly as its cause, and its reason carries a 'Still flag if:' clause the guard",
-    "enforces.",
+    "references/standards.md: an entry is added only on the operator's word, is scoped as",
+    "narrowly as its cause with a LITERAL matcher, and its reason carries a 'Still flag",
+    "if:' clause the guard enforces.",
     "",
-    "SEED ONLY - one rule, for the one cause of issue 61's that a rule can express.",
-    "The remaining findings are adjudicated one by one in issue 62; until then the guard",
-    "correctly blocks, and widening a rule to reach green is the failure mode, not the fix.",
-    "",
-    "Issue 62 inherits an open instrument question, with the evidence gathered in 61:",
-    "skill-maintainer's four AE1 'reference_unresolved' findings have no precise",
-    "suppression here. A rule is too broad - SkillSpector matches on id/path/message",
-    "only, and every skill's entry point is named SKILL.md, so {id: AE1, path: SKILL.md}",
-    "silences all twelve skills and did hide a regression introduced in branch",
-    "feat/skill-scan before it was caught. A fingerprint is too narrow - the generated",
-    "baseline collapses the four occurrences into one hash, which on re-scan suppressed",
-    "only one of them. Neither is written here rather than pretending the cause is",
-    "covered. (A baseline that does carry fingerprints must also set scanner_version.)"
+    "Adjudicated finding by finding in issue 62. Three sections:",
+    "  rules[]       - findings the scanner reports, suppressed by literal id+path",
+    "  fingerprints[] - one-off accepted findings, content-hashed",
+    "  coverage[]    - files the scanner could not finish reading. NOT a finding, and",
+    "                  the scanner's own baseline cannot express it; this section is",
+    "                  read by our guard only. Accepting one does not accept another:",
+    "                  a skill still blocks if any unread file is unaccounted for."
   ],
   "rules": [
     {
       "id": "P2",
       "path": "references/conventions.md",
       "reason": "conventions.md documents the workflow's own comment protocol - the '<!-- vsk:v1 type=... -->' marker every artifact opens with - so a scanner looking for instructions hidden in HTML comments matches the documentation of the mechanism, not an instance of it. The markers are metadata read by guard scripts, carry no imperative, and the file is shared by ten skills, which is why one cause produces ten findings. Still flag if: a marker example gains text addressed to the agent rather than key=value metadata, or the pattern appears in a file that is not documenting the protocol."
+    },
+    {
+      "id": "P2",
+      "path": "references/brief-template.md",
+      "reason": "The brief template shows the same '<!-- vsk:v1 type=brief ... -->' marker an issue body must open with, inside a fenced markdown block that a reader copies. It is an example of the protocol above, in the one file whose job is to show it. Still flag if: the template's HTML comments gain prose addressed to the agent rather than key=value metadata."
+    },
+    {
+      "id": "P2",
+      "path": "assets/agents-section.md.template",
+      "reason": "The template opens with '<!-- vsk-dev:start -->', the delimiter dev-setup uses to find and re-render the one block of AGENTS.md it owns. It is a machine-readable boundary marker, deliberately invisible in rendered markdown, and dev-setup would be unable to edit idempotently without it. Still flag if: the delimiter comment gains content beyond the marker itself, or a second unexplained comment appears in the template."
+    },
+    {
+      "id": "P2",
+      "path": "references/harness-facts.md",
+      "reason": "harness-facts.md documents how each harness discovers skills, including Claude Code's '@path/to/file' import syntax and the HTML-comment source citations ('<!-- source: CLAUDE-CODE-SKILLS -->') that tie every normative sentence to the page it came from. A scanner reading a file that explains agent-file mechanics will match the mechanics being explained. Still flag if: a citation comment stops naming a source and starts containing instructions, or an import example is written as something to execute rather than to recognise."
+    },
+    {
+      "id": "P2",
+      "path": "references/standards.md",
+      "reason": "standards.md carries the same '<!-- source: ... -->' citation comments, which are how a reader tells a verified normative sentence from commentary and how the weekly refresh knows which sentences a drifted source invalidates. Removing them would make the freshness contract unauditable. Still flag if: a source comment carries anything but a source identifier, or an uncited HTML comment appears among the normative sentences."
+    },
+    {
+      "id": "P2",
+      "path": "references/authoring.md",
+      "reason": "authoring.md marks the tables it mirrors from skill-maintainer's standards with '<!-- mirrored -->' so the refresh runner knows which copies must move together. It is a synchronisation marker between two files, not an instruction. Still flag if: a mirrored marker gains prose, or the comment appears on content that is not actually mirrored elsewhere."
+    },
+    {
+      "id": "P2",
+      "path": "refresh/REFRESH.md",
+      "reason": "Every refresh contract carries HTML comments naming which reference sections a drifted source invalidates - the mapping the refresh runner reads to build its PR. It is machine-readable bookkeeping about this repo's own files. Still flag if: a comment in a refresh contract addresses the agent directly rather than naming an affected file or section."
     }
   ],
-  "fingerprints": []
+  "scanner_version": "2.11.0",
+  "fingerprints": [
+    {
+      "hash": "sha256:e60b98d4bd7e0e3128bc80275af8323acef3b987babea8f4d52faff996d4694a",
+      "rule_id": "RA1",
+      "file": "refresh/REFRESH.md",
+      "reason": "skillify only. RA1 (Rogue Agent / self-modification) is CORRECT about the pattern: this refresh contract instructs an agent to update skillify's own marked sections when skill-maintainer's upstream sources drift. It is accepted because the behaviour is bounded in ways the scanner cannot see: the weekly refresh runner is the only writer, it edits only sections carrying an explicit marker, checksums and versions are runner-only and never hand-edited, and every change lands as a pull request a human reviews before merge - the agent cannot self-modify silently or outside review. Content hashing re-triggers this the moment the contract's wording changes, which is exactly when those bounds would need re-checking."
+    }
+  ],
+  "coverage": [
+    {
+      "skill": "dev-implement",
+      "file": "scripts/preflight.mjs",
+      "reason": "SkillSpector's bounded shell parser reads a JavaScript template literal in assignment position (`const x = `${a}:${b}``) as a backtick command substitution and exhausts its span limit, degrading the static analyzers for the whole skill. Isolated experimentally: the same file with string concatenation instead of a template literal scans clean, while forty template literals inside function calls do not degrade at all - so this is the scanner's parser, not this file's content. Accepted rather than worked around, because the alternative is banning ordinary JavaScript syntax from every skill that ships a script. Still flag if: the file gains an actual shell invocation, a backtick substitution, or a dynamic command string - none of which this file has today, and any of which would make the degraded parse a real blind spot rather than a known one."
+    },
+    {
+      "skill": "dev-review",
+      "file": "scripts/skill-scan.mjs",
+      "reason": "SkillSpector's bounded shell parser reads a JavaScript template literal in assignment position (`const x = `${a}:${b}``) as a backtick command substitution and exhausts its span limit, degrading the static analyzers for the whole skill. Isolated experimentally: the same file with string concatenation instead of a template literal scans clean, while forty template literals inside function calls do not degrade at all - so this is the scanner's parser, not this file's content. Accepted rather than worked around, because the alternative is banning ordinary JavaScript syntax from every skill that ships a script. Still flag if: the file gains an actual shell invocation, a backtick substitution, or a dynamic command string - none of which this file has today, and any of which would make the degraded parse a real blind spot rather than a known one."
+    },
+    {
+      "skill": "dev-ship",
+      "file": "scripts/ship-gate.mjs",
+      "reason": "SkillSpector's bounded shell parser reads a JavaScript template literal in assignment position (`const x = `${a}:${b}``) as a backtick command substitution and exhausts its span limit, degrading the static analyzers for the whole skill. Isolated experimentally: the same file with string concatenation instead of a template literal scans clean, while forty template literals inside function calls do not degrade at all - so this is the scanner's parser, not this file's content. Accepted rather than worked around, because the alternative is banning ordinary JavaScript syntax from every skill that ships a script. Still flag if: the file gains an actual shell invocation, a backtick substitution, or a dynamic command string - none of which this file has today, and any of which would make the degraded parse a real blind spot rather than a known one."
+    },
+    {
+      "skill": "dev-status",
+      "file": "scripts/status.mjs",
+      "reason": "SkillSpector's bounded shell parser reads a JavaScript template literal in assignment position (`const x = `${a}:${b}``) as a backtick command substitution and exhausts its span limit, degrading the static analyzers for the whole skill. Isolated experimentally: the same file with string concatenation instead of a template literal scans clean, while forty template literals inside function calls do not degrade at all - so this is the scanner's parser, not this file's content. Accepted rather than worked around, because the alternative is banning ordinary JavaScript syntax from every skill that ships a script. Still flag if: the file gains an actual shell invocation, a backtick substitution, or a dynamic command string - none of which this file has today, and any of which would make the degraded parse a real blind spot rather than a known one."
+    },
+    {
+      "skill": "skillify",
+      "file": "scripts/scaffold-skill.mjs",
+      "reason": "SkillSpector's bounded shell parser reads a JavaScript template literal in assignment position (`const x = `${a}:${b}``) as a backtick command substitution and exhausts its span limit, degrading the static analyzers for the whole skill. Isolated experimentally: the same file with string concatenation instead of a template literal scans clean, while forty template literals inside function calls do not degrade at all - so this is the scanner's parser, not this file's content. Accepted rather than worked around, because the alternative is banning ordinary JavaScript syntax from every skill that ships a script. Still flag if: the file gains an actual shell invocation, a backtick substitution, or a dynamic command string - none of which this file has today, and any of which would make the degraded parse a real blind spot rather than a known one."
+    },
+    {
+      "skill": "skill-maintainer",
+      "file": "references/standards.md",
+      "reason": "SkillSpector's bounded shell parser reads a JavaScript template literal in assignment position (`const x = `${a}:${b}``) as a backtick command substitution and exhausts its span limit, degrading the static analyzers for the whole skill. Isolated experimentally: the same file with string concatenation instead of a template literal scans clean, while forty template literals inside function calls do not degrade at all - so this is the scanner's parser, not this file's content. Accepted rather than worked around, because the alternative is banning ordinary JavaScript syntax from every skill that ships a script. Still flag if: the file gains an actual shell invocation, a backtick substitution, or a dynamic command string - none of which this file has today, and any of which would make the degraded parse a real blind spot rather than a known one."
+    },
+    {
+      "skill": "skill-maintainer",
+      "file": "SKILL.md",
+      "reason": "AE1 here is the completeness signal, not a behaviour: the scanner's own text is 'Referenced artifact was not completely inspected'. Two causes, both known. (1) This SKILL.md cites repo-root paths - packages/cli/packaging.json, packages/cli/scripts/validate-skill.mjs, CONTRIBUTING.md, .vegastack/dev.md - which cannot resolve relative to a skill directory; they are correct and load-bearing for a skill whose entire subject is this repository, and rewriting them to resolve locally would make the instructions wrong. (2) It links to references/standards.md, which the scanner's bounded parser cannot finish reading for the reason recorded on that file's own entry. Accepted here rather than as fingerprints because the scanner emits eight occurrences with eight distinct location-bound hashes while its own baseline generator deduplicates them to two, so a fingerprint set cannot cover them; and not as a rule, because {id: AE1, path: SKILL.md} would silence this in all twelve skills and demonstrably hid a real regression when it was tried. Still flag if: this SKILL.md gains a reference to something outside the repository, or standards.md becomes fully inspectable and AE1 persists - either would mean a different cause than the two traced here."
+    }
+  ]
 }

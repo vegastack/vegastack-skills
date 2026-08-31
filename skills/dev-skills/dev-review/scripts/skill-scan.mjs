@@ -134,7 +134,38 @@ export function parseBaseline(text) {
     warns.push(...reasoned.warns);
   });
 
-  return { rules, fingerprints: rawFingerprints, errors, warns };
+  // `coverage:` accepts a COMPLETENESS signal, not a finding. The scanner's own
+  // baseline cannot express this: it suppresses findings only. Without it, a
+  // skill shipping ordinary JavaScript blocks forever — SkillSpector's shell
+  // parser reads a template literal in assignment position as backtick command
+  // substitution and degrades. Same discipline as a rule: name the skill AND the
+  // file, say why, and say what would make it a real signal again.
+  const rawCoverage = Array.isArray(data.coverage) ? data.coverage : [];
+  if (data.coverage !== undefined && !Array.isArray(data.coverage)) {
+    errors.push('baseline "coverage" must be an array');
+  }
+  const coverage = [];
+  rawCoverage.forEach((raw, index) => {
+    const label = `coverage ${index + 1}`;
+    if (!raw || typeof raw !== 'object') {
+      errors.push(`${label}: not an object`);
+      return;
+    }
+    for (const field of ['skill', 'file']) {
+      const value = raw[field];
+      if (typeof value !== 'string' || !value.trim()) {
+        errors.push(`${label}: "${field}" must be a non-empty string — a coverage acceptance names exactly one file in one skill`);
+      } else if (/[*?[\]]/.test(value)) {
+        errors.push(`${label}: "${field}" contains a glob character ("${value}") — coverage acceptances are literal, like rules`);
+      }
+    }
+    const reasoned = reasonErrors(raw, label, true);
+    errors.push(...reasoned.errors);
+    warns.push(...reasoned.warns);
+    coverage.push({ skill: raw.skill, file: raw.file, reason: raw.reason });
+  });
+
+  return { rules, fingerprints: rawFingerprints, coverage, errors, warns };
 }
 
 // Absolute paths, sorted, of the skill directories under `root`. A directory is
@@ -254,6 +285,12 @@ export function findUnscannable(root) {
 // deflated by suppressing unrelated findings, so it answers a question nobody
 // asked. Individual findings are what a reviewer triages.
 const BLOCKING = new Set(['HIGH', 'CRITICAL']);
+// The one finding id that is a COMPLETENESS signal wearing a finding's clothes —
+// the scanner's own text for it is "Referenced artifact was not completely
+// inspected". A `coverage:` entry naming that file accepts it, because it is the
+// same phenomenon the coverage section exists for; every other id must go
+// through `rules` or `fingerprints`, which bind to content.
+const COVERAGE_CLASS_RULE = 'AE1';
 // Everything the scanner is known to emit. A severity outside this set is
 // upstream drift, and drift must fail CLOSED: silently sorting an unrecognised
 // severity under the blocking bar and then calling it "MEDIUM/LOW" would be a
@@ -323,12 +360,25 @@ export function evaluateScan(facts) {
     // the same trap as gating on the aggregate score. Block only on the signals
     // that mean work did not happen.
     const { status, limitations, entirelyUninspected, partiallyInspected } = entry.completeness ?? {};
+
+    // A coverage acceptance clears the degraded/partly-read signals for a skill
+    // ONLY when it names every file the scanner said it could not finish. Accept
+    // one file and leave another unread, and the skill still blocks — otherwise
+    // an acceptance written for a known cause would silently cover an unknown one.
+    const acceptedFiles = new Set(
+      (facts.coverageAccepted ?? []).filter((c) => c.skill === entry.name).map((c) => c.file),
+    );
+    const unaccounted = (entry.partialPaths ?? []).filter((path) => !acceptedFiles.has(path));
+    const coverageClassAccepted = new Set();
+    const coverageAccepted =
+      acceptedFiles.size > 0 && (entry.partialPaths ?? []).length > 0 && unaccounted.length === 0;
     if (status && status !== 'complete' && status !== 'partial') {
       blocks.push(`${entry.name}: the scan reported completeness "${status}" — only "complete" or "partial" is a result you can act on`);
       continue;
     }
-    if (limitations?.length) {
-      blocks.push(`${entry.name}: an analyzer did not finish (${limitations.join('; ')}) — a degraded scan scores HIGHER than a clean one, so its silence proves nothing`);
+    if (limitations?.length && !coverageAccepted) {
+      const detail = unaccounted.length ? ` in ${unaccounted.join(', ')}` : '';
+      blocks.push(`${entry.name}: an analyzer did not finish${detail} (${limitations.join('; ')}) — a degraded scan scores HIGHER than a clean one, so its silence proves nothing`);
     }
     if (entirelyUninspected > 0) {
       blocks.push(`${entry.name}: ${entirelyUninspected} file(s) were never inspected — an unread file is not a clean file`);
@@ -336,8 +386,13 @@ export function evaluateScan(facts) {
     // Distinct from `status: "partial"`, which every healthy scan here reports.
     // Measured across all twelve skills, `partially_inspected_files` is 0 on a
     // healthy run, so this blocks only genuinely truncated coverage.
-    if (partiallyInspected > 0) {
-      blocks.push(`${entry.name}: ${partiallyInspected} file(s) were only partly inspected — the unread remainder is exactly where something would hide`);
+    if (partiallyInspected > 0 && !coverageAccepted) {
+      const where = unaccounted.length ? `: ${unaccounted.join(', ')}` : '';
+      blocks.push(`${entry.name}: ${partiallyInspected} file(s) were only partly inspected${where} — the unread remainder is exactly where something would hide`);
+    }
+    if (coverageAccepted || coverageClassAccepted.size > 0) {
+      const files = [...new Set([...(coverageAccepted ? acceptedFiles : []), ...coverageClassAccepted])].sort();
+      warns.push(`${entry.name}: reduced coverage accepted by the baseline for ${files.join(', ')} — the scan of those files is incomplete by acknowledged cause`);
     }
     // A scan that read nothing reports "complete" with zero findings, which is
     // indistinguishable from a clean skill. Reachable with a symlinked or
@@ -354,6 +409,10 @@ export function evaluateScan(facts) {
         continue;
       }
       if (!BLOCKING.has(severity)) continue;
+      if (issue.id === COVERAGE_CLASS_RULE && acceptedFiles.has(issue.file)) {
+        coverageClassAccepted.add(issue.file);
+        continue;
+      }
       blocks.push(`${entry.name}: ${issue.severity} ${issue.id} at ${at} — fix it, or add a justified baseline rule on the operator's word`);
     }
   }
@@ -469,6 +528,7 @@ export function gatherFacts({ root, baselinePath, llm }) {
     const parsed = parseBaseline(readFileSync(baselinePath, 'utf8'));
     base.baselineErrors = parsed.errors;
     base.baselineWarns = parsed.warns;
+    base.coverageAccepted = parsed.coverage;
   }
   // Short-circuit: with a bad baseline nothing the scan reports is trustworthy —
   // suppressions may not apply — and the scanner would reject the file once per
@@ -557,6 +617,16 @@ export function gatherFacts({ root, baselinePath, llm }) {
       // an ANALYZER did not finish — distinct from the reference-resolution
       // exceptions that make a healthy scan of documentation-heavy skills
       // "partial". See the degradation rules in evaluateScan.
+      // The files the scanner itself says it could not finish reading, excluding
+      // `reference_unresolved` — that one is a path citation, not lost coverage,
+      // and it is already reported as an AE1 finding.
+      partialPaths: [
+        ...new Set(
+          (completeness.ledger_exceptions ?? [])
+            .filter((e) => e?.outcome === 'partial' && e?.reason_code !== 'reference_unresolved' && e?.path)
+            .map((e) => safe(e.path)),
+        ),
+      ].sort(),
       completeness: {
         status: completeness.status ?? 'unknown',
         // Sanitized: analyzer messages are printed in block lines and can carry
