@@ -76,6 +76,7 @@ describe('parseBaseline', () => {
     const r = parseBaseline(
       JSON.stringify({
         version: 2,
+        scanner_version: '2.11.0',
         rules: [],
         fingerprints: [{ hash: 'sha256:abc', rule_id: 'P2', file: 'a.md', reason: 'Accepted finding (auto-generated baseline)' }],
       }),
@@ -84,15 +85,34 @@ describe('parseBaseline', () => {
     expect(r.errors[0]).toContain('placeholder')
   })
 
+  // The scanner rejects such a baseline on every invocation, so without this the
+  // run reports N unreadable-report failures instead of the one real cause.
+  test('fingerprints without scanner_version are rejected before any scan runs', () => {
+    const r = parseBaseline(
+      JSON.stringify({
+        version: 2,
+        rules: [],
+        fingerprints: [{ hash: 'sha256:abc', reason: 'One-off, adjudicated.' }],
+      }),
+    )
+    expect(r.errors.some((e: string) => e.includes('scanner_version'))).toBe(true)
+  })
+
   test('a fingerprint needs a reason but not the clause — content hashing is its re-trigger', () => {
     const withReason = JSON.stringify({
       version: 2,
+      scanner_version: '2.11.0',
       rules: [],
       fingerprints: [{ hash: 'sha256:abc', reason: 'One-off: the fixture below is deliberately adversarial.' }],
     })
     expect(parseBaseline(withReason).errors).toEqual([])
 
-    const withoutReason = JSON.stringify({ version: 2, rules: [], fingerprints: [{ hash: 'sha256:abc' }] })
+    const withoutReason = JSON.stringify({
+      version: 2,
+      scanner_version: '2.11.0',
+      rules: [],
+      fingerprints: [{ hash: 'sha256:abc' }],
+    })
     expect(parseBaseline(withoutReason).errors[0]).toContain('missing reason')
   })
 })
