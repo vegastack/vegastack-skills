@@ -10,6 +10,7 @@ import {
   gatherFacts,
   parseBaseline,
   resolveScanRoot,
+  scanRootDeclarations,
 } from '../scripts/skill-scan.mjs'
 
 const SKILL_MD = '---\nname: x\ndescription: y\n---\n'
@@ -107,18 +108,48 @@ describe('parseBaseline', () => {
 
   // Adversarial review, CRITICAL: `{"id":"*"}` with a clause-carrying reason
   // silenced EVERY finding — 39 on this repo — and the guard reported
-  // "pass with warnings". A present-but-wildcard matcher is not a matcher.
-  test('a bare wildcard matcher is rejected on every field, including the file alias', () => {
-    for (const matcher of [{ id: '*' }, { path: '*' }, { message: '**' }, { file: '*' }, { path: '   ' }]) {
+  // "pass with warnings". The first fix rejected only `*` and `**`; re-review
+  // bypassed it with `?*` in one attempt, and `*.md`, `[a-z]*` and `*SKILL*`
+  // work the same way. Matching wildcard SHAPES is an arms race, so matchers
+  // must simply be literal.
+  test('every glob metacharacter is rejected, on every field and the file alias', () => {
+    const bypasses = [
+      { id: '*' },
+      { path: '**' },
+      { message: '?*' },
+      { file: '*' },
+      { path: '*.md' },
+      { path: '[a-z]*' },
+      { id: '*SKILL*' },
+      { path: '?' },
+      { id: 'P?' },
+    ]
+    for (const matcher of bypasses) {
       const r = parseBaseline(
-        JSON.stringify({
-          version: 2,
-          rules: [{ ...matcher, reason: 'x. Still flag if: never' }],
-          fingerprints: [],
-        }),
+        JSON.stringify({ version: 2, rules: [{ ...matcher, reason: 'x. Still flag if: never' }], fingerprints: [] }),
       )
-      expect(r.errors.some((e: string) => e.includes('bare wildcard'))).toBe(true)
+      expect(r.errors.some((e: string) => e.includes('glob character'))).toBe(true)
     }
+  })
+
+  test('a non-string or empty matcher is rejected rather than coerced', () => {
+    for (const matcher of [{ path: '   ' }, { id: 7 }, { path: ['a'] }, { message: {} }, { id: true }]) {
+      const r = parseBaseline(
+        JSON.stringify({ version: 2, rules: [{ ...matcher, reason: 'x. Still flag if: never' }], fingerprints: [] }),
+      )
+      expect(r.errors.length).toBeGreaterThan(0)
+    }
+  })
+
+  test('a literal matcher — the only shape that scopes a rule to its cause — is accepted', () => {
+    const r = parseBaseline(
+      JSON.stringify({
+        version: 2,
+        rules: [{ id: 'P2', path: 'references/conventions.md', reason: 'documented. Still flag if: it changes.' }],
+        fingerprints: [],
+      }),
+    )
+    expect(r.errors).toEqual([])
   })
 
   // SkillSpector resolves `path` as `raw.get("path") or raw.get("file")`, so a
@@ -637,6 +668,40 @@ describe('adversarial regressions', () => {
     expect(discoverSkills(root).map((p: string) => basename(p))).toEqual(['grouped-skill', 'flat-skill'])
   })
 
+  // Created by the two-level-discovery fix and caught on re-review: a symlink to
+  // a directory CONTAINING skills was descended by neither discovery nor the
+  // first findUnscannable, so six HIGH findings vanished into "pass with
+  // warnings". findUnscannable is now the difference between a deep walk and
+  // what was scanned, so it cannot drift from discovery again.
+  test('a symlinked intermediate directory holding skills is named and blocked', () => {
+    const real = mkdtempSync(join(tmpdir(), 'vsk-realgroup-'))
+    mkdirSync(join(real, 'hidden-skill'), { recursive: true })
+    writeFileSync(join(real, 'hidden-skill/SKILL.md'), SKILL_MD)
+    const root = mkdtempSync(join(tmpdir(), 'vsk-introot-'))
+    symlinkSync(real, join(root, 'linked-group'))
+
+    expect(discoverSkills(root)).toEqual([])
+    const unscannable = findUnscannable(root)
+    expect(unscannable).toHaveLength(1)
+    expect(evaluateScan(facts({ unscannable, skills: [] })).blocks[0]).toContain('linked-group')
+  })
+
+  test('a skill nested deeper than the layout allows is reported, not silently ignored', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vsk-deep-'))
+    mkdirSync(join(root, 'a/b/too-deep'), { recursive: true })
+    writeFileSync(join(root, 'a/b/too-deep/SKILL.md'), SKILL_MD)
+    expect(discoverSkills(root)).toEqual([])
+    expect(findUnscannable(root).some((p: string) => p.endsWith('too-deep'))).toBe(true)
+  })
+
+  test('a dot-prefixed skill directory is reported rather than silently skipped', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vsk-dot-'))
+    mkdirSync(join(root, '.scaffold-leftover'), { recursive: true })
+    writeFileSync(join(root, '.scaffold-leftover/SKILL.md'), SKILL_MD)
+    expect(discoverSkills(root)).toEqual([])
+    expect(findUnscannable(root)).toHaveLength(1)
+  })
+
   test('a symlinked skill directory is named and blocked, never silently dropped', () => {
     const real = mkdtempSync(join(tmpdir(), 'vsk-real-'))
     mkdirSync(join(real, 'victim'), { recursive: true })
@@ -647,7 +712,7 @@ describe('adversarial regressions', () => {
     expect(discoverSkills(root)).toEqual([])
     const unscannable = findUnscannable(root)
     expect(unscannable).toHaveLength(1)
-    expect(evaluateScan(facts({ unscannable, skills: [] })).blocks[0]).toContain('symlinked')
+    expect(evaluateScan(facts({ unscannable, skills: [] })).blocks[0]).toContain('was not scanned')
   })
 
   // An unrecognised severity was sorted below the blocking bar and then
@@ -665,6 +730,29 @@ describe('adversarial regressions', () => {
     expect(resolveScanRoot('## Knobs\n\n  skill-scan: packages/cli/skill\n')).toBe('packages/cli/skill')
     expect(resolveScanRoot('- skill-scan: skills/\n')).toBe('skills/')
     expect(resolveScanRoot('  - skill-scan: none\n')).toBeNull()
+  })
+
+  // Regression introduced BY the forgiving-regex fix and caught on re-review:
+  // tolerating bullets let a prose example match, and first-match-wins meant an
+  // example of `skill-scan: none` above the real knob silently disabled the gate.
+  test('a prose example above the real knob is an ambiguity that blocks, never a silent skip', () => {
+    const profile = join(mkdtempSync(join(tmpdir(), 'vsk-ambig-')), 'dev.md')
+    writeFileSync(
+      profile,
+      '## Notes\n\n- skill-scan: none  <- example of turning it off\n\n## Knobs\n\nskill-scan: packages/cli/skill\n',
+    )
+    const proc = Bun.spawnSync(['node', join(import.meta.dir, '../scripts/skill-scan.mjs'), '--dev-md', profile, '--json'], {
+      cwd: join(import.meta.dir, '../../../..'),
+      env: { ...process.env },
+    })
+    expect(proc.exitCode).toBe(2)
+    expect(proc.stdout.toString()).toContain('declares skill-scan more than once')
+  })
+
+  test('declarations are collected in order so the caller can see disagreement', () => {
+    expect(scanRootDeclarations('- skill-scan: none\n\nskill-scan: skills/\n')).toEqual(['none', 'skills/'])
+    expect(scanRootDeclarations('skill-scan: skills/\n')).toEqual(['skills/'])
+    expect(scanRootDeclarations('review: subagent\n')).toEqual([])
   })
 
   // Two-level discovery makes duplicate basenames reachable. A report path keyed

@@ -77,12 +77,20 @@ export function parseBaseline(text) {
     if (present.length === 0) {
       errors.push(`${label}: no matcher (id, path, or message) — a rule with no matcher suppresses every finding`);
     }
-    // A field set to a bare wildcard matches everything the field can hold, so
-    // `{"path": "*"}` is a total-silence rule that passes a naive presence check.
-    // The scanner treats `**` as an alias for `*`; an empty string matches too.
+    // Matchers must be LITERAL. Chasing wildcard shapes is an arms race that
+    // was lost at the first attempt: `*` was rejected and `?*` silenced every
+    // finding just the same, as do `*.md`, `[a-z]*` and `*SKILL*`. The rule
+    // this project already states — "scope a rule as narrowly as its cause" —
+    // is mechanically checkable only as "name the thing". A project that wants
+    // two files writes two rules, which is the more reviewable artifact anyway.
     for (const [field, value] of present) {
-      if (typeof value !== 'string' || /^\**$/.test(value.trim())) {
-        errors.push(`${label}: "${field}" is a bare wildcard ("${value}") — scope a rule as narrowly as its cause, never to everything`);
+      if (typeof value !== 'string' || !value.trim()) {
+        errors.push(`${label}: "${field}" must be a non-empty string, got ${JSON.stringify(value)}`);
+        continue;
+      }
+      const glob = value.match(/[*?[\]]/);
+      if (glob) {
+        errors.push(`${label}: "${field}" contains the glob character "${glob[0]}" ("${value}") — matchers must be literal so a rule cannot silence more than the cause it names; write one rule per file`);
       }
     }
     errors.push(...reasonErrors(raw, label, true));
@@ -158,30 +166,51 @@ export function discoverSkills(root) {
   return found.sort();
 }
 
-// Directories that look like skills but discovery refuses to follow. Symlinks
-// are not traversed — a scanner that walks out of its root reports on something
-// other than what it was pointed at — but dropping them silently is coverage
-// loss disguised as a clean run, so they are named and the caller blocks.
+// Anything that LOOKS like a skill but discovery did not scan. Defined as the
+// difference between a deep walk and `discoverSkills`, rather than as a list of
+// known-bad shapes — so it stays correct by construction when discovery changes.
+// It catches: skills nested deeper than the layout allows, dot-prefixed
+// directories, and symlinked directories that either are a skill or contain
+// one. Symlinks are still never followed for scanning (a scanner that walks out
+// of its root reports on something it was not pointed at) — but dropping them
+// silently is coverage loss dressed as a clean run, so they are named and the
+// caller blocks.
+const WALK_DEPTH = 4;
+
+function deepSkillDirs(dir, depth, seen) {
+  if (depth > WALK_DEPTH) return;
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const child = join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      // Not descended. Flag it if the target is, or holds, a skill.
+      if (existsSync(join(child, 'SKILL.md'))) {
+        seen.add(child);
+        continue;
+      }
+      for (const nested of childDirectories(child)) {
+        if (existsSync(join(nested, 'SKILL.md'))) seen.add(child);
+      }
+      continue;
+    }
+    if (!entry.isDirectory()) continue;
+    if (existsSync(join(child, 'SKILL.md'))) seen.add(child);
+    deepSkillDirs(child, depth + 1, seen);
+  }
+}
+
 export function findUnscannable(root) {
   if (!root || !existsSync(root)) return [];
   const absolute = resolve(root);
-  const unscannable = [];
-  const inspect = (dir) => {
-    let entries;
-    try {
-      entries = readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (!entry.isSymbolicLink() || entry.name.startsWith('.')) continue;
-      const target = join(dir, entry.name);
-      if (existsSync(join(target, 'SKILL.md'))) unscannable.push(target);
-    }
-  };
-  inspect(absolute);
-  for (const child of childDirectories(absolute)) inspect(child);
-  return unscannable.sort();
+  const scanned = new Set(discoverSkills(absolute));
+  const seen = new Set();
+  deepSkillDirs(absolute, 1, seen);
+  return [...seen].filter((dir) => !scanned.has(dir)).sort();
 }
 
 // The severities that stop a push. Deliberately NOT the aggregate risk score:
@@ -225,7 +254,7 @@ export function evaluateScan(facts) {
     blocks.push(`${skill}: the scan did not produce a readable report (${message}) — an unscanned skill is not a clean skill`);
   }
   for (const path of facts.unscannable ?? []) {
-    blocks.push(`${path} is a symlinked skill directory — discovery does not follow symlinks out of the scan root, so it would go unscanned; replace it with a real directory or scan it directly with --root`);
+    blocks.push(`${path} holds a SKILL.md but was not scanned — nested deeper than the layout allows, dot-prefixed, or behind a symlink discovery will not follow out of the scan root. Move it into place, or scan it directly with --root`);
   }
 
   if (blocks.length > 0) return { blocks, warns };
@@ -337,8 +366,20 @@ export const DEFAULT_BASELINE = '.vegastack/skillspector-baseline.json';
 // heading, or written as a list item. A knob the guard cannot see reads as
 // absent, and absent silently disables the gate, so the match is deliberately
 // forgiving about layout and strict about the value.
+const KNOB_LINE = /^[ \t]*(?:[-*+][ \t]+)?skill-scan:[ \t]*(\S+)/gm;
+
+// Every `skill-scan:` value the profile declares. Tolerating indentation and
+// list bullets means a prose EXAMPLE can also match — and with first-match-wins
+// an example of `skill-scan: none` sitting above the real knob silently
+// disabled the gate. The caller blocks when these disagree rather than picking
+// one; guessing which line the author meant is exactly the judgement a guard
+// must not make.
+export function scanRootDeclarations(devMdText) {
+  return [...String(devMdText ?? '').matchAll(KNOB_LINE)].map((match) => match[1]);
+}
+
 export function resolveScanRoot(devMdText) {
-  const value = (/^[ \t]*(?:[-*+][ \t]+)?skill-scan:[ \t]*(\S+)/m.exec(devMdText ?? '') || [])[1];
+  const value = scanRootDeclarations(devMdText)[0];
   if (!value || value === 'none') return null;
   return value;
 }
@@ -387,7 +428,9 @@ export function gatherFacts({ root, baselinePath, llm }) {
   // skill anyway. Block on the real reason instead of after N wasted invocations.
   if (base.baselineErrors.length > 0) return base;
 
-  base.unscannable = findUnscannable(root);
+  // Paths here are attacker-chosen directory names in a third-party tree, and
+  // they are printed verbatim in block lines.
+  base.unscannable = findUnscannable(root).map(safe);
 
   const outDir = mkdtempSync(join(tmpdir(), 'vsk-skill-scan-'));
   const discovered = discoverSkills(root);
@@ -398,7 +441,10 @@ export function gatherFacts({ root, baselinePath, llm }) {
 
   for (const [index, dir] of discovered.entries()) {
     const bare = basename(dir);
-    const name = basenameCounts[bare] > 1 ? `${basename(resolve(dir, '..'))}/${bare}` : bare;
+    // Sanitized: this comes from a DIRECTORY NAME on disk, which in a
+    // third-party skill tree is attacker-chosen, and it is printed to a terminal
+    // and embedded in every block line.
+    const name = safe(basenameCounts[bare] > 1 ? `${basename(resolve(dir, '..'))}/${bare}` : bare);
     // Indexed, not named: two-level discovery makes duplicate basenames possible
     // (`<root>/a/foo/` and `<root>/b/foo/`), and a shared report path would let
     // one skill's result stand in for another's — a wrong verdict that looks
@@ -432,7 +478,7 @@ export function gatherFacts({ root, baselinePath, llm }) {
     try {
       report = JSON.parse(readFileSync(reportPath, 'utf8'));
     } catch (error) {
-      base.scanErrors.push({ skill: name, message: error.message });
+      base.scanErrors.push({ skill: name, message: safe(error.message) });
       continue;
     }
     // A report whose shape we do not recognise must fail loudly. Reading a
@@ -463,7 +509,9 @@ export function gatherFacts({ root, baselinePath, llm }) {
       // "partial". See the degradation rules in evaluateScan.
       completeness: {
         status: completeness.status ?? 'unknown',
-        limitations: Array.isArray(completeness.limitations) ? completeness.limitations : [],
+        // Sanitized: analyzer messages are printed in block lines and can carry
+        // text derived from the scanned content.
+        limitations: (Array.isArray(completeness.limitations) ? completeness.limitations : []).map(safe),
         entirelyUninspected: completeness.entirely_uninspected_files ?? 0,
         partiallyInspected: completeness.partially_inspected_files ?? 0,
         fullyInspected: completeness.fully_inspected_files ?? 0,
@@ -509,8 +557,14 @@ if (invokedDirectly) {
       outcome.blocks.push(`cannot read ${devMdPath} (${error.code ?? error.message}) — pass --dev-md <path>, or --root to scan a directory directly`);
     }
     if (devMd !== null) {
+      const declared = [...new Set(scanRootDeclarations(devMd))];
+      if (declared.length > 1) {
+        outcome.blocks.push(
+          `${devMdPath} declares skill-scan more than once (${declared.join(', ')}) — an example line above the real knob silently disables the gate; leave exactly one`,
+        );
+      }
       root = resolveScanRoot(devMd);
-      skipped = root === null;
+      skipped = root === null && declared.length <= 1;
       // The project's own suppressions apply to the project's own skills. They
       // are NOT inherited by an ad-hoc `--root` scan of someone else's skill,
       // where a rule written for our content could silence a real finding in
