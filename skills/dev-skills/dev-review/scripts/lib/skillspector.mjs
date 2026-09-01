@@ -110,4 +110,79 @@ export function locateSkillspector({ run = defaultRun, exists = existsSync } = {
   return null;
 }
 
+
+// Strip C0/C1 controls (ANSI escapes included) from anything a command printed:
+// this text reaches a terminal report, and package-manager output carries names
+// from outside the repo. Mirrors skill-scan.mjs's own `safe()`.
+function safe(text) {
+  // eslint-disable-next-line no-control-regex
+  return String(text).replace(/[\u0000-\u001f\u007f-\u009f]/g, '?');
+}
+
+// `skillspector --version` prints "SkillSpector v2.11.0" on STDOUT while its
+// missing-API-key warnings go to stderr (verified 01-09-2026). `run` hands back
+// stdout alone on success, so the warnings can never contaminate the match.
+export function readVersion({ path, run = defaultRun }) {
+  const result = run(path, ['--version']);
+  if (!result.ok) return null;
+  const match = /SkillSpector\s+v?(\d+\.\d+\.\d+\S*)/i.exec(result.stdout);
+  return match ? match[1] : null;
+}
+
+// The lines a package manager reported moving. uv prints one `+ pkg==x` /
+// `- pkg==y` line per dependency it changed; anything else simply yields none.
+function changedLines(stdout) {
+  return String(stdout ?? '')
+    .split('\n')
+    .map((line) => safe(line.trim()))
+    .filter((line) => /^[+-]\s*\S/.test(line));
+}
+
+// Install when absent, upgrade when present — and never throw: a machine
+// without a network, without uv, or with a locked package manager must fall
+// back to whatever is already installed and let the scan proceed. Only a
+// SkillSpector that cannot be found at all blocks, and that is skill-scan's
+// call, not this function's.
+//
+// No version check runs first, deliberately. `uv tool upgrade` moves the whole
+// dependency tree while the version string can hold steady (verified
+// 01-09-2026: langsmith 0.11.2 -> 0.12.0 under an unchanged v2.11.0), so
+// comparing versions would report "current" about a tool that just changed.
+export function provisionSkillspector({ mode, located, run = defaultRun }) {
+  const idle = { action: 'none', before: null, after: null, changed: [], message: '' };
+
+  // `notify` reports; it never touches the machine. The release lookup that
+  // makes it useful belongs to the caller, which owns the network policy.
+  if (mode !== 'auto') return located ? { ...idle, before: readVersion({ path: located.path, run }) } : idle;
+
+  if (!located) {
+    const [cmd, args] = INSTALL_COMMAND;
+    const result = run(cmd, args);
+    if (!result.ok) {
+      return { ...idle, action: 'failed', message: safe(result.stdout), changed: changedLines(result.stdout) };
+    }
+    // `after` stays null: reading it needs the path, and only a fresh locate
+    // knows where the install landed. The caller re-locates and fills it in.
+    return { action: 'installed', before: null, after: null, changed: changedLines(result.stdout), message: '' };
+  }
+
+  const upgrade = UPGRADE[located.channel];
+  if (!upgrade) {
+    return { ...idle, message: `no upgrade command is known for the ${safe(String(located.channel))} channel` };
+  }
+
+  const before = readVersion({ path: located.path, run });
+  const result = run(upgrade[0], upgrade[1]);
+  if (!result.ok) {
+    return { action: 'failed', before, after: before, changed: [], message: safe(result.stdout) };
+  }
+  return {
+    action: 'upgraded',
+    before,
+    after: readVersion({ path: located.path, run }),
+    changed: changedLines(result.stdout),
+    message: '',
+  };
+}
+
 export const UPGRADE_COMMANDS = UPGRADE;
