@@ -26,10 +26,11 @@ chronicle: on               # story entry per behavior-changing branch in .vegas
 
 Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position; its release.yml copy is the backstop).
 
-- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` → push main — the install is there to carry dependency changes
+- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` on a `chore/release-<version>` branch → open its PR — the install is there to carry dependency changes; main is branch-protected with no admin exemption, so the bump lands by merge and never by direct push
+- ask: merge the release PR — the version bump is the last reviewable moment before the tag publishes, so it takes the operator's word of its own, not the release word
 - guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
 - guard: the published bundle carries no unsuppressed HIGH/CRITICAL skill finding — `bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --json` — runs here because the tag push below is what publishes, and the bundle is what the world installs; a failure stops the sequence and goes to the operator
-- auto: tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` — covered by the operator's release word (release: on-request); deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
+- auto: pull main, then tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` on the merged bump commit — covered by the operator's release word (release: on-request); tags are not branch-protected, so this push still works; deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
 - auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
 - Publishing is tag-triggered trusted publishing (OIDC, token-free, provenance by default — never pass `--provenance` explicitly, it conflicts with trusted-publishing config)
 - Rollback is roll-forward: revert on main, release previous-good as a new patch, `npm deprecate` the bad version ("Broken — use <new>"); unpublish only for leaked secrets within 72h, in addition to roll-forward, never instead
@@ -44,6 +45,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 - npm registry via tag-triggered trusted publishing — no local npm credentials exist or are needed
 - GitHub Actions runs CI, release, and the weekly refresh (refresh/** branches are CI-restricted to refresh metadata)
+- main is branch-protected: a PR is required, force-pushes and deletion are blocked, and admins are NOT exempt — so every path to main, agent or human, goes through a PR. CI is deliberately not a required status check while hosted runners are billing-locked (#57), because requiring a check that cannot start would make merging impossible; add it as required once that clears
 
 ## Decisions
 
