@@ -39,7 +39,12 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    # TEMPORARY (0.16.1, as for 0.14.0 and 0.16.0): GitHub-hosted runners are suspended by an
+    # account-level billing lock — hosted jobs complete with zero steps executed, never having
+    # started ("The job was not started because your account is locked due to a billing issue",
+    # re-confirmed on a fresh run 01-09-2026). Self-hosted minutes are unmetered and do dispatch.
+    # Revert to `ubuntu-latest` once the lock clears — see issue 57.
+    runs-on: [self-hosted, ephemeral-release]
     steps:
       - uses: actions/checkout@v7
 
@@ -100,7 +105,12 @@ jobs:
           if npm view "@vegastack/skills@$VERSION" version >/dev/null 2>&1; then
             echo "@vegastack/skills@$VERSION is already on the registry; skipping publish."
           else
-            npm publish --access public
+            # TEMPORARY (0.16.1), revert with the runs-on change above. npm refuses a
+            # provenance bundle built anywhere but a GitHub-hosted runner, and hosted runners
+            # are billing-locked. Auth is unaffected: still token-free trusted publishing
+            # over OIDC. This ships 0.16.1 WITHOUT an attestation, on the operator's explicit
+            # instruction of 01-09-2026 — the third such version, after 0.13.0 and 0.16.0.
+            npm publish --access public --no-provenance
           fi
 
       # npm sbom needs an npm lockfile, which this Bun workspace does not keep.
