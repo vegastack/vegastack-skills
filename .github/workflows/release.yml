@@ -43,8 +43,16 @@ jobs:
     # account-level billing lock — hosted jobs complete with zero steps executed, never having
     # started ("The job was not started because your account is locked due to a billing issue",
     # re-confirmed on a fresh run 01-09-2026). Self-hosted minutes are unmetered and do dispatch.
+    #
+    # Deliberately the bare `self-hosted` label, NOT the `ephemeral-release` pair 0.16.0 used:
+    # that release was served by `vsk-ephemeral-release-016`, an ephemeral runner that
+    # deregistered after its one job, so a custom label matched nothing on the retry and the run
+    # sat queued indefinitely. Every self-hosted runner carries `self-hosted` automatically, so
+    # this matches whichever one is actually online. Widening the label for a PUBLISH job is a
+    # real loosening — it accepts any self-hosted machine reachable by this repo — and it is
+    # accepted only for the duration of the billing lock.
     # Revert to `ubuntu-latest` once the lock clears — see issue 57.
-    runs-on: [self-hosted, ephemeral-release]
+    runs-on: [self-hosted]
     steps:
       - uses: actions/checkout@v7
 
