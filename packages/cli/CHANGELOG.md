@@ -12,6 +12,17 @@
   - `dev-setup`'s profile template seeds new projects with the short register format, and `dev-review`'s known-patterns template uses it for dismissal attribution.
   - Existing approval markers, chronicle entries and decision-register lines are append-only records and keep the form they were written in.
 
+- 0259cdb: `skill-maintainer`'s release-ops reflects a branch-protected default branch: the version bump lands by PR, not by direct push.
+
+  - The release flow's bump step commits on a `chore/release-<version>` branch and opens its PR; merging it is the operator's word, and the tag goes on the merged commit.
+  - Rollback reverts through a PR too — protection applies to reverts, and a rollback is when that discipline matters most.
+
+- 4e066b6: `skillify`'s scaffolder now refuses a repo it cannot wire, instead of creating the tree and reporting success.
+
+  - A missing `README.md` or `packages/cli/packaging.json` is a pre-flight refusal that writes nothing and exits 1, naming the path and what it is needed for. Previously both degraded to a `skipped:` status with exit 0, leaving a skill that `structure.mjs check` immediately blocks.
+  - The refusal applies to dry runs too, matching the existing Skills-table refusal.
+  - `.changeset/` still degrades to `skipped:` — a missing changeset breaks no check — and `wireSkill` called on its own stays permissive, since it is a wiring primitive rather than a tree creator.
+
 ## 0.16.0
 
 ### Minor Changes
