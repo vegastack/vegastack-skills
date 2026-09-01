@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { locateSkillspector, parsePipxList, parseUvToolList } from '../scripts/lib/skillspector.mjs'
+import {
+  locateSkillspector,
+  parsePipxList,
+  parseUvToolList,
+  provisionSkillspector,
+  readVersion,
+} from '../scripts/lib/skillspector.mjs'
 
 const UV_OUT =
   'skillspector v2.11.0 (/Users/x/.local/share/uv/tools/skillspector)\n- skillspector (/Users/x/.local/bin/skillspector)\n'
@@ -95,5 +101,96 @@ describe('locateSkillspector', () => {
 
   test('returns null when no channel has it', () => {
     expect(locateSkillspector({ run: runner({}), exists: present })).toBeNull()
+  })
+})
+
+describe('readVersion', () => {
+  // Verified 01-09-2026: `skillspector --version` prints "SkillSpector v2.11.0"
+  // on stdout while its missing-API-key warnings go to stderr, so the combined
+  // stream must never be what gets parsed.
+  test('parses the version from stdout', () => {
+    expect(readVersion({ path: '/u/skillspector', run: () => ({ ok: true, stdout: 'SkillSpector v2.11.0\n' }) })).toBe(
+      '2.11.0',
+    )
+  })
+
+  test('is null when the command fails', () => {
+    expect(readVersion({ path: '/u/skillspector', run: () => ({ ok: false, stdout: 'boom' }) })).toBeNull()
+  })
+
+  test('is null for output it does not recognise', () => {
+    expect(readVersion({ path: '/u/skillspector', run: () => ({ ok: true, stdout: 'wat\n' }) })).toBeNull()
+  })
+})
+
+describe('provisionSkillspector', () => {
+  const recorder = (result: Result = { ok: true, stdout: '' }) => {
+    const calls: string[] = []
+    const run = (cmd: string, args: string[]) => {
+      calls.push(`${cmd} ${args.join(' ')}`)
+      return result
+    }
+    return { calls, run }
+  }
+
+  test('off does nothing at all', () => {
+    const { calls, run } = recorder()
+    expect(provisionSkillspector({ mode: 'off', located: null, run }).action).toBe('none')
+    expect(calls).toEqual([])
+  })
+
+  test('notify changes nothing on the machine', () => {
+    const { calls, run } = recorder()
+    expect(provisionSkillspector({ mode: 'notify', located: null, run }).action).toBe('none')
+    expect(calls).toEqual([])
+  })
+
+  test('auto installs when nothing is present, using upstream git URL', () => {
+    const { calls, run } = recorder()
+    expect(provisionSkillspector({ mode: 'auto', located: null, run }).action).toBe('installed')
+    expect(calls[0]).toBe('uv tool install git+https://github.com/NVIDIA/skillspector.git')
+  })
+
+  test('auto upgrades through the channel that installed it', () => {
+    const { calls, run } = recorder()
+    provisionSkillspector({ mode: 'auto', located: { channel: 'brew', path: '/b/skillspector' }, run })
+    expect(calls).toContain('brew upgrade skillspector')
+    expect(calls).not.toContain('uv tool upgrade skillspector')
+  })
+
+  test('a failed upgrade falls back instead of throwing', () => {
+    const out = provisionSkillspector({
+      mode: 'auto',
+      located: { channel: 'uv', path: '/u/skillspector' },
+      run: () => ({ ok: false, stdout: 'network unreachable' }),
+    })
+    expect(out.action).toBe('failed')
+    expect(out.message).toContain('network unreachable')
+  })
+
+  test('reports the dependency lines an upgrade moved', () => {
+    // Verified 01-09-2026: `uv tool upgrade` moves the whole dependency tree,
+    // so a run can change behaviour while the version string holds steady.
+    const out = provisionSkillspector({
+      mode: 'auto',
+      located: { channel: 'uv', path: '/u/skillspector' },
+      run: (_cmd: string, args: string[]) =>
+        args.includes('--version')
+          ? { ok: true, stdout: 'SkillSpector v2.11.0\n' }
+          : { ok: true, stdout: ' - langsmith==0.11.2\n + langsmith==0.12.0\n' },
+    })
+    expect(out.action).toBe('upgraded')
+    expect(out.before).toBe('2.11.0')
+    expect(out.after).toBe('2.11.0')
+    expect(out.changed).toEqual(['- langsmith==0.11.2', '+ langsmith==0.12.0'])
+  })
+
+  test('control characters in command output cannot repaint the terminal', () => {
+    const out = provisionSkillspector({
+      mode: 'auto',
+      located: { channel: 'uv', path: '/u/skillspector' },
+      run: () => ({ ok: false, stdout: 'boom\u001b[31mRED' }),
+    })
+    expect(out.message).not.toContain('\u001b')
   })
 })
