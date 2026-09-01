@@ -27,7 +27,8 @@ npx @vegastack/skills add --group dev-skills --global
 | [references/cross-agent.md](references/cross-agent.md) | The Codex↔Claude handoff, announcements, fallbacks |
 | [assets/review-known-patterns.md.template](assets/review-known-patterns.md.template) | Per-project never-flag seed (every entry needs "Still flag if:") |
 | [scripts/skill-scan.mjs](scripts/skill-scan.mjs) | The skill-scan guard: runs NVIDIA SkillSpector over the project's skills, blocks on unsuppressed HIGH/CRITICAL |
-| [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
+| [scripts/lib/skillspector.mjs](scripts/lib/skillspector.mjs) | Locating, installing, upgrading and version-reading the SkillSpector CLI itself — every command behind an injected runner |
+| [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract: the upstream command surfaces the guard parses |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | `tests/` | Bun tests and fixtures (never packaged) |
 
@@ -37,7 +38,17 @@ Invoked by dev-implement per the project's `review:` knob, by a direct "review t
 
 ## Scanning skills
 
-Projects that author agent skills set a `skill-scan:` root in `.vegastack/dev.md`; `none` (or no line) turns the whole thing off and the guard says it skipped. A profile it cannot read is a different answer — that blocks, so the gate can never disable itself by being run from the wrong directory. The guard needs [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) on PATH — `uv tool install git+https://github.com/NVIDIA/skillspector.git` — and refuses with that instruction when it is absent, rather than passing quietly.
+Projects that author agent skills set a `skill-scan:` root in `.vegastack/dev.md`; `none` (or no line) turns the whole thing off and the guard says it skipped. A profile it cannot read is a different answer — that blocks, so the gate can never disable itself by being run from the wrong directory. The guard finds [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) through whatever channel installed it — uv, Homebrew, or pipx — and runs it by absolute path, so it works even when your shell's `PATH` does not have it (a common split between an operator's terminal and an agent's long-running shell). Only a scanner that no channel reports **and** that is not on `PATH` refuses, and that message names every remedy: the install command, `VSK_SKILLSPECTOR` for a wrapper or container, and `skill-scan: none` for a project with no skills.
+
+It also keeps the CLI current. `.vegastack/dev.md`'s `skillspector-update:` knob takes `off | notify | auto` (absent reads as `auto`):
+
+| Value | Behaviour |
+|---|---|
+| `auto` | installs SkillSpector when absent, upgrades it before every scan; any failure falls back to the installed copy and the scan continues |
+| `notify` | reports the newest upstream release and changes nothing |
+| `off` | no network, no installs, no upgrades |
+
+The mode is read from the profile on **every** run, `--root` included: `--root` chooses what to scan, never whether this machine may be written to. `--no-provision` forces a single run to leave the machine alone. No version comparison happens before an upgrade, deliberately — `uv tool upgrade` moves the whole dependency tree while the version string can hold steady, so "already current" is not a claim this guard can honestly make.
 
 Run it **from your project root**, with `SKILL` standing in for wherever the skill is installed (`.claude/skills/dev-review`, `.agents/skills/dev-review`, …):
 
@@ -45,6 +56,7 @@ Run it **from your project root**, with `SKILL` standing in for wherever the ski
 node $SKILL/scripts/skill-scan.mjs --json      # reads the knob and the project baseline; exit 2 = blocked
 node $SKILL/scripts/skill-scan.mjs --llm       # adds the semantic pass — advisory, never a gate
 node $SKILL/scripts/skill-scan.mjs --root path/to/skills --baseline path/to/baseline.json
+node $SKILL/scripts/skill-scan.mjs --no-provision   # this run installs and upgrades nothing
 ```
 
 With no `--root`, the knob names what to scan and `.vegastack/skillspector-baseline.json` is applied by convention. An explicit `--root` never inherits that baseline — a rule written for your own content should not silence a finding in someone else's skill.

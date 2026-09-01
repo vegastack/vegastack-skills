@@ -332,13 +332,10 @@ export function evaluateScan(facts) {
   // Environment failures first: when the scanner never ran, a finding list is
   // not evidence of anything, and the real cause must read before the noise.
   if (binaryMissing) {
-    blocks.push(`the \`skillspector\` binary could not be found — no install channel (uv, brew, pipx) reports it and it is not on PATH — ${INSTALL_HINT}, or set skill-scan: none if this project has no skills`);
+    blocks.push(
+      `the \`skillspector\` binary could not be found — no install channel (uv, brew, pipx) reports it and it is not on PATH — ${INSTALL_HINT}; or, if it runs through a wrapper or container, point VSK_SKILLSPECTOR at that executable; or set skill-scan: none if this project has no skills`,
+    );
   }
-  // Located through its install channel while PATH could not see it. This is a
-  // NOTE, never a block: a scanner we can run is a scanner we can run, and
-  // turning a working install into a failure is the defect issue #83 removed.
-  // Saying it out loud still matters — it tells the operator why their own
-  // shell disagrees with the guard.
   // An update that could not happen is a note, never a block: the scan ran on
   // the copy that was already installed, which is exactly the documented
   // fallback. Sanitized — this text comes from a package manager.
@@ -355,11 +352,7 @@ export function evaluateScan(facts) {
       `baseline pins scanner_version ${safe(baselinePin.scannerVersion)} for ${baselinePin.fingerprints} fingerprint(s) but skillspector ${safe(skillspector.version)} ran — re-verify those suppressions and move the pin deliberately, never automatically`,
     );
   }
-  if (skillspector.resolvedOutsidePath && skillspector.path) {
-    warns.push(
-      `skillspector resolved outside PATH via ${safe(skillspector.channel ?? 'its install channel')} at ${safe(skillspector.path)} — the scan is unaffected; your shell will not find it until that channel's bin directory is on PATH`,
-    );
-  }
+
   if (rootMissing) {
     blocks.push(`scan root "${rootMissing}" does not exist — build it first if it is a build output, or correct dev.md's skill-scan: knob`);
   }
@@ -753,6 +746,62 @@ export function gatherFacts({ root, baselinePath, llm, binary: binaryOverride })
   return base;
 }
 
+// The provisioning sequence, extracted so it is testable: the CLI passes the
+// real commands, unit tests pass fakes. Returns the `skillspector` report block.
+//
+// `mode` is a MACHINE policy, never a per-scan-root one — see the CLI, which
+// reads it from the profile even when --root chose what to scan.
+export async function provisionForRun({
+  mode,
+  locate,
+  provision,
+  versionOf,
+  pathVisible,
+  fetchLatest,
+}) {
+  const state = {
+    mode,
+    channel: null,
+    path: null,
+    version: null,
+    action: 'none',
+    before: null,
+    after: null,
+    changed: [],
+    message: '',
+    available: null,
+    resolvedOutsidePath: false,
+  };
+
+  let located = locate();
+  const result = provision({ mode, located });
+  state.action = result.action;
+  state.changed = result.changed;
+  state.message = result.message;
+  state.before = result.before;
+  state.after = result.after;
+  // An install lands somewhere only a fresh probe knows about.
+  if (result.action === 'installed') located = locate();
+
+  if (located) {
+    state.channel = located.channel;
+    state.path = located.path;
+    state.version = versionOf(located.path);
+    // A fresh install has no "before", so its "after" is simply the version now
+    // installed — otherwise the report says "(unchanged)" about a tool that was
+    // not there a moment ago.
+    if (state.action === 'installed') state.after = state.version;
+    // Located through its channel while a bare PATH lookup cannot see it. This
+    // is reported, never warned about: it is the ordinary case this feature
+    // exists to serve, and making it a warn would pin the exit code at 1
+    // forever for exactly the setup that motivated the work.
+    state.resolvedOutsidePath = !pathVisible();
+  }
+
+  if (mode === 'notify') state.available = await fetchLatest();
+  return state;
+}
+
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
@@ -773,6 +822,9 @@ if (invokedDirectly) {
   let baselinePath = get('--baseline') ?? null;
   let updateMode = 'auto';
   let binary;
+  // Warns raised before the scan runs. `outcome` is REASSIGNED by evaluateScan,
+  // so anything pushed onto it beforehand would be silently discarded.
+  const preWarns = [];
   const skillspector = {
     mode: 'auto',
     channel: null,
@@ -786,6 +838,32 @@ if (invokedDirectly) {
     available: null,
     resolvedOutsidePath: false,
   };
+
+  // The update mode is read from the profile ALWAYS, including for --root runs.
+  // --root chooses what to scan; it never decides whether this machine may be
+  // written to. Skipping this is how `skillspector-update: off` got ignored on
+  // exactly the invocation dev-review documents for vetting a stranger's skill.
+  {
+    let profileForMode = null;
+    try {
+      profileForMode = readFileSync(devMdPath, 'utf8');
+    } catch {
+      // An explicit --root may legitimately run outside any project.
+    }
+    if (profileForMode !== null) {
+      const declared = [...new Set(updateModeDeclarations(profileForMode))];
+      const unusable = declared.length > 1 || declared.some((value) => !UPDATE_MODES.has(value));
+      // A profile we cannot read unambiguously must not authorise writing to
+      // the machine. The non---root path below turns the same conditions into
+      // blocks; here the run continues, but touching nothing.
+      updateMode = unusable ? 'off' : resolveUpdateMode(profileForMode);
+      if (unusable && explicitRoot) {
+        preWarns.push(
+          `${devMdPath} does not give skillspector-update a single recognised value — this run left the machine untouched`,
+        );
+      }
+    }
+  }
 
   if (!explicitRoot) {
     // "Could not read the profile" and "the profile says none" are different
@@ -839,31 +917,18 @@ if (invokedDirectly) {
     // would shell out to whatever uv/brew happen to hold on the machine running
     // the suite, and a unit suite that installs software is not a unit suite.
     if (!process.env.VSK_SKILLSPECTOR) {
-      let located = locateSkillspector();
-
-      const result = provisionSkillspector({ mode: skillspector.mode, located });
-      skillspector.action = result.action;
-      skillspector.changed = result.changed;
-      skillspector.message = result.message;
-      skillspector.before = result.before;
-      skillspector.after = result.after;
-      // An install lands somewhere only a fresh probe knows about.
-      if (result.action === 'installed') located = locateSkillspector();
-
-      if (located) {
-        skillspector.channel = located.channel;
-        skillspector.path = located.path;
-        skillspector.version = readVersion({ path: located.path });
-        // Located through its channel while a bare PATH lookup cannot see it —
-        // reported so the operator knows why their own shell disagrees, never
-        // treated as a failure.
-        skillspector.resolvedOutsidePath = !defaultRun('skillspector', ['--version']).ok;
-      }
-
-      if (skillspector.mode === 'notify') {
-        skillspector.available = await latestRelease();
-      }
-      binary = located?.path;
+      Object.assign(
+        skillspector,
+        await provisionForRun({
+          mode: skillspector.mode,
+          locate: () => locateSkillspector(),
+          provision: ({ mode, located }) => provisionSkillspector({ mode, located }),
+          versionOf: (path) => readVersion({ path }),
+          pathVisible: () => defaultRun('skillspector', ['--version']).ok,
+          fetchLatest: () => latestRelease(),
+        }),
+      );
+      binary = skillspector.path ?? undefined;
     }
 
     // An uncaught throw would leave node exiting 1 — which in this guard's own
@@ -878,6 +943,7 @@ if (invokedDirectly) {
     }
   }
 
+  outcome = { ...outcome, warns: [...preWarns, ...outcome.warns] };
   const ok = outcome.blocks.length === 0;
   if (json) {
     console.log(JSON.stringify({

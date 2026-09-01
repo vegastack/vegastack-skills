@@ -9,6 +9,7 @@ import {
   findUnscannable,
   gatherFacts,
   parseBaseline,
+  provisionForRun,
   resolveScanRoot,
   resolveUpdateMode,
   scanRootDeclarations,
@@ -389,15 +390,17 @@ describe('evaluateScan', () => {
 })
 
 describe('evaluateScan — skillspector resolution', () => {
-  test('a binary located outside PATH is not a block, only a note', () => {
+  test('a binary located outside PATH is neither a block nor a warn', () => {
     const out = evaluateScan(
       facts({
         binaryMissing: false,
         skillspector: { channel: 'uv', path: '/x/.local/bin/skillspector', resolvedOutsidePath: true },
       }),
     )
+    // The whole point of #83: this is the ordinary case the feature serves. A
+    // warn would pin the exit code at 1 forever for the setup that motivated it.
     expect(out.blocks).toEqual([])
-    expect(out.warns.some((w: string) => /outside .*PATH/i.test(w) && /uv/.test(w))).toBe(true)
+    expect(out.warns).toEqual([])
   })
 
   test('a binary found normally says nothing about PATH', () => {
@@ -407,10 +410,12 @@ describe('evaluateScan — skillspector resolution', () => {
     expect(out.warns.some((w: string) => /PATH/i.test(w))).toBe(false)
   })
 
-  test('a genuinely missing binary still blocks with install guidance', () => {
+  test('a genuinely missing binary blocks and names every remedy, including the wrapper case', () => {
     const out = evaluateScan(facts({ binaryMissing: true }))
     expect(out.blocks).toHaveLength(1)
     expect(out.blocks[0]).toContain('uv tool install git+https://github.com/NVIDIA/skillspector.git')
+    expect(out.blocks[0]).toContain('VSK_SKILLSPECTOR')
+    expect(out.blocks[0]).toContain('skill-scan: none')
   })
 })
 
@@ -785,9 +790,42 @@ describe('CLI', () => {
     expect(JSON.parse(r.out).blocks.join(' ')).toContain('skillspector-update')
   })
 
-  test('--no-provision leaves the machine alone', () => {
-    const r = run(['--root', oneSkill(), '--no-provision', '--json'], { VSK_SKILLSPECTOR: fake })
-    expect(JSON.parse(r.out).skillspector.action).toBe('none')
+  // Asserting `action` alone was tautological: the seam suppresses provisioning
+  // regardless, so the flag was never actually exercised. `mode` is decided
+  // before the seam is consulted, so it is the value that proves the flag works.
+  test('--no-provision forces mode off even when the profile says auto', () => {
+    const profile = profileWith('skill-scan: packages/cli/skill\nskillspector-update: auto\n')
+    const on = run(['--dev-md', profile, '--root', oneSkill(), '--json'], { VSK_SKILLSPECTOR: fake })
+    expect(JSON.parse(on.out).skillspector.mode).toBe('auto')
+    const off = run(['--dev-md', profile, '--root', oneSkill(), '--no-provision', '--json'], { VSK_SKILLSPECTOR: fake })
+    expect(JSON.parse(off.out).skillspector.mode).toBe('off')
+  })
+
+  // Regression: --root used to skip reading the profile entirely, so a machine
+  // whose operator wrote `skillspector-update: off` got software installed on
+  // the exact invocation dev-review documents for vetting a stranger's skill.
+  test('--root still honours skillspector-update from the profile', () => {
+    const r = run(
+      ['--dev-md', profileWith('skill-scan: none\nskillspector-update: off\n'), '--root', oneSkill(), '--json'],
+      { VSK_SKILLSPECTOR: fake },
+    )
+    expect(JSON.parse(r.out).skillspector.mode).toBe('off')
+  })
+
+  test('--root with an unusable update knob leaves the machine untouched and says so', () => {
+    const r = run(
+      [
+        '--dev-md',
+        profileWith('skill-scan: none\nskillspector-update: off\nskillspector-update: auto\n'),
+        '--root',
+        oneSkill(),
+        '--json',
+      ],
+      { VSK_SKILLSPECTOR: fake },
+    )
+    const report = JSON.parse(r.out)
+    expect(report.skillspector.mode).toBe('off')
+    expect(report.warns.join(' ')).toContain('left the machine untouched')
   })
 
   test('the test seam suppresses locating and provisioning entirely', () => {
@@ -1106,5 +1144,77 @@ describe('coverage acceptances', () => {
     const good = parseBaseline(JSON.stringify({ version: 2, rules: [], fingerprints: [], coverage: [cov()] }))
     expect(good.errors).toEqual([])
     expect(good.coverage).toHaveLength(1)
+  })
+})
+
+describe('provisionForRun', () => {
+  const deps = (over: Record<string, unknown> = {}) => ({
+    mode: 'auto',
+    locate: () => ({ channel: 'uv', path: '/u/skillspector' }),
+    provision: () => ({ action: 'upgraded', before: '2.11.0', after: '2.12.0', changed: [], message: '' }),
+    versionOf: () => '2.12.0',
+    pathVisible: () => true,
+    fetchLatest: async () => null,
+    ...over,
+  })
+
+  test('off performs no provisioning and still resolves the binary for the scan', async () => {
+    const calls: string[] = []
+    const state = await provisionForRun(
+      deps({
+        mode: 'off',
+        provision: ({ mode }: { mode: string }) => {
+          calls.push(mode)
+          return { action: 'none', before: null, after: null, changed: [], message: '' }
+        },
+      }),
+    )
+    expect(calls).toEqual(['off'])
+    expect(state.action).toBe('none')
+    expect(state.path).toBe('/u/skillspector')
+  })
+
+  test('an install re-locates, because the binary did not exist at the first probe', async () => {
+    const found = [null, { channel: 'uv', path: '/u/skillspector' }]
+    let n = 0
+    const state = await provisionForRun(
+      deps({
+        locate: () => found[n++],
+        provision: () => ({ action: 'installed', before: null, after: null, changed: [], message: '' }),
+        versionOf: () => '2.12.0',
+      }),
+    )
+    expect(n).toBe(2)
+    expect(state.path).toBe('/u/skillspector')
+    // A fresh install must not report "(unchanged)".
+    expect(state.after).toBe('2.12.0')
+  })
+
+  test('a failed install leaves no path and the caller falls back to blocking', async () => {
+    const state = await provisionForRun(
+      deps({
+        locate: () => null,
+        provision: () => ({ action: 'failed', before: null, after: null, changed: [], message: 'offline' }),
+      }),
+    )
+    expect(state.action).toBe('failed')
+    expect(state.path).toBeNull()
+  })
+
+  test('resolvedOutsidePath is set only when a bare PATH lookup fails', async () => {
+    expect((await provisionForRun(deps({ pathVisible: () => false }))).resolvedOutsidePath).toBe(true)
+    expect((await provisionForRun(deps({ pathVisible: () => true }))).resolvedOutsidePath).toBe(false)
+  })
+
+  test('only notify reaches the network', async () => {
+    let asked = 0
+    const fetchLatest = async () => {
+      asked += 1
+      return '2.13.0'
+    }
+    expect((await provisionForRun(deps({ mode: 'auto', fetchLatest }))).available).toBeNull()
+    expect(asked).toBe(0)
+    expect((await provisionForRun(deps({ mode: 'notify', fetchLatest }))).available).toBe('2.13.0')
+    expect(asked).toBe(1)
   })
 })
