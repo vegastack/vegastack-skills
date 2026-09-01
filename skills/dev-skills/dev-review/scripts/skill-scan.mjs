@@ -318,12 +318,23 @@ export function evaluateScan(facts) {
     baselineErrors = [],
     skills = [],
     scanErrors = [],
+    skillspector = {},
   } = facts;
 
   // Environment failures first: when the scanner never ran, a finding list is
   // not evidence of anything, and the real cause must read before the noise.
   if (binaryMissing) {
-    blocks.push(`the \`skillspector\` binary is not on PATH — ${INSTALL_HINT}, or set skill-scan: none if this project has no skills`);
+    blocks.push(`the \`skillspector\` binary could not be found — no install channel (uv, brew, pipx) reports it and it is not on PATH — ${INSTALL_HINT}, or set skill-scan: none if this project has no skills`);
+  }
+  // Located through its install channel while PATH could not see it. This is a
+  // NOTE, never a block: a scanner we can run is a scanner we can run, and
+  // turning a working install into a failure is the defect issue #83 removed.
+  // Saying it out loud still matters — it tells the operator why their own
+  // shell disagrees with the guard.
+  if (skillspector.resolvedOutsidePath && skillspector.path) {
+    warns.push(
+      `skillspector resolved outside PATH via ${safe(skillspector.channel ?? 'its install channel')} at ${safe(skillspector.path)} — the scan is unaffected; your shell will not find it until that channel's bin directory is on PATH`,
+    );
   }
   if (rootMissing) {
     blocks.push(`scan root "${rootMissing}" does not exist — build it first if it is a build output, or correct dev.md's skill-scan: knob`);
@@ -529,10 +540,16 @@ function normalizeIssue(raw) {
 // Impure: shells out to the scanner, once per skill. `--baseline` is rejected
 // together with `--recursive` ("scan each sub-skill with its own baseline"), so
 // the loop is the supported path, not an optimization we passed up.
-export function gatherFacts({ root, baselinePath, llm }) {
+export function gatherFacts({ root, baselinePath, llm, binary: binaryOverride }) {
   // VSK_SKILLSPECTOR is a TEST SEAM (stubs the scanner in unit tests), mirroring
-  // ship-gate.mjs's VSK_GH. Normal runs resolve `skillspector` from PATH.
-  const binary = process.env.VSK_SKILLSPECTOR || 'skillspector';
+  // ship-gate.mjs's VSK_GH. `binaryOverride` is the absolute path the CLI
+  // resolved through the tool's own install channel; a bare PATH lookup is the
+  // last resort, not the first.
+  //
+  // Locating deliberately happens in the CLI and NOT here: gatherFacts is
+  // driven directly by unit tests, and probing uv/brew/pipx from inside it
+  // would make the suite shell out to whatever is installed on the machine.
+  const binary = process.env.VSK_SKILLSPECTOR || binaryOverride || 'skillspector';
   const base = {
     binaryMissing: false,
     rootMissing: null,

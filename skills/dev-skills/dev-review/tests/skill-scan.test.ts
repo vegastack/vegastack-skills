@@ -236,6 +236,7 @@ const skill = (over = {}) => ({
 
 const facts = (over = {}) => ({
   binaryMissing: false,
+  skillspector: { channel: null, path: null, resolvedOutsidePath: false },
   rootMissing: null,
   baselineMissing: false,
   baselineErrors: [],
@@ -384,6 +385,32 @@ describe('evaluateScan', () => {
   })
 })
 
+describe('evaluateScan — skillspector resolution', () => {
+  test('a binary located outside PATH is not a block, only a note', () => {
+    const out = evaluateScan(
+      facts({
+        binaryMissing: false,
+        skillspector: { channel: 'uv', path: '/x/.local/bin/skillspector', resolvedOutsidePath: true },
+      }),
+    )
+    expect(out.blocks).toEqual([])
+    expect(out.warns.some((w: string) => /outside .*PATH/i.test(w) && /uv/.test(w))).toBe(true)
+  })
+
+  test('a binary found normally says nothing about PATH', () => {
+    const out = evaluateScan(
+      facts({ skillspector: { channel: 'uv', path: '/x/skillspector', resolvedOutsidePath: false } }),
+    )
+    expect(out.warns.some((w: string) => /PATH/i.test(w))).toBe(false)
+  })
+
+  test('a genuinely missing binary still blocks with install guidance', () => {
+    const out = evaluateScan(facts({ binaryMissing: true }))
+    expect(out.blocks).toHaveLength(1)
+    expect(out.blocks[0]).toContain('uv tool install git+https://github.com/NVIDIA/skillspector.git')
+  })
+})
+
 describe('resolveScanRoot', () => {
   test('reads the knob', () => {
     expect(resolveScanRoot('## Knobs\n\nskill-scan: packages/cli/skill   # built bundle\n')).toBe('packages/cli/skill')
@@ -414,6 +441,16 @@ describe('gatherFacts', () => {
       process.env = saved
     }
   }
+
+  test('an explicit binary path is used instead of a PATH lookup', () => {
+    const log = argvLogPath()
+    withFake({ VSK_SKILLSPECTOR: undefined, VSK_FAKE_ARGV: log }, () => {
+      const out = gatherFacts({ root: oneSkill(), baselinePath: null, llm: false, binary: fake })
+      expect(out.binaryMissing).toBe(false)
+      expect(out.skills).toHaveLength(1)
+    })
+    expect(argvLines(log)[0][0]).toBe('scan')
+  })
 
   const baselineFile = () => {
     const path = join(mkdtempSync(join(tmpdir(), 'vsk-base-')), 'baseline.json')
