@@ -24,8 +24,8 @@ profile carries a schema version to validate against.
 ## Release flow (tag-driven)
 
 1. Every PR that changes released behavior lands with a changeset — a `.changeset/<slug>.md` written directly, since the `changeset` add prompt is interactive (`bunx changeset version` at release time is the only CLI use) — whose bump follows the table above and whose shape follows dev-implement's changelog rule.
-2. Maintainer, at release time: `bunx changeset version` (applies changesets to `packages/cli/package.json` and the changelog), then `bun install` so any dependency changes riding along reach the lockfile, commit. That install does **not** update the workspace's own version inside `bun.lock`: measured on the bun the root `packageManager` line pins, the recorded version is left unchanged by a plain install, by `--force`, and even by `--lockfile-only`, so it sits at an older number indefinitely. `bun install --frozen-lockfile`, which CI and the release workflow both run, passes with it, and nothing in this repo reads it: `packages/cli/package.json` is the single release identity. Never hand-edit the lockfile to "correct" it. The release record is `packages/cli/CHANGELOG.md`, changesets-written — never by hand; the root `CHANGELOG.md` is the frozen pre-0.3.0 record pointing there.
-3. Tag the release commit `v<version>`, push the tag.
+2. Maintainer, at release time: `bunx changeset version` (applies changesets to `packages/cli/package.json` and the changelog), then `bun install` so any dependency changes riding along reach the lockfile, commit on a `chore/release-<version>` branch and open its PR — main is branch-protected with no admin exemption, so the bump reaches main by merge and never by direct push. That install does **not** update the workspace's own version inside `bun.lock`: measured on the bun the root `packageManager` line pins, the recorded version is left unchanged by a plain install, by `--force`, and even by `--lockfile-only`, so it sits at an older number indefinitely. `bun install --frozen-lockfile`, which CI and the release workflow both run, passes with it, and nothing in this repo reads it: `packages/cli/package.json` is the single release identity. Never hand-edit the lockfile to "correct" it. The release record is `packages/cli/CHANGELOG.md`, changesets-written — never by hand; the root `CHANGELOG.md` is the frozen pre-0.3.0 record pointing there.
+3. Merge the release PR on the operator's word, pull main, then tag that merged commit `v<version>` and push the tag. Tags are not branch-protected, so the tag push is unaffected.
 4. The release workflow runs on the tag: `bun run check`, tag↔version guard, `npm publish` via trusted publishing (OIDC, token-free, provenance by default; idempotently skipped if already on the registry), SBOM, GitHub release. Never pass `--provenance` explicitly — it conflicts with trusted-publishing config.
 
 Contributors do not bump versions in PRs; releases are maintainer-driven.
@@ -34,7 +34,7 @@ Contributors do not bump versions in PRs; releases are maintainer-driven.
 
 `npm unpublish` is limited to 72 hours and breaks pinned consumers — it is not the rollback mechanism.
 
-1. **Roll forward:** revert the offending commits on `main`, changeset, tag, release the previous known-good content as a **new patch version**.
+1. **Roll forward:** revert the offending commits through a PR onto `main` (protection applies to reverts too), changeset, tag, release the previous known-good content as a **new patch version**.
 2. **Deprecate the bad version:** `npm deprecate @vegastack/skills@<bad> "Broken — use <new>"`.
 3. Unpublish only if the bad version leaked secrets or is actively harmful, still within 72 hours, and always *in addition to* steps 1–2, never instead.
 
