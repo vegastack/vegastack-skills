@@ -711,6 +711,47 @@ describe('CLI', () => {
     return { code: proc.exitCode, out: proc.stdout.toString() + proc.stderr.toString() }
   }
 
+  const profileWith = (body: string) => {
+    const path = join(mkdtempSync(join(tmpdir(), 'vsk-prof-')), 'dev.md')
+    writeFileSync(path, body)
+    return path
+  }
+
+  test('a skipped scan provisions nothing', () => {
+    const r = run(['--dev-md', profileWith('skill-scan: none\n'), '--json'])
+    const report = JSON.parse(r.out)
+    expect(report.skipped).toBe(true)
+    expect(report.skillspector.action).toBe('none')
+  })
+
+  test('conflicting skillspector-update knobs block', () => {
+    const r = run([
+      '--dev-md',
+      profileWith('skill-scan: packages/cli/skill\nskillspector-update: off\nskillspector-update: auto\n'),
+      '--json',
+    ])
+    expect(r.code).toBe(2)
+    expect(JSON.parse(r.out).blocks.join(' ')).toContain('conflicting values')
+  })
+
+  test('an unrecognised skillspector-update value blocks rather than defaulting', () => {
+    const r = run(['--dev-md', profileWith('skill-scan: packages/cli/skill\nskillspector-update: yes\n'), '--json'])
+    expect(r.code).toBe(2)
+    expect(JSON.parse(r.out).blocks.join(' ')).toContain('skillspector-update')
+  })
+
+  test('--no-provision leaves the machine alone', () => {
+    const r = run(['--root', oneSkill(), '--no-provision', '--json'], { VSK_SKILLSPECTOR: fake })
+    expect(JSON.parse(r.out).skillspector.action).toBe('none')
+  })
+
+  test('the test seam suppresses locating and provisioning entirely', () => {
+    const r = run(['--root', oneSkill(), '--json'], { VSK_SKILLSPECTOR: fake })
+    const report = JSON.parse(r.out)
+    expect(report.skillspector.action).toBe('none')
+    expect(report.skillspector.channel).toBeNull()
+  })
+
   test('an unreadable dev.md blocks — it is not the same answer as "skill-scan: none"', () => {
     const r = run(['--dev-md', join(tmpdir(), 'vsk-no-such-profile.md'), '--json'])
     expect(r.code).toBe(2)
