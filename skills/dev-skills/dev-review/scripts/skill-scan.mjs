@@ -15,6 +15,13 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  defaultRun,
+  latestRelease,
+  locateSkillspector,
+  provisionSkillspector,
+  readVersion,
+} from './lib/skillspector.mjs';
 
 // The clause every suppression must carry, mirroring the "Still flag if:"
 // requirement on .vegastack/review-known-patterns.md entries: a suppression
@@ -733,6 +740,8 @@ if (invokedDirectly) {
     return index === -1 ? undefined : argv[index + 1];
   };
   const json = argv.includes('--json');
+  // Forces this one run to leave the machine untouched, whatever the knob says.
+  const noProvision = argv.includes('--no-provision');
   const devMdPath = get('--dev-md') || '.vegastack/dev.md';
 
   let root = get('--root');
@@ -741,6 +750,21 @@ if (invokedDirectly) {
   let outcome = { blocks: [], warns: [] };
   let facts = { skills: [] };
   let baselinePath = get('--baseline') ?? null;
+  let updateMode = 'auto';
+  let binary;
+  const skillspector = {
+    mode: 'auto',
+    channel: null,
+    path: null,
+    version: null,
+    action: 'none',
+    before: null,
+    after: null,
+    changed: [],
+    message: '',
+    available: null,
+    resolvedOutsidePath: false,
+  };
 
   if (!explicitRoot) {
     // "Could not read the profile" and "the profile says none" are different
@@ -760,6 +784,22 @@ if (invokedDirectly) {
           `${devMdPath} gives skill-scan conflicting values (${declared.join(', ')}) — an example line above the real knob would otherwise silently decide the gate; leave exactly one`,
         );
       }
+      const updateDeclared = [...new Set(updateModeDeclarations(devMd))];
+      if (updateDeclared.length > 1) {
+        outcome.blocks.push(
+          `${devMdPath} gives skillspector-update conflicting values (${updateDeclared.join(', ')}) — leave exactly one`,
+        );
+      }
+      const unknown = updateDeclared.filter((value) => !UPDATE_MODES.has(value));
+      if (unknown.length > 0) {
+        // Defaulting an unrecognised value to `auto` would silently install
+        // software because of a typo. The guard refuses instead.
+        outcome.blocks.push(
+          `${devMdPath} sets skillspector-update to ${unknown.join(', ')} — expected one of off, notify, auto`,
+        );
+      }
+      updateMode = resolveUpdateMode(devMd);
+
       root = resolveScanRoot(devMd);
       skipped = root === null && declared.length <= 1;
       // The project's own suppressions apply to the project's own skills. They
@@ -771,13 +811,48 @@ if (invokedDirectly) {
   }
 
   if (!skipped && outcome.blocks.length === 0) {
+    skillspector.mode = noProvision ? 'off' : updateMode;
+
+    // VSK_SKILLSPECTOR is the test seam, and it means "this exact binary" — so
+    // it suppresses locating AND provisioning. Without that, every CLI test
+    // would shell out to whatever uv/brew happen to hold on the machine running
+    // the suite, and a unit suite that installs software is not a unit suite.
+    if (!process.env.VSK_SKILLSPECTOR) {
+      let located = locateSkillspector();
+
+      const result = provisionSkillspector({ mode: skillspector.mode, located });
+      skillspector.action = result.action;
+      skillspector.changed = result.changed;
+      skillspector.message = result.message;
+      skillspector.before = result.before;
+      skillspector.after = result.after;
+      // An install lands somewhere only a fresh probe knows about.
+      if (result.action === 'installed') located = locateSkillspector();
+
+      if (located) {
+        skillspector.channel = located.channel;
+        skillspector.path = located.path;
+        skillspector.version = readVersion({ path: located.path });
+        // Located through its channel while a bare PATH lookup cannot see it —
+        // reported so the operator knows why their own shell disagrees, never
+        // treated as a failure.
+        skillspector.resolvedOutsidePath = !defaultRun('skillspector', ['--version']).ok;
+      }
+
+      if (skillspector.mode === 'notify') {
+        skillspector.available = await latestRelease();
+      }
+      binary = located?.path;
+    }
+
     // An uncaught throw would leave node exiting 1 — which in this guard's own
     // scheme reads as "pass with warnings". A crash is not a pass.
     try {
-      facts = gatherFacts({ root, baselinePath, llm: argv.includes('--llm') });
+      facts = gatherFacts({ root, baselinePath, llm: argv.includes('--llm'), binary });
+      facts.skillspector = skillspector;
       outcome = evaluateScan(facts);
     } catch (error) {
-      facts = { skills: [] };
+      facts = { skills: [], skillspector };
       outcome = { blocks: [`the scan failed unexpectedly: ${error.message}`], warns: [] };
     }
   }
@@ -788,6 +863,7 @@ if (invokedDirectly) {
       guard: 'skill-scan',
       ok,
       skipped,
+      skillspector,
       ...outcome,
       // The full normalized issue list, not a count: dev-review's Security axis
       // is told to read the source at each finding's file:line and to judge
@@ -803,6 +879,23 @@ if (invokedDirectly) {
     console.log('skill-scan: BLOCKED');
     for (const b of outcome.blocks) console.log(`  block: ${b}`);
   } else {
+    // The version/dependency change reads BEFORE the findings: after an
+    // upgrade, new findings are the tool having learned something, not the diff
+    // having broken something, and an operator who cannot see that debugs the
+    // wrong thing.
+    if (skillspector.action === 'installed' || skillspector.action === 'upgraded') {
+      const span = skillspector.before === skillspector.after
+        ? `version ${skillspector.version ?? 'unknown'} (unchanged)`
+        : `version ${skillspector.before ?? 'none'} → ${skillspector.after ?? skillspector.version ?? 'unknown'}`;
+      console.log(`skill-scan: skillspector ${skillspector.action} via ${skillspector.channel ?? 'uv'} — ${span}`);
+      for (const line of skillspector.changed) console.log(`    ${line}`);
+    }
+    if (skillspector.action === 'failed') {
+      console.log(`skill-scan: skillspector update failed, continuing with the installed copy — ${skillspector.message}`);
+    }
+    if (skillspector.available && skillspector.available !== skillspector.version) {
+      console.log(`skill-scan: skillspector ${skillspector.available} is available (installed: ${skillspector.version ?? 'unknown'})`);
+    }
     console.log(`skill-scan: ${ok ? (outcome.warns.length ? 'pass with warnings' : 'pass') : 'BLOCKED'}`);
     for (const entry of facts.skills) {
       console.log(`  ${entry.name}: score ${entry.score} ${entry.severity} — ${entry.issues.length} finding(s)`);
