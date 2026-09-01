@@ -10,7 +10,9 @@ import {
   gatherFacts,
   parseBaseline,
   resolveScanRoot,
+  resolveUpdateMode,
   scanRootDeclarations,
+  updateModeDeclarations,
 } from '../scripts/skill-scan.mjs'
 
 const SKILL_MD = '---\nname: x\ndescription: y\n---\n'
@@ -419,6 +421,35 @@ describe('resolveScanRoot', () => {
   test('none and absent both mean no scan', () => {
     expect(resolveScanRoot('skill-scan: none\n')).toBeNull()
     expect(resolveScanRoot('review: subagent\n')).toBeNull()
+  })
+})
+
+describe('resolveUpdateMode', () => {
+  test('absent reads as auto', () => {
+    expect(resolveUpdateMode('## Knobs\nskill-scan: skills/\n')).toBe('auto')
+  })
+
+  test('reads a declared value', () => {
+    expect(resolveUpdateMode('skillspector-update: off\n')).toBe('off')
+  })
+
+  test('tolerates a list bullet and indentation', () => {
+    expect(resolveUpdateMode('  - skillspector-update: notify\n')).toBe('notify')
+  })
+
+  test('is not confused by the sibling skill-scan knob', () => {
+    expect(resolveUpdateMode('skill-scan: packages/cli/skill\n')).toBe('auto')
+  })
+
+  test('collects every declaration so the caller can refuse a conflict', () => {
+    expect(updateModeDeclarations('skillspector-update: off\nskillspector-update: auto\n')).toEqual([
+      'off',
+      'auto',
+    ])
+  })
+
+  test('an unrecognised value is reported, not silently defaulted', () => {
+    expect(updateModeDeclarations('skillspector-update: yes\n')).toEqual(['yes'])
   })
 })
 

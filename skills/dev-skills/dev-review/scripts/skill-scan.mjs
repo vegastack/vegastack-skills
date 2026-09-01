@@ -513,6 +513,29 @@ export function scanRootDeclarations(devMdText) {
   return [...String(devMdText ?? '').matchAll(KNOB_LINE)].map((match) => match[1]);
 }
 
+// The sibling knob governing SkillSpector itself: off | notify | auto, absent
+// reading as `auto` so an existing profile inherits the default without an
+// edit. Same tolerant layout matching and same conflict discipline as
+// `skill-scan:` — a knob the guard cannot see reads as absent, and absent must
+// not silently mean something different from what the author wrote.
+//
+// Named for the tool, not for our guard: `skill-scan:` is our machinery,
+// `skillspector-update:` is the third-party binary (operator's rule, 01-09-2026).
+const UPDATE_KNOB_LINE = /^[ \t]*(?:[-*+][ \t]+)?skillspector-update:[ \t]*(\S+)/gm;
+
+export const UPDATE_MODES = new Set(['off', 'notify', 'auto']);
+
+// Every declared value, unvalidated. The caller refuses a conflict or an
+// unrecognised value rather than picking one: guessing which mode the author
+// meant is exactly the judgement a guard must not make.
+export function updateModeDeclarations(devMdText) {
+  return [...String(devMdText ?? '').matchAll(UPDATE_KNOB_LINE)].map((match) => match[1]);
+}
+
+export function resolveUpdateMode(devMdText) {
+  return updateModeDeclarations(devMdText)[0] ?? 'auto';
+}
+
 export function resolveScanRoot(devMdText) {
   const value = scanRootDeclarations(devMdText)[0];
   if (!value || value === 'none') return null;
