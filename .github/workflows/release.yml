@@ -44,15 +44,14 @@ jobs:
     # started ("The job was not started because your account is locked due to a billing issue",
     # re-confirmed on a fresh run 01-09-2026). Self-hosted minutes are unmetered and do dispatch.
     #
-    # Deliberately the bare `self-hosted` label, NOT the `ephemeral-release` pair 0.16.0 used:
-    # that release was served by `vsk-ephemeral-release-016`, an ephemeral runner that
-    # deregistered after its one job, so a custom label matched nothing on the retry and the run
-    # sat queued indefinitely. Every self-hosted runner carries `self-hosted` automatically, so
-    # this matches whichever one is actually online. Widening the label for a PUBLISH job is a
-    # real loosening — it accepts any self-hosted machine reachable by this repo — and it is
-    # accepted only for the duration of the billing lock.
-    # Revert to `ubuntu-latest` once the lock clears — see issue 57.
-    runs-on: [self-hosted]
+    # Targets the org's persistent Linux runner group, NOT the bare `self-hosted` label and not
+    # the `ephemeral-release` pair 0.16.0 used (that runner was ephemeral and deregistered after
+    # its single job). The bare label is deliberately avoided: it would also match the two ARM64
+    # mac minis, whose BSD userland the shell steps below were never written for — `set -euo
+    # pipefail`, the changelog-extraction `awk`, `grep`, `rm -rf` all assume GNU userland, and
+    # "probably fine" is not acceptable in a publish job.
+    # Revert to `ubuntu-latest` — and drop --no-provenance below — once the lock clears (#57).
+    runs-on: [self-hosted, vsk-runners-linux]
     steps:
       - uses: actions/checkout@v7
 
