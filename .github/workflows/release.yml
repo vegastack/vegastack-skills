@@ -44,14 +44,17 @@ jobs:
     # started ("The job was not started because your account is locked due to a billing issue",
     # re-confirmed on a fresh run 01-09-2026). Self-hosted minutes are unmetered and do dispatch.
     #
-    # Targets the org's persistent Linux runner group, NOT the bare `self-hosted` label and not
-    # the `ephemeral-release` pair 0.16.0 used (that runner was ephemeral and deregistered after
-    # its single job). The bare label is deliberately avoided: it would also match the two ARM64
-    # mac minis, whose BSD userland the shell steps below were never written for — `set -euo
-    # pipefail`, the changelog-extraction `awk`, `grep`, `rm -rf` all assume GNU userland, and
-    # "probably fine" is not acceptable in a publish job.
+    # Targets the repo-level macOS runners registered on the operator's machine
+    # (`vsk-runner-mac-mk-1/2`, label `vsk-runners-mac`). The org's `vsk-runners-mac-mini` and
+    # `vsk-runners-linux` groups are NOT reachable from this repository — a probe on 01-09-2026
+    # left all three org label sets queued indefinitely with `runner: null`, which is how a
+    # missing runner-group grant presents (it queues forever rather than erroring).
+    #
+    # macOS means BSD userland, which the steps below were not written for. Audited before use:
+    # the changelog-extraction `awk` is pure POSIX, `grep -q '[^[:space:]]'` uses a POSIX class,
+    # and there is no `sed -i`, `date -d`, `readlink -f`, `base64 -w` or `sort -V` anywhere.
     # Revert to `ubuntu-latest` — and drop --no-provenance below — once the lock clears (#57).
-    runs-on: [self-hosted, vsk-runners-linux]
+    runs-on: [self-hosted, vsk-runners-mac]
     steps:
       - uses: actions/checkout@v7
 
