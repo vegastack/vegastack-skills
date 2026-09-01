@@ -7,9 +7,16 @@ The agent entry point is [SKILL.md](SKILL.md).
 ## Install
 
 ```sh
-npx @vegastack/skills add dev-intake
-npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
+npx @vegastack/skills add dev-intake --global
 ```
+
+Or the whole dev workflow at once:
+
+```sh
+npx @vegastack/skills add --group dev-skills --global
+```
+
+`--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install. See the [installer README](../../../packages/cli/README.md) for all flags.
 
 ## What's in this skill
 

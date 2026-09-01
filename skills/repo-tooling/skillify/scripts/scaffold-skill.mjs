@@ -247,9 +247,12 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   // The generated test imports the repo validator by relative path, so its depth follows the
   // skill's: skills/<name>/tests/ is three levels up, skills/<group>/<name>/tests/ is four.
   const validatorPath = `${group ? '../../../..' : '../../..'}/packages/cli/scripts/validate-skill.mjs`
-  // Only a grouped skill gets the family-install line; an ungrouped one would otherwise ship a
-  // command naming a group that does not exist.
-  const groupInstallLine = group ? `\nnpx @vegastack/skills add --group ${group}   # or the whole ${group} family` : ''
+  // Only a grouped skill gets the family-install block; an ungrouped one would otherwise ship a
+  // command naming a group that does not exist. It is its own fence, not a second line in the
+  // first one: pasting a shared fence would run the alternative too.
+  const groupInstallBlock = group
+    ? `\nOr the whole ${group} family at once:\n\n\`\`\`sh\nnpx @vegastack/skills add --group ${group} --global\n\`\`\`\n`
+    : ''
 
   const outputs = templateFiles.map(([source, output]) => [source, output ?? `tests/${name}.test.ts`])
   const plan = { name, group, target, files: outputs.map(([, output]) => output), wrote: false }
@@ -264,7 +267,7 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
         .replaceAll('{{name}}', name)
         .replaceAll('{{date}}', date)
         .replaceAll('{{validatorPath}}', validatorPath)
-        .replaceAll('{{groupInstallLine}}', groupInstallLine)
+        .replaceAll('{{groupInstallBlock}}', groupInstallBlock)
       const destination = join(staging, output)
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, rendered)

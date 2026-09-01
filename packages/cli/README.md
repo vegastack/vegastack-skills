@@ -2,17 +2,25 @@
 
 Installer for VegaStack Agent Skills — a family of self-contained skills for Claude Code, Codex, and Hermes, shipped in one integrity-checked package.
 
+Install the whole dev workflow, once per machine:
+
 ```sh
-npx @vegastack/skills list                      # what is bundled, by group
-npx @vegastack/skills add --group dev-skills    # the whole dev workflow, one command
-npx @vegastack/skills add dev-architect         # or a single skill
+npx @vegastack/skills add --group dev-skills --global
+```
+
+`--global` is the recommended install: the skills land in your home directory and are available in every project you open. Drop it for a project-local install when a repository should carry its own copy.
+
+See what else is bundled:
+
+```sh
+npx @vegastack/skills list
 ```
 
 ## Skills in this package
 
 ### `dev-skills` — the issue-driven dev workflow
 
-Install the family with `add --group dev-skills`.
+Install the family with `add --group dev-skills --global`.
 
 | Skill | What it does |
 |---|---|
@@ -58,12 +66,45 @@ These operate on the vegastack-skills repository itself and do nothing useful in
 
 A `--group` or `--all` install is **one transaction**: every skill is checked and staged before any of them is committed, so if one fails, none are installed and the destination is left exactly as it was.
 
+The ten dev-workflow skills:
+
 ```sh
-npx @vegastack/skills add --group dev-skills    # the ten dev-workflow skills
-npx @vegastack/skills add --all                 # everything worth installing in your project
-npx @vegastack/skills verify --group dev-skills # check the family against the manifest
-npx @vegastack/skills remove --group dev-skills # uninstall it again
+npx @vegastack/skills add --group dev-skills --global
 ```
+
+Everything worth installing outside this repo:
+
+```sh
+npx @vegastack/skills add --all --global
+```
+
+Check the family against the manifest:
+
+```sh
+npx @vegastack/skills verify --group dev-skills --global
+```
+
+Uninstall it again:
+
+```sh
+npx @vegastack/skills remove --group dev-skills --global
+```
+
+## Upgrading and health checks
+
+Upgrade to the latest release. `--force` is required because `add` refuses to overwrite an installed copy that differs from the bundle rather than silently discarding local edits:
+
+```sh
+npx @vegastack/skills@latest add --group dev-skills --global --force
+```
+
+Diagnose an install — integrity across all skills, plus installed-vs-latest version:
+
+```sh
+npx @vegastack/skills doctor --global
+```
+
+Run `doctor` without `--global` from inside a project to additionally check that project's `.vegastack/dev.md` profile; the global run skips that check, since the profile is per-project by design.
 
 ## Flags
 
@@ -82,17 +123,21 @@ npx @vegastack/skills remove --group dev-skills # uninstall it again
 
 `--all` and `--agent all` are different axes and are easy to confuse: `--all` chooses **which skills**, `--agent all` chooses **which agent runtimes**. `add --all --agent all --global` is valid and means every installable skill, on every runtime, in your home directory.
 
-Agent targeting is automatic: the CLI detects which agents you have (`~/.claude`, `~/.codex`/`~/.agents`, `~/.hermes`) and targets them without asking — `--agent` overrides. A numbered picker appears only when nothing is detected. Installs are project-local by default; pass `--global` for the home directory (required for Hermes).
+Agent targeting is automatic: the CLI detects which agents you have (`~/.claude`, `~/.codex`/`~/.agents`, `~/.hermes`) and targets them without asking — `--agent` overrides. A numbered picker appears only when nothing is detected.
 
 ## Agent surfaces
 
-| Agent | Project install | Global install |
+`--global` is the recommended install and the only one that can cover all three runtimes at once. `--project` is the flag default, so pass `--global` explicitly.
+
+| Agent | Global install (recommended) | Project install |
 |---|---|---|
-| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
-| Codex | `.agents/skills/` | `~/.agents/skills/` |
-| Hermes | — (Hermes discovers skills globally only) | `~/.hermes/skills/` |
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Codex | `~/.agents/skills/` | `.agents/skills/` |
+| Hermes | `~/.hermes/skills/` | — (Hermes discovers skills globally only) |
 
 `--agent hermes` therefore requires `--global`; `--agent all` on a project install covers codex+claude and prints a notice about hermes.
+
+Prefer a project install when a repository should carry its own copy — so collaborators get the same skills from a checkout, or so one project can pin a version while the rest of the machine moves on. Pick one or the other per skill rather than both: in Claude Code a personal (global) skill takes precedence over a project one, so a project-local copy would not override a global install of the same skill.
 
 ## Integrity model
 

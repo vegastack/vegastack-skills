@@ -33,13 +33,20 @@ decision register — this skill ships no templates of its own.
 ## Try it
 
 ```sh
-npx @vegastack/skills add dev-architect
-npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
+npx @vegastack/skills add dev-architect --global
+```
+
+Or the whole dev workflow at once:
+
+```sh
+npx @vegastack/skills add --group dev-skills --global
 ```
 
 Then in a project session: "Should I add Redis for caching?" (expect a trigger-based no),
 "Review this project's architecture", or "Does Hyperdrive support Postgres 18?" (expect a
 verified answer with its source).
+
+`--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install. See the [installer README](../../../packages/cli/README.md) for all flags.
 
 ## Maintaining
 

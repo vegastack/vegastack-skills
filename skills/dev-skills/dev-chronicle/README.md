@@ -5,9 +5,16 @@ The project's narrative memory. Every behavior-changing branch carries one story
 ## Install
 
 ```sh
-npx @vegastack/skills add dev-chronicle
-npx @vegastack/skills add --group dev-skills   # or the whole dev workflow at once
+npx @vegastack/skills add dev-chronicle --global
 ```
+
+Or the whole dev workflow at once:
+
+```sh
+npx @vegastack/skills add --group dev-skills --global
+```
+
+`--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install. See the [installer README](../../../packages/cli/README.md) for all flags.
 
 ## What's in this skill
 
