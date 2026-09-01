@@ -185,4 +185,37 @@ export function provisionSkillspector({ mode, located, run = defaultRun }) {
   };
 }
 
+
+// Upstream's releases feed. Unauthenticated and rate-limited to 60 requests an
+// hour per IP (verified 01-09-2026), which `notify` stays far inside because it
+// asks once per guard run and only in that mode.
+export const RELEASES_URL = 'https://api.github.com/repos/NVIDIA/SkillSpector/releases/latest';
+
+async function fetchReleaseJson(url) {
+  // GitHub rejects requests without a User-Agent.
+  const response = await fetch(url, {
+    headers: { accept: 'application/vnd.github+json', 'user-agent': 'vegastack-skill-scan' },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+// The newest published release, or null. EVERY failure path is null and never a
+// throw: `notify` is a courtesy line in a report, and a guard must not turn a
+// flaky network into a verdict. A tag that is not a plain version (a nightly, a
+// moved pointer) is rejected rather than reported as a version.
+export async function latestRelease({ fetchJson = fetchReleaseJson, url = RELEASES_URL } = {}) {
+  let body;
+  try {
+    body = await fetchJson(url);
+  } catch {
+    return null;
+  }
+  if (!body || typeof body !== 'object') return null;
+  const tag = typeof body.tag_name === 'string' ? body.tag_name.trim() : '';
+  const match = /^v?(\d+\.\d+\.\d+\S*)$/.exec(tag);
+  return match ? match[1] : null;
+}
+
 export const UPGRADE_COMMANDS = UPGRADE;
