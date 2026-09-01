@@ -13,6 +13,7 @@ review: cross-agent-risky   # subagent | cross-agent-risky | cross-agent — cod
 ui-evidence: none           # no UI in this repo
 gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main, which main's branch protection makes unavailable here
 tests: required             # scripts' deterministic branches; prose quality bar is the behavioral eval
+skillspector-update: auto   # off | notify | auto — the CLI self-installs and self-upgrades through whatever channel holds it (uv here); a failed update falls back to the installed copy
 skill-scan: packages/cli/skill   # the BUILT bundle — authored skills/ carries unpackaged tests/ fixtures that are deliberately adversarial and score higher than anything shipped; suppressions in .vegastack/skillspector-baseline.json
 merge: rebase               # meaningful commits, linear history
 branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the only place this list lives
