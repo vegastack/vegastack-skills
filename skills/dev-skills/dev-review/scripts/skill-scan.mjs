@@ -180,7 +180,7 @@ export function parseBaseline(text) {
     coverage.push({ skill: raw.skill, file: raw.file, sha256: raw.sha256, reason: raw.reason });
   });
 
-  return { rules, fingerprints: rawFingerprints, coverage, errors, warns };
+  return { rules, fingerprints: rawFingerprints, coverage, errors, warns, scannerVersion: data.scanner_version ?? null };
 }
 
 // Absolute paths, sorted, of the skill directories under `root`. A directory is
@@ -326,6 +326,7 @@ export function evaluateScan(facts) {
     skills = [],
     scanErrors = [],
     skillspector = {},
+    baselinePin = {},
   } = facts;
 
   // Environment failures first: when the scanner never ran, a finding list is
@@ -338,6 +339,22 @@ export function evaluateScan(facts) {
   // turning a working install into a failure is the defect issue #83 removed.
   // Saying it out loud still matters — it tells the operator why their own
   // shell disagrees with the guard.
+  // An update that could not happen is a note, never a block: the scan ran on
+  // the copy that was already installed, which is exactly the documented
+  // fallback. Sanitized — this text comes from a package manager.
+  if (skillspector.action === 'failed' && skillspector.message) {
+    warns.push(`skillspector update failed, scanned with the installed copy instead — ${safe(skillspector.message)}`);
+  }
+  // A fingerprint is a content hash tied to the scanner that produced it, so a
+  // version change can stop it matching and quietly un-suppress its finding.
+  // Warn, never block: the finding coming back IS the loud outcome, and the pin
+  // is never moved automatically — that would assert a suppression still holds
+  // for a scanner nobody has run.
+  if (baselinePin.fingerprints > 0 && baselinePin.scannerVersion && skillspector.version && baselinePin.scannerVersion !== skillspector.version) {
+    warns.push(
+      `baseline pins scanner_version ${safe(baselinePin.scannerVersion)} for ${baselinePin.fingerprints} fingerprint(s) but skillspector ${safe(skillspector.version)} ran — re-verify those suppressions and move the pin deliberately, never automatically`,
+    );
+  }
   if (skillspector.resolvedOutsidePath && skillspector.path) {
     warns.push(
       `skillspector resolved outside PATH via ${safe(skillspector.channel ?? 'its install channel')} at ${safe(skillspector.path)} — the scan is unaffected; your shell will not find it until that channel's bin directory is on PATH`,
@@ -598,6 +615,10 @@ export function gatherFacts({ root, baselinePath, llm, binary: binaryOverride })
     base.baselineErrors = parsed.errors;
     base.baselineWarns = parsed.warns;
     base.coverageAccepted = parsed.coverage;
+    // Only fingerprints are version-coupled: they are content hashes the
+    // scanner computed, so a different scanner may stop matching them. Rules
+    // bind to id+path and survive an upgrade untouched.
+    base.baselinePin = { scannerVersion: parsed.scannerVersion, fingerprints: parsed.fingerprints.length };
   }
   // Short-circuit: with a bad baseline nothing the scan reports is trustworthy —
   // suppressions may not apply — and the scanner would reject the file once per

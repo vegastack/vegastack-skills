@@ -239,6 +239,7 @@ const skill = (over = {}) => ({
 const facts = (over = {}) => ({
   binaryMissing: false,
   skillspector: { channel: null, path: null, resolvedOutsidePath: false },
+  baselinePin: { scannerVersion: null, fingerprints: 0 },
   rootMissing: null,
   baselineMissing: false,
   baselineErrors: [],
@@ -410,6 +411,50 @@ describe('evaluateScan — skillspector resolution', () => {
     const out = evaluateScan(facts({ binaryMissing: true }))
     expect(out.blocks).toHaveLength(1)
     expect(out.blocks[0]).toContain('uv tool install git+https://github.com/NVIDIA/skillspector.git')
+  })
+})
+
+describe('evaluateScan — baseline pin and provisioning output', () => {
+  test('a fingerprint-pinned baseline warns when the running version moved', () => {
+    const out = evaluateScan(
+      facts({
+        baselinePin: { scannerVersion: '2.11.0', fingerprints: 1 },
+        skillspector: { version: '2.13.0', action: 'upgraded' },
+      }),
+    )
+    expect(out.blocks).toEqual([])
+    expect(out.warns.some((w: string) => /2\.11\.0/.test(w) && /fingerprint/i.test(w))).toBe(true)
+  })
+
+  test('a rules-only baseline does not warn on a version change', () => {
+    const out = evaluateScan(
+      facts({
+        baselinePin: { scannerVersion: '2.11.0', fingerprints: 0 },
+        skillspector: { version: '2.13.0', action: 'upgraded' },
+      }),
+    )
+    expect(out.warns.some((w: string) => /fingerprint/i.test(w))).toBe(false)
+  })
+
+  test('a matching pin is silent', () => {
+    const out = evaluateScan(
+      facts({
+        baselinePin: { scannerVersion: '2.11.0', fingerprints: 1 },
+        skillspector: { version: '2.11.0', action: 'upgraded' },
+      }),
+    )
+    expect(out.warns.some((w: string) => /fingerprint/i.test(w))).toBe(false)
+  })
+
+  test('a failed update warns and never blocks — the installed copy still scanned', () => {
+    const out = evaluateScan(facts({ skillspector: { action: 'failed', message: 'network unreachable' } }))
+    expect(out.blocks).toEqual([])
+    expect(out.warns.some((w: string) => /network unreachable/.test(w))).toBe(true)
+  })
+
+  test('control characters in provisioning output cannot repaint the terminal', () => {
+    const out = evaluateScan(facts({ skillspector: { action: 'failed', message: 'boom\u001b[31mRED' } }))
+    expect(out.warns.join(' ')).not.toContain('\u001b')
   })
 })
 
