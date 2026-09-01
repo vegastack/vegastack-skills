@@ -1,5 +1,7 @@
 # Contributing
 
+By participating in this project you agree to abide by its [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Dev setup
 
 Requirements: [Bun](https://bun.sh) 1.3.14 (pinned in `packageManager`) and Node >= 24.

@@ -1,55 +1,135 @@
 # VegaStack Skills
 
+[![npm](https://img.shields.io/npm/v/@vegastack/skills?logo=npm&color=cb3837)](https://www.npmjs.com/package/@vegastack/skills)
+[![CI](https://github.com/vegastack/vegastack-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/vegastack/vegastack-skills/actions/workflows/ci.yml)
+[![Node](https://img.shields.io/node/v/@vegastack/skills?logo=node.js&logoColor=white)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Agent Skills for [Claude Code](https://code.claude.com), [Codex](https://developers.openai.com/codex), and [Hermes](https://hermes-agent.nousresearch.com) — plus the `@vegastack/skills` installer that ships them. Each skill is self-contained: its own entry point, references, deterministic scripts, freshness contract, and walkthrough.
 
 The headline set is **`dev-skills`**: a ten-stage, issue-driven development workflow where every gate that matters is held by a person, not an agent.
 
-## Getting started
+- [Quick start](#quick-start)
+- [Installing](#installing)
+- [Working with an agent](#working-with-an-agent)
+- [Skills](#skills)
+- [Repository structure](#repository-structure)
+- [How freshness works](#how-freshness-works)
+- [Advisory reviews, user-held gates](#advisory-reviews-user-held-gates)
+- [Develop](#develop)
+- [Security](#security)
+- [Contributing and support](#contributing-and-support)
+- [License](#license)
 
-Install the dev workflow into your project:
+## Quick start
+
+### Requirements
+
+| What | Why |
+|---|---|
+| Node >= 24 | Runs the installer |
+| macOS or Linux | Windows is not yet supported (path handling) |
+| `git` and an authenticated GitHub CLI — check with `gh auth status` | The dev workflow runs on GitHub issues |
+
+Only Node is needed to install. `dev-setup` tells you if `git` or `gh` is missing when you first use the workflow, and handles a brand-new project with no remote.
+
+### 1. Install the dev workflow
+
+```sh
+npx @vegastack/skills add --group dev-skills --global
+```
+
+This is the **recommended** install: one command, once per machine, and the workflow is available in every project you open. The installer detects which agents you have (Claude Code, Codex, Hermes) and targets them without asking.
+
+Prefer a project-local install when a repository should carry its own copy — so collaborators get the same skills from a checkout, or so one project can pin a version while the rest of the machine moves on:
 
 ```sh
 npx @vegastack/skills add --group dev-skills
 ```
 
-Then ask your agent to **set up the dev workflow** — that phrasing triggers the `dev-setup` skill.
+Pick one or the other per skill rather than installing both: in Claude Code, a personal (global) skill takes precedence over a project one, so a project-local copy would not override a global install of the same skill — it would just sit there unused.
 
-`dev-setup` writes `.vegastack/dev.md` — your project's handbook: stack, commands, review mode, shipping gates. Everything else reads from it. After that, work flows through GitHub issues: **dev-intake** turns an idea into a brief you approve → **dev-plan** turns the brief into a plan you approve → **dev-implement** builds it and posts evidence → **dev-review** reviews it independently → **dev-ship** opens the PR and merges, each step only on your explicit word.
+### 2. Set up your project
 
-**Prerequisites.** The installer needs Node >= 24 on macOS or Linux (Windows is not yet supported). The workflow itself also needs `git` and an authenticated GitHub CLI — check with `gh auth status` — because the dev skills work through GitHub issues. `dev-setup` tells you if either is missing, and handles a brand-new project with no remote.
+In the project you want to work in, ask your agent to **set up the dev workflow** — that phrasing triggers the `dev-setup` skill.
 
-### Other ways to select what you install
+`dev-setup` writes `.vegastack/dev.md`: your project's handbook — stack, commands, review mode, shipping gates. Everything else reads from it. It is per-project and lives in the repo, whether the skills themselves were installed globally or locally.
 
-`add` and `remove` each take **exactly one** selector; `verify` takes at most one and checks everything installed when given none:
+### 3. Work the loop
+
+Work flows through GitHub issues:
+
+**dev-intake** turns an idea into a brief you approve → **dev-plan** turns the brief into a plan you approve → **dev-implement** builds it and posts evidence → **dev-review** reviews it independently → **dev-ship** opens the PR and merges, each step only on your explicit word.
+
+## Installing
+
+### Selecting what to install
+
+`add`, `verify`, and `remove` each take **exactly one** selector; `verify` takes at most one and checks everything installed when given none. Combining two selectors is an error, not a merge.
+
+| Selector | Installs |
+|---|---|
+| `--group dev-skills` | The ten dev-workflow skills |
+| `--all` | Every bundled skill except the repo-only ones |
+| `<skill-name>` | That one skill — works for every bundled skill, repo-only ones included |
 
 ```sh
-npx @vegastack/skills add dev-plan              # one skill
-npx @vegastack/skills add --group dev-skills    # a whole family
-npx @vegastack/skills add --all                 # everything worth installing in a project
-npx @vegastack/skills list                      # what is bundled, by group
+npx @vegastack/skills list
 ```
 
-A `--group` or `--all` install is **one transaction**: every skill is staged before any is committed, so if one fails, none are installed.
+```sh
+npx @vegastack/skills add dev-plan --global
+```
+
+A `--group` or `--all` install is **one transaction**: every skill is staged before any is committed, so if one fails, none are installed and the destination is left exactly as it was.
 
 `--all` deliberately skips the **repo-only** skills (`skill-maintainer`, `skillify`) — those operate on this repository itself and do nothing useful elsewhere. Name one explicitly if you are contributing here.
 
-## Where skills install
+### Where skills install
 
-Project-local by default; `--global` targets your home directory instead.
+`--global` targets your home directory; `--project` (the default) targets the current directory.
 
-| Agent | Project | Global |
+| Agent | Global (recommended) | Project |
 |---|---|---|
-| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
-| Codex | `.agents/skills/` | `~/.agents/skills/` |
-| Hermes | — not supported | `~/.hermes/skills/` |
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Codex | `~/.agents/skills/` | `.agents/skills/` |
+| Hermes | `~/.hermes/skills/` | — not supported |
 
-The installer detects which agents you have and targets them without asking; `--agent codex|claude|hermes|both|all` overrides. Hermes discovers skills globally only, so `--agent hermes` requires `--global`.
+Hermes discovers skills globally only, so `--agent hermes` requires `--global`, and a global install is the only one that can cover all three runtimes at once.
 
-`--all` and `--agent all` are different axes and easy to confuse: **`--all` chooses which skills, `--agent all` chooses which agent runtimes.** `add --all --agent all --global` means every installable skill, on every runtime, in your home directory.
+The installer targets detected agents automatically; `--agent codex|claude|hermes|both|all` overrides. `--all` and `--agent all` are different axes and easy to confuse: **`--all` chooses which skills, `--agent all` chooses which agent runtimes.** `add --all --agent all --global` means every installable skill, on every runtime, in your home directory.
 
 Skills always install **flat**, as `<surface>/<skill-name>/`. Groups are a way of selecting and organising skills — they never appear in an installed path, so `--group` changes what you get, never where it lands.
 
-`verify` re-checks installed bytes against the shipped checksum manifest, `remove` uninstalls, and `doctor` diagnoses an install and reports installed-vs-latest. Every flag: [installer README](packages/cli/README.md).
+### Upgrading, checking, removing
+
+Upgrade to the latest release. `--force` is required because the installer refuses to overwrite an installed copy that differs from the bundle, rather than silently discarding local edits:
+
+```sh
+npx @vegastack/skills@latest add --group dev-skills --global --force
+```
+
+Diagnose an install — integrity across all skills, and installed-vs-latest version:
+
+```sh
+npx @vegastack/skills doctor --global
+```
+
+Run `doctor` without `--global` from inside a project to additionally check that project's `.vegastack/dev.md` profile.
+
+Re-check installed bytes against the shipped checksum manifest:
+
+```sh
+npx @vegastack/skills verify --group dev-skills --global
+```
+
+Uninstall:
+
+```sh
+npx @vegastack/skills remove --group dev-skills --global
+```
+
+Every flag: [installer README](packages/cli/README.md).
 
 The installer is fully offline with one exception: `doctor` checks npmjs.org for a newer release. No telemetry.
 
@@ -132,21 +212,43 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, content-versioning rules
 
 **These skills are scanned before they ship.** Every skill in this bundle is checked by [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) — 71 vulnerability patterns across prompt injection, data exfiltration, excessive agency, supply chain, and MCP-specific risks — twice: before any push, and again before a release, on the built bundle that npm actually serves. The gate blocks on any unsuppressed HIGH or CRITICAL finding. Suppressions are not a switch: each one is a reviewed entry in [`.vegastack/skillspector-baseline.json`](.vegastack/skillspector-baseline.json) whose written reason must say what would make the pattern a real finding again.
 
-**You can scan any skill the same way — including one you're about to install from someone else.** Agent skills execute with your agent's authority, so "who wrote this and what does it actually do" is a fair question to ask of any of them, ours included:
+**You can scan any skill the same way — including one you're about to install from someone else.** Agent skills execute with your agent's authority, so "who wrote this and what does it actually do" is a fair question to ask of any of them, ours included.
+
+Install the scanner:
 
 ```sh
 uv tool install git+https://github.com/NVIDIA/skillspector.git
-npx @vegastack/skills add dev-review --agent claude
-node .claude/skills/dev-review/scripts/skill-scan.mjs --root path/to/some-skill
 ```
 
-The guard ships inside `dev-review` — if `scripts/skill-scan.mjs` is not there, your installed copy predates it; re-run `add` against `@vegastack/skills@latest`.
+Install the guard, which ships inside `dev-review`:
+
+```sh
+npx @vegastack/skills add dev-review --global
+```
+
+Then scan any skill directory:
+
+```sh
+node ~/.claude/skills/dev-review/scripts/skill-scan.mjs --root path/to/some-skill
+```
+
+That path is the guard's location for a global Claude Code install. Substitute your own surface from the [table above](#where-skills-install) — `~/.agents/skills/dev-review/…` for a global Codex install, `.claude/skills/dev-review/…` or `.agents/skills/dev-review/…` for a project-local one. If `scripts/skill-scan.mjs` is not there at all, your installed copy predates the guard; re-run `add` against `@vegastack/skills@latest` with `--force`.
 
 Point `--root` at a single skill directory, or at a directory of them — flat, or one group deep. Exit `0` is clean, `1` clean with warnings, `2` blocked — either by a finding, reported with its rule, severity and `file:line`, or because the scan could not be trusted at all: the scanner missing from PATH, an unreadable report or profile, a baseline that fails its own discipline, coverage the scanner says it never completed, or **a directory holding a `SKILL.md` that discovery did not reach** — buried too deep, dot-prefixed, or behind a symlink. That last one matters: an unscanned skill that nobody mentions is indistinguishable from a clean one, so the guard names it and refuses. Without `--root` it reads the `skill-scan:` knob from your project's `.vegastack/dev.md`, and a project with no skills (`skill-scan: none`) is told it was skipped rather than erroring. Add `--llm` for the semantic pass — it needs a provider, is non-deterministic, and is advisory: a run whose analyzer fails scores *higher* than a clean one, which is why the gate never uses it.
 
 The judgement is still yours. A scanner hit is evidence, not a verdict — the `dev-review` skill's [security axis](skills/dev-skills/dev-review/references/security-axis.md) sets out how to trace one before acting on it.
 
 Report vulnerabilities in these skills via [GitHub Security Advisories](SECURITY.md) — not public issues.
+
+## Contributing and support
+
+| | |
+|---|---|
+| Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| Security policy | [SECURITY.md](SECURITY.md) |
+| Bugs and feature requests | [GitHub issues](https://github.com/vegastack/vegastack-skills/issues) |
+| Installer package | [`@vegastack/skills` on npm](https://www.npmjs.com/package/@vegastack/skills) |
 
 ## License
 

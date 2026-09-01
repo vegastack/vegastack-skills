@@ -22,7 +22,8 @@ npx @vegastack/skills add dev-architect --agent both --dir .
 - `@vegastack/skills` version:
 - Node version (`node --version`):
 - OS:
-- Agent runtime (Claude Code / Codex / both):
+- Agent runtime (Claude Code / Codex / Hermes / both):
+- Install mode (global `--global` / project-local):
 
 ## Output
 
