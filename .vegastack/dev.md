@@ -60,5 +60,6 @@ Dark execution ends and the operator decides when work would involve: a change o
 - Every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet in Ship); contributors never bump versions
 - The single version lives in `packages/cli/package.json` (changesets-managed); the workspace root package.json is pinned at `0.0.0` — a placeholder `npm sbom` requires (purls need a version), never bumped, never a release identity; neither is the version `bun.lock` records for the workspace, which does not follow a version bump and is never hand-edited (mechanics: skill-maintainer's release-ops.md)
 - Every skill change goes through skillify's contract (8-item checklist, eval before tests)
+- A repo-wide prose or format sweep must include `assets/*.template`: dev-setup's profile template and dev-review's known-patterns template carry normative format strings that a `--include="*.md"` grep silently misses
 - Never commit generated files: dist/, packages/cli/skill/, skill-integrity.json
 - Never hand-edit refresh checksums/versions/timestamps — runner only
