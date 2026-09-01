@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  latestRelease,
   locateSkillspector,
   parsePipxList,
   parseUvToolList,
@@ -192,5 +193,29 @@ describe('provisionSkillspector', () => {
       run: () => ({ ok: false, stdout: 'boom\u001b[31mRED' }),
     })
     expect(out.message).not.toContain('\u001b')
+  })
+})
+
+describe('latestRelease', () => {
+  test('reads the tag and strips the v', async () => {
+    expect(await latestRelease({ fetchJson: async () => ({ tag_name: 'v2.13.0' }) })).toBe('2.13.0')
+  })
+
+  test('offline is null, never a throw', async () => {
+    expect(
+      await latestRelease({
+        fetchJson: async () => {
+          throw new Error('offline')
+        },
+      }),
+    ).toBeNull()
+  })
+
+  test('an unrecognised body is null', async () => {
+    expect(await latestRelease({ fetchJson: async () => ({}) })).toBeNull()
+  })
+
+  test('a tag that is not a version is rejected rather than reported', async () => {
+    expect(await latestRelease({ fetchJson: async () => ({ tag_name: 'nightly' }) })).toBeNull()
   })
 })
