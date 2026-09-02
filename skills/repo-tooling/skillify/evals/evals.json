@@ -1,0 +1,40 @@
+{
+  "skill_name": "skillify",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Audit `skills/dev-skills/dev-status` — is it complete? Score it against the contract; don't change anything.",
+      "expected_output": "The Phase 1 audit block: skill, path, `Score: N/8`, one of the three verdicts, every N/A item with a one-line rationale and every miss with its evidence; no file is edited because the ask was an audit.",
+      "files": [],
+      "assertions": [
+        "The output carries a `Score: N/8` line and one of the verdicts `properly skilled`, `close — create: ...`, `needs skillify — run skillify on ...`",
+        "Every item scored N/A carries a one-line rationale",
+        "Every missed item names the evidence for the miss",
+        "No file is edited"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "make this a skill: our release-notes routine, it's written up in `docs/release-notes-howto.md` (about 60 lines: gather merged PRs since the last tag, group by label, draft the notes, get a thumbs-up, post). we do it every release",
+      "expected_output": "Phase 0's three questions are answered explicitly and the nearest neighbour named, then the scaffolder dry run is shown before `--write`, the trigger set and description come first, and the behavioral eval is scheduled before any lock-in tests.",
+      "files": [],
+      "assertions": [
+        "The three Phase 0 questions (invoked 2+ times, more than ~20 lines of judgment, a trigger phrase) are each answered explicitly",
+        "The scaffolder is run as a dry run and its plan is read before `--write`",
+        "The behavioral eval (Phase 4) is scheduled before the lock-in tests (Phase 5)",
+        "The nearest-neighbour skill is named, or the skill is stated to have none"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "skillify the deploy script in my other repo, `~/projects/acme-portal/scripts/deploy.sh`, so the agent there can run it as a skill",
+      "expected_output": "A decline with the repo-only reason: skillify builds and scores skills for this monorepo only; the response points at what would apply in another repository instead of scaffolding anything.",
+      "files": [],
+      "assertions": [
+        "The response declines and states that skillify is for skills inside this repository only",
+        "No scaffolding is run and no file is created",
+        "The response points at an alternative for the other repository"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "skill_name": "skill-maintainer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Cut a release of @vegastack/skills — everything merged to main since v0.18.0. Three changesets are pending under `.changeset/` (two minor, one patch). dev.md's Ship runbook: `auto: bunx changeset version && bun install → commit chore: release @vegastack/skills <version> on chore/release-<version> → open its PR`, `ask: merge the release PR`, `guard: changelog entry exists for the new version`, `guard: the built bundle carries no unsuppressed HIGH/CRITICAL skill finding`, `auto: tag and push v<version>`, `auto: confirm npm view`. Main is branch-protected.",
+      "expected_output": "The runbook is followed in order: the version bump lands on a release branch with its PR, the release-PR merge is put to the operator as a question, both guards run at their positions, and no tag is pushed before the operator answers.",
+      "files": [],
+      "assertions": [
+        "The steps are executed in dev.md's Ship order, each reported with its outcome",
+        "The release-PR merge is presented as an operator question and the run pauses there",
+        "No tag is pushed before that answer",
+        "The version bump is committed on a `chore/release-<version>` branch, never pushed to main directly"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "rename dev-status to dev-board — walk me through everything that has to move",
+      "expected_output": "The full rename surface, listed: the skill directory and its frontmatter name, the `packaging.json` key, the root README row, install docs and any skill that cites the old name, the trigger-query fixtures naming it under `ambiguous_with`, a minor changeset; the build output under `packages/cli/skill/` is regenerated, never edited.",
+      "files": [],
+      "assertions": [
+        "The list names the `packaging.json` key, the root README row, the install docs, and a minor changeset",
+        "Skills and fixtures that cite `dev-status` by name are named as surfaces to update",
+        "`packages/cli/skill/` is named as build output that is regenerated, never edited by hand",
+        "The bump is minor per dev.md's content-semver line for renames"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Scaffold a new skill called deploy-notes under `skills/repo-tooling/` — it should turn a merged PR list into a deploy announcement.",
+      "expected_output": "The request is routed to skillify, whose scaffolder and procedure own new skills; skill-maintainer states the standards the new skill must meet and creates no file.",
+      "files": [],
+      "assertions": [
+        "The response names `skillify` as the skill that scaffolds and writes new skills",
+        "No file is created",
+        "The response names the standards the new skill must meet (naming grammar, description limits, the per-skill contract) rather than restating skillify's procedure"
+      ]
+    }
+  ]
+}
