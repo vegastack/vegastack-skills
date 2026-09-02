@@ -124,6 +124,7 @@
     "assets/templates/openai.yaml.template",
     "assets/templates/trigger-queries.json.template",
     "assets/templates/skill.test.ts.template",
+    "assets/templates/evals.json.template",
     "scripts/scaffold-skill.mjs",
     "scripts/trigger-check.mjs",
     "refresh/REFRESH.md",

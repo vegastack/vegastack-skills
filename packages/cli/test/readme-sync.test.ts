@@ -185,7 +185,8 @@ test('the skillify README template is already in sync with the scaffolder defaul
   const entry = ['SKILL.md', 'agents/openai.yaml', 'refresh/REFRESH.md', 'refresh/sources.json']
   const template = readFileSync(join(import.meta.dir, '../../../skills/repo-tooling/skillify/assets/templates/README.md.template'), 'utf8')
   const table = parseSkillTable(template)!
-  const { lines, unclassified, todo } = renderTable(entry, table.rows, { fileExists: () => true, dirExists: () => false })
+  // The scaffolder writes evals/ (and tests/) beside the packaged files, so the template's disk view has both.
+  const { lines, unclassified, todo } = renderTable(entry, table.rows, { fileExists: () => true, dirExists: (rel: string) => rel === 'evals' })
   expect(unclassified).toEqual([])
   expect(todo).toEqual([])
   expect(template.split('\n').slice(table.start, table.end)).toEqual(lines)
