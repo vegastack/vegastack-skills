@@ -1,6 +1,6 @@
 ---
 name: dev-intake
-description: Turn ideas, brainstorms, feature requests, bug reports, or SOW documents into GitHub issues an agent can act on without further questions. Use when asked to "turn this into issues", "create tasks from this SOW", "write up an issue for" a feature or bug, "users report X — make an issue", "plan this as issues", "slice this epic", or when the user gives approval on a drafted issue and it needs recording. Not for writing the implementation plan of an approved issue (dev-plan), implementing issues (dev-implement), creating PRs or merging (dev-ship), or project bootstrap (dev-setup).
+description: Turn ideas, brainstorms, feature requests, bug reports, or SOW documents into GitHub issues an agent can act on without further questions. Use when the user asks for a new feature or capability ("add support for X", "I need Y", "can we make it do Z"), when asked to "turn this into issues", "create tasks from this SOW", "write up an issue for" a feature or bug, "users report X — make an issue", "plan this as issues", "slice this epic", or when the user gives approval on a drafted issue and it needs recording. Not for writing the implementation plan of an approved issue (dev-plan), implementing issues or a trivial one-or-two-file fix (dev-implement), creating PRs or merging (dev-ship), or project bootstrap (dev-setup).
 ---
 
 # dev-intake
