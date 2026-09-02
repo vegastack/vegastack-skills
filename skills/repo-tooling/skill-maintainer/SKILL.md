@@ -28,12 +28,13 @@ This skill states what must be true; skillify states how to get there. When a ru
 | repo shape, groups, the structure check | the group workflow below |
 | release, rename, deprecate, rollback | [release ops](references/release-ops.md) |
 | this skill's freshness contract | [REFRESH](refresh/REFRESH.md) |
+| authoritative repo policy | `CONTRIBUTING.md` and `.vegastack/dev.md` |
 
 ## Workflow: create or maintain a group
 
-Groups — the repo shape, `GROUP.md` files, and the README sections mirroring them — are this skill's; the tool is `packages/cli/scripts/structure.mjs` at the repo root.
+Groups are this skill's; the tool is `packages/cli/scripts/structure.mjs` at the repo root.
 
-1. **Create a group** — `node packages/cli/scripts/structure.mjs create-group <name> --title "<Display Title>" --blurb "<one line>"` prints the plan and each refusal its own `GROUP.md` reader would raise, before anything is written; `--write` applies it.
+1. **Create a group** — `node packages/cli/scripts/structure.mjs create-group <name> --title "<Display Title>" --blurb "<one line>"` prints the plan and each refusal before anything is written; `--write` applies it.
 2. **Put skills in it** — skillify's scaffolder places a new skill with `--group <name>`, refusing an unknown or malformed group before writing. Moving a skill is a `git mv` plus its README row and its test's validator-import depth.
 3. **Check the shape** — `node packages/cli/scripts/structure.mjs check` blocks on depth, name collisions, `GROUP.md`, README-section, packaging, and README-row faults; it warns on an empty group, a group of one, and placeholder text (`--strict`: warnings exit 1). Dot-prefixed files are ignored everywhere.
 
