@@ -38,7 +38,9 @@
     "scripts/preflight.mjs",
     "scripts/evidence-check.mjs",
     "scripts/reclaim.mjs",
+    "scripts/evidence-upload.mjs",
     "references/ledger-and-resume.md",
+    "references/changelog-and-chronicle.md",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
