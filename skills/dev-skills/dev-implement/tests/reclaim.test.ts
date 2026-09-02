@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test'
+import { spawnSync } from 'node:child_process'
+import { join, resolve } from 'node:path'
 import { evaluateReclaim } from '../scripts/reclaim.mjs'
+
+const skillRoot = resolve(import.meta.dir, '..')
 
 const NOW = Date.parse('2026-08-29T12:00:00Z')
 const working = (assignees = ['bot']) => ({ state: 'open', labels: [{ name: 'working' }, { name: 'full-plan' }], assignees: assignees.map((login) => ({ login })) })
@@ -32,5 +36,12 @@ describe('evaluateReclaim: read-verify before releasing a claim', () => {
   test('a closed issue is blocked', () => {
     const closed = { ...working(), state: 'closed' }
     expect(evaluateReclaim({ issue: closed, comments: [], now: NOW }).blocks.some((b: string) => b.includes('closed'))).toBe(true)
+  })
+  test('CLI fails closed: unreachable gh → exit 2, never a silent release', () => {
+    const r = spawnSync('node', [join(skillRoot, 'scripts/reclaim.mjs'), '--issue', '5', '--repo', 'o/r', '--json'], {
+      env: { ...process.env, VSK_GH: '/nonexistent-vsk-gh' }, encoding: 'utf8',
+    })
+    expect(r.status).toBe(2)
+    expect(r.stdout + r.stderr).toContain('cannot verify')
   })
 })
