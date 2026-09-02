@@ -3,7 +3,7 @@
 <!-- vsk-dev:start -->
 ## Dev workflow
 
-Read `.vegastack/dev.md` for the project's stack, commands, and knobs. The stages are the dev-family skills: dev-setup (bootstrap) · dev-intake (ideas to briefs) · dev-plan (approved briefs to plans) · dev-architect (stack judgment) · dev-implement (dark builds) · dev-debug (reproduce-first fixes) · dev-review (independent review) · dev-ship (gated landing) · dev-status (the operator's board) · dev-chronicle (the project's story).
+Read `.vegastack/dev.md` (stack, commands, knobs); if missing, run dev-setup first. The stages are the dev-family skills: dev-setup (bootstrap) · dev-intake (ideas to briefs) · dev-plan (approved briefs to plans) · dev-architect (stack judgment) · dev-implement (dark builds) · dev-debug (reproduce-first fixes) · dev-review (independent review) · dev-ship (gated landing) · dev-status (the operator's board) · dev-chronicle (the project's story).
 
 Work flows through GitHub issues, labeled per dev.md's `labels:` knob; artifact formats follow dev-setup's `references/conventions.md`. Route each request by kind:
 
