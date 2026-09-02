@@ -26,7 +26,8 @@ npx @vegastack/skills add --group dev-skills --global
 | [references/ledger-and-resume.md](references/ledger-and-resume.md) | Ledger usage and the resume protocol |
 | [scripts/lib/gh.mjs](scripts/lib/gh.mjs) | Shared guard plumbing: gh invocation, marker parsing, result contract |
 | [scripts/preflight.mjs](scripts/preflight.mjs) | Deterministic preflight guard (exit 2 blocks) |
-| [scripts/evidence-check.mjs](scripts/evidence-check.mjs) | Evidence-comment shape guard |
+| [scripts/evidence-check.mjs](scripts/evidence-check.mjs) | Evidence-comment shape guard; with `--issue`, also blocks when plan checkboxes lag the ledger's completed tasks |
+| [scripts/reclaim.mjs](scripts/reclaim.mjs) | Operator-run release of an orphaned claim (`working` → `ready`, unassign; refuses a still-fresh ledger unless `--force`) |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [refresh/REFRESH.md](refresh/REFRESH.md) + [refresh/sources.json](refresh/sources.json) | Evergreen waiver and its deliberately empty registry |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
