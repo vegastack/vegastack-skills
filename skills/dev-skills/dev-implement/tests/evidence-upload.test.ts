@@ -47,6 +47,13 @@ describe('evidence-upload plan(): metadata only, never the bytes', () => {
     expect(r.blocks.join(' ')).toContain('evidence-repo')
     expect(r.blocks.join(' ')).toContain('--evidence-repo')
   })
+  test('a repo that is not owner/name or an issue that is not a number blocks — both become path segments', () => {
+    const { file } = png()
+    expect(plan({ ...base(file), repo: 'vegastack' }).blocks.join(' ')).toContain('<owner>/<name>')
+    expect(plan({ ...base(file), repo: 'o/../x' }).blocks.join(' ')).toContain('<owner>/<name>')
+    expect(plan({ ...base(file), issue: '../x' }).blocks.join(' ')).toContain('not an issue number')
+    expect(plan({ ...base(file), issue: 12 }).blocks).toEqual([])
+  })
   test('a missing file blocks', () => {
     const r = plan(base('/nonexistent/vsk/x.png'))
     expect(r.put).toBeNull()

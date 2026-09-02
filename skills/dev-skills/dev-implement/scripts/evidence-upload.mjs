@@ -20,6 +20,11 @@ import { fileURLToPath } from 'node:url';
 import { GhUnavailable, ghJson, parseFlags, renderResult } from './lib/gh.mjs';
 
 export const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
+const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const ISSUE = /^\d+$/;
+
+// The contents-API path for one file in the evidence repo — the one place it is built.
+const apiPathFor = (evidenceRepo, path) => `repos/${evidenceRepo}/contents/${path}`;
 
 // First `evidence-repo:` knob line in dev.md; a trailing `# comment` is ignored
 // because the value stops at whitespace.
@@ -38,8 +43,12 @@ export function timestamp(now) {
 // null whenever anything blocks.
 export function plan({ repo, issue, file, evidenceRepo, devMd, now = new Date() }) {
   const blocks = [];
+  // repo and issue become path segments in the evidence repo, so each is held
+  // to its own shape — a stray `../` would otherwise land the file elsewhere.
   if (!repo) blocks.push('--repo <o/r> is required (the repo the evidence belongs to)');
+  else if (!REPO.test(repo)) blocks.push(`--repo ${repo} is not <owner>/<name>`);
   if (!issue) blocks.push('--issue <n> is required');
+  else if (!ISSUE.test(String(issue))) blocks.push(`--issue ${issue} is not an issue number`);
   if (!file) blocks.push('--file <png> is required');
 
   let bytes = 0;
@@ -71,17 +80,10 @@ export function plan({ repo, issue, file, evidenceRepo, devMd, now = new Date() 
 
   if (blocks.length > 0) return { blocks, put: null };
 
-  const repoName = repo.includes('/') ? repo.slice(repo.indexOf('/') + 1) : repo;
-  const path = `${repoName}/${issue}/${timestamp(now)}-${basename(file)}`;
+  const path = `${repo.slice(repo.indexOf('/') + 1)}/${issue}/${timestamp(now)}-${basename(file)}`;
   return {
     blocks,
-    put: {
-      evidenceRepo: target,
-      path,
-      bytes,
-      apiPath: `repos/${target}/contents/${path}`,
-      message: `evidence #${issue}`,
-    },
+    put: { evidenceRepo: target, path, bytes, apiPath: apiPathFor(target, path), message: `evidence #${issue}` },
   };
 }
 
@@ -108,10 +110,9 @@ export function upload(put, contentBase64, { gh } = {}) {
   } catch (error) {
     if (!(error instanceof GhUnavailable) || error.httpStatus !== 409) throw error;
     path = retryPath(put.path);
-    const apiPath = `repos/${put.evidenceRepo}/contents/${path}`;
     warns.push(`first PUT hit HTTP 409 (a concurrent upload chose the same name) — retried as ${path}`);
     attempts = 2;
-    response = send(apiPath);
+    response = send(apiPathFor(put.evidenceRepo, path));
   }
   return { attempts, path, url: response?.content?.html_url ?? null, warns };
 }
