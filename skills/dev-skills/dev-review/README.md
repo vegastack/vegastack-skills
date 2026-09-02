@@ -32,6 +32,7 @@ npx @vegastack/skills add --group dev-skills --global
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract: the upstream command surfaces the guard parses |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the SkillSpector install, version and release surfaces the guard parses |
 | `tests/` | Bun tests and fixtures (never packaged) |
+| `evals/` | Behavioral evals in the agentskills.io format (never packaged) |
 
 ## Behavior
 

@@ -26,6 +26,7 @@ Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Run
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Skillify's delegating freshness contract |
 | [refresh/sources.json](refresh/sources.json) | Deliberately empty registry — see freshness below |
 | `tests/` | Bun tests and fixtures (never packaged) |
+| `evals/` | Behavioral evals in the agentskills.io format (never packaged) |
 
 ## The workflow in one paragraph
 

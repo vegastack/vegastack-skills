@@ -27,6 +27,7 @@ Working on this repository: editing an existing skill (SKILL.md, references, ref
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract: standards drift is always semantic and always human-reviewed |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the four standards pages this skill's claims are pinned to (all critical) |
 | `tests/` | Bun tests asserting this skill obeys the very standards it teaches (never packaged) |
+| `evals/` | Behavioral evals in the agentskills.io format (never packaged) |
 
 ## The standards it encodes
 
