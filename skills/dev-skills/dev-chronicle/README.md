@@ -23,6 +23,7 @@ npx @vegastack/skills add --group dev-skills --global
 | [SKILL.md](SKILL.md) | Agent entry point — the entry format and the digest |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
+| [references/styles.md](references/styles.md) | The style rule per `chronicle-style:` and `emoji:`, the witty boundary, one worked example per style |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
 | [refresh/sources.json](refresh/sources.json) | Deliberately empty source registry behind the evergreen waiver |
 | `tests/` | Bun tests and fixtures (never packaged) |

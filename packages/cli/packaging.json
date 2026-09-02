@@ -19,6 +19,7 @@
     "SKILL.md",
     "agents/openai.yaml",
     "references/conventions.md@dev-setup",
+    "references/styles.md",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],

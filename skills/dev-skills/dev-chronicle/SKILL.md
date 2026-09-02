@@ -30,6 +30,10 @@ Nearest neighbors: `dev-implement` writes the entries at hand-back (the write ru
 - Research issues get an entry only when the findings changed direction; docs/test-only merges get none (ship-gate's excuse flag covers both records at once).
 - A notable ship event — rollback, failed release — becomes its own short entry on the next branch, not a rewrite of an old one. Entries are never edited except for typos; the story is append-only like the register.
 
+## Style — tone, not length
+
+dev.md's `chronicle-style:` knob (`plain` default · `story` · `witty`) sets the voice and `emoji:` (`none` default · `sparing`) the emoji budget; the rule every style follows, the boundary of `witty`, and one worked example per style live in [styles](references/styles.md). In every style, domain keywords stay exact and every factual field says what it means, because the operator searches the chronicle for the terms they remember.
+
 ## The digest — "catch me up"
 
 On "catch me up on this project" (or any story-so-far ask), read **only** `.vegastack/chronicle.md` and the decision register — never git archaeology — and render three parts, plain language throughout:
@@ -42,4 +46,4 @@ Length scales with the ask: "catch me up quickly" is one paragraph; a returning-
 
 ## Setup
 
-The `chronicle:` knob in dev.md (`on` default | `off`) governs whether dev-implement writes entries and ship-gate checks them; `dev-setup` writes the knob. A project that turns it on mid-life starts from now — no retroactive backfill unless the operator asks, and then it's marked as reconstructed.
+The `chronicle:` knob in dev.md (`on` default | `off`) governs whether dev-implement writes entries and ship-gate checks them; `chronicle-style:` and `emoji:` govern how they read; `dev-setup` writes all three. A project that turns it on mid-life starts from now — no retroactive backfill unless the operator asks, and then it's marked as reconstructed.
