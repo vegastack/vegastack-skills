@@ -6,16 +6,18 @@ The ledger comment's format, line vocabulary, and the resume read-order (brief �
 
 Create the ledger comment as the session's **first write after claiming** — before any code — with just the marker and heading. Then checkpoint, editing in place:
 
-- **After each plan task completes** — and tick the matching checkbox in the plan comment in the same pass. Record the task's base sha *before* starting it, so the `complete` line's commit range is exact.
+- **After each plan task completes** — and tick the matching `[x]` in the plan comment in the same pass. That box is a second write, to a different comment, that your own resume path never reads — so it is the one that silently lags reality, while the operator's progress view depends on it. The hand-back guard (`evidence-check --issue`) blocks when the ledger's completed tasks outnumber the plan's checked boxes. Record the task's base sha *before* starting it, so the `complete` line's commit range is exact.
 - **After each review fix round**, with the addressed/open counts.
 - **At every dark-mode judgment call.** A ruling is any decision the brief/plan didn't make for you that a reviewer or the operator could reasonably question. Rulings are cheap; unrecorded decisions are debt.
 - **On findings deferred or parked at review**, per dev-review's adjudication lines.
 
 Never batch checkpoints "for later" — the ledger's value is exactly that a crash between checkpoints loses one task, not the map. Under concurrent edits, last-writer-wins on one comment is accepted (single-operator workflow); note a clobber if you ever see one.
 
+The ledger's edit time is also this claim's **heartbeat** — the only liveness signal an agent session exposes. dev-status reads a ledger silent past the orphan threshold (6h) as a *possibly-orphaned* claim: the session likely died before hand-back. A session that runs for days but keeps checkpointing never trips it; a dead one's ledger freezes. A single long task can legitimately go quiet — so checkpoint at rulings within it too, keeping the pulse alive — and the flag is always the operator's to act on (check, resume, or reclaim), never an automatic reset.
+
 ## Resuming — dev-implement's additions to the protocol
 
-- The takeover of a `working` issue requires the operator's explicit handover word; the protocol never makes claiming automatic.
+- The takeover of a `working` issue requires the operator's explicit handover word; the protocol never makes claiming automatic. When nothing is worth resuming, the operator releases the claim instead with `scripts/reclaim.mjs --issue <n>` — `working` → `ready`, unassigned — which refuses a ledger still fresh under the orphan threshold unless `--force`.
 - Corroborate, don't re-verify: the commits the ledger names should exist in `git log` — reconcile the ranges; a mismatch is a `handback`, not a guess.
 - A task whose last line is a fix round is mid-loop — resume at the next round with the open findings; a later `complete` line supersedes earlier rounds.
 - Recorded rulings bind the resumed session: build on them, and surface disagreement in the evidence comment instead of re-litigating.
