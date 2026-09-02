@@ -21,15 +21,16 @@ npx @vegastack/skills add --group dev-skills --global
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point |
+| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [references/dispatch-prompts.md](references/dispatch-prompts.md) | Verbatim reviewer briefs per axis + the scoped re-review brief |
 | [references/security-axis.md](references/security-axis.md) | Data-flow method, security finding format, severity rules |
 | [references/cross-agent.md](references/cross-agent.md) | The Codex↔Claude handoff, announcements, fallbacks |
 | [assets/review-known-patterns.md.template](assets/review-known-patterns.md.template) | Per-project never-flag seed (every entry needs "Still flag if:") |
-| [scripts/skill-scan.mjs](scripts/skill-scan.mjs) | The skill-scan guard: runs NVIDIA SkillSpector over the project's skills, blocks on unsuppressed HIGH/CRITICAL |
 | [scripts/lib/skillspector.mjs](scripts/lib/skillspector.mjs) | Locating, installing, upgrading and version-reading the SkillSpector CLI itself — every command behind an injected runner |
+| [scripts/skill-scan.mjs](scripts/skill-scan.mjs) | The skill-scan guard: runs NVIDIA SkillSpector over the project's skills, blocks on unsuppressed HIGH/CRITICAL |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract: the upstream command surfaces the guard parses |
-| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| [refresh/sources.json](refresh/sources.json) | Source registry: the SkillSpector install, version and release surfaces the guard parses |
 | `tests/` | Bun tests and fixtures (never packaged) |
 
 ## Behavior
