@@ -29,7 +29,9 @@ npx @vegastack/skills add --group dev-skills --global
 | [scripts/preflight.mjs](scripts/preflight.mjs) | Deterministic preflight guard (exit 2 blocks) |
 | [scripts/evidence-check.mjs](scripts/evidence-check.mjs) | Evidence-comment shape guard; with `--issue`, also blocks when plan checkboxes lag the ledger's completed tasks |
 | [scripts/reclaim.mjs](scripts/reclaim.mjs) | Operator-run release of an orphaned claim (`working` → `ready`, unassign; refuses a still-fresh ledger unless `--force`) |
+| [scripts/evidence-upload.mjs](scripts/evidence-upload.mjs) | Uploads one screenshot to the shared evidence repo through the contents API: dry-run by default, `--write` sends, payload on stdin and never printed, one retry on 409 |
 | [references/ledger-and-resume.md](references/ledger-and-resume.md) | Ledger usage and the resume protocol |
+| [references/changelog-and-chronicle.md](references/changelog-and-chronicle.md) | Per-knob changelog mechanics, the entry's first-line rule, and the chronicle hand-off |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Evergreen waiver: this skill makes no volatile claims |
 | [refresh/sources.json](refresh/sources.json) | Deliberately empty source registry behind the evergreen waiver |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |
