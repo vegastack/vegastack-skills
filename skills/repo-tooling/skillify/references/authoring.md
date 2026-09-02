@@ -100,4 +100,4 @@ Phase 6: bun run check green; 8/8 → properly skilled
 - Steering by prohibition — a wall of NEVERs drags the forbidden behavior into context and grows forever; state the positive rule once and explain why it matters.
 - Patching every observed agent failure with a new clause — that is sediment; rewrite the existing rule in place instead of appending case law.
 - Unit tests for prose — a test asserting a markdown file contains a phrase proves nothing the eval didn't.
-- Building eval tooling — evals are instructions you run with subagents, not code you write.
+- Building eval tooling — the runner and the subagent procedure exist; write cases, not harnesses.

@@ -19,8 +19,8 @@ Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Run
 | [SKILL.md](SKILL.md) | Agent entry point: the 8-item checklist, verdicts, Phases 0–6, routing |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | [references/authoring.md](references/authoring.md) | Description engineering, writing style, the limits citation, trigger query sets, token economy, script-vs-instructions criteria, volatile facts, the worked example, anti-patterns |
-| [references/eval-playbook.md](references/eval-playbook.md) | With-skill vs baseline eval method, pass criteria, cycle protocol, KNOWN_GAPS format, model guidance |
-| `assets/templates/` | The seven scaffolded starting points: SKILL.md, README.md, sources.json, REFRESH.md, openai.yaml, an empty trigger-query fixture, and a contract test |
+| [references/eval-playbook.md](references/eval-playbook.md) | The `evals/evals.json` case format, both runners, result files, pass criteria, cycle protocol, KNOWN_GAPS format, model guidance |
+| `assets/templates/` | The eight scaffolded starting points: SKILL.md, README.md, sources.json, REFRESH.md, openai.yaml, an empty trigger-query fixture, a contract test, and an evals.json placeholder |
 | [scripts/scaffold-skill.mjs](scripts/scaffold-skill.mjs) | Deterministic scaffolder: name-grammar validation, dry-run plan, atomic `--write`, automatic repo wiring (packaging entry, root README row, changeset) |
 | [scripts/trigger-check.mjs](scripts/trigger-check.mjs) | Deterministic family-level trigger guard: walks every skill's trigger-query fixture, blocks (exit 2) on a query two skills claim without a mutual `ambiguous_with`, warns on fixture hygiene; runs in `bun run check` as `validate:triggers` |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Skillify's delegating freshness contract |
@@ -48,4 +48,4 @@ Skillify's registry is deliberately empty (`sources: []`). Its only time-decayin
 
 ## For agents: how to behave
 
-Follow [SKILL.md](SKILL.md). The short version: gate before scaffolding (most things should not be skills, and near-duplicates get merged); audit means score-and-stop, not edit; every description states triggers and never the workflow; run the behavioral eval before writing lock-in tests; stop after three eval cycles and ship named gaps instead of polished mediocrity; evals are instructions executed with your own subagents, never custom tooling.
+Follow [SKILL.md](SKILL.md). The short version: gate before scaffolding (most things should not be skills, and near-duplicates get merged); audit means score-and-stop, not edit; every description states triggers and never the workflow; run the behavioral eval before writing lock-in tests; stop after three eval cycles and ship named gaps instead of polished mediocrity; evals are the cases in `evals/evals.json`, run by `claude plugin eval` or your own subagents, never by tooling you write.

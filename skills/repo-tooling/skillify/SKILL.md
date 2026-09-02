@@ -16,7 +16,7 @@ Score every item pass / fail / N/A; N/A without a one-line rationale is a fail. 
 3. **Sharp boundary** — the SKILL.md body names its nearest-neighbor skill and the one-sentence axis of difference (or states it has none). Two skills answering the same trigger get merged, not shipped.
 4. **References routed** — `references/` holds detail only some invocations need, behind a routing table; SKILL.md keeps the workflow, one excellent example, and the routes. N/A for a self-contained skill.
 5. **Scripts deterministic and tested** — bundled scripts follow the conventions in [authoring](references/authoring.md) (dependency-free Node, `--json`, documented exit codes, dry-run default, atomic writes); unit tests cover every deterministic branch. N/A when the skill ships no scripts — its quality bar is item 6.
-6. **Behavioral eval passed** — with-skill vs baseline subagent runs on 2–3 realistic prompts per the [eval playbook](references/eval-playbook.md), at most 3 cycles; pass, or ship with a KNOWN_GAPS README section.
+6. **Behavioral eval passed** — the cases in `evals/evals.json` run with-skill vs baseline per the [eval playbook](references/eval-playbook.md), at most 3 improve cycles; pass, or ship with a KNOWN_GAPS section in the skill's README.
 7. **Freshness honest** — volatile facts live in refresh-tracked files, never in SKILL.md; a skill with none states the evergreen waiver in `refresh/REFRESH.md`.
 8. **Wired and green** — README, `agents/openai.yaml`, packaging entry, root README row, and changeset in place; `bun run check` passes.
 
@@ -74,7 +74,7 @@ The scaffolder validates the name, refuses existing directories and symlinks, st
 
 ## Phase 4 — Behavioral eval — the quality gate
 
-Follow the [eval playbook](references/eval-playbook.md): for 2–3 realistic prompts, launch two subagents in the same turn — one told to follow the new SKILL.md, one baseline without it — and compare outputs against the skill's claimed value.
+Cases live in `evals/evals.json` (agentskills.io format: 2–3 realistic prompts, one boundary case, assertions added after the first run). Run them per the [eval playbook](references/eval-playbook.md): on Claude Code, `claude plugin eval <skill-dir> --ablation with-without --runs 3 --max-cost-usd <n> --threshold <t> --json`, results under `<skill>/evals/results/<timestamp>/` (gitignored); on every harness, the with-skill vs baseline subagent procedure on the same cases, writing the same result files. Workflow skills add the sandbox drill as their end-to-end proof.
 
 At most 3 cycles: eval → apply the top improvements → re-eval; pass, or ship with a KNOWN_GAPS section. If the baseline matches the with-skill output, the skill is not earning its tokens — cut or narrow it.
 
