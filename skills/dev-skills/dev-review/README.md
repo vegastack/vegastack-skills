@@ -49,7 +49,7 @@ It also keeps the CLI current. `.vegastack/dev.md`'s `skillspector-update:` knob
 | `notify` | reports the newest upstream release and changes nothing |
 | `off` | no network, no installs, no upgrades |
 
-The mode is read from the profile on **every** run, `--root` included: `--root` chooses what to scan, never whether this machine may be written to. `--no-provision` forces a single run to leave the machine alone. No version comparison happens before an upgrade, deliberately — `uv tool upgrade` moves the whole dependency tree while the version string can hold steady, so "already current" is not a claim this guard can honestly make.
+The mode is read from the profile on **every** run, `--root` included: `--root` chooses what to scan, never whether this machine may be written to. `--no-provision` forces a single run to leave the machine alone. No version comparison happens before an upgrade, deliberately — `uv tool upgrade` moves the whole dependency tree while the version string can hold steady, so "already current" is not a claim this guard can honestly make. An upgrade that changes anything is reported before the findings, because after an upgrade a new finding is the tool having learned something, not the diff having broken something.
 
 Run it **from your project root**, with `SKILL` standing in for wherever the skill is installed (`.claude/skills/dev-review`, `.agents/skills/dev-review`, …):
 
