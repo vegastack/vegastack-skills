@@ -58,6 +58,7 @@ Every skill lives at `skills/<name>/` or `skills/<group>/<name>/` and is self-co
 | `scripts/` | if applicable | Deterministic, dependency-free Node scripts |
 | `assets/` | if applicable | Templates, schemas, examples |
 | `tests/` | yes | Bun tests and the trigger-query fixture (never packaged); unit tests are required for scripts' deterministic branches, not for prose |
+| `evals/` | recommended | agentskills.io eval cases in `evals/evals.json` (never packaged; results gitignored) — the structure check warns when absent |
 | `refresh/sources.json` + `refresh/REFRESH.md` | yes | Freshness contract for the weekly refresh automation, or a one-line evergreen waiver |
 | `agents/openai.yaml` | for Codex | Codex interface metadata |
 

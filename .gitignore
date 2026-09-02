@@ -19,6 +19,10 @@ work/
 .turbo/
 .claude/
 
+# Eval runs — claude plugin eval results and agentskills.io workspaces
+**/evals/results/
+*-workspace/
+
 # OS noise
 .DS_Store
 docs/research/
