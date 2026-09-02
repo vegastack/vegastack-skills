@@ -2,7 +2,7 @@
 // dev-status data gatherer: everything the board report needs, deterministically,
 // read-only, markers-only. The skill renders; this script never invents state.
 //
-// Usage: node status.mjs [--repo o/r] [--stale-days 3] [--dev-md <path>] --json
+// Usage: node status.mjs [--repo o/r] [--orphan-hours 6] [--dev-md <path>] --json
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -44,6 +44,15 @@ export function stripLinks(text) {
 
 export function ageDays(iso, now = Date.now()) {
   return Math.floor((now - Date.parse(iso)) / 86_400_000);
+}
+
+// Ledger liveness is measured in hours, not days: a session that hands back in
+// hours can go dark for a fraction of a day, which whole-day granularity cannot
+// even represent. The ledger's updated_at is the only liveness proxy an agent
+// session exposes — a live session (even a multi-day one) checkpoints and keeps
+// this small; a dead one freezes it.
+export function ageHours(iso, now = Date.now()) {
+  return Math.floor((now - Date.parse(iso)) / 3_600_000);
 }
 
 export function parseMarker(body) {
@@ -110,7 +119,7 @@ export function checksState(rollup) {
   return rollup.every(ok) ? 'green' : 'pending-or-red';
 }
 
-export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.md', chroniclePath = '.vegastack/chronicle.md', now = Date.now() } = {}) {
+export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/dev.md', chroniclePath = '.vegastack/chronicle.md', now = Date.now() } = {}) {
   const resolvedRepo = repo || gh(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
   const devMdText = existsSync(devMdPath) ? readFileSync(devMdPath, 'utf8') : '';
   const knobs = readKnobs(devMdText);
@@ -133,8 +142,12 @@ export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.
       const comments = gh(['api', `repos/${resolvedRepo}/issues/${issue.number}/comments`, '--paginate']);
       issue.tasks = taskProgress(comments);
       const moved = ledgerMovedAt(comments);
-      issue.ledgerAgeDays = moved ? ageDays(moved, now) : null;
-      issue.stale = bucket === knobs.states[3] && (issue.ledgerAgeDays === null || issue.ledgerAgeDays >= staleDays);
+      issue.ledgerAgeHours = moved ? ageHours(moved, now) : null;
+      // possiblyOrphaned: a working issue whose ledger has been silent past the
+      // orphan threshold — or which never got a ledger comment at all (claimed,
+      // then died before its first write). A fact for the operator to act on,
+      // never an automatic reclaim: the reset is theirs to run.
+      issue.possiblyOrphaned = bucket === knobs.states[3] && (issue.ledgerAgeHours === null || issue.ledgerAgeHours >= orphanHours);
       decisions.push(...pendingDecisions(comments, registerText).map((d) => ({ issue: issue.number, gist: d, gistPlain: stripLinks(d) })));
     }
   }
@@ -151,7 +164,7 @@ export function gatherStatus({ repo, staleDays = 3, devMdPath = '.vegastack/dev.
     if (m) lastChronicle = { date: m[1], title: m[2], titlePlain: stripLinks(m[2]) };
   }
 
-  return { repo: resolvedRepo, staleDays, board, prs, pendingDecisions: decisions, lastChronicle };
+  return { repo: resolvedRepo, orphanHours, board, prs, pendingDecisions: decisions, lastChronicle };
 }
 
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -159,8 +172,8 @@ if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const get = (f) => { const i = argv.indexOf(f); return i === -1 ? undefined : argv[i + 1]; };
   try {
-    const staleDaysRaw = Number(get('--stale-days'));
-    const data = gatherStatus({ repo: get('--repo'), staleDays: Number.isFinite(staleDaysRaw) && staleDaysRaw >= 1 ? staleDaysRaw : 3, devMdPath: get('--dev-md') });
+    const orphanRaw = Number(get('--orphan-hours'));
+    const data = gatherStatus({ repo: get('--repo'), orphanHours: Number.isFinite(orphanRaw) && orphanRaw >= 1 ? orphanRaw : 6, devMdPath: get('--dev-md') });
     console.log(JSON.stringify(data, null, argv.includes('--json') ? 2 : 0));
   } catch (error) {
     console.error(`status: cannot verify — ${error.message}`);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ageDays, ledgerMovedAt, parseMarker, pendingDecisions, stripLinks, taskProgress } from '../scripts/status.mjs'
+import { ageDays, ageHours, ledgerMovedAt, parseMarker, pendingDecisions, stripLinks, taskProgress } from '../scripts/status.mjs'
 
 const NOW = Date.parse('2026-08-29T12:00:00Z')
 const planComment = (body: string) => ({ body: `<!-- vsk:v1 type=plan rev=1 -->\n${body}`, updated_at: '2026-08-29T10:00:00Z' })
@@ -8,6 +8,11 @@ describe('status helpers', () => {
   test('ageDays floors whole days', () => {
     expect(ageDays('2026-08-26T11:00:00Z', NOW)).toBe(3)
     expect(ageDays('2026-08-29T01:00:00Z', NOW)).toBe(0)
+  })
+  test('ageHours floors whole hours — the liveness granularity days cannot see', () => {
+    expect(ageHours('2026-08-29T06:00:00Z', NOW)).toBe(6)
+    expect(ageHours('2026-08-29T11:20:00Z', NOW)).toBe(0)
+    expect(ageHours('2026-08-28T12:00:00Z', NOW)).toBe(24)
   })
   test('taskProgress counts checkboxes in the plan comment only', () => {
     const comments = [
@@ -64,9 +69,9 @@ describe('gatherStatus over the gh stub', () => {
     process.env.VSK_GH = join(skillRoot, 'tests/fixtures/gh-stub.mjs')
     process.env.GH_STUB_DIR = join(skillRoot, 'tests/fixtures/scenarios/basic')
     try {
-      const data = gatherStatus({ staleDays: 3, devMdPath: '/nonexistent-dev.md', now: Date.parse('2026-08-29T12:00:00Z') })
+      const data = gatherStatus({ orphanHours: 6, devMdPath: '/nonexistent-dev.md', now: Date.parse('2026-08-29T12:00:00Z') })
       expect(data.repo).toBe('vegastack/fixture-repo')
-      expect(data.board.working[0]).toMatchObject({ number: 7, scope: 'quick-build', risky: true, tasks: [1, 2], stale: true })
+      expect(data.board.working[0]).toMatchObject({ number: 7, scope: 'quick-build', risky: true, tasks: [1, 2], possiblyOrphaned: true })
       expect(data.board['for-operator'][0].number).toBe(8)
       expect(data.pendingDecisions).toEqual([{ issue: 8, gist: 'retire the [legacy webhook path](https://example.com/webhooks)', gistPlain: 'retire the legacy webhook path' }])
       expect(data.prs[0].checks).toBe('green')
@@ -74,6 +79,19 @@ describe('gatherStatus over the gh stub', () => {
     } finally {
       delete process.env.VSK_GH; delete process.env.GH_STUB_DIR
     }
+  })
+  test('possiblyOrphaned bands: a fresh ledger is alive, a silent-past-threshold or never-written one is orphaned', () => {
+    process.env.VSK_GH = join(skillRoot, 'tests/fixtures/gh-stub.mjs')
+    process.env.GH_STUB_DIR = join(skillRoot, 'tests/fixtures/scenarios/orphan-bands')
+    try {
+      const data = gatherStatus({ orphanHours: 6, devMdPath: '/nonexistent-dev.md', chroniclePath: '/nonexistent.md', now: Date.parse('2026-08-29T12:00:00Z') })
+      const fresh = data.board.working.find((i: any) => i.number === 7)
+      const dead = data.board.working.find((i: any) => i.number === 9)
+      // #7: ledger moved 3h ago (< 6h) → alive
+      expect(fresh).toMatchObject({ ledgerAgeHours: 3, possiblyOrphaned: false })
+      // #9: no ledger comment ever written → orphaned, null age
+      expect(dead).toMatchObject({ ledgerAgeHours: null, possiblyOrphaned: true })
+    } finally { delete process.env.VSK_GH; delete process.env.GH_STUB_DIR }
   })
   test('checksState: StatusContext green, empty rollup is no-checks, failure is pending-or-red', () => {
     expect(checksState([{ state: 'SUCCESS' }])).toBe('green')
