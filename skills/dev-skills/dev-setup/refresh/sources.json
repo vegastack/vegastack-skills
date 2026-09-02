@@ -193,6 +193,110 @@
       ],
       "checksum": "df82c4bbf3b5bffca926a244549222c1235154cfba973b9a0bb1d7a0abd28d66",
       "retrievedAt": "2026-08-29T05:57:02.492Z"
+    },
+    {
+      "id": "CC-SDK-PRESET",
+      "service": "Claude Agent SDK system-prompt presets (claude_code)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://platform.claude.com/docs/en/agent-sdk/modifying-system-prompts"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "claude-code-sdk"
+      ],
+      "affected": [
+        "references/harness-facts.md",
+        "SKILL.md"
+      ]
+    },
+    {
+      "id": "CODEX-AGENTS-MULTI",
+      "service": "Codex multi-agent (built-in and custom agents, concurrency cap)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://developers.openai.com/codex/multi-agent"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "codex-multi-agent"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ]
+    },
+    {
+      "id": "HERMES-HOOKS",
+      "service": "Hermes Agent hooks (shell and plugin hooks, pre_tool_call blocking)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "hermes-hooks"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ]
+    },
+    {
+      "id": "HERMES-TOOLS",
+      "service": "Hermes Agent tools (clarify, delegate_task, toolsets)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://hermes-agent.nousresearch.com/docs/user-guide/features/tools"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "hermes-tools"
+      ],
+      "affected": [
+        "references/harness-facts.md",
+        "SKILL.md"
+      ]
+    },
+    {
+      "id": "GH-CLI",
+      "service": "GitHub CLI release notes (issue types, sub-issues, dependencies; name-based project fields)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://github.com/cli/cli/releases/tag/v2.94.0",
+        "secondary": "https://github.com/cli/cli/releases/tag/v2.97.0"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "github-cli"
+      ],
+      "affected": [
+        "references/harness-facts.md",
+        "SKILL.md"
+      ]
     }
   ]
 }

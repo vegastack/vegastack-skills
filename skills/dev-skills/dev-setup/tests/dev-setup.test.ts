@@ -34,6 +34,37 @@ describe('dev-setup contract', () => {
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
+  const REGISTRY_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
+  const harnessFacts = readFileSync(join(skillRoot, 'references/harness-facts.md'), 'utf8')
+
+  test('refresh registry carries exactly the harness-facts sources, each manual-review on a 14-day clock', () => {
+    const registry = JSON.parse(readFileSync(join(skillRoot, 'refresh/sources.json'), 'utf8'))
+    expect(registry.schemaVersion).toBe(1)
+    const ids = registry.sources.map((source: { id: string }) => source.id).sort()
+    expect(ids).toEqual([...REGISTRY_IDS].sort())
+    for (const source of registry.sources) {
+      expect(source.thresholdDays).toBe(14)
+      expect(source.versionDetection.type).toBe('manual-review')
+      expect(typeof source.urls.primary).toBe('string')
+      expect(source.affected).toContain('references/harness-facts.md')
+    }
+  })
+
+  test('every source marker in harness-facts.md maps to a registry ID, and every registry ID is cited', () => {
+    const cited = new Set<string>()
+    for (const match of harnessFacts.matchAll(/<!--\s*source:\s*([A-Za-z0-9-]+)\s*-->/g)) {
+      expect(REGISTRY_IDS, `unknown marker ${match[1]}`).toContain(match[1])
+      cited.add(match[1])
+    }
+    expect([...cited].sort()).toEqual([...REGISTRY_IDS].sort())
+  })
+
+  test('the gh floors live in harness-facts.md under the GH-CLI marker', () => {
+    const floors = harnessFacts.split('\n').filter((line) => /2\.9[47]\.0/.test(line))
+    expect(floors.length).toBeGreaterThanOrEqual(2)
+    for (const line of floors) expect(line).toContain('<!-- source: GH-CLI -->')
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
