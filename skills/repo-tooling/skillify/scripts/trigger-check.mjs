@@ -19,6 +19,14 @@ import { discoverSkills } from '../../../../packages/cli/scripts/lib/skills.mjs'
 const MIN_ENTRIES = 8;
 const FIXTURE = join('tests', 'fixtures', 'trigger-queries.json');
 
+// Located messages are built by concatenation, not template literals: in
+// one-file probes (issue 95) the skill scanner's bounded parser reported
+// static_parse_limit on a template literal whose interpolation sits at or right
+// after the opening backtick, and degraded an analyzer for the whole skill;
+// concatenation and literals that open with a word scanned complete.
+const at = (where, message) => where + ': ' + message;
+const quoted = (text) => '"' + text + '"';
+
 // lowercase → collapse whitespace → trim → strip trailing sentence punctuation.
 export function normalizeQuery(query) {
   return query.toLowerCase().replace(/\s+/g, ' ').trim().replace(/[.!?,;:]+$/, '');
@@ -35,19 +43,19 @@ function readEntries(file, data, blocks) {
   data.forEach((entry, index) => {
     const where = file + '[' + index + ']';
     if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
-      blocks.push(`${where}: entry must be an object`);
+      blocks.push(at(where, 'entry must be an object'));
       return;
     }
     if (typeof entry.query !== 'string' || entry.query.trim().length === 0) {
-      blocks.push(`${where}: query must be a non-empty string`);
+      blocks.push(at(where, 'query must be a non-empty string'));
       return;
     }
     if (typeof entry.should_trigger !== 'boolean') {
-      blocks.push(`${where}: should_trigger must be true or false`);
+      blocks.push(at(where, 'should_trigger must be true or false'));
       return;
     }
     if ('ambiguous_with' in entry && !isNameArray(entry.ambiguous_with)) {
-      blocks.push(`${where}: ambiguous_with must be an array of skill-name strings`);
+      blocks.push(at(where, 'ambiguous_with must be an array of skill-name strings'));
       return;
     }
     entries.push({
@@ -70,19 +78,19 @@ export function checkTriggers(fixtures) {
 
   for (const [skill, input] of fixtures) {
     if (input === null) {
-      warns.push(`${skill}: no tests/fixtures/trigger-queries.json — every skill ships one (skillify item 2)`);
+      warns.push(at(skill, 'no tests/fixtures/trigger-queries.json — every skill ships one (skillify item 2)'));
       continue;
     }
     if (input.error) {
-      blocks.push(`${input.file}: ${input.error}`);
+      blocks.push(at(input.file, input.error));
       continue;
     }
     if (!Array.isArray(input.data)) {
-      blocks.push(`${input.file}: fixture must be a JSON array of entries`);
+      blocks.push(at(input.file, 'fixture must be a JSON array of entries'));
       continue;
     }
     const entries = readEntries(input.file, input.data, blocks);
-    if (entries.length < MIN_ENTRIES) warns.push(`${skill}: ${entries.length} fixture entries, fewer than ${MIN_ENTRIES}`);
+    if (entries.length < MIN_ENTRIES) warns.push(at(skill, entries.length + ' fixture entries, fewer than ' + MIN_ENTRIES));
     valid.set(skill, entries);
   }
 
@@ -92,13 +100,13 @@ export function checkTriggers(fixtures) {
     for (const entry of entries) {
       for (const name of entry.names) {
         if (!fixtures.has(name)) {
-          warns.push(`${entry.where}: ambiguous_with names "${name}", which is no skill authored here — a typo is invisible to this guard, so confirm the name by hand`);
+          warns.push(at(entry.where, 'ambiguous_with names ' + quoted(name) + ', which is no skill authored here — a typo is invisible to this guard, so confirm the name by hand'));
           continue;
         }
         if (entry.positive) continue;
         const theirs = valid.get(name);
         if (theirs && !theirs.some((other) => other.norm === entry.norm)) {
-          warns.push(`${entry.where}: should_trigger:false hands "${entry.query}" to ${name}, whose fixture has no entry for it — add it there so the family-level eval walks both sides`);
+          warns.push(at(entry.where, 'should_trigger:false hands ' + quoted(entry.query) + ' to ' + name + ', whose fixture has no entry for it — add it there so the family-level eval walks both sides'));
         }
       }
     }
@@ -127,11 +135,11 @@ export function checkTriggers(fixtures) {
         const yNamesX = bySkill.get(y).has(x);
         if (xNamesY && yNamesX) continue;
         if (!xNamesY && !yNamesX) {
-          blocks.push(`"${norm}" is should_trigger:true in ${x} and ${y} without a mutual ambiguous_with — merge the trigger or have each fixture name the other`);
+          blocks.push(quoted(norm) + ` is should_trigger:true in ${x} and ${y} without a mutual ambiguous_with — merge the trigger or have each fixture name the other`);
           continue;
         }
         const [namer, silent] = xNamesY ? [x, y] : [y, x];
-        warns.push(`"${norm}" is should_trigger:true in ${x} and ${y}; ${namer} names ${silent} in ambiguous_with but ${silent} does not name ${namer} — add the reciprocal entry`);
+        warns.push(quoted(norm) + ` is should_trigger:true in ${x} and ${y}; ${namer} names ${silent} in ambiguous_with but ${silent} does not name ${namer} — add the reciprocal entry`);
       }
     }
   }
