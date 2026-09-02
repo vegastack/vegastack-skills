@@ -43,5 +43,3 @@ Length scales with the ask: "catch me up quickly" is one paragraph; a returning-
 ## Setup
 
 The `chronicle:` knob in dev.md (`on` default | `off`) governs whether dev-implement writes entries and ship-gate checks them; `dev-setup` writes the knob. A project that turns it on mid-life starts from now — no retroactive backfill unless the operator asks, and then it's marked as reconstructed.
-
-Close every run with the plain-language summary: what was written or rendered, and anything the story surfaced that deserves the operator's attention.

@@ -47,7 +47,3 @@ Post the plan → flip to `needs-operator`. On the operator's "plan approved": r
 ## Quick-build inline mode
 
 Invoked from inside dev-intake's conversation, after the brief has consensus: same format, proportionally small (a four-item task list is a fine plan), posted as the plan comment alongside the brief. The operator's single approval covers both (`scope=brief+plan`) — no `needs-plan` stop, no second exchange. The re-grounding step collapses to what intake already read; the ratchet still applies.
-
-## Closing
-
-End every run with the plain-language summary: what was planned, which approach won and why, what the operator should double-check, and what happens next.

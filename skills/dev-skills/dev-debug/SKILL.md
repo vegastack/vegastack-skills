@@ -39,5 +39,3 @@ Write the failing test **before** touching the fix, at a **correct seam**: one w
 ## Phase 6 — clean up and teach
 
 Before hand-back, all checkable: the original repro re-runs green · `git diff <base>... | grep -F '[DEBUG-'` comes back empty (fixed-string grep; ship-gate backstops the added lines) · throwaway harnesses deleted · the **winning suspect and its evidence** named in the evidence comment and the commit message — the next debugger learns what it actually was, not just that it went away.
-
-Close with the plain-language summary: the symptom, the cause, the proof, and anything the investigation surfaced that deserves its own issue.

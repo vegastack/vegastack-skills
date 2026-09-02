@@ -72,7 +72,3 @@ A scan run outside an issue — a standalone check, or the pre-publish guard in 
 ## Cross-agent — the independence upgrade
 
 The dev.md `review:` knob maps to exactly three states — `subagent` (fresh-subagent axes always, cross-agent never), `cross-agent-risky` (subagent axes normally; the other agent on `risky` — the recommended default where the CLI exists), `cross-agent` (the other agent always). When it runs on the other agent, follow [cross-agent](references/cross-agent.md): announce the invocation to the operator at trigger time, send the `REVIEW REQUEST (vsk cross-agent v1)` handoff (`codex exec` from Claude; `claude -p` from Codex), and summarize the outcome at the end. The reviewing agent posts its own review comment (`agent=codex`), so independence is verifiable. CLI absent → fall back to the manual relay and note that dev-setup recommends installing it.
-
-## Closing
-
-End with the plain-language summary: verdict, what was found and fixed, what was adjudicated and why, and what's worth the operator double-checking.
