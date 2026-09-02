@@ -75,3 +75,13 @@ presence alone blocks preflight).
 - The brief binds the agent, so ambiguity is a bug in the brief — if two readings exist, the interview wasn't done.
 - Post-approval edits follow the revision-marker rule in dev-setup's `references/conventions.md` (heading `(v2)`, marker `rev=2`, a `Revisions:` line).
 - A `Decision:` comment exists only for a choice that passes the Decisions test in `.vegastack/dev.md` — feature requests and implementation details never qualify; they are brief content, not register lines.
+
+### Summarising an SOW
+
+The brief restates the SOW in the agent's own words and quotes only the terms the client owns — dates, amounts, defined deliverables — so a reader can tell our reading from their commitment:
+
+<example>
+SOW excerpt: "Vendor shall deliver a customer portal supporting invoice download (PDF), payment status, and dispute submission within 60 days of kickoff."
+
+Outcome, in the brief: A signed-in customer opens their portal, downloads any invoice as a PDF, sees whether it is paid, and files a dispute against it. The SOW commits to delivery "within 60 days of kickoff" — quoted, because the date is the client's term and not ours to soften. "Dispute submission" is quoted because the SOW does not say what a dispute contains; that gap is the first line under Assumptions — confirm or correct.
+</example>
