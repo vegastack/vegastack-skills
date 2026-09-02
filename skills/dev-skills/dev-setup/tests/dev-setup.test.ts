@@ -12,6 +12,19 @@ describe('dev-setup contract', () => {
     expect(result.ok).toBe(true)
   })
 
+  test('agents-section template stays within the always-loaded budget and mirrors this repo AGENTS.md', () => {
+    const template = readFileSync(join(skillRoot, 'assets/agents-section.md.template'), 'utf8')
+    const body = template.split('<!-- vsk-dev:start -->')[1].split('<!-- vsk-dev:end -->')[0]
+    expect(body.trim().split(/\s+/).length).toBeLessThanOrEqual(450)
+    expect(body.match(/^\| .* \| .* \|$/gm)?.length).toBe(7) // header + six routing rows
+    expect(body).toContain('| dev-intake, which writes the issue and never builds |')
+    expect(body).toContain("| dev-implement's direct path |")
+    expect(body).toContain('Local, reversible actions proceed')
+    expect(body).toContain('Agent conduct:')
+    const agents = readFileSync(resolve(skillRoot, '../../../AGENTS.md'), 'utf8')
+    expect(agents).toContain(template.trim())
+  })
+
   test('trigger query fixture is a small hard set with near-miss negatives', () => {
     const queries = JSON.parse(readFileSync(join(skillRoot, 'tests/fixtures/trigger-queries.json'), 'utf8'))
     const positives = queries.filter((entry: { should_trigger: boolean }) => entry.should_trigger)
