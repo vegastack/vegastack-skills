@@ -1,0 +1,39 @@
+{
+  "skill_name": "dev-ship",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Make the PR for issue 27 in vegastack/docs-tools (title `feat: --json flag for check-links`). Branch feat/27-json-flag is at 9b7d0e4, the evidence comment says `Branch: feat/27-json-flag @ 9b7d0e4`, review round 1 verdict clean, changeset present. dev.md says `gates: 3`, `merge: rebase`, `chronicle: on`.",
+      "expected_output": "ship-gate is named and run first; the PR is opened with the issue's title and a body pointing at the evidence; nothing is merged and the run stops for the operator's next word. (prose half only — the live label, branch and PR flow is the sandbox drill's proof)",
+      "files": [],
+      "assertions": [
+        "`ship-gate.mjs --issue 27 --branch feat/27-json-flag` is named and run before the PR is opened",
+        "The PR title equals the issue title `feat: --json flag for check-links`",
+        "Nothing is merged; the output ends waiting for the operator's merge word",
+        "The PR body links the evidence comment"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "ship it — issue 27, branch feat/27-json-flag is at c0ffee1 now, evidence comment still says `@ 9b7d0e4`",
+      "expected_output": "A refusal: the evidence sha does not equal the branch head, so ship-gate blocks; the reason is stated and the corrections loop is named as the only way to reconcile; nothing merges. (prose half only — the live label, branch and PR flow is the sandbox drill's proof)",
+      "files": [],
+      "assertions": [
+        "The refusal names the stale evidence sha (`9b7d0e4` versus head `c0ffee1`) as the reason",
+        "Nothing is merged or pushed",
+        "The corrections loop (update the evidence comment to the new head) is named as the path forward"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Release everything since the last tag. dev.md's Ship runbook: `auto: bunx changeset version → commit on chore/release-<version> → open its PR`, `ask: merge the release PR`, `guard: changelog entry exists`, `auto: tag and push v<version>`, `auto: confirm npm view`.",
+      "expected_output": "The runbook is followed in order: auto steps run, the guard runs at its position, and the `ask:` step is put to the operator as a question; no tag is pushed before that answer. (prose half only — the live label, branch and PR flow is the sandbox drill's proof)",
+      "files": [],
+      "assertions": [
+        "Every `ask:` line of the runbook is presented to the operator as a question and the run pauses there",
+        "No tag is pushed before the release-PR merge question is answered",
+        "The steps are reported in the runbook's order with each step's outcome"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "skill_name": "dev-debug",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "`tests/api/login.test.ts` in vegastack/billing fails about 1 run in 10 with ECONNRESET on the success case — the attached log is 10 consecutive runs. The test starts the Hono app on a random port in `beforeAll` (`tests/api/helpers/server.ts`) and hits it with `fetch` through `tests/api/helpers/client.ts`. Fix it.",
+      "expected_output": "A red command with a stated reproduction rate comes before any theory, 3–5 ranked falsifiable suspects are posted, one variable is tested at a time, the regression test is written before the fix, and the winning suspect with its evidence is named at the end.",
+      "files": [
+        "evals/files/login-flaky.log"
+      ],
+      "assertions": [
+        "A red command (for example a loop of N runs) with a stated reproduction rate appears before any suspected cause is discussed",
+        "Between three and five suspects are listed, ranked, each with a falsifiable prediction",
+        "The regression test is written and shown failing before the fix is applied",
+        "The final output names the winning suspect and the evidence that confirmed it"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "prod throws 'undefined is not a function' somewhere in checkout, no logs, no stack trace, users just see the spinner. just fix it",
+      "expected_output": "A handback: without a reproduction the skill does not theorise — it lists what was tried to build a red command, names the artifacts needed (a HAR, the browser console, a session recording, environment access), and proposes needs-operator; no fix is proposed.",
+      "files": [],
+      "assertions": [
+        "The output is a handback comment that lists the artifacts needed to reproduce",
+        "No fix or code change is proposed",
+        "The output states what was attempted to build a reproduction before stopping",
+        "`needs-operator` is proposed as the next state"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Write this bug up as an issue for the team: the invoice PDF download in `app/invoices/[id]/page.tsx` returns a 0-byte file when the invoice has more than 50 line items. I can reproduce it every time on staging.",
+      "expected_output": "The request is routed to dev-intake — writing the bug up is intake's job — and no debugging is started.",
+      "files": [],
+      "assertions": [
+        "The response names `dev-intake` as the skill that writes the issue",
+        "No reproduction loop, suspects, or code changes are produced",
+        "The response carries the reproduction facts forward for intake rather than dropping them"
+      ]
+    }
+  ]
+}
