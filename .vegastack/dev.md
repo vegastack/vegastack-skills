@@ -46,7 +46,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 - npm registry via tag-triggered trusted publishing — no local npm credentials exist or are needed
 - GitHub Actions runs CI, release, and the weekly refresh (refresh/** branches are CI-restricted to refresh metadata)
-- main is branch-protected: a PR is required, force-pushes and deletion are blocked, and admins are NOT exempt — so every path to main, agent or human, goes through a PR. CI is deliberately not a required status check while hosted runners are billing-locked (#57), because requiring a check that cannot start would make merging impossible; add it as required once that clears
+- main is branch-protected: a PR is required, force-pushes and deletion are blocked, linear history and conversation resolution are enforced, and admins are NOT exempt — so every path to main, agent or human, goes through a PR. **`check (node 24)` is a required status check** (strict: a branch must be up to date with main before merging), enabled 02-09-2026 once `ci.yml` moved to `[self-hosted, vsk-runners-mac]` and started passing again (#87). The runners are the dependency now: if both are offline, nothing merges — check `gh api repos/vegastack/vegastack-skills/actions/runners` before assuming a stuck PR is a code problem
 
 ## Decisions
 
