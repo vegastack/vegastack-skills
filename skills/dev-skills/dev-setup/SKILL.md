@@ -17,6 +17,7 @@ Facts are your job; decisions are the user's. Gather these silently and present 
 |---|---|
 | repo, default branch | `git remote get-url origin` · `gh repo view --json nameWithOwner,defaultBranchRef` |
 | gh authenticated | `gh auth status` |
+| operator username (the `architect:` knob) | `gh api user -q .login`, fallback `git config user.name` — written as the knob's value with no question, because the architecture owner defaults to whoever runs setup; the decision-register header uses the same lookup |
 | gh version | `gh --version` against the floors in [harness-facts](references/harness-facts.md): below 2.94.0, native issue types, sub-issues and dependencies through `gh issue edit` are unavailable; below 2.97.0, name-based `gh project item-edit --field` is — each missing feature is named in the Step 4 report so the operator upgrades once instead of hitting the gap mid-run |
 | stack and commands | package.json scripts, lockfiles, framework configs |
 | web app (UI evidence relevant) | framework dependencies (next, react, vue, …) |
@@ -59,13 +60,13 @@ Ask with your harness's question tool — AskUserQuestion in Claude Code, `reque
 - CLAUDE.md already has content → add the `@AGENTS.md` import as its first line (default) or move its content into AGENTS.md and leave only the import
 - Different label names, `gates: 1` with branch protection on the default branch (it blocks direct pushes — surface the conflict), or a different decision-register path, if the situation or the user brings it up
 
-Everything else — merge style, branch naming, the stop-and-ask list — takes its documented default straight into dev.md. The profile is plain text the user can edit anytime; the interview is a convenience, not the source of truth.
+Everything else — merge style, branch naming, the stop-and-ask list, the `architect:` owner (the detected username), `chronicle-style: plain`, and `emoji: none` — takes its documented default straight into dev.md. The profile is plain text the user can edit anytime; the interview is a convenience, not the source of truth.
 
 ## Step 3 — Write
 
 | Target | Action |
 |---|---|
-| `.vegastack/dev.md` | render [dev-profile template](assets/dev-profile.md.template) with the answers — the project's single canonical process doc (short directional bullets; Ship/Verify/Environments/Design drafted from the playbook, Architecture drafted from detection, Decisions test included, placeholders deleted, TODO lines where machinery is absent) |
+| `.vegastack/dev.md` | render [dev-profile template](assets/dev-profile.md.template) with the answers — the project's single canonical process doc (short directional bullets; Ship/Verify/Environments/Design drafted from the playbook, Architecture drafted from detection, Decisions test included, placeholders deleted, TODO lines where machinery is absent; `architect:` from the detected username, `chronicle-style` and `emoji` at their template defaults) |
 | `AGENTS.md` | create it, or insert/replace only the block between `<!-- vsk-dev:start -->` and `<!-- vsk-dev:end -->` using the [agents-section template](assets/agents-section.md.template); content outside the markers is the user's and stays untouched |
 | `CLAUDE.md` | ensure its first line is `@AGENTS.md` — Claude Code does not read AGENTS.md natively and needs this import ([harness-facts](references/harness-facts.md)); create the file when absent |
 | labels | `gh label create <name> --color <hex> --description "<text>"` for the names the `labels:` knob records, skipping ones that exist; default names and creation colors ([conventions](references/conventions.md) holds meanings): state `needs-operator` FBCA04 · `needs-plan` E36209 · `ready` 0E8A16 · `working` 1D76DB · `for-operator` 5319E7; modifiers `risky` B60205 · scope `research` C5DEF5 · `quick-build` 76C7C0 · `full-plan` 2A9D8F · `epic` 24292E (only when the org has no native Epic issue type) |
