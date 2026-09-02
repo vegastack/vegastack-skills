@@ -122,6 +122,7 @@
     "assets/templates/trigger-queries.json.template",
     "assets/templates/skill.test.ts.template",
     "scripts/scaffold-skill.mjs",
+    "scripts/trigger-check.mjs",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ]
