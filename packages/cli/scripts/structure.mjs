@@ -92,12 +92,14 @@ export function evalsWarnings(skill, root) {
   } catch (error) {
     return [`${label} does not parse: ${error.message}`]
   }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return [`${label} does not parse: the root must be a JSON object`]
   const warns = []
   if (data.skill_name !== skill.name) warns.push(`${label} names skill_name "${data.skill_name}" but the skill is "${skill.name}"`)
   if (!Array.isArray(data.evals) || data.evals.length === 0) return [...warns, `${label} has no cases — "evals" must be a non-empty array`]
   const seen = new Set()
   data.evals.forEach((item, index) => {
     const n = index + 1
+    if (!item || typeof item !== 'object' || Array.isArray(item)) { warns.push(`${label} case ${n} is not an object`); return }
     if (!Number.isInteger(item.id)) warns.push(`${label} case ${n} is missing id (an integer)`)
     else if (seen.has(item.id)) warns.push(`${label} case ${n} id is repeated`)
     else seen.add(item.id)
