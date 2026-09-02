@@ -30,7 +30,7 @@ npx @vegastack/skills add --group dev-skills --global
 | [assets/dev-profile.md.template](assets/dev-profile.md.template) | The `.vegastack/dev.md` starting point |
 | [assets/agents-section.md.template](assets/agents-section.md.template) | The marked AGENTS.md block this skill owns |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract tracking the official harness-doc sources |
-| [refresh/sources.json](refresh/sources.json) | Source registry: the official Claude Code and Codex doc pages harness-facts.md is pinned to |
+| [refresh/sources.json](refresh/sources.json) | Source registry: the official Claude Code, Codex, Hermes and GitHub CLI pages harness-facts.md is pinned to |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |
 
 ## Behavior contract
