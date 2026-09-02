@@ -31,12 +31,13 @@ component and token choices inside the UI.
    Architecture line or register decision wins over this skill's defaults for that
    project; report a red-line crossing as accepted risk.
 3. Load only the references the task touches (table below). Do not bulk-read the set.
-4. Separate what is fact, what is assumption, and what is the architecture owner's recorded
-   decision. A directive tagged "(inferred)" is a researched extrapolation the architecture
-   owner has not ratified — confirm on first use, and a confirmation is proposed as a register
-   line in conventions' Operator identity format, its decision text `ratified: <the directive>`;
-   recording it drops the tag from the reference file in the same change, so inferred never
-   lingers as ratified-in-practice. Everything untagged is a recorded decision or a verified fact.
+4. Separate what is fact, what is assumption, and what is the architecture owner's
+   recorded decision. A directive tagged "(inferred)" is a researched extrapolation the
+   architecture owner has not ratified — confirm on first use, and a confirmation is
+   proposed as a register line in conventions' Operator identity format, its decision text
+   `ratified: <the directive>`; recording it drops the tag from the reference file in the
+   same change, so inferred never lingers as ratified-in-practice. Everything untagged is a
+   recorded decision or a verified fact.
    Never re-litigate a recorded decision to route around a blocker — surface the blocker.
 5. Answer at the right size: a question gets the recommendation plus at most one material
    risk, in plain prose. Reviews and migration plans follow the review discipline in
@@ -80,9 +81,10 @@ The red lines below are the only rules that live both here and in a reference; e
 else has exactly one home file.
 
 - Never commit, tag, push, merge, publish, deploy, or create paid/cloud resources without
-  the operator's explicit go-ahead for that step. Approval for one step is not approval for
-  the next (where the dev workflow is installed, dev.md's `gates:` knob sets how many of those
-  steps one instruction covers — the knob never removes the need for an instruction).
+  the operator's explicit go-ahead for that step. Approval for one step is not approval
+  for the next (where the dev workflow is installed, dev.md's `gates:` knob sets how many
+  of those steps one instruction covers — the knob never removes the need for an
+  instruction).
 - Middleware/proxy (`middleware.ts` or `proxy.ts`) is never the authorization boundary.
   Authorization lives server-side in the data-access layer, checked per resource on every
   request (the CVE-2025-29927 bypass class is why).
