@@ -2,10 +2,10 @@
 
 VegaStack's architecture advisor as a skill — the fifth member of the dev-skills family.
 It encodes MK's recorded stack decisions, rejections, lean-first principles, and current
-platform facts so that any team member's Claude Code/Codex session architects the way MK
-would, without re-briefing — and it verifies platform claims against live docs before
-recommending on them (the verify-before-you-recommend protocol) instead of trusting
-training-data memory.
+platform facts so that any team member's Claude Code/Codex session architects the way the
+architecture owner (dev.md `architect:`) would, without re-briefing — and it verifies
+platform claims against live docs before recommending on them (the
+verify-before-you-recommend protocol) instead of trusting training-data memory.
 
 Rebuilt 2026-08 from the original `architect` skill (itself distilled from a full-corpus
 mining of seven months of session history): renamed into the dev-skills family,

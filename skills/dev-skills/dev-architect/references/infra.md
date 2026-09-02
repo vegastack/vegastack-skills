@@ -52,9 +52,10 @@ Two sanctioned targets, recorded in dev.md's `## Architecture`:
   race on boot) — not a separate bootstrap deployable unless a project records why.
 - Ship `docker compose up` as the self-host story: bundle only Postgres + MinIO-class
   essentials; everything else (vector store, gateway, vault) is connect-your-own.
-- Server sizing: SSD, compute, and RAM over disk capacity, within the budget MK states for
-  that server (ask if none stated — don't guess); Coolify's own footprint: pinned-facts.
-  Cloud infra beyond Cloudflare goes through Terraform, IAM scoped narrowly per purpose.
+- Server sizing: SSD, compute, and RAM over disk capacity, within the budget the architecture
+  owner states for that server (ask if none stated — don't guess); Coolify's own footprint:
+  pinned-facts. Cloud infra beyond Cloudflare goes through Terraform, IAM scoped narrowly per
+  purpose.
 - Any infra cleanup (disks, stale resources, runners) needs explicit authorization first,
   scoped to verified-stale items — never blanket cleanup.
 
@@ -90,9 +91,9 @@ Two sanctioned targets, recorded in dev.md's `## Architecture`:
 ## Incidents
 
 - Active production incident: diagnose first (root cause with evidence), fix second — the
-  standing rule applies under pressure too. Rolling back a deploy IS a deploy: it needs
-  MK's go-ahead — bring him the evidence and the recommended rollback; mitigation that
-  doesn't deploy (feature-level disable, traffic block) can proceed and be reported.
+  standing rule applies under pressure too. Rolling back a deploy IS a deploy: it needs the
+  operator's go-ahead — bring them the evidence and the recommended rollback; mitigation
+  that doesn't deploy (feature-level disable, traffic block) can proceed and be reported.
 - Every real incident gets a short postmortem in the project's `docs/postmortems/`: what
   happened, root cause, the guard that now prevents it. An incident that doesn't change a
   rule or a check will repeat.

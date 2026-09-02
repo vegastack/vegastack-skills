@@ -37,7 +37,7 @@ every change, and a focused security audit after any auth-adjacent change before
 - Role models stay small — Owner/Admin/Member covers most products. A policy engine
   (Cedar-class ABAC) needs a named trigger — fine-grained multi-principal authorization at
   platform scale; today only the flagship platform has earned it. Anyone else proposing
-  one: present the trigger and ask MK.
+  one: present the trigger and ask the architecture owner.
 - Tenant identity always derives from the authenticated principal — never from a
   client-supplied workspace/org ID (a trusted `?workspaceId=` param caused a real
   cross-tenant IDOR; reject on mismatch). Cross-tenant lookups return 404, never 403 — no
@@ -59,8 +59,8 @@ every change, and a focused security audit after any auth-adjacent change before
   caller-supplied); state single-use and session-bound; refresh tokens broker-wrapped.
 - OpenBao/vault infrastructure only on named triggers — self-hosting customer-managed
   secrets, multi-service identity, dynamic DB credentials — never "because production".
-- MK enters OTP/2FA/credentials himself, always. Agents never type or automate through
-  credential prompts.
+- The operator enters OTP/2FA/credentials themselves, always. Agents never type or
+  automate through credential prompts.
 
 ## Requests out and untrusted content
 
