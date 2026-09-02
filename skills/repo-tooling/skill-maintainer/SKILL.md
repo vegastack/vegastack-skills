@@ -24,7 +24,7 @@ This skill states what must be true; skillify states how to get there. When a ru
 |---|---|
 | tri-harness standards: discovery paths, frontmatter, budgets, install surfaces, portability | [standards](references/standards.md) |
 | skill-scan triage and the suppression baseline | [standards](references/standards.md) |
-| a new skill: the should-it-exist gate, scaffolding, contract audit, evals | the `skillify` skill |
+| a new skill: the should-it-exist gate, scaffolding, audit, evals | the `skillify` skill |
 | repo shape, groups, the structure check | the group workflow below |
 | release, rename, deprecate, rollback | [release ops](references/release-ops.md) |
 | this skill's freshness contract | [REFRESH](refresh/REFRESH.md) |
@@ -45,14 +45,14 @@ Run skillify's `scripts/scaffold-skill.mjs` (`--group <name>` for a grouped skil
 
 ## Workflow: update or maintain
 
-- **Content versioning.** Per the content-semver bullet in `.vegastack/dev.md`: new rules, references, and recorded decisions are MINOR; weakening a normative rule, removing or renaming a skill, or breaking a per-project profile format is MAJOR (recorded pre-1.0 exception aside); factual refreshes are PATCH.
+- **Content versioning.** Per the content-semver bullet in `.vegastack/dev.md`: new rules, references, recorded decisions, and skill renames are MINOR; weakening a normative rule, removing a skill, or breaking a per-project profile format is MAJOR (recorded pre-1.0 exception aside); factual refreshes are PATCH.
 - **Tag volatile claims.** A sentence carrying a vendor version, mechanism name, or numeric budget gets a source marker naming an ID in that skill's `refresh/sources.json` (its `affected` list names the reference); untagged volatile facts rot silently.
 - **Description budgets.** Keep triggers in the first sentence: both harness listings truncate, and the limits table below carries the numbers.
 - **Packaged-file changes.** Adding, removing, or renaming a packaged file updates its packaging entry in the same PR.
 
 ## Workflow: rename, deprecate, or remove
 
-Full playbook in [release ops](references/release-ops.md): a rename changes the directory and the frontmatter `name` in the same commit, updates the packaging entry, root README row, and changeset, and is MAJOR; deprecation is announced in README and CHANGELOG before removal; removal deletes the tree, unwires it, and is MAJOR.
+Playbook in [release ops](references/release-ops.md): a rename changes the directory and the frontmatter `name` in the same commit, updates the packaging entry, root README row, and changeset, and is MINOR unless the operator declares MAJOR; deprecation is announced in README and CHANGELOG first; removal deletes the tree, unwires it, and is MAJOR.
 
 ## Workflow: release
 
