@@ -13,13 +13,21 @@ export class GhUnavailable extends Error {
 
 // Run gh with explicit args (never a shell) and parse JSON output. Any failure
 // to reach GitHub is a GhUnavailable — callers treat it as "cannot verify",
-// which blocks (fail closed), never as a pass. VSK_GH is a TEST SEAM only
-// (points unit tests at a stub binary); guards are enforcement infrastructure,
-// so never set it in real runs.
-export function ghJson(args, { gh = process.env.VSK_GH || 'gh' } = {}) {
+// which blocks (fail closed), never as a pass. stdin is fed only when `input`
+// is a string (a request body that must stay off argv); otherwise it is
+// closed. VSK_GH is a TEST SEAM only (points unit tests at a stub binary);
+// guards are enforcement infrastructure, so never set it in real runs.
+export function ghJson(args, { gh = process.env.VSK_GH || 'gh', input } = {}) {
   let out;
   try {
-    out = execFileSync(gh, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    // env is passed explicitly: Bun's execFileSync does not see process.env
+    // mutations made after startup unless told to, and the test seam relies on them.
+    out = execFileSync(gh, args, {
+      encoding: 'utf8',
+      env: process.env,
+      input,
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+    });
   } catch (error) {
     const stderr = error.stderr?.toString().trim() || '';
     const status = /HTTP (\d{3})/.exec(stderr)?.[1];

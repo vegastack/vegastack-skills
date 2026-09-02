@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { GhUnavailable, findMarkerComment, ghJson, parseFlags, parseMarker, renderResult } from '../scripts/lib/gh.mjs'
@@ -59,6 +59,20 @@ describe('ghJson fail-closed', () => {
     let threw2 = false
     try { ghJson(['x'], { gh: '/nonexistent-vsk-gh' }) } catch (e: any) { threw2 = true; expect(e.httpStatus).toBeNull() }
     expect(threw2).toBe(true)
+  })
+  test('ghJson pipes `input` to stdin and keeps it off argv', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-gh-input-'))
+    const log = join(dir, 'log')
+    const stub = new URL('./fixtures/gh-put-stub.sh', import.meta.url).pathname
+    process.env.VSK_STUB_LOG = log
+    try {
+      const out = ghJson(['api', '-X', 'PUT', 'repos/o/e/contents/x.png', '--input', '-'], { gh: stub, input: '{"message":"m","content":"QUJD"}' })
+      expect(out.content.path).toBe('repos/o/e/contents/x.png')
+      expect(readFileSync(log, 'utf8')).not.toContain('QUJD')
+      expect(readFileSync(`${log}.stdin`, 'utf8')).toContain('"content":"QUJD"')
+    } finally {
+      delete process.env.VSK_STUB_LOG
+    }
   })
 })
 
