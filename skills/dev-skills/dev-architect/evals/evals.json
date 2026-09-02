@@ -1,0 +1,39 @@
+{
+  "skill_name": "dev-architect",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Should we add Redis for session caching in the `api` service? It's a Hono app on the default VegaStack stack, Postgres on Neon, sessions are looked up on every request through `lib/session.ts` and p95 is around 40 ms. We have no Redis anywhere else. Give me a recommendation.",
+      "expected_output": "The house default for sessions is named first, then Redis is weighed against a stated need (a measured latency or load problem) rather than adopted on reflex; every claim about a platform's capability is marked verified with a date or explicitly unverified; if Redis is not recommended, the cheaper first step is named.",
+      "files": [],
+      "assertions": [
+        "The house default for the concern (from `references/stack.md`) is named before any alternative",
+        "Every platform capability, limit, or price claim is marked as verified with a date or as unverified",
+        "Redis is recommended only against a stated, measurable need; otherwise the recommendation names what to measure first",
+        "The answer separates fact, assumption, and recommendation"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "whats the vegastack default for background jobs",
+      "expected_output": "The default from the stack reference, stated plainly with its reason, and no new dependency proposed.",
+      "files": [],
+      "assertions": [
+        "The answer matches the background-jobs entry in `references/stack.md`",
+        "No new dependency or service is proposed",
+        "The answer is short: the default, its reason, and where it is recorded"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Set up `.vegastack/dev.md` for this repo — it's a Bun monorepo with GitHub Actions, and I want the default knobs.",
+      "expected_output": "The request is routed to dev-setup: this skill advises on architecture and does not create the workflow profile; no file is written.",
+      "files": [],
+      "assertions": [
+        "The response names `dev-setup` as the skill that creates `.vegastack/dev.md`",
+        "No file is written or edited",
+        "The response does not draft dev.md contents itself"
+      ]
+    }
+  ]
+}
