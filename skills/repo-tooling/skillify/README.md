@@ -17,14 +17,14 @@ Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Run
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point: the 8-item checklist, verdicts, Phases 0–6, worked example, anti-patterns |
+| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | [references/authoring.md](references/authoring.md) | Description engineering, writing style, numeric limits, trigger query sets, token economy, script-vs-instructions criteria, volatile facts |
 | [references/eval-playbook.md](references/eval-playbook.md) | With-skill vs baseline eval method, pass criteria, cycle protocol, KNOWN_GAPS format, model guidance |
 | `assets/templates/` | The seven scaffolded starting points: SKILL.md, README.md, sources.json, REFRESH.md, openai.yaml, an empty trigger-query fixture, and a contract test |
 | [scripts/scaffold-skill.mjs](scripts/scaffold-skill.mjs) | Deterministic scaffolder: name-grammar validation, dry-run plan, atomic `--write`, automatic repo wiring (packaging entry, root README row, changeset) |
 | [scripts/trigger-check.mjs](scripts/trigger-check.mjs) | Deterministic family-level trigger guard: walks every skill's trigger-query fixture, blocks (exit 2) on a query two skills claim without a mutual `ambiguous_with`, warns on fixture hygiene; runs in `bun run check` as `validate:triggers` |
-| [refresh/sources.json](refresh/sources.json) | Deliberately empty registry — see freshness below |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Skillify's delegating freshness contract |
-| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| [refresh/sources.json](refresh/sources.json) | Deliberately empty registry — see freshness below |
 | `tests/` | Bun tests and fixtures (never packaged) |
 
 ## The workflow in one paragraph

@@ -21,12 +21,12 @@ npx @vegastack/skills add --group dev-skills --global
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point |
-| [scripts/plan-lint.mjs](scripts/plan-lint.mjs) | Plan structure + banned-placeholder guard (blocks) |
-| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
-| [references/plan-format.md](references/plan-format.md) | The plan comment template, banned placeholders, self-review, worked example |
-| [refresh/sources.json](refresh/sources.json) | Source registry for volatile claims |
-| [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
+| [scripts/plan-lint.mjs](scripts/plan-lint.mjs) | Plan structure + banned-placeholder guard (blocks) |
+| [references/plan-format.md](references/plan-format.md) | The plan comment template, banned placeholders, self-review, worked example |
+| [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
+| [refresh/sources.json](refresh/sources.json) | Source registry for volatile claims |
 | `tests/` | Bun tests and fixtures (never packaged) |
 
 ## Behavior

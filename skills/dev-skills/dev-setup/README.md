@@ -23,12 +23,14 @@ npx @vegastack/skills add --group dev-skills --global
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point: detect-first discipline, the interview rounds, write targets, re-run rules |
+| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| [references/conventions.md](references/conventions.md) | The workflow artifact spec — authored here, duplicated into every dev-family install |
 | [references/harness-facts.md](references/harness-facts.md) | Verified, refresh-tracked Claude Code and Codex mechanics (AGENTS.md handling, skill discovery, question tools, hooks) plus the shared decision-capture Stop-hook recipe |
 | [references/stack-playbooks.md](references/stack-playbooks.md) | Per-stack detection → draft mapping (npm/changesets, Node app, Flutter, Python, Go, generic), the guard library, and the greenfield playbook |
 | [assets/dev-profile.md.template](assets/dev-profile.md.template) | The `.vegastack/dev.md` starting point |
 | [assets/agents-section.md.template](assets/agents-section.md.template) | The marked AGENTS.md block this skill owns |
-| [refresh/sources.json](refresh/sources.json) + [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract tracking the official harness-doc sources |
-| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract tracking the official harness-doc sources |
+| [refresh/sources.json](refresh/sources.json) | Source registry: the official Claude Code and Codex doc pages harness-facts.md is pinned to |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |
 
 ## Behavior contract

@@ -22,12 +22,13 @@ npx @vegastack/skills add --group dev-skills --global
 
 | Path | Purpose |
 |---|---|
+| [SKILL.md](SKILL.md) | Agent entry point: the gates, PR and merge mechanics, decision recording, failure handling |
 | [scripts/ship-gate.mjs](scripts/ship-gate.mjs) | The Gate 1 deterministic guard (fresh check re-run, sha equality, changelog/chronicle, verdicts, tag grep) |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
-| [SKILL.md](SKILL.md) | Agent entry point: the gates, PR and merge mechanics, decision recording, failure handling |
-| [references/runbook.md](references/runbook.md) | Runbook execution semantics (auto/ask/guard), release batching, direct-to-main, bot PRs, rollback |
-| [refresh/REFRESH.md](refresh/REFRESH.md) + [refresh/sources.json](refresh/sources.json) | Evergreen waiver and its deliberately empty registry |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| [references/runbook.md](references/runbook.md) | Runbook execution semantics (auto/ask/guard), release batching, direct-to-main, bot PRs, rollback |
+| [refresh/REFRESH.md](refresh/REFRESH.md) | Evergreen waiver: this skill makes no volatile claims |
+| [refresh/sources.json](refresh/sources.json) | Deliberately empty source registry behind the evergreen waiver |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |
 
 ## Behavior contract

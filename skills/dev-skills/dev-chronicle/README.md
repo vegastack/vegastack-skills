@@ -21,9 +21,10 @@ npx @vegastack/skills add --group dev-skills --global
 | Path | Purpose |
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point — the entry format and the digest |
+| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
-| [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
+| [refresh/sources.json](refresh/sources.json) | Deliberately empty source registry behind the evergreen waiver |
 | `tests/` | Bun tests and fixtures (never packaged) |
 
 ## Behavior
