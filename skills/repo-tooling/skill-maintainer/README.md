@@ -1,6 +1,6 @@
 # skill-maintainer
 
-The skill an agent loads when working **on** this repository — creating, updating, renaming, releasing, or removing skills. It encodes the verified tri-harness standards (Claude Code, Codex, Hermes, and the agentskills.io open standard) plus this repo's per-skill contract, so every change under `skills/` complies by construction.
+The skill an agent loads when working **on** this repository — updating, grouping, renaming, releasing, or removing skills; skillify creates them. It encodes the verified tri-harness standards (Claude Code, Codex, Hermes, and the agentskills.io open standard) plus this repo's per-skill contract, so every change under `skills/` complies by construction.
 
 This README is the walkthrough for humans and for agents reading outside a skill-invocation context. The agent entry point is [SKILL.md](SKILL.md); everything else loads progressively from there.
 
@@ -14,7 +14,7 @@ Only useful if you are contributing to the vegastack-skills repository itself �
 
 ## When to load it
 
-Any work in this repo: scaffolding a new skill, editing an existing one (SKILL.md, references, refresh registry, tests), rename/deprecate/remove operations, cutting or rolling back a release, or checking a skill's cross-agent portability.
+Working on this repository: editing an existing skill (SKILL.md, references, refresh registry, tests), rename, deprecate, or remove operations, creating or checking a skill group, cutting or rolling back a release, adjudicating a skill-scan finding, or checking cross-agent portability. Scaffolding and auditing a skill against the contract is skillify's.
 
 ## What's in this skill
 

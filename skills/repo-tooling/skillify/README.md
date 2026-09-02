@@ -16,9 +16,9 @@ Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Run
 
 | Path | Purpose |
 |---|---|
-| [SKILL.md](SKILL.md) | Agent entry point: the 8-item checklist, verdicts, Phases 0–6, worked example, anti-patterns |
+| [SKILL.md](SKILL.md) | Agent entry point: the 8-item checklist, verdicts, Phases 0–6, routing |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
-| [references/authoring.md](references/authoring.md) | Description engineering, writing style, numeric limits, trigger query sets, token economy, script-vs-instructions criteria, volatile facts |
+| [references/authoring.md](references/authoring.md) | Description engineering, writing style, the limits citation, trigger query sets, token economy, script-vs-instructions criteria, volatile facts, the worked example, anti-patterns |
 | [references/eval-playbook.md](references/eval-playbook.md) | With-skill vs baseline eval method, pass criteria, cycle protocol, KNOWN_GAPS format, model guidance |
 | `assets/templates/` | The seven scaffolded starting points: SKILL.md, README.md, sources.json, REFRESH.md, openai.yaml, an empty trigger-query fixture, and a contract test |
 | [scripts/scaffold-skill.mjs](scripts/scaffold-skill.mjs) | Deterministic scaffolder: name-grammar validation, dry-run plan, atomic `--write`, automatic repo wiring (packaging entry, root README row, changeset) |
@@ -44,7 +44,7 @@ With `--group <name>` the skill lands at `skills/<group>/<name>/` and its README
 
 ## Freshness
 
-Skillify's registry is deliberately empty (`sources: []`). Its only time-decaying claims — the frontmatter/name/description numeric limits and harness listing budgets in [references/authoring.md](references/authoring.md), and the model guidance in [references/eval-playbook.md](references/eval-playbook.md) — are mirrored from the standards sources already tracked by the `skill-maintainer` registry, and are marked as mirrored/volatile at their location. See [refresh/REFRESH.md](refresh/REFRESH.md).
+Skillify's registry is deliberately empty (`sources: []`). Its only time-decaying claim — the model guidance in [references/eval-playbook.md](references/eval-playbook.md) — is mirrored from the standards sources tracked by the `skill-maintainer` registry and marked volatile at its location; numeric limits are cited from skill-maintainer's Hard limits table, never copied. See [refresh/REFRESH.md](refresh/REFRESH.md).
 
 ## For agents: how to behave
 
