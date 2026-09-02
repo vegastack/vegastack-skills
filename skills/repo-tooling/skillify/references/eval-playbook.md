@@ -21,6 +21,7 @@ The with-skill run must be *materially* better on the dimensions the skill exist
 - The with-skill agent uses bundled scripts/templates instead of reinventing them; note any helper both runs wrote independently — that helper should become a bundled script.
 - No contract violations the checklist would catch (frontmatter keys, name grammar, missing pieces).
 - The transcript shows the skill's guidance being *used*, not just loaded — sections nobody used are bloat to cut.
+- **Colleague test.** Hand the SKILL.md alone, with no conversation context, to a fresh subagent and ask what it would do first and where it would look for the answer to one realistic request; any confusion is a defect in the skill, not in the reader, because the model that runs it never attended the design conversation.
 
 **Failure that matters most:** the baseline matches the with-skill output. Then the skill is not earning its tokens — cut it, narrow it, or fold it into a reference.
 
@@ -42,7 +43,7 @@ CYCLE 2: re-run the SAME prompts → compare before/after → apply what remains
 CYCLE 3: re-run → pass, or ship with KNOWN_GAPS
 ```
 
-Hard stop after 3 cycles. Endless polishing is worse than an honest gap list. Generalize from feedback — fix the pattern that caused the failure, don't overfit wording to one prompt.
+Hard stop after 3 cycles. Endless polishing is worse than an honest gap list. Generalize from feedback — fix the pattern that caused the failure, don't overfit wording to one prompt. When a cycle shows a rule not landing, prefer removing the rule to rewriting it, and let the eval prove the need: a rule the with-skill run never used is bloat, and rules written for earlier models are often too prescriptive for the current one.
 
 ## KNOWN_GAPS format
 
