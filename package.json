@@ -12,6 +12,7 @@
     "validate:skill": "node packages/cli/scripts/validate-skill.mjs",
     "validate:structure": "node packages/cli/scripts/structure.mjs check",
     "validate:triggers": "node skills/repo-tooling/skillify/scripts/trigger-check.mjs --json",
+    "readme:sync": "node packages/cli/scripts/readme-sync.mjs",
     "lint": "bun packages/cli/scripts/lint.mjs",
     "typecheck": "bunx tsc -p packages/cli/tsconfig.json --noEmit",
     "test": "bun test",
