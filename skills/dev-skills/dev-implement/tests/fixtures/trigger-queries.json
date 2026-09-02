@@ -80,5 +80,16 @@
     "ambiguous_with": [
       "dev-plan"
     ]
+  },
+  {
+    "query": "add support for mermaid and latex",
+    "should_trigger": false,
+    "ambiguous_with": [
+      "dev-intake"
+    ]
+  },
+  {
+    "query": "fix the typo in README.md line 12, \"recieve\" should be \"receive\"",
+    "should_trigger": true
   }
 ]

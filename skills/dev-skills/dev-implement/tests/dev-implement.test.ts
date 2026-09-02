@@ -21,6 +21,14 @@ describe('dev-implement contract', () => {
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
+  test('a trivial chat fix is the direct path, and a new capability asked in chat is not', () => {
+    const queries = JSON.parse(readFileSync(join(skillRoot, 'tests/fixtures/trigger-queries.json'), 'utf8'))
+    const capability = queries.find((entry: { query: string }) => entry.query === 'add support for mermaid and latex')
+    expect(capability).toEqual({ query: 'add support for mermaid and latex', should_trigger: false, ambiguous_with: ['dev-intake'] })
+    const typo = queries.find((entry: { query: string }) => entry.query === 'fix the typo in README.md line 12, "recieve" should be "receive"')
+    expect(typo).toEqual({ query: 'fix the typo in README.md line 12, "recieve" should be "receive"', should_trigger: true })
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
