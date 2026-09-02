@@ -42,7 +42,7 @@ Set at intake, applied as a label, announced with its reason (operator can overr
 - **`quick-build`** — small change and the flow being changed already exists in the repo to read. Brief (description) + plan (comment) are drafted in the same conversation; **one approval covers both**; then straight to `ready`.
 - **`full-plan`** — big or new ground. Brief approval → `needs-plan` → a separate, fresh-grounded planning session posts the plan → `needs-operator` → "plan approved" → `ready`. Multi-deliverable work becomes an epic; each sub-issue is classified independently.
 
-Scope calls are revisited through the one-way ratchet, whose rules and mechanics live in the `dev-plan` skill — the one home for upgrade/downgrade behavior.
+The one-way ratchet that revisits a scope call lives in the `dev-plan` skill.
 
 ## Labels
 
@@ -60,9 +60,9 @@ Modifiers (may coexist with the state label): `risky` · scope `research` / `qui
 
 ## Titles, types, hierarchy
 
-- **Title prefixes** on issues, branches, and PRs identically: dev.md's `branch:` knob type list (that knob stays the list's one home) plus `research:` for research issues. PR title = issue title.
+- **Title prefixes** on issues, branches, and PRs identically: dev.md's `branch:` knob type list plus `research:` for research issues. PR title = issue title.
 - **Native issue types** where the org defines them: Feature (feat) · Bug (fix) · Task (docs/chore/refactor/research) · Epic for parents (label fallback otherwise).
-- **Hierarchy:** epic parent = map only (Destination · Decisions so far as one-line gists · Not clear yet · Out of scope), children attached as native sub-issues; issues = the unit of work (brief in description, own approvals/branch/PR/evidence); tasks = checkboxes **in the plan comment only**. Blockers use native issue dependencies; phases use milestones. Only issues — never epics — get `ready`. GitHub caps issue bodies and comments at ~65,536 characters; what a plan nearing that cap means is the `dev-plan` ratchet's call.
+- **Hierarchy:** epic parent = map only (Destination · Decisions so far as one-line gists · Not clear yet · Out of scope), children attached as native sub-issues; issues = the unit of work (brief in description, own approvals/branch/PR/evidence); tasks = checkboxes **in the plan comment only**. Blockers use native issue dependencies; phases use milestones. Only issues — never epics — get `ready`.
 
 ## The ledger
 
@@ -78,16 +78,18 @@ Maintained by the implement session as one comment, edited in place:
 - Deferred minor: <one-liner>
 ```
 
-**Resume protocol:** a fresh, compacted, or (operator-handed) takeover session reads, in order: the brief → the plan comment → the ledger → `git log` on the branch — **nothing else**. Tasks with a `complete` line are DONE, never re-executed; a task whose last line is a fix round resumes at the next round. After compaction, trust the ledger and `git log` over recollection. Every `Ruling:` line surfaces in the evidence comment — a ruling that dies with the session was a decision made in secret.
+A checkpoint retains what a compaction summary must retain: difficulties and how they were resolved; options tried or set aside, and why; anything decided, ruled out, or established as a constraint, stated exactly; where things stand; what is open; exact names, numbers, links — the operator's words near-verbatim, the agent's reasoning condensed.
+
+**Resume protocol:** a fresh, compacted, or handed-over session reads, in order: brief → plan comment → ledger → `git log` — nothing else.
 
 ## `.vegastack/.tmp/` workspace
 
-All transitory artifacts — subagent reports, review packages, plan drafts, extracted diffs — live at `.vegastack/.tmp/<issue-number>-<title-slug>/` (pre-issue intake drafts, which have no number yet: `.vegastack/.tmp/intake-<slug>/`), kept out of git by a self-ignoring `.gitignore` (`printf '*\n' > .vegastack/.tmp/.gitignore`, created on first use). Subagents write full reports to files there and return only short status — a dead subagent's findings survive on disk, and the primary session never holds full reports in context. The workspace lives in the working tree (never under `.git/`, which harnesses protect from writes).
+Transitory artifacts (subagent reports, review packages, plan drafts, diffs) live at `.vegastack/.tmp/<issue-number>-<title-slug>/` (pre-issue intake drafts: `.vegastack/.tmp/intake-<slug>/`), kept out of git by a self-ignoring `.gitignore` (`printf '*\n' > .vegastack/.tmp/.gitignore` on first use). Subagents write full reports there and return short status, so a dead subagent's findings survive and the primary session never holds them in context. It lives in the working tree, never under `.git/`, which harnesses protect from writes. `<path-to-this-skill>` in a command is the directory holding the SKILL.md you are reading.
 
 ## Verification gate
 
-Before claiming any status: **IDENTIFY** the command that proves the claim → **RUN** it fresh and complete → **READ** the full output and exit code → only then claim, with the evidence. "Should pass", a previous run, or a subagent's say-so are never evidence. Guard scripts follow the same doctrine: machine-verifiable facts **block** (exit 2 with the reason); regex or judgment heuristics only **warn** — no AI inference inside guards, and an unverifiable state fails closed.
+Audit each claim against a tool result from this session: run the proving command fresh, read its full output and exit code, then claim with that evidence. Report outcomes faithfully — if tests fail, say so with the output; if a step was skipped, say that. Delegate only sizeable, independent, parallelizable work, never the verification of your own work, and keep spawn counts low. Guard scripts follow the same doctrine: machine-verifiable facts block (exit 2 with the reason); regex or judgment heuristics only warn — no AI inference inside guards, and an unverifiable state fails closed.
 
 ## Plain-language collaboration
 
-Every skill run ends with a simple-language summary: what happened, which paths were taken — cross-agent invocations announced at trigger time AND summarized at the end — and what is worth the operator double-checking. Use mermaid or ASCII diagrams in issues wherever a picture beats prose. A vague or self-contradicting operator answer gets pushback with concrete options, never silent absorption.
+Narrate at three moments: one line before starting, a brief update on a finding or change of direction, and an outcome-first recap that stands alone — what happened, which paths were taken, what is worth the operator double-checking. Lead with the outcome; readability beats concision; arrow chains and made-up labels hide meaning from a reader who did not watch the work. Use mermaid or ASCII diagrams in issues wherever a picture beats prose. A vague or self-contradicting operator answer gets pushback with concrete options, never silent absorption.
