@@ -305,6 +305,21 @@ describe('checkStructure', () => {
     clean(root)
   })
 
+  test('warns, never throws, on a non-object root or a non-object case', () => {
+    for (const body of ['null', '3', '[]']) {
+      const root = fixture(({ skills }) => writeFileSync(join(skills, 'solo', 'evals/evals.json'), body))
+      const result = checkStructure(root)
+      expect(result.blocks).toEqual([])
+      expect(result.warns.join()).toMatch(/skills\/solo\/evals\/evals\.json does not parse: the root must be a JSON object/)
+      clean(root)
+    }
+    const root = fixture(({ skills }) => writeFileSync(join(skills, 'solo', 'evals/evals.json'), JSON.stringify({ skill_name: 'solo', evals: [null, 'x'] })))
+    const warns = checkStructure(root).warns.join('\n')
+    expect(warns).toMatch(/case 1 is not an object/)
+    expect(warns).toMatch(/case 2 is not an object/)
+    clean(root)
+  })
+
   test('warns on an empty case list, a non-string files entry, and the scaffolded placeholder', () => {
     const empty = fixture(({ skills }) => writeFileSync(join(skills, 'solo', 'evals/evals.json'), JSON.stringify({ skill_name: 'solo', evals: [] })))
     expect(checkStructure(empty).blocks).toEqual([])
