@@ -7,7 +7,7 @@ description: Land finished work, each step only on the operator's explicit word.
 
 Gates spent only by the user's words: their words asking for a PR authorize the PR and nothing more; their words asking to merge authorize the merge. The dev.md `gates` knob sets how many actions one word covers — `3` keeps PR and merge as separate words, `2` lets one "ship it" cover both, `1` is direct-to-main (the ship word merges locally and pushes; no PR object, everything else identical). Passing checks, PR permissions, and the calendar authorize nothing by themselves.
 
-Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evidence comment; ship packages and lands it. Corrections found here go back through implement's corrections loop. Artifact formats — the register line included — follow `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of.
+Nearest neighbor: `dev-implement` produces the `for-operator` issue with its evidence comment; ship packages and lands it. Corrections found here go back through implement's corrections loop.
 
 ## Gate 1 — the PR
 

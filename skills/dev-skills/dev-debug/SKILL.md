@@ -7,7 +7,7 @@ description: Reproduce-first bug work. Use when given a bug to fix — "debug th
 
 The failure this skill prevents: reading code, forming one theory, and "fixing" something that was never the cause. The discipline is a hard order — **reproduce, shrink, suspect, test, prove, clean** — and each phase has a completion criterion you can check, not vibe. It runs inside dev-implement's dark mode: no operator questions; missing-artifact stops are one `handback` comment; every phase result is a ledger checkpoint.
 
-Nearest neighbors: `dev-intake`'s bug variant writes the brief this skill executes; `dev-implement` owns the surrounding build ceremony; `dev-review` judges the finished fix. Artifact formats follow `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of.
+Nearest neighbors: `dev-intake`'s bug variant writes the brief this skill executes; `dev-implement` owns the surrounding build ceremony; `dev-review` judges the finished fix.
 
 ## Phase 1 — the red command. No red command, no theorizing.
 

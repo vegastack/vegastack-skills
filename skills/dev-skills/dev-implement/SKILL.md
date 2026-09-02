@@ -5,7 +5,7 @@ description: Implement an approved GitHub issue end to end without further user 
 
 # dev-implement
 
-One issue, one session, end to end: preflight → claim → build dark → verify → review → evidence → stop. The operator reads the result in the issue on their own time; nothing here creates a PR or merges — those are `dev-ship`, on the operator's word. Artifact formats follow `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of; the ledger discipline lives in [ledger-and-resume](references/ledger-and-resume.md).
+One issue, one session, end to end: preflight → claim → build dark → verify → review → evidence → stop. The operator reads the result in the issue on their own time; nothing here creates a PR or merges — those are `dev-ship`, on the operator's word. The ledger discipline lives in [ledger-and-resume](references/ledger-and-resume.md).
 
 Nearest neighbors: `dev-plan` writes the plan this skill executes task by task; `dev-review` judges the result; issues that turn out to need decisions go back through `needs-operator`, never guessed. `.vegastack/dev.md` missing → run `dev-setup` first. Read dev.md before anything; its knobs govern this skill, and the `## Architecture` section governs stack-touching choices.
 

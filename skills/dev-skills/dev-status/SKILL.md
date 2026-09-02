@@ -7,7 +7,7 @@ description: The operator's board — whose move is it, across every issue in th
 
 One question, answered from deterministic data: **whose move is it?** The bundled script gathers; this skill orders and narrates — it never invents state, and an unverifiable board is reported as exactly that.
 
-Nearest neighbors: `dev-chronicle` answers "how did we get here"; this skill answers "what needs whom right now". Formats read via the markers in `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of.
+Nearest neighbors: `dev-chronicle` answers "how did we get here"; this skill answers "what needs whom right now".
 
 ## Gather
 
