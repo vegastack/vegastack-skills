@@ -64,5 +64,3 @@ Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs 
 ## After approval
 
 An approved issue that later needs a material change flips back to `needs-operator` with one comment naming what changed; the new approval is recorded the same way, and the brief's revision marker bumps. Small wording fixes that change no behavior don't reopen anything.
-
-End every run with the plain-language summary: what was created or changed, the scope calls made and why, and exactly what awaits the operator's word.
