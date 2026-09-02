@@ -6,7 +6,7 @@ import { checkStructure } from '../scripts/structure.mjs'
 import { TODO_PURPOSE } from '../scripts/readme-sync.mjs'
 
 // A skill README whose file table is already in sync with the fixtures' ['SKILL.md'] packaging entries.
-const SKILL_README = (name: string) => `# ${name}\n\n## What's in this skill\n\n| Path | Purpose |\n|---|---|\n| [SKILL.md](SKILL.md) | d |\n| \`tests/\` | Bun tests and fixtures (never packaged) |\n`
+const SKILL_README = (name: string) => `# ${name}\n\n## What's in this skill\n\n| Path | Purpose |\n|---|---|\n| [SKILL.md](SKILL.md) | d |\n| \`tests/\` | Bun tests and fixtures (never packaged) |\n| \`evals/\` | Behavioral evals in the agentskills.io format (never packaged) |\n`
 const UNGROUPED_ROW = '| [solo](skills/solo/) | s | [SKILL.md](skills/solo/SKILL.md) |'
 
 function readme(sections: { ungrouped: string[]; groups?: { title: string; blurb: string; rows: string[] }[] }) {
@@ -31,6 +31,11 @@ function fixture(mutate: (paths: { root: string; skills: string }) => void = () 
     writeFileSync(join(dir, 'agents/openai.yaml'), 'name: x\n')
     writeFileSync(join(dir, 'refresh/REFRESH.md'), '# r\n')
     writeFileSync(join(dir, 'refresh/sources.json'), '{"sources":[]}\n')
+    mkdirSync(join(dir, 'evals'), { recursive: true })
+    writeFileSync(join(dir, 'evals/evals.json'), JSON.stringify({
+      skill_name: name,
+      evals: [{ id: 1, prompt: 'p', expected_output: 'e', files: [], assertions: ['a'] }],
+    }))
   }
   meta(join(skills, 'solo'), 'solo')
   mkdirSync(join(skills, 'fam'), { recursive: true })
@@ -264,5 +269,56 @@ describe('checkStructure', () => {
     expect(result.blocks).toEqual([])
     expect(result.warns.join()).toMatch(/solo\/README\.md row for SKILL\.md still carries the placeholder purpose/)
     clean(root)
+  })
+
+  test('warns without blocking on a skill with no evals/evals.json', () => {
+    // The README row goes with the directory: the readme-sync guard is a separate rule and stays quiet.
+    const root = fixture(({ skills }) => {
+      rmSync(join(skills, 'solo', 'evals'), { recursive: true, force: true })
+      writeFileSync(join(skills, 'solo', 'README.md'), SKILL_README('solo').replace(/\| `evals\/`[^\n]*\n/, ''))
+    })
+    const result = checkStructure(root)
+    expect(result.blocks).toEqual([])
+    expect(result.warns.join()).toMatch(/skills\/solo\/evals\/evals\.json is missing/)
+    clean(root)
+  })
+
+  test('warns on an evals.json that does not parse', () => {
+    const root = fixture(({ skills }) => writeFileSync(join(skills, 'fam', 'one', 'evals/evals.json'), '{not json'))
+    const result = checkStructure(root)
+    expect(result.blocks).toEqual([])
+    expect(result.warns.join()).toMatch(/skills\/fam\/one\/evals\/evals\.json does not parse/)
+    clean(root)
+  })
+
+  test('warns on a wrong skill_name, a case without assertions, and a repeated id', () => {
+    const root = fixture(({ skills }) => writeFileSync(join(skills, 'solo', 'evals/evals.json'), JSON.stringify({
+      skill_name: 'other',
+      evals: [{ id: 1, prompt: 'p', expected_output: 'e' }, { id: 1, prompt: 'q', expected_output: 'f', assertions: [] }],
+    })))
+    const result = checkStructure(root)
+    expect(result.blocks).toEqual([])
+    const warns = result.warns.join('\n')
+    expect(warns).toMatch(/names skill_name "other" but the skill is "solo"/)
+    expect(warns).toMatch(/case 1 is missing assertions/)
+    expect(warns).toMatch(/case 2 id is repeated/)
+    clean(root)
+  })
+
+  test('warns on an empty case list, a non-string files entry, and the scaffolded placeholder', () => {
+    const empty = fixture(({ skills }) => writeFileSync(join(skills, 'solo', 'evals/evals.json'), JSON.stringify({ skill_name: 'solo', evals: [] })))
+    expect(checkStructure(empty).blocks).toEqual([])
+    expect(checkStructure(empty).warns.join()).toMatch(/has no cases/)
+    clean(empty)
+    const shape = fixture(({ skills }) => writeFileSync(join(skills, 'solo', 'evals/evals.json'), JSON.stringify({
+      skill_name: 'solo',
+      evals: [{ id: 'x', prompt: 'TODO: a realistic prompt', expected_output: '', files: [1], assertions: [] }],
+    })))
+    const warns = checkStructure(shape).warns.join('\n')
+    expect(warns).toMatch(/case 1 is missing id/)
+    expect(warns).toMatch(/case 1 is missing expected_output/)
+    expect(warns).toMatch(/case 1 files must be an array of strings/)
+    expect(warns).toMatch(/still carries the scaffolded placeholder case/)
+    clean(shape)
   })
 })

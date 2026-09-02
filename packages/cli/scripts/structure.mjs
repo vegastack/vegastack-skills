@@ -79,6 +79,40 @@ export function parseSkillsRegion(readmeBody) {
 // check
 // ---------------------------------------------------------------------------
 
+// evals/evals.json is recommended, never required: the brief for skill evals made it warn-only so
+// a skill without cases still builds, while the shape rules below keep a present file honest
+// (agentskills.io format — skill_name, evals[] {id, prompt, expected_output, files[], assertions[]}).
+export function evalsWarnings(skill, root) {
+  const label = `${posix(relative(root, skill.path))}/evals/evals.json`
+  const path = join(skill.path, 'evals', 'evals.json')
+  if (!existsSync(path)) return [`${label} is missing — every skill carries 2–3 agentskills.io eval cases (skillify Phase 4)`]
+  let data
+  try {
+    data = JSON.parse(readFileSync(path, 'utf8'))
+  } catch (error) {
+    return [`${label} does not parse: ${error.message}`]
+  }
+  const warns = []
+  if (data.skill_name !== skill.name) warns.push(`${label} names skill_name "${data.skill_name}" but the skill is "${skill.name}"`)
+  if (!Array.isArray(data.evals) || data.evals.length === 0) return [...warns, `${label} has no cases — "evals" must be a non-empty array`]
+  const seen = new Set()
+  data.evals.forEach((item, index) => {
+    const n = index + 1
+    if (!Number.isInteger(item.id)) warns.push(`${label} case ${n} is missing id (an integer)`)
+    else if (seen.has(item.id)) warns.push(`${label} case ${n} id is repeated`)
+    else seen.add(item.id)
+    for (const field of ['prompt', 'expected_output']) {
+      if (typeof item[field] !== 'string' || !item[field].trim()) warns.push(`${label} case ${n} is missing ${field}`)
+    }
+    if (!Array.isArray(item.assertions)) warns.push(`${label} case ${n} is missing assertions (an array; empty until the first run is allowed)`)
+    if (item.files !== undefined && !(Array.isArray(item.files) && item.files.every((file) => typeof file === 'string'))) {
+      warns.push(`${label} case ${n} files must be an array of strings`)
+    }
+    if (PLACEHOLDER.test(item.prompt ?? '') || PLACEHOLDER.test(item.expected_output ?? '')) warns.push(`${label} still carries the scaffolded placeholder case`)
+  })
+  return warns
+}
+
 export function checkStructure(repoRoot) {
   const blocks = []
   const warns = []
@@ -123,6 +157,7 @@ export function checkStructure(repoRoot) {
         blocks.push(`${posix(relative(root, skill.path))}/${file} is missing — every skill carries ${REQUIRED_SKILL_FILES.join(', ')}`)
       }
     }
+    warns.push(...evalsWarnings(skill, root))
   }
 
   // --- packaging correspondence, both directions, with bare-name keys ---
