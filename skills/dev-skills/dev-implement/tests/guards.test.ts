@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { GhUnavailable, findMarkerComment, ghJson, parseFlags, parseMarker, renderResult } from '../scripts/lib/gh.mjs'
+
+const implRoot = resolve(import.meta.dir, '..')
 import { evaluatePreflight } from '../scripts/preflight.mjs'
 import { checkEvidence, checkTaskConsistency } from '../scripts/evidence-check.mjs'
 
@@ -136,6 +142,15 @@ Branch: feat/12-x @ abc1234`
   test('blocks on marker without real sha', () => {
     const r = checkEvidence(good.replace('sha=abc1234', 'sha=TBDTBDT'))
     expect(r.blocks.some((b: string) => b.includes('real sha'))).toBe(true)
+  })
+  test('--issue path fails closed on unreachable gh → exit 2, shape-valid draft notwithstanding', () => {
+    const f = join(mkdtempSync(join(tmpdir(), 'vsk-ev-')), 'evidence.md')
+    writeFileSync(f, good)
+    const r = spawnSync('node', [join(implRoot, 'scripts/evidence-check.mjs'), '--file', f, '--issue', '5', '--repo', 'o/r', '--json'], {
+      env: { ...process.env, VSK_GH: '/nonexistent-vsk-gh' }, encoding: 'utf8',
+    })
+    expect(r.status).toBe(2)
+    expect(r.stdout + r.stderr).toContain('cannot verify plan/ledger consistency')
   })
 })
 

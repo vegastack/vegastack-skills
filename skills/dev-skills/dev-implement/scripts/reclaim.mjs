@@ -12,19 +12,10 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GhUnavailable, ghJson, parseFlags, parseMarker, renderResult } from './lib/gh.mjs';
+import { GhUnavailable, findMarkerComment, ghJson, parseFlags, renderResult } from './lib/gh.mjs';
 
 const WORKING = 'working';
 const READY = 'ready';
-
-// Latest ledger comment's updated_at, or null when no ledger exists yet.
-function ledgerMovedAt(comments) {
-  let at = null;
-  for (const c of comments ?? []) {
-    if (parseMarker(c.body)?.keys?.type === 'ledger') at = c.updated_at;
-  }
-  return at;
-}
 
 const ageHours = (iso, now) => Math.floor((now - Date.parse(iso)) / 3_600_000);
 
@@ -37,7 +28,7 @@ export function evaluateReclaim({ issue, comments, orphanHours = 6, force = fals
   if (issue.state && issue.state !== 'open') blocks.push(`issue is ${issue.state} — only an open working issue can be reclaimed`);
   if (!labels.includes(WORKING)) blocks.push(`issue is not '${WORKING}' (labels: [${labels.join(', ') || 'none'}]) — nothing to reclaim`);
 
-  const moved = ledgerMovedAt(comments);
+  const moved = findMarkerComment(comments, 'ledger')?.comment?.updated_at ?? null;
   const ageH = moved ? ageHours(moved, now) : null;
   if (!force && ageH !== null && ageH < orphanHours) {
     blocks.push(`ledger moved ${ageH}h ago (< orphan threshold ${orphanHours}h) — this claim may be live; pass --force to release anyway`);
