@@ -84,7 +84,7 @@ A checkpoint retains what a compaction summary must retain: difficulties and how
 
 ## `.vegastack/.tmp/` workspace
 
-Transitory artifacts (subagent reports, review packages, plan drafts, diffs) live at `.vegastack/.tmp/<issue-number>-<title-slug>/` (pre-issue intake drafts: `.vegastack/.tmp/intake-<slug>/`), kept out of git by a self-ignoring `.gitignore` (`printf '*\n' > .vegastack/.tmp/.gitignore` on first use). Subagents write full reports there and return short status, so a dead subagent's findings survive and the primary session never holds them in context. It lives in the working tree, never under `.git/`, which harnesses protect from writes. `<path-to-this-skill>` in a command is the directory holding the SKILL.md you are reading.
+Transitory artifacts (subagent reports, review packages, plan drafts, diffs) live at `.vegastack/.tmp/<issue-number>-<title-slug>/` (pre-issue intake drafts: `.vegastack/.tmp/intake-<slug>/`), kept out of git by a self-ignoring `.gitignore` whose only line is `*`, written on first use. Subagents write full reports there and return short status, so a dead subagent's findings survive and the primary session never holds them in context. It lives in the working tree, never under `.git/`, which harnesses protect from writes. `<path-to-this-skill>` in a command is the directory holding the SKILL.md you are reading.
 
 ## Verification gate
 
