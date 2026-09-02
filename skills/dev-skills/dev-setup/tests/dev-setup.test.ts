@@ -12,6 +12,21 @@ describe('dev-setup contract', () => {
     expect(result.ok).toBe(true)
   })
 
+  test('profile template carries the architect, chronicle-style, and emoji knobs with their documented defaults', () => {
+    const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
+    expect(template).toMatch(/^architect: \{\{github-username\}\}\s+#.*gh api user -q \.login/m)
+    expect(template).toMatch(/^chronicle-style: plain\s+# plain \| story \| witty/m)
+    expect(template).toMatch(/^emoji: none\s+# none \| sparing/m)
+  })
+
+  test('the stop-and-ask section opens with the pause-only sentence and keeps the concrete list', () => {
+    const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
+    const section = template.split('## Stop and ask')[1].split('\n## ')[0]
+    expect(section).toContain('Pause for the operator only when the work genuinely requires them: a destructive or irreversible action, a real scope change, or input only they can provide — ask and end the turn rather than end on a promise')
+    expect(section).toContain('a blocker the brief cannot resolve')
+    expect(section).toContain("Nothing ships without the operator's explicit instruction")
+  })
+
   test('agents-section template stays within the always-loaded budget and mirrors this repo AGENTS.md', () => {
     const template = readFileSync(join(skillRoot, 'assets/agents-section.md.template'), 'utf8')
     const body = template.split('<!-- vsk-dev:start -->')[1].split('<!-- vsk-dev:end -->')[0]

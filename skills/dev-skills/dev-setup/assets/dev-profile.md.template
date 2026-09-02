@@ -23,6 +23,9 @@ changelog: {{changesets | keep-a-changelog | pubspec+changelog | none (reason)}}
 decisions: .vegastack/decisions.md
 release: on-request         # per-merge = Ship runbook runs as part of shipping · on-request = only when the operator says "release"
 chronicle: on               # on = dev-implement writes a .vegastack/chronicle.md story entry per behavior-changing branch · off
+architect: {{github-username}}   # the architecture owner dev-architect speaks to — dev-setup writes `gh api user -q .login` (fallback `git config user.name`) without asking; changing it later is one edit here
+chronicle-style: plain      # plain | story | witty — the voice of chronicle entries; the rule and one worked example per style live in dev-chronicle's references/styles.md
+emoji: none                 # none | sparing — sparing allows at most one emoji per chronicle entry, in the title or footer, never inside a field's facts
 
 ## Ship — what happens after merge, in order
 
@@ -73,7 +76,7 @@ Record a decision only when it is directional — it steers work beyond this iss
 
 ## Stop and ask
 
-Dark execution ends and the operator decides when work would involve: a change of scope or product behavior, a significant new dependency or runtime, spending money, anything destructive or touching production, or a blocker the brief cannot resolve. Nothing ships without the operator's explicit instruction — see the AGENTS.md dev section.
+Pause for the operator only when the work genuinely requires them: a destructive or irreversible action, a real scope change, or input only they can provide — ask and end the turn rather than end on a promise. In this project that means: a change of scope or product behavior, a significant new dependency or runtime, spending money, anything destructive or touching production, or a blocker the brief cannot resolve. Nothing ships without the operator's explicit instruction — see the AGENTS.md dev section.
 
 ## Project rules
 
