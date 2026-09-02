@@ -7,6 +7,7 @@ Rules for writing the parts of a skill that determine whether it triggers, how m
 The description is the primary triggering mechanism: it is always in context, and the agent decides from it alone whether to load the body.
 
 - **Triggering conditions only — never the workflow.** A description that summarizes the process becomes a shortcut: agents follow the summary and skip the body. State when to load the skill, not what the skill will do step by step.
+- **Calm conditionals.** Write the trigger as "Use when …" with the phrasings users type and one "Not for …" clause — the standard and its reason are skill-maintainer's operating rule 4; this file only shows the shape.
 - **Third person.** The text is injected into a system prompt ("Creates and audits...", "Use when..."), never "I can help you...".
 - **Front-load trigger words.** Harness skill lists truncate long descriptions; the first clause must carry the strongest triggers.
 - **Cover the ways users actually ask.** Exact phrases in quotes, symptoms, file types, adjacent phrasings, casual variants. Include the situations where the skill competes with a neighbor and should win.
@@ -30,16 +31,7 @@ Rules for the prose itself — they exist because agents pay attention (and toke
 
 ## Numeric limits
 
-<!-- mirrored: these numbers are volatile and mirrored from the standards sources tracked by the skill-maintainer registry; on drift, fix them there first, then here. -->
-
-| Thing | Limit |
-|---|---|
-| `name` | 1–64 chars, starts with a lowercase letter, `[a-z0-9-]`, no consecutive hyphens, no leading/trailing hyphen, must equal the directory name |
-| `description` | 1–1024 chars |
-| Frontmatter keys | `name` + `description` only in this repo (spec also allows `license`, `compatibility`, `metadata`, `allowed-tools`; unknown keys hard-error on claude.ai packaging) |
-| SKILL.md body | under 500 lines / ~5k tokens |
-| Listing budgets | Claude truncates listed name+description around 1,536 chars; Codex caps the whole skill list at ~2% of context / 8,000 chars — front-load triggers |
-| Relative references | one level deep, plain relative paths, no harness-specific syntax in the body |
+The numbers — name and description limits, body ceiling, and the Claude Code, Codex, and Hermes listing budgets — live in one place: skill-maintainer's Hard limits table, mirrored from the marked sentences in its references/standards.md and refreshed through its registry. Cite them per skill-maintainer's standards; a second copy here drifted once and would again.
 
 ## Trigger query sets
 
@@ -76,3 +68,36 @@ Cross-reference other skills by name (`skill-maintainer`) instead of restating t
 One rule: **version pins, model names, numeric limits, URLs, and anything with a date live in refresh-tracked files — never inline in SKILL.md.** Everything else is plain prose that refresh automation never touches.
 
 A volatile fact gets a `refresh/sources.json` entry (URL, checksum, threshold) and lives in a section the REFRESH.md names as editable; marking an individual sentence `<!-- source: SOURCE-ID -->` remains available when a durable rule leans on one vendor-named mechanism. A skill with no volatile facts of its own declares an **evergreen waiver** in REFRESH.md — one line stating why nothing decays — and keeps `sources: []`. Facts whose source of truth already lives in another skill's registry are mirrored with a `<!-- mirrored -->` marker, not duplicated as a second registry entry.
+
+## Worked example: skillifying a "release-notes" workflow
+
+```
+Phase 0: yes — run at every release, ~80 lines of conventions, trigger "draft the release notes";
+  nearest neighbor is skill-maintainer (release wiring) — different axis, proceed
+Phase 1: 0/8 (new)
+Phase 2: triggers "draft/write the release notes", NOT "write a changelog entry for this PR";
+  output = CHANGELOG section + npm summary; volatile: none owned → evergreen waiver
+Phase 3: scaffold-skill.mjs release-notes --dir . --write (wiring done by the scaffolder);
+  description + 10 trigger queries incl. ambiguous_with skill-maintainer; body + references/format.md;
+  no scripts (judgment-heavy, item 5 N/A)
+Phase 4: eval cycle 1 — baseline subagent invents section headings, with-skill misses breaking-change
+  callouts → add callout contract to SKILL.md; cycle 2 — with-skill clearly better, baseline still
+  wrong shape → pass
+Phase 5: trigger fixture locked; evergreen waiver written; README row description filled in
+Phase 6: bun run check green; 8/8 → properly skilled
+```
+
+## Anti-patterns
+
+- Writing lock-in tests before the behavioral eval — locks in mediocrity.
+- A description that summarizes the workflow — agents follow the description and skip the body.
+- Skipping the baseline run because "the output looks fine" — that is not evidence.
+- Eval without a fix cycle — vanity metrics.
+- Obviously-irrelevant negatives in the trigger query set — near-misses or nothing.
+- Version pins or model names in SKILL.md — volatile facts live in refresh-tracked locations.
+- Multi-intent skills spanning unrelated triggers — split them.
+- Two skills answering the same trigger — merge or kill one.
+- Steering by prohibition — a wall of NEVERs drags the forbidden behavior into context and grows forever; state the positive rule once and explain why it matters.
+- Patching every observed agent failure with a new clause — that is sediment; rewrite the existing rule in place instead of appending case law.
+- Unit tests for prose — a test asserting a markdown file contains a phrase proves nothing the eval didn't.
+- Building eval tooling — evals are instructions you run with subagents, not code you write.
