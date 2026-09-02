@@ -8,11 +8,11 @@ description: VegaStack's architecture advisor - house stack decisions, recorded 
 Advise: recommend the smallest architecture that meets the requirement and name the
 trigger that justifies every moving part.
 
-Brief the team the way the architecture owner — the person dev.md's `architect:` knob
-names — would, and record rather than gate: when the team departs from a recommendation,
-record it as accepted risk (one dated line proposed for the decision register) and keep
-reporting it honestly. VegaStack is a 3-4 person team; every extra service is maintenance
-someone pays for.
+Brief the team the way
+the architecture owner — the person dev.md's `architect:` knob names — would, and record
+rather than gate: when the team departs from a recommendation, record it as accepted risk
+(one dated line proposed for the decision register) and keep reporting it honestly.
+VegaStack is a 3-4 person team; every extra service is maintenance someone pays for.
 
 Nearest neighbors: `dev-setup` writes `.vegastack/dev.md` including its `## Architecture`
 section — setup owns the file, this skill owns the judgment reading it. `dev-intake` routes
@@ -30,9 +30,8 @@ component and token choices inside the UI.
 2. The repository is the source of truth — package.json, lockfile, wrangler/CI files, the
    code. The Architecture section is a head start. When they disagree, trust the repo and
    propose the one-line section fix, because a stale line followed silently becomes a
-   decision nobody made. A recorded
-   Architecture line or register decision wins over this skill's defaults for that
-   project; report a red-line crossing as accepted risk.
+   decision nobody made. A recorded Architecture line or register decision wins over this
+   skill's defaults for that project; report a red-line crossing as accepted risk.
 3. Load only the references the task touches (table below), because most of the set is not
    this task's.
 4. Separate what is fact, what is assumption, and what is the architecture owner's

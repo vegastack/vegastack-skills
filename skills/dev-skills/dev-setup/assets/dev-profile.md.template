@@ -1,6 +1,6 @@
 # Dev profile — {{owner/repo}}
 
-This file is the project's handbook and its only process document: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log. A section left as TODO because its machinery didn't exist yet: re-run dev-setup detection when the machinery appears.
+This file is the project's handbook and its only process document: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold one line into the right section — never append a log. A section left as TODO because its machinery didn't exist yet: re-run dev-setup detection when the machinery appears.
 
 repo: {{owner/repo}} · default branch {{branch}}
 stack: {{one line; the `## Architecture` section below carries the architecture facts}}
@@ -14,8 +14,8 @@ ui-evidence: playwright     # playwright | none
 evidence-repo: {{owner}}/dev-review-evidence   # shared across projects; this project's folder = repo name; delete the line when ui-evidence is none
 gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main, ship word merges locally and pushes, no PR
 tests: required             # required | logic-only
-skill-scan: none            # ONE line only — directory holding the agent skills to scan (the BUILT one where a bundle is generated) | none. dev-review's guard reads this and refuses if a second line gives a different value
-skillspector-update: auto   # off | notify | auto — how the SkillSpector CLI itself is kept current. auto installs it when absent and upgrades it before each scan, falling back to the installed copy on any failure; notify only reports what upstream has published; off never touches the network. ONE line only, same as above
+skill-scan: none            # one line only — directory holding the agent skills to scan (the BUILT one where a bundle is generated) | none. dev-review's guard reads this and refuses if a second line gives a different value
+skillspector-update: auto   # off | notify | auto — how the SkillSpector CLI itself is kept current. auto installs it when absent and upgrades it before each scan, falling back to the installed copy on any failure; notify only reports what upstream has published; off never touches the network. one line only, same as above
 merge: squash
 branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor — the only place this list lives
 labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents only where the org has no native Epic issue type
