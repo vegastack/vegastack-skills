@@ -53,7 +53,7 @@ Before claiming ANY status: **identify** the command that proves it → **run** 
 
 ## Independent review — invoke dev-review
 
-Run the `dev-review` skill per dev.md's `review:` knob — fresh subagent axes by default, cross-agent (Codex↔Claude, announced to the operator) per the knob's mapping; it owns the axes, severities, review comment, bounded fix loop, and adjudication rules. Apply its findings through its loop and re-run the affected checks. Disagree with a finding → adjudicate openly per its rules, never silently skip. In a harness without subagents, run dev-review's axis briefs yourself as a labeled self-review.
+Run the `dev-review` skill per dev.md's `review:` knob — fresh subagent axes by default, cross-agent (Codex↔Claude, announced to the operator) per the knob's mapping; it owns the axes, severities, review comment, bounded fix loop, and adjudication rules. Apply its findings through its loop and re-run the affected checks. Disagree with a finding → adjudicate openly per its rules, never silently skip. Every target harness spawns the axes (Claude Code subagents, Codex agents, Hermes `delegate_task`); only a headless run that cannot spawn runs the axis briefs itself, labeled as a self-review and never presented as independent.
 
 ## The evidence comment — exactly one, edited in place
 
