@@ -76,3 +76,60 @@ describe('checkTriggers', () => {
     ])
   })
 })
+
+// --- loader and CLI -------------------------------------------------------
+
+import { spawnSync } from 'node:child_process'
+import { resolve } from 'node:path'
+import { loadFixtures } from '../scripts/trigger-check.mjs'
+
+const script = resolve(import.meta.dir, '../scripts/trigger-check.mjs')
+const fixtures = resolve(import.meta.dir, 'fixtures/trigger-check')
+const run = (...args: string[]) => {
+  const r = spawnSync('node', [script, ...args], { encoding: 'utf8' })
+  return { code: r.status, out: r.stdout, err: r.stderr }
+}
+
+describe('loadFixtures', () => {
+  test('maps every discovered skill, null for a missing fixture', async () => {
+    const m = await loadFixtures(resolve(fixtures, 'clean'))
+    expect([...m.keys()].sort()).toEqual(['alpha', 'beta'])
+    expect((m.get('alpha') as any).file).toBe('skills/alpha/tests/fixtures/trigger-queries.json')
+    expect(Array.isArray((m.get('alpha') as any).data)).toBe(true)
+  })
+  test('unparseable JSON becomes an error entry, not a throw', async () => {
+    const m = await loadFixtures(resolve(fixtures, 'broken'))
+    expect(typeof (m.get('alpha') as any).error).toBe('string')
+  })
+  test('an unreadable root throws', async () => {
+    await expect(loadFixtures('/nonexistent-vsk-root')).rejects.toThrow()
+  })
+})
+
+describe('trigger-check CLI', () => {
+  test('clean family: exit 0, warns listed, --strict turns them into exit 1', () => {
+    const r = run('--dir', resolve(fixtures, 'clean'), '--json')
+    expect(r.code).toBe(0)
+    const j = JSON.parse(r.out)
+    expect(j.guard).toBe('trigger-check')
+    expect(j.ok).toBe(true)
+    expect(j.blocks).toEqual([])
+    expect(j.warns).toEqual(['beta: 3 fixture entries, fewer than 8'])
+    expect(run('--dir', resolve(fixtures, 'clean'), '--strict').code).toBe(1)
+  })
+  test('collision: exit 2 and BLOCKED in text mode', () => {
+    const r = run('--dir', resolve(fixtures, 'collision'))
+    expect(r.code).toBe(2)
+    expect(r.out).toContain('trigger-check: BLOCKED')
+    expect(r.out).toContain('"ship it" is should_trigger:true in alpha and beta')
+  })
+  test('a root with no skills/ directory blocks', () => {
+    const r = run('--dir', '/nonexistent-vsk-root', '--json')
+    expect(r.code).toBe(2)
+    expect(JSON.parse(r.out).blocks[0]).toContain('cannot discover skills under')
+  })
+  test('usage errors exit 2', () => {
+    expect(run('--dir').code).toBe(2)
+    expect(run('--bogus').code).toBe(2)
+  })
+})

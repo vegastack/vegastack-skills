@@ -1,0 +1,5 @@
+[
+  { "query": "beta does its thing", "should_trigger": true },
+  { "query": "Ship it!", "should_trigger": true, "ambiguous_with": ["alpha"] },
+  { "query": "alpha does the first thing", "should_trigger": false }
+]
