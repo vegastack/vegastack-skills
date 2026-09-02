@@ -6,6 +6,8 @@ import { join } from 'node:path'
 // These cases spawn the CLI rather than importing its exports: the exit-code mapping is a
 // deterministic branch of its own, and it is the branch that decides whether `bun run check`
 // goes red. A warning that fails the chained root check contradicts the guard doctrine.
+// A skill README whose file table is already in sync with the fixtures' ['SKILL.md'] packaging entries.
+const SKILL_README = (name: string) => `# ${name}\n\n## What's in this skill\n\n| Path | Purpose |\n|---|---|\n| [SKILL.md](SKILL.md) | d |\n| \`tests/\` | Bun tests and fixtures (never packaged) |\n`
 const SCRIPT = join(import.meta.dir, '../scripts/structure.mjs')
 const run = (...args: string[]) => Bun.spawnSync(['node', SCRIPT, ...args])
 
@@ -17,7 +19,7 @@ function fixture({ members = 2 }: { members?: number } = {}) {
     mkdirSync(join(dir, 'agents'), { recursive: true })
     mkdirSync(join(dir, 'refresh'), { recursive: true })
     writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: d\n---\n`)
-    writeFileSync(join(dir, 'README.md'), `# ${name}\n`)
+    writeFileSync(join(dir, 'README.md'), SKILL_README(name))
     writeFileSync(join(dir, 'agents/openai.yaml'), 'name: x\n')
     writeFileSync(join(dir, 'refresh/REFRESH.md'), '# r\n')
     writeFileSync(join(dir, 'refresh/sources.json'), '{"sources":[]}\n')
