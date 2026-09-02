@@ -84,3 +84,93 @@ export function plan({ repo, issue, file, evidenceRepo, devMd, now = new Date() 
     },
   };
 }
+
+// The retry name after a 409: `-r2` after the timestamp, so a concurrent
+// upload's file and this one both survive under the same issue directory.
+export function retryPath(path) {
+  return path.replace(/(\/\d{8}-\d{6})-/, '$1-r2-');
+}
+
+// One PUT through gh with the JSON body on stdin. A 409 (a concurrent upload
+// chose the same name) is retried once under retryPath; any other failure,
+// or a second one, propagates to the caller.
+export function upload(put, contentBase64, { gh } = {}) {
+  const warns = [];
+  const send = (apiPath) => ghJson(['api', '-X', 'PUT', apiPath, '--input', '-'], {
+    gh,
+    input: JSON.stringify({ message: put.message, content: contentBase64 }),
+  });
+  let path = put.path;
+  let response;
+  let attempts = 1;
+  try {
+    response = send(put.apiPath);
+  } catch (error) {
+    if (!(error instanceof GhUnavailable) || error.httpStatus !== 409) throw error;
+    path = retryPath(put.path);
+    const apiPath = `repos/${put.evidenceRepo}/contents/${path}`;
+    warns.push(`first PUT hit HTTP 409 (a concurrent upload chose the same name) — retried as ${path}`);
+    attempts = 2;
+    response = send(apiPath);
+  }
+  return { attempts, path, url: response?.content?.html_url ?? null, warns };
+}
+
+// Plan, then (only under --write) read the bytes and send them. The base64
+// string exists only inside the request body handed to gh's stdin.
+export function run(flags, { gh, now = new Date() } = {}) {
+  const devMdPath = flags['dev-md'] || '.vegastack/dev.md';
+  let devMd = '';
+  if (!flags['evidence-repo']) {
+    try {
+      devMd = readFileSync(devMdPath, 'utf8');
+    } catch {
+      return { blocks: [`cannot read ${devMdPath} (pass --dev-md <path> or --evidence-repo <o/r>)`], warns: [], upload: null };
+    }
+  }
+  const planned = plan({
+    repo: flags.repo,
+    issue: flags.issue,
+    file: flags.file,
+    evidenceRepo: flags['evidence-repo'],
+    devMd,
+    now,
+  });
+  if (planned.blocks.length > 0) return { blocks: planned.blocks, warns: [], upload: null };
+
+  const { put } = planned;
+  const summary = { evidenceRepo: put.evidenceRepo, path: put.path, bytes: put.bytes };
+  if (!flags.write) return { blocks: [], warns: [], upload: { ...summary, mode: 'dry-run', attempts: 0, url: null } };
+
+  const sent = upload(put, readFileSync(flags.file).toString('base64'), { gh });
+  return {
+    blocks: [],
+    warns: sent.warns,
+    upload: { ...summary, path: sent.path, mode: 'sent', attempts: sent.attempts, url: sent.url },
+  };
+}
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  const flags = parseFlags(process.argv.slice(2), ['json', 'write']);
+  let outcome;
+  try {
+    outcome = run(flags);
+  } catch (error) {
+    outcome = {
+      blocks: [error instanceof GhUnavailable ? `cannot upload: ${error.message}` : `evidence-upload error: ${error.message}`],
+      warns: [],
+      upload: null,
+    };
+  }
+  const { exitCode, text } = renderResult('evidence-upload', outcome, { json: false });
+  if (flags.json) {
+    const { blocks, warns, upload: result } = outcome;
+    console.log(JSON.stringify({ guard: 'evidence-upload', ok: blocks.length === 0, blocks, warns, upload: result }, null, 2));
+  } else {
+    const lines = [text];
+    if (outcome.upload) lines.splice(1, 0, `  ${outcome.upload.mode}: ${outcome.upload.path} (${outcome.upload.bytes} bytes)`);
+    console.log(lines.join('\n'));
+  }
+  process.exit(exitCode);
+}
