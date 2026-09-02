@@ -16,7 +16,7 @@ Maintenance skill for this repository. Every change under `skills/` must satisfy
 5. `SKILL.md` under 500 lines (target under 150) and roughly under 5k tokens. Detail goes to `references/`, executables to `scripts/`, templates to `assets/`. Relative links stay inside the skill, one level deep.
 6. No Claude-only body syntax anywhere in a skill: no dynamic command injection, no argument placeholders, no Claude environment-variable paths — the exact token list is in [standards](references/standards.md). Reference scripts as plain relative paths runnable from the skill directory.
 7. Never hand-edit checksums, versions, or timestamps in any `refresh/sources.json` — they must come from a refresh-runner run.
-8. Before finishing any change: `node packages/cli/scripts/validate-skill.mjs <skill-dir>` and `bun test <skill-dir>` for the skill you touched, plus `node packages/cli/scripts/structure.mjs check` for the repo shape (all from repo root) must pass. `bun run check` runs the structure check as one of its stages.
+8. Before finishing any change: `node packages/cli/scripts/validate-skill.mjs <skill-dir>` and `bun test <skill-dir>` for the skill you touched, plus `node packages/cli/scripts/structure.mjs check` for the repo shape (all from repo root) must pass, and `bun run readme:sync --write` regenerates the skill README's file table after a packaging change so the structure check stays green. `bun run check` runs the structure check as one of its stages.
 
 ## Route progressively
 
