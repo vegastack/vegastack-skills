@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { GhUnavailable, findMarkerComment, ghJson, parseFlags, parseMarker, renderResult } from '../scripts/lib/gh.mjs'
 import { evaluatePreflight } from '../scripts/preflight.mjs'
-import { checkEvidence } from '../scripts/evidence-check.mjs'
+import { checkEvidence, checkTaskConsistency } from '../scripts/evidence-check.mjs'
 
 const approval = (scope = 'brief') => ({ body: `<!-- vsk:v1 type=approval scope=${scope} -->\nApproved by (kmanojkumar) on 28-08-2026: "yes"` })
 const baseIssue = () => ({
@@ -136,5 +136,40 @@ Branch: feat/12-x @ abc1234`
   test('blocks on marker without real sha', () => {
     const r = checkEvidence(good.replace('sha=abc1234', 'sha=TBDTBDT'))
     expect(r.blocks.some((b: string) => b.includes('real sha'))).toBe(true)
+  })
+})
+
+describe('checkTaskConsistency: plan checkboxes must reflect the ledger', () => {
+  const plan = (body: string) => ({ body: `<!-- vsk:v1 type=plan rev=1 -->\n${body}` })
+  const ledger = (body: string) => ({ body: `<!-- vsk:v1 type=ledger branch=feat/x -->\n## Ledger\n${body}` })
+
+  test('all completed tasks checked → no block', () => {
+    const comments = [
+      plan('- [x] **Task 1: a**\n- [x] **Task 2: b**\n- [ ] **Task 3: c**'),
+      ledger('- Task 1: complete (commits aaaaaaa..bbbbbbb)\n- Task 2: complete (commits ccccccc..ddddddd)'),
+    ]
+    expect(checkTaskConsistency(comments).blocks).toEqual([])
+  })
+  test('ledger ahead of the checkboxes → block naming the gap', () => {
+    const comments = [
+      plan('- [ ] **Task 1: a**\n- [ ] **Task 2: b**'),
+      ledger('- Task 1: complete (commits aaaaaaa..bbbbbbb)\n- Task 2: complete (commits ccccccc..ddddddd)'),
+    ]
+    const r = checkTaskConsistency(comments)
+    expect(r.blocks.length).toBe(1)
+    expect(r.blocks[0]).toContain('2 task(s) are marked complete')
+  })
+  test('a task with fix rounds but no complete line does not force a check', () => {
+    const comments = [
+      plan('- [x] **Task 1: a**\n- [ ] **Task 2: b**'),
+      ledger('- Task 1: complete (commits aaaaaaa..bbbbbbb)\n- Task 2: fix round 1/3 (1 addressed, 1 open)'),
+    ]
+    expect(checkTaskConsistency(comments).blocks).toEqual([])
+  })
+  test('no plan comment, no checkboxes, or no ledger → nothing to reconcile', () => {
+    expect(checkTaskConsistency([ledger('- Task 1: complete (commits a..b)')]).blocks).toEqual([])
+    expect(checkTaskConsistency([plan('no checkboxes here'), ledger('- Task 1: complete (commits a..b)')]).blocks).toEqual([])
+    expect(checkTaskConsistency([plan('- [ ] **Task 1: a**')]).blocks).toEqual([])
+    expect(checkTaskConsistency([]).blocks).toEqual([])
   })
 })
