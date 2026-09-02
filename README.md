@@ -61,6 +61,8 @@ Work flows through GitHub issues:
 
 **dev-intake** turns an idea into a brief you approve → **dev-plan** turns the brief into a plan you approve → **dev-implement** builds it and posts evidence → **dev-review** reviews it independently → **dev-ship** opens the PR and merges, each step only on your explicit word.
 
+`/dev-intake` (Claude Code, Hermes) and `$dev-intake` (Codex) load a skill by name and bypass routing — the same works for every dev skill when the agent picks the wrong one.
+
 ## Installing
 
 ### Selecting what to install
