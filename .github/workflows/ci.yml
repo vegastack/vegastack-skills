@@ -11,7 +11,17 @@ permissions:
 jobs:
   check:
     name: check (node 24)
-    runs-on: ubuntu-latest
+    # Self-hosted while GitHub-hosted runners are billing-locked (#57): on
+    # ubuntu-latest every job died in ~3s having recorded ZERO steps, because the
+    # runner never picked it up — a permanently red check that stops gating
+    # anything. Revert to `ubuntu-latest` together with release.yml's runner and
+    # its --no-provenance flag, never one without the other, once #57 clears.
+    #
+    # macOS means BSD userland. Audited before use: no `sed -i`, `date -d`,
+    # `readlink -f`, `base64 -w`, `sort -V`, `grep -P` or `stat -c` anywhere in
+    # this file, and `set -euo pipefail` is valid in macOS bash 3.2. The one real
+    # hazard is the smoke test's target path — see the comment on TARGET_DIR.
+    runs-on: [self-hosted, vsk-runners-mac]
     steps:
       - uses: actions/checkout@v7
 
@@ -43,8 +53,17 @@ jobs:
         run: |
           set -euo pipefail
           TARBALL=$(ls "$RUNNER_TEMP"/vegastack-skills-*.tgz)
+          # SMOKE_DIR is only npm's working directory and is never symlink-checked,
+          # so mktemp is fine for it. TARGET_DIR is passed to `add --dir`, and the
+          # CLI's assertNoSymlink (packages/cli/src/index.ts) refuses ANY symlinked
+          # path component. On macOS `mktemp -d` returns /var/folders/…, and /var is
+          # a symlink to /private/var, so it would fail there. RUNNER_TEMP lives in
+          # the runner's own _work tree, and `pwd -P` resolves any symlinked
+          # ancestor — correct on Linux too, so this survives the revert (#57).
           SMOKE_DIR=$(mktemp -d)
-          TARGET_DIR=$(mktemp -d)
+          TARGET_DIR="$(cd "$RUNNER_TEMP" && pwd -P)/vsk-smoke-target"
+          rm -rf "$TARGET_DIR"
+          mkdir -p "$TARGET_DIR"
           cd "$SMOKE_DIR"
           npm init -y > /dev/null
           npm install "$TARBALL"
