@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { checkTriggers, normalizeQuery } from '../scripts/trigger-check.mjs'
+import { spawnSync } from 'node:child_process'
+import { resolve } from 'node:path'
+import { checkTriggers, loadFixtures, normalizeQuery } from '../scripts/trigger-check.mjs'
 
 const entry = (query: string, should_trigger: boolean, ambiguous_with?: string[]) =>
   ambiguous_with ? { query, should_trigger, ambiguous_with } : { query, should_trigger }
@@ -78,10 +80,6 @@ describe('checkTriggers', () => {
 })
 
 // --- loader and CLI -------------------------------------------------------
-
-import { spawnSync } from 'node:child_process'
-import { resolve } from 'node:path'
-import { loadFixtures } from '../scripts/trigger-check.mjs'
 
 const script = resolve(import.meta.dir, '../scripts/trigger-check.mjs')
 const fixtures = resolve(import.meta.dir, 'fixtures/trigger-check')
