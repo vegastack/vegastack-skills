@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { checkStructure, createGroup } from '../scripts/structure.mjs'
 
 // A skill README whose file table is already in sync with the fixtures' ['SKILL.md'] packaging entries.
-const SKILL_README = (name: string) => `# ${name}\n\n## What's in this skill\n\n| Path | Purpose |\n|---|---|\n| [SKILL.md](SKILL.md) | d |\n| \`tests/\` | Bun tests and fixtures (never packaged) |\n`
+const SKILL_README = (name: string) => `# ${name}\n\n## What's in this skill\n\n| Path | Purpose |\n|---|---|\n| [SKILL.md](SKILL.md) | d |\n| \`tests/\` | Bun tests and fixtures (never packaged) |\n| \`evals/\` | Behavioral evals in the agentskills.io format (never packaged) |\n`
 
 function repo() {
   const root = mkdtempSync(join(tmpdir(), 'create-group-'))
@@ -211,6 +211,9 @@ describe('createGroup', () => {
       writeFileSync(join(dir, 'agents/openai.yaml'), 'name: x\n')
       writeFileSync(join(dir, 'refresh/REFRESH.md'), '# r\n')
       writeFileSync(join(dir, 'refresh/sources.json'), '{"sources":[]}\n')
+      // A clean skill carries its evals; the shape rules are covered in structure-check.test.ts.
+      mkdirSync(join(dir, 'evals'), { recursive: true })
+      writeFileSync(join(dir, 'evals/evals.json'), JSON.stringify({ skill_name: name, evals: [{ id: 1, prompt: 'p', expected_output: 'e', files: [], assertions: ['a'] }] }))
     }
     meta(join(root, 'skills/solo'), 'solo')
     createGroup({ name: 'fam', repoRoot: root, title: 'Fam', blurb: 'The blurb.', write: true })
