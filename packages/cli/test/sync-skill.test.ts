@@ -155,4 +155,22 @@ describe('sync-skill with groups', () => {
     expect(Object.keys(manifest.skills).sort()).toEqual(['one', 'two'])
     rmSync(root, { recursive: true, force: true })
   })
+
+  test('evals/ is authored-but-unpackaged, exactly like tests/', () => {
+    const root = repo(skills => {
+      writeSkill(join(skills, 'solo'), 'solo', {
+        'evals/evals.json': '{"skill_name":"solo","evals":[]}',
+        'evals/files/sample.md': '# sample\n',
+        'evals/results/2026-09-03T10-00-00/aggregate-result.json': '{}',
+        'tests/solo.test.ts': '',
+      })
+    })
+    writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ solo: ['SKILL.md'] }))
+    const result = run(root)
+    expect(result.exitCode).toBe(0)
+    expect(existsSync(join(root, 'packages/cli/skill/solo/evals'))).toBe(false)
+    const manifest = JSON.parse(readFileSync(join(root, 'packages/cli/skill-integrity.json'), 'utf8'))
+    expect(Object.keys(manifest.skills.solo.files)).toEqual(['SKILL.md'])
+    rmSync(root, { recursive: true, force: true })
+  })
 })

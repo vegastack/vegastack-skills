@@ -16,8 +16,9 @@ const bundleRoot = join(packageRoot, 'skill')
 // skillify scaffolder can wire a new skill automatically. Anything authored that is neither
 // listed there nor in unpackagedPrefixes fails the build loudly — a forgotten entry must never
 // ship a silently incomplete skill. README.md is repo-side only (its relative links target repo
-// paths); tests are never packaged.
-const unpackagedPrefixes = ['tests/', 'README.md']
+// paths); tests and evals are never packaged — eval cases and their results are repo-side
+// evidence, not runtime content.
+const unpackagedPrefixes = ['tests/', 'evals/', 'README.md']
 const packagedSkills = JSON.parse(await readFile(join(packageRoot, 'packaging.json'), 'utf8'))
 
 async function files(root) {
