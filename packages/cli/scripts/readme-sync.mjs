@@ -20,6 +20,10 @@
 // directory exists. Neither is packaged, which is why they are fixed rows and not packaging entries.
 //
 // Exit codes: 0 in sync or written · 1 dry run with pending changes · 2 refusal or usage error.
+import { existsSync, lstatSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { discoverSkills } from './lib/skills.mjs'
 
 export const TABLE_HEADING = /^##\s+What's in this skill\s*$/
 export const TABLE_HEADER = ['| Path | Purpose |', '|---|---|']
@@ -122,4 +126,128 @@ export function renderTable(entry, rows, io) {
     lines.push(`| \`${dir}\` | ${purposeByDir.get(dir) ?? defaultPurpose} |`)
   }
   return { lines, unclassified, todo }
+}
+
+// ---------------------------------------------------------------------------
+// IO
+// ---------------------------------------------------------------------------
+
+// Set difference in both directions, not a positional diff: table rows are keyed by path, so
+// "what left and what arrived" is the whole story and never mislabels a reorder.
+export function lineDiff(before, after) {
+  const removed = before.filter((line) => !after.includes(line)).map((line) => `- ${line}`)
+  const added = after.filter((line) => !before.includes(line)).map((line) => `+ ${line}`)
+  return [...removed, ...added]
+}
+
+export function syncSkillReadme({ skillDir, entry, write }) {
+  const readme = join(skillDir, 'README.md')
+  let stat
+  try {
+    stat = lstatSync(readme)
+  } catch {
+    throw new Error(`${readme} is missing`)
+  }
+  // lstat does not follow symlinks: a symlinked README would be replaced by the rename below
+  // with a regular file at a path the operator did not mean, so refuse before reading.
+  if (stat.isSymbolicLink()) throw new Error(`${readme} is a symlink — refusing to rewrite through it`)
+  const body = readFileSync(readme, 'utf8')
+  const table = parseSkillTable(body)
+  if (!table) throw new Error(`${readme} has no "## What's in this skill" table — add the heading and header, then run again`)
+  const io = {
+    fileExists: (rel) => existsSync(join(skillDir, rel)),
+    dirExists: (rel) => existsSync(join(skillDir, rel)),
+  }
+  const { lines, unclassified, todo } = renderTable(entry, table.rows, io)
+  const before = body.split('\n')
+  const current = before.slice(table.start, table.end)
+  const spliced = [...before.slice(0, table.start), ...lines, ...before.slice(table.end)].join('\n')
+  const changed = spliced !== body
+  let wrote = false
+  if (write && changed && !unclassified.length) {
+    const staging = `${readme}.readme-sync-tmp`
+    writeFileSync(staging, spliced)
+    renameSync(staging, readme)
+    wrote = true
+  }
+  return { readme, changed, wrote, unclassified, todo, diff: lineDiff(current, lines) }
+}
+
+// Plans every skill before writing any: a refusal anywhere means nothing is written anywhere,
+// so a half-synced tree is impossible.
+export function syncRepo({ repoRoot, write }) {
+  const root = resolve(repoRoot)
+  const packaged = JSON.parse(readFileSync(join(root, 'packages/cli/packaging.json'), 'utf8'))
+  const skills = discoverSkills(join(root, 'skills'))
+  const plan = (writeNow) => {
+    const results = []
+    const errors = []
+    for (const name of Object.keys(packaged).sort()) {
+      const skill = skills.get(name)
+      if (!skill) { errors.push({ name, message: `packaging.json names "${name}", which is not an authored skill` }); continue }
+      if (!Array.isArray(packaged[name])) { errors.push({ name, message: `packaging.json entry for "${name}" is not an array` }); continue }
+      try {
+        results.push({ name, ...syncSkillReadme({ skillDir: skill.path, entry: packaged[name], write: writeNow }) })
+      } catch (error) {
+        errors.push({ name, message: String(error.message ?? error) })
+      }
+    }
+    return { skills: results, errors }
+  }
+  const dry = plan(false)
+  const clean = dry.errors.length === 0 && dry.skills.every((skill) => skill.unclassified.length === 0)
+  return write && clean ? plan(true) : dry
+}
+
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+
+function parseArguments(argv) {
+  const options = { write: false, json: false, dir: undefined }
+  const rest = [...argv]
+  while (rest.length) {
+    const flag = rest.shift()
+    if (flag === '--write') options.write = true
+    else if (flag === '--json') options.json = true
+    else if (flag === '--dir') {
+      const value = rest.shift()
+      if (value === undefined || value.startsWith('-')) throw new Error('--dir requires a value')
+      options.dir = value
+    }
+    else throw new Error(`Unknown option: ${flag}\nUsage: readme-sync.mjs [--write] [--json] [--dir PATH]`)
+  }
+  return options
+}
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+if (invokedDirectly) {
+  let options
+  try {
+    options = parseArguments(process.argv.slice(2))
+  } catch (error) {
+    console.error(String(error.message ?? error))
+    process.exit(2)
+  }
+  const repoRoot = options.dir ? resolve(options.dir) : resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+  let result
+  try {
+    result = syncRepo({ repoRoot, write: options.write })
+  } catch (error) {
+    result = { skills: [], errors: [{ name: '(repo)', message: String(error.message ?? error) }] }
+  }
+  const { skills, errors } = result
+  const ok = errors.length === 0 && skills.every((skill) => skill.unclassified.length === 0)
+  if (options.json) {
+    console.log(JSON.stringify({ guard: 'readme-sync', ok, write: options.write, skills, errors }, null, 2))
+  } else {
+    for (const skill of skills) {
+      const state = skill.wrote ? 'written' : skill.changed ? 'pending' : 'in sync'
+      console.log(`readme-sync: ${skill.name} ${state}`)
+      for (const cell of skill.unclassified) console.error(`  unclassified: ${cell}`)
+      if (skill.changed) for (const line of skill.diff) console.log(`  ${line}`)
+    }
+    for (const error of errors) console.error(`error: ${error.name}: ${error.message}`)
+  }
+  process.exit(!ok ? 2 : (!options.write && skills.some((skill) => skill.changed)) ? 1 : 0)
 }
