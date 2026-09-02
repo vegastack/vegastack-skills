@@ -12,7 +12,8 @@
 // Division of labour: invariants that would corrupt the flat bundle (illegal depth, duplicate
 // skill names, a group named like a skill) raise inside lib/skills.mjs at build time. Everything
 // here is contract-level — GROUP.md shape, per-skill meta files, README rows and sections,
-// packaging correspondence — and is reported, never repaired. Machine-verifiable facts block;
+// packaging correspondence, each skill README's file table against its packaging entry — and is
+// reported, never repaired (readme-sync.mjs --write is the repair for the file tables). Machine-verifiable facts block;
 // judgement-level observations only warn, per the guard doctrine in dev-setup's conventions.
 //
 // Exit codes: 0 clean or warnings-only · 2 blocked · 1 create-group refusal · 2 usage error.
@@ -23,6 +24,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, renameSync
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { discoverGroups, discoverSkills, nameError, readGroupDoc } from './lib/skills.mjs'
+import { parseSkillTable, renderTable } from './readme-sync.mjs'
 
 // Every skill carries these; the scaffolder writes them all, so a gap means a hand-made tree.
 const REQUIRED_SKILL_FILES = ['SKILL.md', 'README.md', 'agents/openai.yaml', 'refresh/REFRESH.md', 'refresh/sources.json']
@@ -144,6 +146,34 @@ export function checkStructure(repoRoot) {
       }
       for (const name of [...skills.keys()].sort()) {
         if (!(name in packaged)) blocks.push(`skill "${name}" has no packages/cli/packaging.json entry`)
+      }
+
+      // --- each skill README's file table is exactly what readme-sync renders from packaging ---
+      // The generator's own parse/render pair is the comparison, so "in sync" has one definition:
+      // a table the check accepts is a table `readme:sync --write` would leave untouched.
+      for (const skill of [...skills.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+        const entry = packaged[skill.name]
+        const readmePath = join(skill.path, 'README.md')
+        if (!Array.isArray(entry) || !existsSync(readmePath)) continue
+        const rel = `${posix(relative(root, skill.path))}/README.md`
+        const body = readFileSync(readmePath, 'utf8')
+        const table = parseSkillTable(body)
+        if (!table) {
+          blocks.push(`${rel} has no "## What's in this skill" table — add the heading and header, then run bun run readme:sync --write`)
+          continue
+        }
+        const { lines, unclassified, todo } = renderTable(entry, table.rows, {
+          fileExists: (path) => existsSync(join(skill.path, path)),
+          dirExists: (path) => existsSync(join(skill.path, path)),
+        })
+        if (unclassified.length) {
+          blocks.push(`${rel} carries file-table rows the generator cannot classify: ${unclassified.join(', ')}`)
+          continue
+        }
+        if (body.split('\n').slice(table.start, table.end).join('\n') !== lines.join('\n')) {
+          blocks.push(`${rel} file table disagrees with packages/cli/packaging.json — run bun run readme:sync --write`)
+        }
+        for (const path of todo) warns.push(`${rel} row for ${path} still carries the placeholder purpose`)
       }
     }
   }

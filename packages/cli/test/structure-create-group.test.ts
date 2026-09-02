@@ -4,6 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { checkStructure, createGroup } from '../scripts/structure.mjs'
 
+// A skill README whose file table is already in sync with the fixtures' ['SKILL.md'] packaging entries.
+const SKILL_README = (name: string) => `# ${name}\n\n## What's in this skill\n\n| Path | Purpose |\n|---|---|\n| [SKILL.md](SKILL.md) | d |\n| \`tests/\` | Bun tests and fixtures (never packaged) |\n`
+
 function repo() {
   const root = mkdtempSync(join(tmpdir(), 'create-group-'))
   mkdirSync(join(root, 'skills'), { recursive: true })
@@ -204,7 +207,7 @@ describe('createGroup', () => {
       mkdirSync(join(dir, 'agents'), { recursive: true })
       mkdirSync(join(dir, 'refresh'), { recursive: true })
       writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: d\n---\n`)
-      writeFileSync(join(dir, 'README.md'), `# ${name}\n`)
+      writeFileSync(join(dir, 'README.md'), SKILL_README(name))
       writeFileSync(join(dir, 'agents/openai.yaml'), 'name: x\n')
       writeFileSync(join(dir, 'refresh/REFRESH.md'), '# r\n')
       writeFileSync(join(dir, 'refresh/sources.json'), '{"sources":[]}\n')
