@@ -1,0 +1,40 @@
+bun test v1.3.14 (0d9b296a)
+
+[run 01] tests/api/login.test.ts:
+[run 01] (pass) POST /login > rejects a wrong password [31.10ms]
+[run 01] (pass) POST /login > sets the session cookie on success [51.12ms]
+[run 01]  0 fail, 2 pass
+[run 02] tests/api/login.test.ts:
+[run 02] (pass) POST /login > rejects a wrong password [32.20ms]
+[run 02] (pass) POST /login > sets the session cookie on success [52.22ms]
+[run 02]  0 fail, 2 pass
+[run 03] tests/api/login.test.ts:
+[run 03] (pass) POST /login > rejects a wrong password [33.30ms]
+[run 03] (pass) POST /login > sets the session cookie on success [53.32ms]
+[run 03]  0 fail, 2 pass
+[run 04] tests/api/login.test.ts:
+[run 04] (pass) POST /login > rejects a wrong password [34.40ms]
+[run 04] (pass) POST /login > sets the session cookie on success [54.42ms]
+[run 04]  0 fail, 2 pass
+[run 05] tests/api/login.test.ts:
+[run 05] (pass) POST /login > rejects a wrong password [35.50ms]
+[run 05] (pass) POST /login > sets the session cookie on success [55.52ms]
+[run 05]  0 fail, 2 pass
+[run 06] tests/api/login.test.ts:
+[run 06] (pass) POST /login > rejects a wrong password [36.60ms]
+[run 06] (pass) POST /login > sets the session cookie on success [56.62ms]
+[run 06]  0 fail, 2 pass
+[run 07] tests/api/login.test.ts:
+[run 07] (pass) POST /login > rejects a wrong password [41.70ms]
+[run 07] error: read ECONNRESET
+[run 07]       at Socket.<anonymous> (node:internal/stream_base_commons:216:20)
+[run 07]       at fetch (tests/api/helpers/client.ts:18:27)
+[run 07] (fail) POST /login > sets the session cookie on success [1203.55ms]
+[run 07]  1 fail, 1 pass
+[run 08] tests/api/login.test.ts:
+[run 08] (pass) POST /login > rejects a wrong password [38.80ms]
+[run 08] (pass) POST /login > sets the session cookie on success [58.82ms]
+[run 08]  0 fail, 2 pass
+[run 09] tests/api/login.test.ts:
+[run 09] (pass) POST /login > rejects a wrong password [39.90ms]
+[run 09] (pass) POST /login > sets the session cookie on success [59.92ms]
