@@ -32,6 +32,7 @@ npx @vegastack/skills add --group dev-skills --global
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract tracking the official harness-doc sources |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the official Claude Code, Codex, Hermes and GitHub CLI pages harness-facts.md is pinned to |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |
+| `evals/` | Behavioral evals in the agentskills.io format (never packaged) |
 
 ## Behavior contract
 

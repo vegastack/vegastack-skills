@@ -28,6 +28,7 @@ npx @vegastack/skills add --group dev-skills --global
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |
 | [refresh/sources.json](refresh/sources.json) | Source registry for volatile claims |
 | `tests/` | Bun tests and fixtures (never packaged) |
+| `evals/` | Behavioral evals in the agentskills.io format (never packaged) |
 
 ## Behavior
 

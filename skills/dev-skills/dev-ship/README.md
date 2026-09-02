@@ -30,6 +30,7 @@ npx @vegastack/skills add --group dev-skills --global
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Evergreen waiver: this skill makes no volatile claims |
 | [refresh/sources.json](refresh/sources.json) | Deliberately empty source registry behind the evergreen waiver |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |
+| `evals/` | Behavioral evals in the agentskills.io format (never packaged) |
 
 ## Behavior contract
 

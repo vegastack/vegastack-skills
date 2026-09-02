@@ -33,6 +33,7 @@ never gates.
 | [references/mobile.md](references/mobile.md) | Domain taste for mobile, loaded only when a task touches it |
 | `refresh/` | Freshness contract: weekly scheduled-agent PR over pinned facts + registry baselines |
 | `tests/` | Bun tests and fixtures (never packaged) |
+| `evals/` | Behavioral evals in the agentskills.io format (never packaged) |
 
 The per-project architecture facts live in the `## Architecture` section of
 `.vegastack/dev.md` (created by `dev-setup`), and directional decisions in the project's
