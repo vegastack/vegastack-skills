@@ -179,3 +179,14 @@ describe('readme-sync CLI', () => {
     clean(root)
   })
 })
+
+test('the skillify README template is already in sync with the scaffolder default packaging entry', () => {
+  // Order mirrors defaultPackagedFiles in skills/repo-tooling/skillify/scripts/scaffold-skill.mjs.
+  const entry = ['SKILL.md', 'agents/openai.yaml', 'refresh/REFRESH.md', 'refresh/sources.json']
+  const template = readFileSync(join(import.meta.dir, '../../../skills/repo-tooling/skillify/assets/templates/README.md.template'), 'utf8')
+  const table = parseSkillTable(template)!
+  const { lines, unclassified, todo } = renderTable(entry, table.rows, { fileExists: () => true, dirExists: () => false })
+  expect(unclassified).toEqual([])
+  expect(todo).toEqual([])
+  expect(template.split('\n').slice(table.start, table.end)).toEqual(lines)
+})
