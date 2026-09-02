@@ -78,8 +78,6 @@ Maintained by the implement session as one comment, edited in place:
 - Deferred minor: <one-liner>
 ```
 
-The comment's edit time doubles as the claim's liveness signal: dev-status reads a `working` issue whose ledger has been silent past the orphan window (or was never written) as a *possibly-orphaned* claim, since a live session — even a multi-day one — checkpoints and a dead one's ledger freezes. The signal is a fact for the operator, never an automatic reset.
-
 **Resume protocol:** a fresh, compacted, or (operator-handed) takeover session reads, in order: the brief → the plan comment → the ledger → `git log` on the branch — **nothing else**. Tasks with a `complete` line are DONE, never re-executed; a task whose last line is a fix round resumes at the next round. After compaction, trust the ledger and `git log` over recollection. Every `Ruling:` line surfaces in the evidence comment — a ruling that dies with the session was a decision made in secret.
 
 ## `.vegastack/.tmp/` workspace
