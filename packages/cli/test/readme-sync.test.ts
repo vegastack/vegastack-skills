@@ -174,7 +174,7 @@ describe('readme-sync CLI', () => {
     writeFileSync(join(root, 'packages/cli/packaging.json'), JSON.stringify({ one: ['SKILL.md', 'scripts/a.mjs'], two: ['SKILL.md'] }))
     const result = syncRepo({ repoRoot: root, write: true })
     expect(result.errors.map((e: { name: string }) => e.name)).toEqual(['two'])
-    expect(result.skills.find((s: { name: string }) => s.name === 'one').wrote).toBe(false)
+    expect(result.skills.find((s: { name: string }) => s.name === 'one')!.wrote).toBe(false)
     expect(readFileSync(join(root, 'skills/one/README.md'), 'utf8')).toBe(README)
     clean(root)
   })
