@@ -5,7 +5,9 @@ description: The project's narrative record — what got built, why, and how it 
 
 # dev-chronicle
 
-`.vegastack/chronicle.md` is the project's story, newest first — the answer to "what did I build here and what happened?" months later, when the operator remembers nothing. Entries are **story language for a human**, never commit-log prose: the changelog tells consumers what changed; the chronicle tells the operator what happened.
+Act: write the project's story for the operator who returns months later — exact terms, plain language, one honest line on how it went.
+
+`.vegastack/chronicle.md` is the project's story, newest first — the answer to "what did I build here and what happened?" months later, when the operator remembers nothing. Entries are **story language for a human**, because the changelog already tells consumers what changed and the chronicle is for the operator who wants to know what happened.
 
 Nearest neighbors: `dev-implement` writes the entries at hand-back (the write rule lives there; the format lives here); `dev-status` answers "what needs me now" — this skill answers "how did we get here". `dev-ship`'s ship-gate checks entry presence when dev.md says `chronicle: on`.
 
@@ -23,12 +25,13 @@ Nearest neighbors: `dev-implement` writes the entries at hand-back (the write ru
 — approved by (<username>) · built by <agent> · branch <name>
 ```
 
-- Titles name the outcome ("Invoice reminders now chase late payers"), never the mechanism ("add reminderAt column"). The issue reference is a full markdown link to `…/issues/<n>` (correct for PRs too — GitHub redirects); a bare `#N` never appears anywhere in an entry, because file views don't auto-link it.
-- The fields are LIST ITEMS and the footer sits after a blank line — single newlines soft-wrap into one paragraph in rendered markdown; bullets are what guarantee a line per field.
+- Titles name the outcome ("Invoice reminders now chase late payers"), because the mechanism ("add reminderAt column") is the commit subject's job. Issue references are full markdown links to `…/issues/<n>` (correct for PRs too — GitHub redirects), because file views don't auto-link a bare `#N`.
+- The fields are list items and the footer sits after a blank line — single newlines soft-wrap into one paragraph in rendered markdown; bullets are what guarantee a line per field.
 - Prepend — newest first. File missing → create it with a two-line header naming this skill as the format home.
 - **How it went** is where honesty lives: what fought back, what was cut, what surprised. "Smooth" is a fine answer; silence is not.
 - Research issues get an entry only when the findings changed direction; docs/test-only merges get none (ship-gate's excuse flag covers both records at once).
-- A notable ship event — rollback, failed release — becomes its own short entry on the next branch, not a rewrite of an old one. Entries are never edited except for typos; the story is append-only like the register.
+- A notable ship event — rollback, failed release — becomes its own short entry on the next branch. Entries are append-only like the register — a typo is the one edit — because a rewritten chapter is a story nobody can trust.
+- An entry runs 80–200 words; the digest scales with the ask.
 
 ## Style — tone, not length
 
@@ -36,13 +39,13 @@ dev.md's `chronicle-style:` knob (`plain` default · `story` · `witty`) sets th
 
 ## The digest — "catch me up"
 
-On "catch me up on this project" (or any story-so-far ask), read **only** `.vegastack/chronicle.md` and the decision register — never git archaeology — and render three parts, plain language throughout:
+On "catch me up on this project" (or any story-so-far ask), read only the chronicle and the decision register, because the digest is the story as told, not reconstructed, and render three parts, plain language throughout:
 
 1. **The story so far** — 3–5 sentences: what this project is, the arc of what's been built, where it stands.
 2. **Recent chapters** — the last 3–7 entries, one line each: date, the outcome title, and the one thing worth remembering from How-it-went.
 3. **Open threads** — pending decisions the register hasn't recorded, entries whose How-it-went named unfinished business, and (when `dev-status` is installed) a one-line pointer to run it for the live board.
 
-Length scales with the ask: "catch me up quickly" is one paragraph; a returning-after-months operator gets all three parts. Never pad — a young project with three entries gets three honest lines.
+Length scales with the ask: "catch me up quickly" is one paragraph; a returning-after-months operator gets all three parts. A young project with three entries gets three honest lines, because padding is the mannered prose the style rule excludes.
 
 ## Setup
 
