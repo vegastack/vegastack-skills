@@ -1,6 +1,6 @@
 # Behavioral eval playbook
 
-How to prove a skill actually improves agent behavior before tests cement it. This is a procedure you execute with your own subagents (Task tool or equivalent) — never a custom eval harness, script, or viewer. If you find yourself writing eval tooling, stop; write instructions instead.
+How to prove a skill actually improves agent behavior before tests cement it. This is a procedure you execute with your own subagents (Claude Code's Task tool, Codex's `.codex/agents` spawns, Hermes `delegate_task` — all three harnesses run the two arms of a comparison) — never a custom eval harness, script, or viewer. If you find yourself writing eval tooling, stop; write instructions instead.
 
 ## Why eval before tests
 
