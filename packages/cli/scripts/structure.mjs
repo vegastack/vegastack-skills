@@ -13,8 +13,9 @@
 // skill names, a group named like a skill) raise inside lib/skills.mjs at build time. Everything
 // here is contract-level — GROUP.md shape, per-skill meta files, README rows and sections,
 // packaging correspondence, each skill README's file table against its packaging entry — and is
-// reported, never repaired (readme-sync.mjs --write is the repair for the file tables). Machine-verifiable facts block;
-// judgement-level observations only warn, per the guard doctrine in dev-setup's conventions.
+// reported, never repaired (readme-sync.mjs --write is the repair for the file tables).
+// Machine-verifiable facts block; judgement-level observations only warn, per the guard doctrine
+// in dev-setup's conventions.
 //
 // Exit codes: 0 clean or warnings-only · 2 blocked · 1 create-group refusal · 2 usage error.
 // Warnings deliberately do NOT fail: `check` is chained into the root `check` script with `&&`,
@@ -24,7 +25,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, renameSync
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { discoverGroups, discoverSkills, nameError, readGroupDoc } from './lib/skills.mjs'
-import { parseSkillTable, renderTable } from './readme-sync.mjs'
+import { parseSkillTable, renderTable, skillIo } from './readme-sync.mjs'
 
 // Every skill carries these; the scaffolder writes them all, so a gap means a hand-made tree.
 const REQUIRED_SKILL_FILES = ['SKILL.md', 'README.md', 'agents/openai.yaml', 'refresh/REFRESH.md', 'refresh/sources.json']
@@ -162,10 +163,7 @@ export function checkStructure(repoRoot) {
           blocks.push(`${rel} has no "## What's in this skill" table — add the heading and header, then run bun run readme:sync --write`)
           continue
         }
-        const { lines, unclassified, todo } = renderTable(entry, table.rows, {
-          fileExists: (path) => existsSync(join(skill.path, path)),
-          dirExists: (path) => existsSync(join(skill.path, path)),
-        })
+        const { lines, unclassified, todo } = renderTable(entry, table.rows, skillIo(skill.path))
         if (unclassified.length) {
           blocks.push(`${rel} carries file-table rows the generator cannot classify: ${unclassified.join(', ')}`)
           continue
