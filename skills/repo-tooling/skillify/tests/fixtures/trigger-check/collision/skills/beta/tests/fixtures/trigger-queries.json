@@ -1,0 +1,10 @@
+[
+  { "query": "beta does its thing", "should_trigger": true },
+  { "query": "beta does another thing", "should_trigger": true },
+  { "query": "beta does a third thing", "should_trigger": true },
+  { "query": "Ship it", "should_trigger": true },
+  { "query": "alpha does the first thing", "should_trigger": false },
+  { "query": "something unrelated entirely", "should_trigger": false },
+  { "query": "another unrelated request", "should_trigger": false },
+  { "query": "a fourth beta request", "should_trigger": true }
+]

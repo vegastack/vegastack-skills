@@ -11,8 +11,13 @@
 // Usage: node trigger-check.mjs [--dir <repo-root>] [--strict] [--json]
 // Self-contained on purpose apart from the repo's skill-discovery lib: skillify
 // is repo-only, so the relative import to packages/cli is always present.
+import { readFile } from 'node:fs/promises';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { discoverSkills } from '../../../../packages/cli/scripts/lib/skills.mjs';
 
 const MIN_ENTRIES = 8;
+const FIXTURE = join('tests', 'fixtures', 'trigger-queries.json');
 
 // lowercase → collapse whitespace → trim → strip trailing sentence punctuation.
 export function normalizeQuery(query) {
@@ -134,4 +139,60 @@ export function checkTriggers(fixtures) {
   blocks.sort();
   warns.sort();
   return { blocks, warns };
+}
+
+// One key per discovered skill. ENOENT → null (no fixture); any other read
+// error or a JSON.parse failure → { file, error }; a discovery error throws.
+export async function loadFixtures(repoRoot) {
+  const skills = discoverSkills(join(repoRoot, 'skills'));
+  const fixtures = new Map();
+  for (const [name, skill] of skills) {
+    const path = join(skill.path, FIXTURE);
+    const file = relative(repoRoot, path).split(sep).join('/');
+    let text;
+    try {
+      text = await readFile(path, 'utf8');
+    } catch (error) {
+      fixtures.set(name, error.code === 'ENOENT' ? null : { file, error: error.message });
+      continue;
+    }
+    try {
+      fixtures.set(name, { file, data: JSON.parse(text) });
+    } catch (error) {
+      fixtures.set(name, { file, error: error.message });
+    }
+  }
+  return fixtures;
+}
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  const argv = process.argv.slice(2);
+  const usage = 'usage: trigger-check.mjs [--dir <repo-root>] [--strict] [--json]';
+  let json = false;
+  let strict = false;
+  let dir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+  let outcome = null;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--json') json = true;
+    else if (argv[i] === '--strict') strict = true;
+    else if (argv[i] === '--dir' && argv[i + 1] && !argv[i + 1].startsWith('--')) dir = resolve(argv[(i += 1)]);
+    else outcome = { blocks: [usage], warns: [] };
+  }
+  if (!outcome) {
+    try {
+      outcome = checkTriggers(await loadFixtures(dir));
+    } catch (error) {
+      outcome = { blocks: [`cannot discover skills under ${dir}: ${error.message}`], warns: [] };
+    }
+  }
+  const ok = outcome.blocks.length === 0;
+  if (json) {
+    console.log(JSON.stringify({ guard: 'trigger-check', ok, ...outcome }, null, 2));
+  } else {
+    console.log(`trigger-check: ${ok ? (outcome.warns.length ? 'pass with warnings' : 'pass') : 'BLOCKED'}`);
+    for (const b of outcome.blocks) console.log(`  block: ${b}`);
+    for (const w of outcome.warns) console.log(`  warn: ${w}`);
+  }
+  process.exit(ok ? (outcome.warns.length && strict ? 1 : 0) : 2);
 }
