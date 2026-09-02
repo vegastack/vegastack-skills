@@ -17,6 +17,7 @@ Facts are your job; decisions are the user's. Gather these silently and present 
 |---|---|
 | repo, default branch | `git remote get-url origin` · `gh repo view --json nameWithOwner,defaultBranchRef` |
 | gh authenticated | `gh auth status` |
+| gh version | `gh --version` against the floors in [harness-facts](references/harness-facts.md): below 2.94.0, native issue types, sub-issues and dependencies through `gh issue edit` are unavailable; below 2.97.0, name-based `gh project item-edit --field` is — each missing feature is named in the Step 4 report so the operator upgrades once instead of hitting the gap mid-run |
 | stack and commands | package.json scripts, lockfiles, framework configs |
 | web app (UI evidence relevant) | framework dependencies (next, react, vue, …) |
 | release/changelog machinery | match signals against [stack-playbooks](references/stack-playbooks.md) — the matched playbook drafts the `## Ship` runbook, the `changelog:` knob, and the guards to offer |
@@ -25,7 +26,7 @@ Facts are your job; decisions are the user's. Gather these silently and present 
 | existing files | AGENTS.md, CLAUDE.md, `.vegastack/dev.md`, a legacy `.vegastack/arch.md`, the decision register |
 | existing labels | `gh label list` |
 | native issue types | `gh api orgs/<org>/issue-types` — an `Epic` type routes parents to it; absent endpoint or type → the `epic` label fallback ([conventions](references/conventions.md)) |
-| Codex CLI (cross-agent review) | `command -v codex` — absent → record the gap in dev.md `## Environments` and recommend installing it |
+| harnesses present | `command -v claude codex hermes` and each present one's `--version` — the AGENTS.md block, the CLAUDE.md import, the Round C hook offer and the `review:` recommendation target only harnesses that exist; Codex absent → record the gap in dev.md `## Environments` and recommend installing it, because cross-agent review needs it |
 | agent skills in the repo | a directory holding skill folders, flat or one group deep — each folder carrying its own entry point — drafts the `skill-scan:` knob at that path; none found drafts `none`. Declare it **once**: a second `skill-scan:` line with a different value, even in a prose example, makes the profile ambiguous and the guard refuses. Where the project builds a flattened bundle the knob names the **built** directory, because unpackaged test fixtures are deliberately adversarial and score higher than anything that ships |
 | SkillSpector (skill scanning) | nothing to detect — dev-review's guard locates the CLI through whatever channel holds it (uv, brew, pipx) and, under `skillspector-update: auto`, installs it when absent and upgrades it before each scan. Confirm the drafted `skillspector-update:` value with the operator instead: `auto` is the default and provisions silently, `notify` only reports what upstream published, `off` never touches the network |
 
@@ -33,7 +34,7 @@ Not a git repo, or no origin remote → this is a **greenfield run, not an error
 
 ## Step 2 — The interview
 
-Ask with your harness's question tool — AskUserQuestion in Claude Code, `request_user_input` in Codex where the mode allows it (availability details: [harness-facts](references/harness-facts.md)). When no question tool is available (headless run, gated mode), write the defaults, mark every unconfirmed knob `# TODO confirm`, and say so in your reply — a wrong invented preference costs more than a TODO.
+Ask with your harness's question tool — AskUserQuestion in Claude Code, `request_user_input` in Codex where the mode allows it, `clarify` in Hermes (availability details: [harness-facts](references/harness-facts.md)). When no question tool is available (headless run, gated mode), write the defaults, mark every unconfirmed knob `# TODO confirm`, and say so in your reply — a wrong invented preference costs more than a TODO.
 
 **Round A — confirm the detected facts** in one compact summary (repo, stack, commands, web app or not, matched playbook, detected architecture facts). Ask only about what detection could not fill.
 
@@ -73,7 +74,7 @@ Everything else — merge style, branch naming, the stop-and-ask list — takes 
 
 ## Step 4 — Report
 
-One summary: what was created, what was skipped and why, what remains TODO. When `gh` was unauthenticated, print the exact `gh auth login` and `gh label create` commands the user can run later, and name the gap plainly.
+One summary: what was created, what was skipped and why, what remains TODO, and every gh feature the detected version lacks with the floor that unlocks it (on gh 2.92.0: "native issue types, sub-issues and dependencies need gh 2.94.0; name-based project field edits need gh 2.97.0"). When `gh` was unauthenticated, print the exact `gh auth login` and `gh label create` commands the user can run later, and name the gap plainly.
 
 ## Re-runs
 
