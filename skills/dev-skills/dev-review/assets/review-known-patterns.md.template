@@ -1,6 +1,6 @@
 # Review known patterns — {{owner/repo}}
 
-The project's never-flag list. Every entry REQUIRES a "Still flag if:" exception clause — a suppression without one is a blind spot, not a calibration. dev-implement's corrections loop appends an entry whenever the operator dismisses a review finding, so dismissed patterns stay dismissed. Repo-documented standards override the reviewer's baseline; this file overrides neither — it only suppresses specific recurring false positives.
+The project's never-flag list. Every entry requires a "Still flag if:" exception clause — a suppression without one is a blind spot, not a calibration. dev-implement's corrections loop appends an entry whenever the operator dismisses a review finding, so dismissed patterns stay dismissed. Repo-documented standards override the reviewer's baseline; this file overrides neither — it only suppresses specific recurring false positives.
 
 Format, one entry per pattern:
 
@@ -13,7 +13,7 @@ Format, one entry per pattern:
 - **Origin:** <date + issue where the dismissal happened — (<username>)>
 ```
 
-The four fields are LIST ITEMS — this file is read in a repo's file view, where single newlines soft-wrap into one paragraph; bullets are what guarantee a line per field. Appended entries (dev-implement's corrections loop) keep the same shape.
+The four fields are list items — this file is read in a repo's file view, where single newlines soft-wrap into one paragraph; bullets are what guarantee a line per field. Appended entries (dev-implement's corrections loop) keep the same shape.
 
 ## Worked examples (replace with real entries)
 
