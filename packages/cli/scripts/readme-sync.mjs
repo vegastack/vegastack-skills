@@ -28,7 +28,7 @@ import { discoverSkills } from './lib/skills.mjs'
 export const TABLE_HEADING = /^##\s+What's in this skill\s*$/
 export const TABLE_HEADER = ['| Path | Purpose |', '|---|---|']
 // The placeholder a newly packaged path gets. structure.mjs warns on it; --strict makes that fatal.
-export const TODO_PURPOSE = ['TODO', 'purpose'].join(' ')
+export const TODO_PURPOSE = 'TODO purpose'
 export const INSTALLED_COPY_PURPOSE = 'The workflow artifact spec, duplicated into every dev-family install'
 export const TRAILING_DIRS = [
   ['tests/', 'Bun tests and fixtures (never packaged)'],
@@ -140,6 +140,15 @@ export function lineDiff(before, after) {
   return [...removed, ...added]
 }
 
+// The disk view renderTable needs for one skill; structure.mjs uses the same one so the check
+// and the generator see identical files.
+export function skillIo(skillDir) {
+  return {
+    fileExists: (rel) => existsSync(join(skillDir, rel)),
+    dirExists: (rel) => existsSync(join(skillDir, rel)),
+  }
+}
+
 export function syncSkillReadme({ skillDir, entry, write }) {
   const readme = join(skillDir, 'README.md')
   let stat
@@ -154,11 +163,7 @@ export function syncSkillReadme({ skillDir, entry, write }) {
   const body = readFileSync(readme, 'utf8')
   const table = parseSkillTable(body)
   if (!table) throw new Error(`${readme} has no "## What's in this skill" table — add the heading and header, then run again`)
-  const io = {
-    fileExists: (rel) => existsSync(join(skillDir, rel)),
-    dirExists: (rel) => existsSync(join(skillDir, rel)),
-  }
-  const { lines, unclassified, todo } = renderTable(entry, table.rows, io)
+  const { lines, unclassified, todo } = renderTable(entry, table.rows, skillIo(skillDir))
   const before = body.split('\n')
   const current = before.slice(table.start, table.end)
   const spliced = [...before.slice(0, table.start), ...lines, ...before.slice(table.end)].join('\n')
