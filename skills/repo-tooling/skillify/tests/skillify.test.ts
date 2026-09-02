@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+import { checkStructure } from '../../../../packages/cli/scripts/structure.mjs'
 import { scaffoldSkill, templateFiles, validateName, wireSkill } from '../scripts/scaffold-skill.mjs'
 
 const skillRoot = resolve(import.meta.dir, '..')
@@ -163,6 +164,7 @@ describe('scaffold-skill runs', () => {
         'README.md',
         'SKILL.md',
         'agents/openai.yaml',
+        'evals/evals.json',
         'refresh/REFRESH.md',
         'refresh/sources.json',
         'tests/demo-skill.test.ts',
@@ -209,6 +211,22 @@ describe('scaffold-skill runs', () => {
       expect(readme.indexOf('demo-skill')).toBeGreaterThan(readme.indexOf('architect'))
       expect(readme).toContain('After the table.')
       expect(await readFile(join(repo, '.changeset/add-demo-skill.md'), 'utf8')).toContain('"@vegastack/skills": minor')
+    } finally {
+      await rm(repo, { recursive: true, force: true })
+    }
+  })
+
+  test('--write scaffolds a placeholder evals.json the structure check flags until it is replaced', async () => {
+    const repo = await makeWiredRepo()
+    try {
+      await scaffoldSkill({ name: 'demo-skill', dir: repo, write: true })
+      const evals = JSON.parse(await readFile(join(repo, 'skills/demo-skill/evals/evals.json'), 'utf8'))
+      expect(evals.skill_name).toBe('demo-skill')
+      expect(evals.evals).toHaveLength(1)
+      expect(evals.evals[0]).toMatchObject({ id: 1, files: [], assertions: [] })
+      const { warns } = checkStructure(repo)
+      expect(warns.join()).toMatch(/evals\.json still carries the scaffolded placeholder case/)
+      expect(warns.join()).not.toMatch(/evals\.json is missing/)
     } finally {
       await rm(repo, { recursive: true, force: true })
     }

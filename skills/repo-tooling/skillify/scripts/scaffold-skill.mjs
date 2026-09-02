@@ -28,6 +28,8 @@ export const templateFiles = [
   ['sources.json.template', 'refresh/sources.json'],
   ['REFRESH.md.template', 'refresh/REFRESH.md'],
   ['openai.yaml.template', 'agents/openai.yaml'],
+  // One placeholder case; the structure check warns until real cases replace it (skillify Phase 4).
+  ['evals.json.template', 'evals/evals.json'],
   // Scaffolded empty so the shape test stays red until real queries are written.
   ['trigger-queries.json.template', 'tests/fixtures/trigger-queries.json'],
   ['skill.test.ts.template', null],
