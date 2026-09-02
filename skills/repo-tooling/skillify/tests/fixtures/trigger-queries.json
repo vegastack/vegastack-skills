@@ -1,12 +1,14 @@
 [
   { "query": "skillify this release-notes workflow I keep re-running by hand every Friday", "should_trigger": true },
   { "query": "make this a skill - the deploy checklist we pasted above, it should live in skills/", "should_trigger": true },
-  { "query": "audit skills/dev-skills/dev-architect and tell me exactly what's missing from the contract", "should_trigger": true },
+  { "query": "audit skills/dev-skills/dev-architect and tell me exactly what's missing from the contract", "should_trigger": true, "ambiguous_with": ["skill-maintainer"] },
   { "query": "is this skill complete? score it before I open the PR", "should_trigger": true, "ambiguous_with": ["skill-maintainer"] },
   { "query": "should the k8s log-digging thing even be a skill, or just a script?", "should_trigger": true },
   { "query": "our new skill never triggers when people ask casually - fix the description", "should_trigger": true },
   { "query": "install the anthropic pdf skill into my project", "should_trigger": false },
   { "query": "write a SKILL.md for my blog repo at ~/code/blog so codex picks it up there", "should_trigger": false },
   { "query": "use dev-architect to review the tenancy design in this service", "should_trigger": false },
-  { "query": "bump the changeset and cut a release of @vegastack/skills", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] }
+  { "query": "bump the changeset and cut a release of @vegastack/skills", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] },
+  { "query": "rename skillify to skill-factory across the repo - directory, packaging entry, README row, changeset", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] },
+  { "query": "the skill-scan blocked on an AE1 in dev-ship after my edit - how do I re-adjudicate it in the baseline?", "should_trigger": false, "ambiguous_with": ["skill-maintainer"] }
 ]
