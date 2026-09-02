@@ -5,7 +5,7 @@ description: Write the implementation plan for an approved issue before any code
 
 # dev-plan
 
-The planning stage: an approved brief goes in, an operator-approved plan comes out, and only then does code exist. Plans are written against the repo **as it is now** — a separate session from intake for `full-plan` issues, because code drifts between brief approval and build. Formats follow `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of.
+The planning stage: an approved brief goes in, an operator-approved plan comes out, and only then does code exist. Plans are written against the repo **as it is now** — a separate session from intake for `full-plan` issues, because code drifts between brief approval and build.
 
 Nearest neighbors: `dev-intake` owns the brief and its approval mechanics — this skill owns the how; `dev-implement` executes what this produces, task by task. If `.vegastack/dev.md` is missing → run `dev-setup` first.
 

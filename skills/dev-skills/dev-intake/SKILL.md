@@ -5,7 +5,7 @@ description: Turn ideas, brainstorms, feature requests, bug reports, or SOW docu
 
 # dev-intake
 
-Requirements come in as the operator's brainstorm, feature thought, bug report, or SOW; issues go out complete enough that a fresh agent needs nothing but the URL. Every question gets asked **here** — once implementation starts, dark mode means no questions, so an under-specified issue becomes either an interruption or a guess. Artifact formats (markers, operator identity, labels, revisions) follow `references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a copy of.
+Requirements come in as the operator's brainstorm, feature thought, bug report, or SOW; issues go out complete enough that a fresh agent needs nothing but the URL. Every question gets asked **here** — once implementation starts, dark mode means no questions, so an under-specified issue becomes either an interruption or a guess.
 
 Nearest neighbors: `dev-plan` owns the how once a brief is approved — intake owns the what/why and the approval mechanics; `dev-implement` builds. If `.vegastack/dev.md` is missing → run `dev-setup` first, then continue.
 

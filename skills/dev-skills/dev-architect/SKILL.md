@@ -14,9 +14,7 @@ honestly. VegaStack is a 3-4 person team; every extra service is maintenance som
 Nearest neighbors: `dev-setup` writes `.vegastack/dev.md` including its `## Architecture`
 section — setup owns the file, this skill owns the judgment reading it. `dev-intake` routes
 stack-bearing approach choices here while writing a brief; `vegastack-design-system` owns
-component and token choices inside the UI. Artifact formats — the register line included — follow
-`references/conventions.md`, the spec `dev-setup` authors and every dev-family skill ships a
-copy of.
+component and token choices inside the UI.
 
 ## Every task
 
