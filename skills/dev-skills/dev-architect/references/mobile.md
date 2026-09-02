@@ -9,8 +9,8 @@ dev.md's Architecture `mobile:` line records it). Baseline: Flutter 3.44.x stabl
 Impeller is the default renderer on iOS and Android API 29+ (falls back below 29 — test
 one API<29 device before shipping). Package versions here were verified 2026-08; re-verify
 on pub.dev before pinning. Rules from the shipped VegaStack app are stated plainly; rules
-from official-docs research MK has not ratified are tagged "(inferred)" — confirm on first
-use, per SKILL.md.
+from official-docs research the architecture owner has not ratified are tagged
+"(inferred)" — confirm on first use, per SKILL.md.
 
 ## Architecture (official-guidance derived — inferred where the shipped app is silent)
 
@@ -71,5 +71,5 @@ reduced-motion respected; Lucide-style iconography.
   flavors (`--flavor` + per-env entry points) are the researched defaults (inferred — no
   shipped store-deploy precedent; confirm before wiring).
 
-Undecided (ask MK rather than assume): push-notification provider, offline/sync
-expectations per product, store-release cadence.
+Undecided (ask the architecture owner rather than assume): push-notification provider,
+offline/sync expectations per product, store-release cadence.

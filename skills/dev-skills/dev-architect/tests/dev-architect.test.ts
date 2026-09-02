@@ -29,6 +29,15 @@ describe('dev-architect skill contract', () => {
     expect(body.split('\n').length).toBeLessThan(150)
   })
 
+  test('directive sentences address the architecture owner, never MK', () => {
+    const directive = /ask MK\b|MK's (?:explicit )?(?:go-ahead|sign-off)|MK's (?:deliberate|recorded) decision|MK signs off|MK (?:and the team )?decide|MK (?:states|makes|will publish|enters)|MK has not ratified|the way MK would|\b(?:ask|bring) him\b/
+    const files = ['SKILL.md', 'README.md', ...readdirSync(join(skillDir, 'references')).map((n) => `references/${n}`)]
+    for (const file of files) {
+      expect(readFileSync(join(skillDir, file), 'utf8')).not.toMatch(directive)
+    }
+    expect(skillMd).toContain("the architecture owner — the person dev.md's `architect:` knob names")
+  })
+
   test('references stay under the total line budget', () => {
     // Ratchet, not target: the 2026-08 rebuild landed ~800 lines (from 1,016).
     // Headroom allows refresh PRs to grow pinned-facts without breaking CI.

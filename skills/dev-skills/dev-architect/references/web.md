@@ -33,7 +33,7 @@
 `vegastack-design-system` owns component choice, tokens, and the do/don't rules;
 first-time wiring is `vegastack-consume`. Consume-don't-extend is a red line (SKILL.md).
 One unresolved item recorded here: touch-target minimum (24px WCAG AA vs 44px mobile-HIG
-both appear in the record) — ask MK when it matters.
+both appear in the record) — ask the architecture owner when it matters.
 
 ## UI completeness bar (every real surface, before it's "done")
 
@@ -99,4 +99,4 @@ enhancement.
 - Platform-native mentions over plain text: resolve and mention the real entity (Slack
   @mentions, Notion Person fields) instead of rendering names as text.
 - Wizard/checkout flow-state persistence (client store vs server-side draft) is not a
-  settled house rule — ask MK when building one.
+  settled house rule — ask the architecture owner when building one.
