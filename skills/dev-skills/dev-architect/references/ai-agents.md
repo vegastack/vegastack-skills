@@ -49,6 +49,14 @@
   into an append-only Postgres table — the single cost source of truth.
 - Never invent SDK method names from memory — the AI SDK and EVE move fast; verify against
   installed types or live docs (SKILL.md's verify protocol) before writing code.
+- In a product agent loop the conversation history is append-only: a turn is not rewritten,
+  reordered or trimmed mid-run, because prompt caching and the model's reading of earlier
+  turns assume the transcript it saw — editing an earlier message invalidates every later
+  thinking block, enforced with a 400 for accounts created on or after 31-08-2026; summarise
+  into a new turn instead (verified 03-09-2026).
+- Assistant-message prefill is not the steering mechanism: current Claude models return a
+  400 on it, so structured output and the system prompt carry the shape (verified
+  03-09-2026).
 
 ## Boundaries and safety
 
