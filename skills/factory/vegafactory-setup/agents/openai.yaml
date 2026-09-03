@@ -1,0 +1,4 @@
+interface:
+  display_name: "vegafactory-setup"
+  short_description: "TODO: imperative, under 60 characters"
+  default_prompt: "Use $vegafactory-setup to TODO."

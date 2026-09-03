@@ -177,6 +177,7 @@ Org-level skills: the control room whose defaults every repo layers on, and the 
 
 | Skill | What it does | Docs |
 |---|---|---|
+| [vegafactory-setup](skills/factory/vegafactory-setup/) | TODO: one-line description | [Walkthrough](skills/factory/vegafactory-setup/README.md) · [SKILL.md](skills/factory/vegafactory-setup/SKILL.md) |
 
 ### Repo tooling
 

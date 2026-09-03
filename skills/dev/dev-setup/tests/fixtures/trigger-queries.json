@@ -12,5 +12,7 @@
   { "query": "turn the notes above into github issues", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
   { "query": "set up a build and test pipeline for our deploys", "should_trigger": false },
   { "query": "install the dev-architect skill into my project", "should_trigger": false },
-  { "query": "what hosting and database should this new project use", "should_trigger": false, "ambiguous_with": ["dev-architect"] }
+  { "query": "what hosting and database should this new project use", "should_trigger": false, "ambiguous_with": ["dev-architect"] },
+  { "query": "set up the control room for our org", "should_trigger": false, "ambiguous_with": ["vegafactory-setup"] },
+  { "query": "register this repo in the control room", "should_trigger": false, "ambiguous_with": ["vegafactory-setup"] }
 ]

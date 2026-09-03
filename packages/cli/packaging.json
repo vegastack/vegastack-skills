@@ -143,5 +143,11 @@
     "scripts/trigger-check.mjs",
     "refresh/REFRESH.md",
     "refresh/sources.json"
+  ],
+  "vegafactory-setup": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "refresh/REFRESH.md",
+    "refresh/sources.json"
   ]
 }
