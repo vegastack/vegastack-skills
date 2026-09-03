@@ -1,0 +1,7 @@
+# Boards
+
+Project boards and the repos that mirror onto them. Labels stay the machine state; a board is a view. Several repos may share one board.
+
+| board | url | repos |
+|---|---|---|
+| {{board}} | {{board-url}} | {{org}}/{{repo}} |

@@ -24,6 +24,7 @@ npx @vegastack/vegafactory skills add --group factory --global
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
 | [references/control-room.md](references/control-room.md) | The control room's layout, precedence, read path, and file rules |
+| `assets/control-room/` | The eleven seed templates every control-room file is rendered from |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract |
 | [refresh/sources.json](refresh/sources.json) | Source registry for volatile claims |
 | `tests/` | Bun tests and fixtures (never packaged) |

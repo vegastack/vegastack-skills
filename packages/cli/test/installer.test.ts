@@ -299,7 +299,7 @@ describe('selecting a family', () => {
     expect(run(temporary, ['skills', 'add', 'dev-plan', '--all', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
     const unknown = run(temporary, ['skills', 'add', '--group', 'ghost', '--dir', project, '--non-interactive'])
     expect(unknown.exitCode).not.toBe(0)
-    expect(unknown.stderr.toString()).toMatch(/Available groups: dev, repo-tooling/)
+    expect(unknown.stderr.toString()).toMatch(/Available groups: dev, factory, repo-tooling/)
     expect(existsSync(join(project, '.claude'))).toBe(false)
   })
 
