@@ -389,13 +389,24 @@ export function parentParallelLaunch(
   return { kind: 'parent-parallel', parent: parent.issue, children: eligible.map(child => child.number) }
 }
 
-// The parent's whole first turn. The `ultracode` keyword is ignored in a `-p` prompt, so the
-// workflow is asked for in plain words; `--allowed-tools Workflow` sits beside bypass because
-// whether bypass alone reaches the tool is the one fact this design has not observed on the box.
-export function parentParallelPrompt(run: ParentParallelRun, parent: ParentContext): string {
+// The parent's whole first turn, per harness. On Claude the `ultracode` keyword is ignored in a
+// `-p` prompt, so the saved workflow is asked for in plain words; `--allowed-tools Workflow` sits
+// beside bypass because whether bypass alone reaches the tool is the one fact this design has not
+// observed on the box. On Codex there is no saved workflow and no Workflow tool: the parent drives
+// children.mjs, whose Codex path is one `codex exec -C <child worktree>` per child.
+export function parentParallelPrompt(run: ParentParallelRun, parent: ParentContext, harness: Harness = 'claude'): string {
+  const children = run.children.map(n => `#${n}`).join(', ')
+  const opening = harness === 'codex'
+    ? [
+        `Run the independent children of #${run.parent} at the same time: ${children}.`,
+        `You are in ${parent.worktree} on ${parent.branch}. Drive it with children.mjs — plan, then launch --harness codex --write, then join — and never merge a child by hand. Each child is one codex exec in its own worktree, started by the launch; wait for every one to finish before the join.`,
+      ]
+    : [
+        `Run the saved workflow implement-children for the independent children of #${run.parent}: ${children}.`,
+        `You are in ${parent.worktree} on ${parent.branch}. Build the workflow's arguments with children.mjs — plan, then launch, then join — and never merge a child by hand.`,
+      ]
   return [
-    `Run the saved workflow implement-children for the independent children of #${run.parent}: ${run.children.map(n => `#${n}`).join(', ')}.`,
-    `You are in ${parent.worktree} on ${parent.branch}. Build the workflow's arguments with children.mjs — plan, then launch, then join — and never merge a child by hand.`,
+    ...opening,
     'Each child runs in its own worktree branched from this branch\'s HEAD sha and may touch only the files its group declared. After the join, run the project\'s check command once and hand back.',
   ].join('\n\n')
 }
@@ -403,13 +414,14 @@ export function parentParallelPrompt(run: ParentParallelRun, parent: ParentConte
 export function parentParallelLaunchPlan(
   run: ParentParallelRun,
   parent: ParentContext,
-  options: { model: string; effort: string; operator: string; subagents: Subagents; stopList?: string[] },
+  options: { harness: Harness; model: string; effort: string; operator: string; subagents: Subagents; stopList?: string[] },
 ): LaunchPlan {
-  const prompt = parentParallelPrompt(run, parent)
-  // The launch table stays the one home of the argv: this reuses it and appends only the
-  // allowance, so the two can never drift.
+  const prompt = parentParallelPrompt(run, parent, options.harness)
+  // The launch table stays the one home of the argv: this reuses it and appends only the Claude
+  // allowance, so the two can never drift. The harness is the repo's implement harness — the same
+  // one the ship guard was verified for.
   const base = buildLaunchPlan({
-    harness: 'claude',
+    harness: options.harness,
     model: options.model,
     effort: options.effort,
     stage: 'implement',
@@ -423,7 +435,7 @@ export function parentParallelLaunchPlan(
     subagents: options.subagents,
   })
   const args = base.args.map(arg => (arg === base.prompt ? prompt : arg))
-  args.push('--allowed-tools', 'Workflow')
+  if (options.harness === 'claude') args.push('--allowed-tools', 'Workflow')
   return { ...base, args, prompt }
 }
 
@@ -863,7 +875,7 @@ export interface TickDeps {
   // Which parents could run their children at the same time. Reading a plan's independent groups
   // means running dev-plan's plan-lint, the one parser of that grammar, so it lives behind this
   // dependency rather than in a second copy here.
-  parentCandidates: (repo: string, repoPath: string, ready: BoardIssue[]) => Promise<ParentCandidate[]>
+  parentCandidates: (repo: string, repoPath: string, ready: BoardIssue[], operators: string[]) => Promise<ParentCandidate[]>
   tracker: RunTracker
 }
 
@@ -994,13 +1006,18 @@ export function defaultEnsureWorktree(repoPath: string, issue: number, title: st
 // Read the independent groups of every ready issue's parent, by running the packaged plan-lint —
 // exactly as the worktree helpers run the packaged worktree.mjs. A parent whose plan declares no
 // groups, or whose plan is blocked, simply yields nothing and the tick keeps its ordinary path.
+//
+// The plan comment is trusted only from a listed operator, as a rocket is: it decides whether an
+// unattended bypass run launches and what its children are told they may touch, and anyone who can
+// comment on the epic could otherwise post a newer one. No operators, no plan.
 export async function defaultParentCandidates(
   gh: TickDeps['gh'],
   repo: string,
   repoPath: string,
   ready: BoardIssue[],
+  operators: string[],
 ): Promise<ParentCandidate[]> {
-  if (ready.length < 2) return []
+  if (ready.length < 2 || operators.length === 0) return []
   const script = process.env.VSK_PLAN_LINT_SCRIPT
     || join(dirname(dirname(fileURLToPath(import.meta.url))), 'skill', 'dev-plan', 'scripts', 'plan-lint.mjs')
   if (!existsSync(script)) return []
@@ -1021,13 +1038,16 @@ export async function defaultParentCandidates(
   const candidates: ParentCandidate[] = []
   for (const [parent, children] of byParent) {
     if (children.length < 2) continue
-    let comments: Array<{ body: string }>
+    let comments: Array<{ body: string; user?: { login?: string } }>
     try {
-      comments = JSON.parse(await gh(['api', `repos/${repo}/issues/${parent}/comments`, '--paginate'])) as Array<{ body: string }>
+      comments = JSON.parse(await gh(['api', `repos/${repo}/issues/${parent}/comments`, '--paginate'])) as Array<{ body: string; user?: { login?: string } }>
     } catch {
       continue
     }
-    const planComment = comments.filter(comment => /<!--\s*vsk:v1\s+type=plan\b/.test(comment.body)).pop()
+    const planComment = comments
+      .filter(comment => typeof comment.body === 'string' && /<!--\s*vsk:v1\s+type=plan\b/.test(comment.body))
+      .filter(comment => operators.includes(comment.user?.login ?? ''))
+      .pop()
     if (!planComment) continue
     const file = join(tmpdir(), `vf-plan-${parent}-${process.pid}.md`)
     let groups: IndependentGroup[] = []
@@ -1057,6 +1077,10 @@ export async function defaultParentCandidates(
     }
     if (!parentTitle) continue
     const target = worktreeFor(repoPath, parent, parentTitle)
+    // The parallel run happens in the parent's own worktree. One that is gone is not a candidate:
+    // the children run one at a time, instead of a run whose cwd does not exist being re-planned
+    // and failed on every tick.
+    if (!existsSync(target.path)) continue
     const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: target.path, encoding: 'utf8' })
     candidates.push({
       parent: { issue: parent, branch: target.branch, head: (head.stdout ?? '').trim(), worktree: target.path },
@@ -1123,7 +1147,7 @@ export async function runTick(
   const ensure = deps?.ensureWorktree ?? defaultEnsureWorktree
   const execute = deps?.execute ?? ((run, plan, cfg, opts) => executeRun(run, plan, cfg, opts))
   const parentCandidates = deps?.parentCandidates
-    ?? ((repo: string, repoPath: string, ready: BoardIssue[]) => defaultParentCandidates(gh, repo, repoPath, ready))
+    ?? ((repo: string, repoPath: string, ready: BoardIssue[], operators: string[]) => defaultParentCandidates(gh, repo, repoPath, ready, operators))
   const issueBody = deps?.issueBody ?? (async (repo: string, issue: number) => {
     const raw = await gh(['issue', 'view', String(issue), '--repo', repo, '--json', 'body'])
     return (JSON.parse(raw) as { body?: string }).body ?? ''
@@ -1184,7 +1208,7 @@ export async function runTick(
 
     let parents: ParentCandidate[] = []
     try {
-      parents = await parentCandidates(entry.repo, entry.path, board.ready)
+      parents = await parentCandidates(entry.repo, entry.path, board.ready, policy.operators)
     } catch (error) {
       refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: the parents' independent groups could not be read, so the children run one at a time — ${(error as Error).message}` })
     }
@@ -1245,6 +1269,7 @@ export async function runTick(
             { kind: 'parent-parallel', parent: run.issue, children: run.parallel },
             parentOf.parent,
             {
+              harness: stage.harness,
               model: stage.model,
               effort: stage.effort,
               operator: policy.operators[0] ?? 'the operator',

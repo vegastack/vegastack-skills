@@ -307,3 +307,28 @@ describe('the guard is checked for the harness and the checkout that will run (F
     expect(result.refusals).toEqual([])
   })
 })
+
+describe('the parallel path launches the implement harness (F28)', () => {
+  test('a codex-implement repo launches codex for a parent-parallel run, and its guard check reads the codex wiring', async () => {
+    const { config } = fixture({ devMd: 'dispatch: local\noperators: mk\nplan: codex gpt-5.6 high\nimplement: codex gpt-5.6 high\n', maxRuns: 3 })
+    const repoPath = config.repos[0]!.path
+    // The main checkout is wired for Codex and only Codex; so is the parent worktree.
+    mkdirSync(join(repoPath, '.codex'), { recursive: true })
+    writeFileSync(join(repoPath, '.codex/hooks.json'), CODEX_WIRING)
+    const parentWorktree = join(repoPath, '.vegastack/.worktrees/104-parent')
+    mkdirSync(join(parentWorktree, '.vegastack/hooks'), { recursive: true })
+    writeFileSync(join(parentWorktree, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+    mkdirSync(join(parentWorktree, '.codex'), { recursive: true })
+    writeFileSync(join(parentWorktree, '.codex/hooks.json'), CODEX_WIRING)
+    const { gh } = ghStub({ ready: [{ number: 131, title: 'feat: x', labels: ['ready'] }, { number: 132, title: 'feat: y', labels: ['ready'] }] })
+    const parentCandidates: TickDeps['parentCandidates'] = async () => [{
+      parent: { issue: 104, branch: 'feat/104-parent', head: 'abc1234', worktree: parentWorktree },
+      groups: [{ id: 'a', members: ['#131'], files: ['a.ts'] }, { id: 'b', members: ['#132'], files: ['b.ts'] }],
+      children: [{ number: 131, parent: 104, assignee: null, labels: ['ready'] }, { number: 132, parent: 104, assignee: null, labels: ['ready'] }],
+    }]
+    const result = await runTick(config, { dryRun: true }, { gh, ensureWorktree, execute: async run => finished(run), parentCandidates })
+    expect(result.refusals).toEqual([])
+    expect(result.runs.map(run => [run.issue, run.launch.command])).toEqual([[104, 'codex']])
+    expect(result.runs[0]!.launch.args).not.toContain('--allowed-tools')
+  })
+})
