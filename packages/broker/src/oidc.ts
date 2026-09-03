@@ -66,6 +66,20 @@ function decodeJson(segment: string, what: string): Record<string, unknown> {
   return parsed as Record<string, unknown>
 }
 
+// Structural parse only: three segments, RS256, a kid. The handler runs this before it fetches
+// anything, so a malformed or unusable bearer token is a 401 that costs no subrequest.
+export function parseJwtHeader(token: string): { kid: string } {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new TokenRejected('malformed', 'a JWT has three segments')
+  const [headerSegment, payloadSegment, signatureSegment] = parts as [string, string, string]
+  if (!headerSegment || !payloadSegment || !signatureSegment) throw new TokenRejected('malformed', 'an empty segment')
+  const header = decodeJson(headerSegment, 'the header')
+  if (header.alg !== 'RS256') throw new TokenRejected('alg', 'only RS256 is accepted')
+  const kid = header.kid
+  if (typeof kid !== 'string' || kid.length === 0) throw new TokenRejected('kid', 'the header carries no kid')
+  return { kid }
+}
+
 export async function verifyOidcToken(
   token: string,
   options: { jwks: Jwks; audience: string; nowSeconds: number; skewSeconds?: number },
