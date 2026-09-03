@@ -67,4 +67,40 @@ describe('pruneWorktrees', () => {
     expect(candidate?.removable).toBe(false)
     expect(candidate?.reason).toContain('commits not on the remote')
   })
+
+  test('--write pushes the unpushed candidate first, then removes it', () => {
+    const root = repoWithRemote()
+    const wt = createWorktree({ repoRoot: root, issue: 106, slug: 'old', type: 'feat', base: 'main', devMd, home: root, write: true })
+    const now = Date.parse('2026-10-01T00:00:00Z')
+    const dry = pruneWorktrees({
+      repoRoot: root, base: 'main', olderThan: '14d', devMd,
+      ledgerTimes: { '106-old': '2026-09-01T00:00:00Z' }, now, write: false,
+    })
+    expect(dry.candidates.find((c: { name: string }) => c.name === '106-old')?.pushable).toBe(true)
+    expect(existsSync(wt.path)).toBe(true)
+
+    const wet = pruneWorktrees({
+      repoRoot: root, base: 'main', olderThan: '14d', devMd,
+      ledgerTimes: { '106-old': '2026-09-01T00:00:00Z' }, now, write: true,
+    })
+    expect(wet.candidates.find((c: { name: string }) => c.name === '106-old')?.removable).toBe(true)
+    expect(existsSync(wt.path)).toBe(false)
+    // The push happened, and the branch itself outlived the prune.
+    expect(git(root, 'rev-parse', '--verify', 'refs/remotes/origin/feat/106-old').trim()).toMatch(/^[0-9a-f]{40}$/)
+    expect(git(root, 'branch', '--list', 'feat/106-old').trim()).toContain('feat/106-old')
+  })
+
+  test('a worktree with uncommitted work is never pruned, however old', () => {
+    const root = repoWithRemote()
+    const wt = createWorktree({ repoRoot: root, issue: 107, slug: 'dirty', type: 'feat', base: 'main', devMd, home: root, write: true })
+    writeFileSync(join(wt.path, 'scratch.txt'), 'wip\n')
+    const r = pruneWorktrees({
+      repoRoot: root, base: 'main', olderThan: '14d', devMd,
+      ledgerTimes: { '107-dirty': '2026-09-01T00:00:00Z' }, now: Date.parse('2026-10-01T00:00:00Z'), write: true,
+    })
+    const candidate = r.candidates.find((c: { name: string }) => c.name === '107-dirty')
+    expect(candidate?.removable).toBe(false)
+    expect(candidate?.reason).toContain('uncommitted changes')
+    expect(existsSync(wt.path)).toBe(true)
+  })
 })

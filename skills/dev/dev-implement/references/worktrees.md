@@ -42,7 +42,7 @@ Derived from git plus GitHub on every read, never stored — a second source of 
 
 `--force` lifts only rule 3. Uncommitted, unpushed and locked are never lifted — those are the three ways real work disappears. Failing any rule keeps the worktree and reports which rule failed.
 
-**Retention.** `worktree-retention:` (default `14d`) measured from the **later** of the last commit and the last ledger edit. `prune` proposes only `parked` worktrees past the window, pushes an unpushed candidate before removing it, keeps the branch, and is dry-run until `--write`. Branch deletion and `--force` always take the operator's word.
+**Retention.** `worktree-retention:` (default `14d`) measured from the **later** of the last commit and the last ledger edit. `prune` proposes only `parked` worktrees past the window and is dry-run until `--write`. On `--write` it pushes an unpushed candidate's branch first — that half protects the work and happens whatever else is wrong — then re-runs the safe-to-remove test, so a candidate that is still unmerged, dirty or locked keeps its worktree and says why. The branch always survives; branch deletion and `--force` take the operator's word.
 
 ## Harness facts that bear on a worktree run
 

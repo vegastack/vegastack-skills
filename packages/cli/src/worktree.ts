@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const verbs = ['list', 'create', 'restore', 'remove', 'prune', 'status'] as const
 export type WorktreeVerb = (typeof verbs)[number]
@@ -121,7 +122,7 @@ export function defaultRegistryPath(): string {
 }
 
 function defaultSpawn(args: string[], cwd?: string): SpawnResult {
-  const packageRoot = resolve(dirname(new URL(import.meta.url).pathname), '..')
+  const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   const script = process.env.VSK_WORKTREE_SCRIPT || join(packageRoot, 'skill', 'dev-implement', 'scripts', 'worktree.mjs')
   const run = spawnSync(process.execPath, [script, ...args], { cwd, encoding: 'utf8' })
   return { status: run.status ?? 2, stdout: `${run.stdout ?? ''}${run.stderr ?? ''}` }

@@ -3,7 +3,9 @@
 // dev-status flags a working issue as possibly-orphaned — it resets working →
 // ready and unassigns, so a fresh session can claim it cleanly. It NEVER claims
 // or resumes: a takeover still needs the operator's explicit handover to a new
-// session. It fails closed and refuses to release a claim whose ledger is still
+// session, and it never touches the issue's worktree — the branch and its
+// checkout stay exactly where they are, so the session that picks the issue up
+// resumes in them (worktree.mjs restore re-adds a checkout that went missing). It fails closed and refuses to release a claim whose ledger is still
 // fresh (the session may be alive) unless --force is passed.
 //
 // Exit codes: 0 released · 2 refused/blocked (reasons printed). Read-verify runs

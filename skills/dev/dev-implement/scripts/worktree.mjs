@@ -552,24 +552,34 @@ export function pruneWorktrees({ repoRoot, base, olderThan, devMd, ledgerTimes =
     if (state !== 'parked') continue;
     if (!isPastRetention({ lastCommitAt, ledgerUpdatedAt, now, retentionMs })) continue;
     const verdict = evaluateRemoval({ state, ...facts, locked: entry.locked, force: false });
+    // "Prune pushes then removes, and never automatically for anything with
+    // unpushed work": the push half protects the work and happens on --write
+    // whatever else is wrong; the remove half then re-runs the same safe test
+    // and may still keep the worktree (unmerged, dirty, locked). A dry run
+    // pushes nothing, so such a candidate is correctly not-yet-removable.
+    const remoteOnly = verdict.blocks.some((block) => block.includes('commits not on the remote'));
     candidates.push({
       name: entry.name,
       state,
       ageDays,
       removable: verdict.blocks.length === 0,
+      pushable: remoteOnly,
       reason: verdict.blocks[0] ?? null,
     });
   }
   const actions = [];
   for (const candidate of candidates) {
-    if (!candidate.removable) continue;
-    actions.push(at(candidate.name, 'remove after ' + candidate.ageDays + ' quiet days'));
+    if (!candidate.removable && !candidate.pushable) continue;
+    actions.push(at(candidate.name, (candidate.pushable ? 'push the branch, then re-check for removal after ' : 'remove after ') + candidate.ageDays + ' quiet days'));
     if (!write) continue;
     const removed = removeWorktree({ repoRoot, name: candidate.name, base, force: false, push: true, write: true, remote });
     if (removed.blocks.length > 0) {
       warns.push(at(candidate.name, 'kept after all: ' + removed.blocks[0]));
       candidate.removable = false;
       candidate.reason = removed.blocks[0];
+    } else {
+      candidate.removable = true;
+      candidate.reason = null;
     }
   }
   return { blocks, warns, actions, candidates };
@@ -754,7 +764,11 @@ function runVerb(verb, flags) {
   const devMd = existsSync(devMdPath) ? readFileSync(devMdPath, 'utf8') : '';
   const base = flags.base || parseDefaultBranch(devMd);
   const home = flags.home || homedir();
-  const issue = flags.issue === undefined ? null : Number(flags.issue);
+  let issue = null;
+  if (flags.issue !== undefined) {
+    issue = Number(flags.issue);
+    if (!Number.isInteger(issue) || issue <= 0) return { blocks: [at('--issue', 'expected a positive issue number, got ' + flags.issue)], warns: [] };
+  }
   const slug = flags.slug ? slugify(flags.slug) : null;
   const shared = { repoRoot, devMd, home, base, write: Boolean(flags.write) };
 
