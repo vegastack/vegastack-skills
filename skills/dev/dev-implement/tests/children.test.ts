@@ -48,3 +48,34 @@ describe('effectiveConcurrency', () => {
     expect(effectiveConcurrency({ configured: null, cpus: 1 })).toBe(1)
   })
 })
+
+import { childPrompt, claudeWorkflowCall, codexChildLaunch } from '../scripts/children.mjs'
+
+describe('launch shapes', () => {
+  const run = planParallelRun({ ...base, groups })
+  test('the Claude path is one Workflow call by name, children in plan order', () => {
+    const call = claudeWorkflowCall(run, { concurrency: 2 })
+    expect(call.name).toBe('implement-children')
+    expect(call.args.parentBranch).toBe('feat/104-factory-runtime')
+    expect(call.args.parentHead).toBe('abc1234')
+    expect(call.args.concurrency).toBe(2)
+    expect(call.args.children.map((c: { issue: number }) => c.issue)).toEqual([131, 132])
+    expect(call.args.children[0].files).toEqual(['packages/cli/src/dispatch.ts'])
+    expect(call.args.children[0].prompt).toContain('create your branch feat/131-dispatch-parent-launches from abc1234')
+  })
+  test('the Codex path is one codex exec per child, pinned to that child worktree', () => {
+    const launch = codexChildLaunch(run.children[0], { codex: 'codex', model: 'gpt-5.6', effort: 'high', parentIssue: 104, parentBranch: 'feat/104-factory-runtime' })
+    expect(launch.command).toBe('codex')
+    expect(launch.args).toEqual([
+      'exec', '-C', '/r/.vegastack/.worktrees/131-dispatch-parent-launches',
+      '--sandbox', 'workspace-write', '-a', 'never', '--dangerously-bypass-hook-trust',
+      '-c', 'model=gpt-5.6', '-c', 'model_reasoning_effort=high', '--json', launch.prompt,
+    ])
+  })
+  test('the prompt names the declared file set and the stop rule', () => {
+    const prompt = childPrompt(run.children[1], { parentIssue: 104, parentBranch: 'feat/104-factory-runtime' })
+    expect(prompt).toContain('#132')
+    expect(prompt).toContain('README.md')
+    expect(prompt).toContain('outside that set')
+  })
+})

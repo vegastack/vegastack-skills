@@ -69,7 +69,7 @@ const issueNumber = (member) => {
 // One child per group member, in the order the groups appear in the plan.
 // Parallel needs two groups that carry members; anything less runs in plan
 // order, and the reason goes in the parent's ledger rather than nowhere.
-export function planParallelRun({ groups, issues, parentBranch, parentHead, repoRoot }) {
+export function planParallelRun({ groups, issues, parentBranch, parentHead, repoRoot, parentIssue = null }) {
   const children = [];
   for (const group of groups) {
     for (const member of group.members) {
@@ -103,5 +103,73 @@ export function planParallelRun({ groups, issues, parentBranch, parentHead, repo
     reason = 'the plan declares one independent group, and parallel needs two disjoint ones';
   }
   const ledger = mode === 'sequential' ? '- Parallel: no — ' + reason + '; children run in plan order' : '';
-  return { mode, reason, children, ledger, parentBranch, parentHead };
+  return { mode, reason, children, ledger, parentBranch, parentHead, repoRoot, parentIssue };
+}
+
+// --- the launch shapes ----------------------------------------------------
+
+// One child's whole first turn. It is self-contained on purpose: the child runs
+// in its own checkout with no memory of this session, so the branch, its base
+// commit and its declared file set have to be in the words themselves.
+export function childPrompt(child, { parentIssue, parentBranch }) {
+  const lines = [
+    'You are operating autonomously on issue #' + child.issue + ' (' + child.title + '), '
+      + 'one of several children of #' + parentIssue + ' running at the same time. '
+      + 'The operator is not watching and cannot answer mid-run.',
+    'Your checkout is ' + child.path + ' and nothing outside it is yours: '
+      + 'create your branch ' + child.branch + ' from ' + child.baseSha
+      + ' before your first commit. That commit is the tip of ' + parentBranch
+      + ', so your branch fast-forwards back into it.',
+    'The plan declares exactly which files this child may touch:\n'
+      + child.files.map((file) => '- ' + file).join('\n'),
+    'Touching any file outside that set is a stop, not a judgement call: '
+      + 'the parent checks your diff against the set before merging, and a child that wandered '
+      + 'is not merged. If the work genuinely needs a file outside the set, hand back and say so.',
+    'Follow dev-implement end to end for #' + child.issue + ': claim, build the plan task by task '
+      + 'with a ledger checkpoint after each, verify, review, post the evidence comment on your own '
+      + 'issue, and stop. Do not merge anything — the parent joins the branches.',
+  ];
+  return lines.join('\n\n');
+}
+
+// The Claude path: one saved-workflow call by name. The workflow itself has no
+// filesystem access, so everything it needs travels in these args.
+export function claudeWorkflowCall(run, { concurrency, parentIssue = null } = {}) {
+  const parent = parentIssue === null || parentIssue === undefined ? run.parentIssue : parentIssue;
+  return {
+    name: 'implement-children',
+    args: {
+      repoRoot: run.repoRoot,
+      parentIssue: parent,
+      parentBranch: run.parentBranch,
+      parentHead: run.parentHead,
+      concurrency,
+      children: run.children.map((child) => ({
+        issue: child.issue,
+        title: child.title,
+        branch: child.branch,
+        baseSha: child.baseSha,
+        files: child.files,
+        prompt: childPrompt(child, { parentIssue: parent, parentBranch: run.parentBranch }),
+      })),
+    },
+  };
+}
+
+// The Codex path: one cwd-pinned `codex exec` per child. `spawn_agent` takes no
+// cwd (codex-cli 0.149.1, verified 03-09-2026), so an in-session agent would
+// share the parent's writable root and could not write to a sibling worktree.
+// The flag sequence is #114's launch table's, verbatim — dispatch.test.ts pins
+// the two together so they cannot drift.
+export function codexChildLaunch(child, { codex = 'codex', model, effort, parentIssue, parentBranch }) {
+  const prompt = childPrompt(child, { parentIssue, parentBranch });
+  return {
+    command: codex,
+    args: [
+      'exec', '-C', child.path, '--sandbox', 'workspace-write', '-a', 'never',
+      '--dangerously-bypass-hook-trust', '-c', 'model=' + model,
+      '-c', 'model_reasoning_effort=' + effort, '--json', prompt,
+    ],
+    prompt,
+  };
 }
