@@ -29,7 +29,7 @@ node <path-to-skill-scan>/scripts/skill-scan.mjs --no-provision   # this run ins
 
 The guard finds the CLI through whatever channel installed it — uv, Homebrew, or pipx — and runs it by absolute path, so it works when the agent's shell `PATH` differs from the operator's. Only a scanner no channel reports *and* that is not on `PATH` refuses, and that message names every remedy.
 
-Discovery reads two levels — `<root>/<skill>/` and `<root>/<group>/<skill>/`. Anything else holding a `SKILL.md` blocks rather than being skipped: buried deeper, dot-prefixed, or behind a symlink (never followed). An unscanned skill nobody mentions looks exactly like a clean one.
+Discovery reads exactly two levels: a skill sitting directly under the scan root, and a skill one group deep. Anything else holding a skill manifest blocks rather than being skipped — buried deeper, dot-prefixed, or behind a symlink, which is never followed. An unscanned skill nobody mentions looks exactly like a clean one.
 
 ## The baseline — three sections, and the discipline behind them
 
