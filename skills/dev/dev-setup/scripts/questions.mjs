@@ -100,6 +100,68 @@ export function renderQuestions(spec, options) {
   return lines.join('\n')
 }
 
+// An answer line: an optional bullet, the question number, `:` or `.`, the option
+// word, and optional trailing prose after a dash. Anything else on the line is
+// prose — a reply is a comment written by a person, not a form.
+const ANSWER_LINE = /^\s*(?:[-*]\s+)?(\d+)\s*[:.]\s*([A-Za-z]+)\s*(?:—|–|--|-)?\s*(.*)$/
+const ALL_RECOMMENDED = /^\s*(?:[-*]\s+)?all\s+recommended\s*[.!]?\s*$/i
+
+// Reads a reply comment against the round it answers. Never throws on the reply
+// itself: an unusable reply comes back as `malformed`, which is what a re-ask is
+// built from. It throws only on a spec that could not have been rendered.
+export function parseAnswers(replyText, spec) {
+  const questions = checkSpec(spec)
+  const numbers = questions.map((question, index) => numberOf(question, index))
+  const answers = {}
+  const malformed = []
+  let sawAnswerLine = false
+  let allRecommended = false
+
+  for (const line of String(replyText).split('\n')) {
+    if (ALL_RECOMMENDED.test(line)) {
+      allRecommended = true
+      sawAnswerLine = true
+      continue
+    }
+    const match = ANSWER_LINE.exec(line)
+    if (!match) continue
+    sawAnswerLine = true
+    const n = Number(match[1])
+    const token = match[2].toLowerCase()
+    const trailing = match[3].trim()
+    const position = numbers.indexOf(n)
+    if (position === -1) {
+      malformed.push('question ' + n + ' is not in this round')
+      continue
+    }
+    if (Object.prototype.hasOwnProperty.call(answers, n)) {
+      malformed.push('question ' + n + ' answered twice — the first answer stands')
+      continue
+    }
+    const known = questions[position].options.some((option) => option.letter === token)
+    if (token !== 'other' && !known) {
+      malformed.push('question ' + n + ': "' + token + '" is not an option')
+      continue
+    }
+    answers[n] = { option: token, text: trailing === '' ? null : trailing }
+  }
+
+  if (allRecommended) {
+    questions.forEach((question, index) => {
+      const n = numbers[index]
+      if (Object.prototype.hasOwnProperty.call(answers, n)) return
+      const recommended = question.options.find((option) => option.recommended)
+      answers[n] = { option: recommended.letter, text: null }
+    })
+  }
+
+  const missing = numbers.filter((n) => !Object.prototype.hasOwnProperty.call(answers, n))
+  if (!sawAnswerLine) {
+    malformed.push('no answer line found — expected "<number>: <letter>" per question, or "all recommended"')
+  }
+  return { answers, missing, malformed }
+}
+
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -107,6 +169,7 @@ export function renderQuestions(spec, options) {
 const USAGE = [
   'usage:',
   '  questions.mjs render --spec <file.json> [--rev <n>] [--json]',
+  '  questions.mjs parse  --comment <file> --spec <file.json> [--json]',
 ].join('\n')
 
 function readSpec(path) {
@@ -134,6 +197,20 @@ if (invokedDirectly) {
       const rev = get('--rev') ? Number(get('--rev')) : 1
       const markdown = renderQuestions(readSpec(specPath), { rev })
       report(json, { command: 'render', ok: true, rev, markdown }, 0, [markdown])
+    } catch (error) {
+      refuse(error.message)
+    }
+  } else if (command === 'parse') {
+    const specPath = get('--spec')
+    const commentPath = get('--comment')
+    if (!specPath || !commentPath) refuse(USAGE)
+    try {
+      const parsed = parseAnswers(readTextFile(commentPath), readSpec(specPath))
+      const open = parsed.missing.length > 0 || parsed.malformed.length > 0
+      const human = ['questions: ' + Object.keys(parsed.answers).length + ' answered']
+      if (parsed.missing.length) human.push('  open: ' + parsed.missing.join(', '))
+      for (const problem of parsed.malformed) human.push('  malformed: ' + problem)
+      report(json, { command: 'parse', ok: !open, ...parsed }, open ? 1 : 0, human)
     } catch (error) {
       refuse(error.message)
     }

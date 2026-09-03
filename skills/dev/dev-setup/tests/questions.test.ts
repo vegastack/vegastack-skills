@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { renderQuestions } from '../scripts/questions.mjs'
+import { parseAnswers, renderQuestions } from '../scripts/questions.mjs'
 
 const spec = {
   questions: [
@@ -76,5 +76,72 @@ describe('renderQuestions', () => {
       }],
     }
     expect(() => renderQuestions(noReason, { rev: 1 })).toThrow('question 1 recommends "a" without a reason')
+  })
+})
+
+const twoQ = {
+  questions: [
+    { text: 'Q one', options: [{ letter: 'a', text: 'one' }, { letter: 'b', text: 'two', recommended: true, reason: 'r' }] },
+    { text: 'Q two', options: [{ letter: 'a', text: 'one', recommended: true, reason: 'r' }, { letter: 'b', text: 'two' }] },
+  ],
+}
+
+describe('parseAnswers', () => {
+  test('letters map to their questions and trailing prose is kept', () => {
+    const r = parseAnswers('1: b\n2: a — the cron already runs\n', twoQ)
+    expect(r.answers[1]).toEqual({ option: 'b', text: null })
+    expect(r.answers[2]).toEqual({ option: 'a', text: 'the cron already runs' })
+    expect(r.missing).toEqual([])
+    expect(r.malformed).toEqual([])
+  })
+
+  test('all recommended fills every question', () => {
+    const r = parseAnswers('all recommended', twoQ)
+    expect(r.answers[1].option).toBe('b')
+    expect(r.answers[2].option).toBe('a')
+    expect(r.missing).toEqual([])
+  })
+
+  test('an explicit line beats all recommended', () => {
+    const r = parseAnswers('all recommended\n2: b', twoQ)
+    expect(r.answers[1].option).toBe('b')
+    expect(r.answers[2].option).toBe('b')
+  })
+
+  test('a partial reply reports the open question', () => {
+    expect(parseAnswers('1: a', twoQ).missing).toEqual([2])
+  })
+
+  test('other keeps its text', () => {
+    const r = parseAnswers('1: other — a third way\n2: a', twoQ)
+    expect(r.answers[1]).toEqual({ option: 'other', text: 'a third way' })
+  })
+
+  test('an unknown letter, an unknown number and a repeat are each malformed', () => {
+    const r = parseAnswers('1: z\n9: a\n2: a\n2: b', twoQ)
+    const joined = r.malformed.join(' | ')
+    expect(joined).toContain('question 1: "z" is not an option')
+    expect(joined).toContain('question 9 is not in this round')
+    expect(joined).toContain('question 2 answered twice')
+    expect(r.answers[2].option).toBe('a')
+  })
+
+  test('surrounding prose is ignored, not treated as an answer', () => {
+    const r = parseAnswers('thanks for laying these out\n1: a\n2: b\nship it', twoQ)
+    expect(r.malformed).toEqual([])
+    expect(r.missing).toEqual([])
+  })
+
+  test('a reply with no answer line at all is malformed, not silently empty', () => {
+    const r = parseAnswers('sounds good, go ahead', twoQ)
+    expect(r.missing).toEqual([1, 2])
+    expect(r.malformed).toEqual(['no answer line found — expected "<number>: <letter>" per question, or "all recommended"'])
+  })
+
+  test('a bulleted line, a dot separator and mixed case are all accepted', () => {
+    const r = parseAnswers('- 1. B\n* 2: A — because', twoQ)
+    expect(r.answers[1].option).toBe('b')
+    expect(r.answers[2]).toEqual({ option: 'a', text: 'because' })
+    expect(r.malformed).toEqual([])
   })
 })
