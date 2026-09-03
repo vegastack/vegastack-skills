@@ -190,6 +190,19 @@ describe('gatherFacts runs in the branch worktree', () => {
       expect(facts.headSha).toBe(git(root, 'rev-parse', '--short=7', 'feat/106-x').trim())
     })
   })
+  test('an epic-sized diff does not read as "cannot verify" — the git buffer is not the fact', () => {
+    // 216 commits of Epic B produced a `git diff base...branch` past execFileSync's 1 MiB
+    // default; the resulting ENOBUFS surfaced as a block on a branch that was fine.
+    const { root, wt, gh } = repoWithWorktree()
+    writeFileSync(join(wt, 'large.txt'), 'x'.repeat(3 * 1024 * 1024) + '\n')
+    git(wt, 'add', '.')
+    git(wt, 'commit', '-qm', 'feat: a diff larger than the default buffer')
+    inRepo(root, gh, () => {
+      const facts = gatherFacts({ issue: '106', branch: 'feat/106-x', repo: 'o/r', base: 'main' })
+      expect(facts.checkoutMismatch).toBeNull()
+      expect(facts.checkExit).toBe(0)
+    })
+  })
   test('--worktree overrides the resolution', () => {
     const { root, wt, gh } = repoWithWorktree()
     inRepo(root, gh, () => {

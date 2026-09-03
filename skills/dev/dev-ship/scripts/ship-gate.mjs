@@ -14,6 +14,11 @@
 // check command there, so its checkout test passes by construction rather than
 // forcing the operator to switch branches in the main checkout.
 import { execFileSync } from 'node:child_process';
+
+// An epic-sized branch produces a `git diff base...branch` and a check-suite log well
+// past execFileSync's 1 MiB default, and ENOBUFS then reads as "cannot verify" — a
+// buffer limit masquerading as a fact about the branch. 64 MiB covers any real diff.
+const LARGE_OUTPUT = 64 * 1024 * 1024;
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +38,7 @@ const DISCARD = 'ignore';
 function sh(cmd, args, cwd) {
   // VSK_GH is a TEST SEAM (stubs gh in unit tests); git always runs real.
   const bin = cmd === 'gh' ? (process.env.VSK_GH || 'gh') : cmd;
-  return execFileSync(bin, args, { encoding: 'utf8', stdio: [DISCARD, 'pipe', 'pipe'], env: { ...process.env }, cwd }).trim();
+  return execFileSync(bin, args, { encoding: 'utf8', stdio: [DISCARD, 'pipe', 'pipe'], env: { ...process.env }, cwd, maxBuffer: LARGE_OUTPUT }).trim();
 }
 
 // The path of the worktree holding a branch, read from
@@ -203,7 +208,7 @@ export function gatherFacts(flags) {
   const checkMissing = !checkCmd;
   if (checkCmd) {
     try {
-      execFileSync('sh', ['-c', checkCmd], { stdio: [DISCARD, 'pipe', 'pipe'], cwd });
+      execFileSync('sh', ['-c', checkCmd], { stdio: [DISCARD, 'pipe', 'pipe'], cwd, maxBuffer: LARGE_OUTPUT });
       checkExit = 0;
     } catch (error) {
       checkExit = error.status ?? 1;
