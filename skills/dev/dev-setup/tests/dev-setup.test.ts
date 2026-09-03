@@ -182,6 +182,14 @@ describe('dev-setup contract', () => {
     expect(readme).not.toContain(TODO_PURPOSE)
   })
 
+  test('the parallel-children workflow is offered in Round C and packaged from dev-implement', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const roundC = skill.split('**Round C')[1].split('## Step 3')[0]
+    expect(roundC).toContain('.claude/workflows/implement-children.js')
+    const packaging = JSON.parse(readFileSync(resolve(skillRoot, '../../../packages/cli/packaging.json'), 'utf8'))
+    expect(packaging['dev-setup']).toContain('assets/workflows/implement-children.js@dev-implement')
+  })
+
   test('the eval file covers wiring the hooks package on a wrangler project', () => {
     const evals = JSON.parse(readFileSync(join(skillRoot, 'evals/evals.json'), 'utf8'))
     const hooks = evals.evals.find((entry: { prompt: string }) => /wire the hooks/i.test(entry.prompt))

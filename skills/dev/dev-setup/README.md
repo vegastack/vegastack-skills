@@ -35,6 +35,7 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [assets/hooks/session-start.mjs](assets/hooks/session-start.mjs) | SessionStart context: the operator's queue and the worktree claim this checkout holds |
 | [assets/hooks/stop-heartbeat.mjs](assets/hooks/stop-heartbeat.mjs) | Stop heartbeat: one nudge to checkpoint the ledger when a working claim's ledger is older than the session |
 | [assets/hooks/decision-nudge.mjs](assets/hooks/decision-nudge.mjs) | Stop decision nudge: asks whether this session settled a directional choice |
+| assets/workflows/implement-children.js (installed copy) | The saved Claude Code workflow (authored in dev-implement) copied to `.claude/workflows/` on the operator's yes, so a parent can run its independent children at the same time |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract tracking the official harness-doc sources |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the official Claude Code, Codex, Hermes and GitHub CLI pages harness-facts.md is pinned to |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |

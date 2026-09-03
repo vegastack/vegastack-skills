@@ -98,6 +98,7 @@
     "assets/hooks/session-start.mjs",
     "assets/hooks/stop-heartbeat.mjs",
     "assets/hooks/decision-nudge.mjs",
+    "assets/workflows/implement-children.js@dev-implement",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],
