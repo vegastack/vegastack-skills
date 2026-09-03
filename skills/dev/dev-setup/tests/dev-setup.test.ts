@@ -160,6 +160,17 @@ describe('dev-setup contract', () => {
     expect(harnessFacts).toMatch(/\.codex\/` layer is trusted/)
   })
 
+  test('Round C offers the four hooks separately and Step 3 names the write targets', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const roundC = skill.split('**Round C')[1].split('## Step 3')[0]
+    expect(roundC).toContain('Hooks package')
+    for (const phrase of ['ship guard', 'SessionStart context', 'Stop heartbeat', 'decision nudge']) expect(roundC).toContain(phrase)
+    expect(roundC).toContain('merging into existing hook config')
+    const step3 = skill.split('## Step 3 — Write')[1].split('## Step 4')[0]
+    expect(step3).toContain('.vegastack/hooks/')
+    expect(step3).toContain('<repo>/.codex/hooks.json')
+  })
+
   test('Step 1 detection reads the org issue fields and drafts both knobs', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     expect(skill).toContain('gh api orgs/<org>/issue-types')
