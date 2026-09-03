@@ -109,12 +109,16 @@ describe('the join', () => {
     expect(outcome.merge.map((m) => m.issue)).toEqual([131])
     expect(outcome.blocks.some((b) => b.includes('#132') && b.includes('outside its declared set'))).toBe(true)
   })
-  test('a merge is fast-forward only', () => {
-    expect(mergeArgs(run.children[0])).toEqual(['merge', '--ff-only', 'feat/131-dispatch-parent-launches'])
+  test('the first child fast-forwards; every child behind it takes a real merge', () => {
+    // Every child branches from the same parent HEAD, so the first merge advances the
+    // parent and the second stops being a descendant. --ff-only for all of them would
+    // land child one and refuse the rest.
+    expect(mergeArgs(run.children[0], 0)).toEqual(['merge', '--ff-only', run.children[0].branch])
+    expect(mergeArgs(run.children[1], 1)).toEqual(['merge', '--no-ff', '--no-edit', run.children[1].branch])
   })
 })
 
-import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -173,5 +177,40 @@ describe('one wanderer never strands its siblings', () => {
     })
     expect(outcome.merge.map((m) => m.issue)).toEqual([132])
     expect(outcome.blocks).toEqual([])
+  })
+})
+
+describe('the join against real git', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'vsk-join-'))
+  const git = (...args: string[]) => {
+    const r = Bun.spawnSync(['git', '-C', repo, ...args])
+    return { ok: r.exitCode === 0, out: r.stdout.toString() + r.stderr.toString() }
+  }
+
+  test('two children cut from one base both land at the parent tip', () => {
+    git('init', '-q', '-b', 'parent')
+    git('config', 'user.email', 'test@example.test')
+    git('config', 'user.name', 'test')
+    writeFileSync(join(repo, 'base.txt'), 'base\n')
+    git('add', '-A')
+    git('commit', '-qm', 'base')
+
+    // Both children branch from the SAME parent HEAD — that is what a parallel run
+    // does, and what makes --ff-only wrong for everyone after the first.
+    for (const [branch, file] of [['child-a', 'a.txt'], ['child-b', 'b.txt']]) {
+      git('switch', '-q', 'parent')
+      git('switch', '-q', '-c', branch)
+      writeFileSync(join(repo, file), branch + '\n')
+      git('add', '-A')
+      git('commit', '-qm', branch)
+    }
+    git('switch', '-q', 'parent')
+
+    const children = [{ branch: 'child-a' }, { branch: 'child-b' }]
+    for (const [index, child] of children.entries()) {
+      expect(git(...mergeArgs(child, index)).ok).toBe(true)
+    }
+    expect(existsSync(join(repo, 'a.txt'))).toBe(true)
+    expect(existsSync(join(repo, 'b.txt'))).toBe(true)
   })
 })

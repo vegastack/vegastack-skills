@@ -36,7 +36,7 @@ The effective concurrency is the smallest of the configured cap, `cpus - 2`, and
 
 ## The join
 
-Children merge into the parent branch in plan order with `git merge --ff-only`: a child branched from the parent HEAD fast-forwards, and anything else means its base moved — which a merge commit would hide.
+Children merge into the parent branch in plan order. The **first** child fast-forwards (`git merge --ff-only`): its base is the parent HEAD, so a refusal there means the parent moved under the run and the join stops. Every child behind it no longer descends from the advanced tip and takes an ordinary three-way merge (`git merge --no-ff --no-edit`) — safe because the declared sets are disjoint and the scope check has already refused anything that strayed. A merge that fails anyway is aborted, and the join stops there rather than guessing past a conflict.
 
 - A child is merged only when its result says `done` **and** its diff against its base sha stays inside its declared set.
 - **A child that failed warns.** Its branch and its worktree are left in place, the parent continues with the others, and the run ends in a hand-back naming it.
@@ -53,6 +53,14 @@ Each child posts its own ledger and its own evidence comment on its own issue. T
 - Join: #131 merged aaaaaaa
 - Join: #132 not merged (touched packages/cli/src/dispatch.ts outside its declared set)
 ```
+
+## When the join stops half-done
+
+A join that stops leaves the parent with some children merged and at least one not. That is a legitimate resting state, not a broken one, and it resumes without rewriting anything:
+
+- The unmerged child keeps its branch and its worktree; nothing already merged is rebased.
+- The parent hands back naming the child and why — failed, wandered outside its set, or a merge that conflicted.
+- The next session runs that child alone against the **advanced** parent tip, sequentially, and merges it there. A child that wandered gets its declared file set corrected in the plan first, because the set is the contract.
 
 ## Removal
 

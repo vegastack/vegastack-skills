@@ -192,10 +192,15 @@ export function scopeViolations(changed, declared) {
   });
 }
 
-// A child branched from the parent HEAD fast-forwards or is not a clean child:
-// anything else means its base moved, and a merge commit would hide that.
-export function mergeArgs(child) {
-  return ['merge', '--ff-only', child.branch];
+// The first child fast-forwards: its base IS the parent HEAD, so anything else
+// means the parent moved under the run and the join must stop. Every child merged
+// behind it no longer descends from the advanced tip, so it takes an ordinary
+// three-way merge — safe here because the declared file sets are disjoint and
+// scopeViolations has already refused any child that strayed outside its own.
+export function mergeArgs(child, index = 0) {
+  return index === 0
+    ? ['merge', '--ff-only', child.branch]
+    : ['merge', '--no-ff', '--no-edit', child.branch];
 }
 
 // What the parent does with each child's result, in plan order. A failed child
@@ -435,12 +440,19 @@ function runVerb(verb, flags) {
     // evaluateJoin has already decided per child. A child that failed or wandered is simply not in
     // `merge`; its siblings still land, because the brief's rule is that the parent continues with
     // the others and hands back — not that one wanderer strands the whole run.
-    for (const merged of outcome.merge) {
+    for (const [index, merged] of outcome.merge.entries()) {
       const child = run.children.find((c) => c.issue === merged.issue);
-      actions.push(at(run.parentBranch, 'git merge --ff-only ' + merged.branch));
+      const args = mergeArgs(child, index);
+      actions.push(at(run.parentBranch, 'git ' + args.join(' ')));
       if (write && !diffBlocked) {
-        const done = gitRun(repoRoot, mergeArgs(child));
-        if (!done.ok) blocks.push(at(merged.branch, 'merge --ff-only failed: ' + done.out));
+        const done = gitRun(repoRoot, args);
+        if (!done.ok) {
+          // Leave no conflicted tree behind, and stop: the children after this one
+          // were ordered behind it for a reason, and merging past a conflict guesses.
+          gitRun(repoRoot, ['merge', '--abort']);
+          blocks.push(at(merged.branch, 'merge failed and was aborted: ' + done.out));
+          break;
+        }
       }
     }
     return { blocks, warns, plan, join: outcome, actions, wrote: write && blocks.length === 0 };

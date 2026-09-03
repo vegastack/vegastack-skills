@@ -31,6 +31,24 @@ export const bannedPlaceholders = [
 const GROUPS_HEADING = '**Independent groups:**';
 const GROUP_LINE = /^- `([^`]+)` — (.*)$/;
 
+// Files nearly every change in a repo edits. Two children that both touch one of
+// these are not independent whatever the plan claims, and the join is the worst
+// place to find that out — a lockfile three-way merge most of all. Measured on the
+// 18 Epic B plans: 5 of 153 child pairs were disjoint, and these files are why.
+const NEVER_PARALLEL = [
+  'bun.lock',
+  'package.json',
+  'packages/cli/packaging.json',
+  '.vegastack/dev.md',
+  '.vegastack/chronicle.md',
+  '.vegastack/skillspector-baseline.json',
+];
+
+export function sharedByEveryChild(path) {
+  const normalized = normalizeGroupPath(path);
+  return normalized.endsWith('README.md') || NEVER_PARALLEL.includes(normalized);
+}
+
 export function normalizeGroupPath(path) {
   return String(path).replace(/^\.\//, '').replace(/\/{2,}/g, '/');
 }
@@ -120,6 +138,9 @@ export function lintPlan(text) {
     if (seenIds.has(group.id)) blocks.push(`independent group id "${group.id}" appears twice`);
     seenIds.add(group.id);
     if (group.files.length === 0) blocks.push(`independent group "${group.id}": no file set declared`);
+    for (const file of group.files.filter(sharedByEveryChild)) {
+      blocks.push(`independent group "${group.id}" declares ${file}, which nearly every change edits — these children run in sequence`);
+    }
     for (const member of group.members) {
       if (seenMembers.has(member) && seenMembers.get(member) !== group.id) {
         blocks.push(`independent group member "${member}" appears in more than one group`);
