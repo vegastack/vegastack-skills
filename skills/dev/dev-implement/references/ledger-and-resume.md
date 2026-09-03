@@ -4,7 +4,7 @@ The ledger comment's format, line vocabulary, and the resume read-order (brief �
 
 ## When to checkpoint
 
-Create the ledger comment as the session's **first write after claiming** — before any code — with just the marker and heading. Then checkpoint, editing in place:
+Create the ledger comment as the session's **first write after claiming** — before any code — with the marker, the heading, and the branch's worktree path, so a resuming session reads brief → plan → ledger → `git log` in the right checkout rather than the main one. Then checkpoint, editing in place:
 
 - **After each plan task completes** — and tick the matching `[x]` in the plan comment in the same pass. That box is a second write, to a different comment, that your own resume path never reads — so it is the one that silently lags reality, while the operator's progress view depends on it. The hand-back guard (`evidence-check --issue`) blocks when the ledger's completed tasks outnumber the plan's checked boxes. Record the task's base sha *before* starting it, so the `complete` line's commit range is exact.
 - **After each review fix round**, with the addressed/open counts.

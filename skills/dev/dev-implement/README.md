@@ -32,6 +32,7 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [scripts/evidence-upload.mjs](scripts/evidence-upload.mjs) | Uploads one screenshot to the shared evidence repo through the contents API: dry-run by default, `--write` sends, payload on stdin and never printed, one retry on 409 |
 | [scripts/worktree.mjs](scripts/worktree.mjs) | The one-feature-one-worktree lifecycle: `create\|restore\|remove\|list\|prune\|status`, state derived from git and GitHub, the safe-to-remove test, retention prune — dry-run until `--write` |
 | [references/ledger-and-resume.md](references/ledger-and-resume.md) | Ledger usage and the resume protocol |
+| [references/worktrees.md](references/worktrees.md) | The worktree scenario matrix (claim, epic child, resume, corrections, ship, research, release, abandoned), the six lifecycle states, the safe-to-remove test and retention, and the Claude Code and Codex facts a worktree run depends on |
 | [references/changelog-and-chronicle.md](references/changelog-and-chronicle.md) | Per-knob changelog mechanics, the entry's first-line rule, and the chronicle hand-off |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Evergreen waiver: this skill makes no volatile claims |
 | [refresh/sources.json](refresh/sources.json) | Deliberately empty source registry behind the evergreen waiver |
