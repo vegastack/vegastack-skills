@@ -34,6 +34,18 @@
         "The newly detected machinery (Playwright, the release workflow) is named with the dev.md lines it affects",
         "The final report lists what changed and what was left alone"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Set up the dev workflow in vegastack/example-service. I'm a member of the vegastack org.",
+      "expected_output": "A dev.md whose `## Knobs` block carries one `issue-types:` line and one `issue-fields:` line, both filled from what the org actually returned rather than assumed, with `none` written where the org defines neither and one plain sentence saying issues will carry labels only.",
+      "files": [],
+      "assertions": [
+        "Detection runs gh api orgs/<org>/issue-types and gh api orgs/<org>/issue-fields and reports what each returned",
+        "The rendered dev.md carries one issue-types: line and one issue-fields: line",
+        "An org with no Epic type keeps the epic label rather than inventing the type",
+        "A repo with no org behind it writes both knobs as none and says so in one plain sentence"
+      ]
     }
   ]
 }

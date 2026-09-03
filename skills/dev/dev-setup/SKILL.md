@@ -29,7 +29,8 @@ Gather these silently and present them as findings — "here's what I found — 
 | architecture (app repos) | wrangler files, drizzle config, better-auth usage, S3/R2 bindings, pg-boss, `eve`/`ai` packages, Dockerfiles/compose, pubspec.yaml — these draft `## Architecture` (a `d1_databases` binding with no Postgres driver is the D1-only class) |
 | existing files | AGENTS.md, CLAUDE.md, `.vegastack/dev.md`, a legacy `.vegastack/arch.md`, the decision register — read before writing, because hand edits in them are the truth |
 | existing labels | `gh label list` |
-| native issue types | `gh api orgs/<org>/issue-types` — an `Epic` type routes parents to it, otherwise the `epic` label ([conventions](references/conventions.md)) |
+| native issue types | `gh api orgs/<org>/issue-types` — an `Epic` type routes parents to it, otherwise the `epic` label ([conventions](references/conventions.md)); the enabled names draft the `issue-types:` knob, `none` where the call 404s |
+| native issue fields | `gh api orgs/<org>/issue-fields` — every `single_select` field with its option names, ordered by each option's `priority` key (the array itself comes back alphabetical), drafts the `issue-fields:` knob, `none` where the call 404s; the Priority and Effort options are what dev-intake offers, so they are read, never assumed |
 | harnesses present | `command -v claude codex hermes` and each present one's `--version` — the AGENTS.md block, the CLAUDE.md import, the hook offer and the `review:` recommendation target only harnesses that exist; Codex absent → record the gap in `## Environments` and recommend installing it, because cross-agent review needs it |
 | agent skills in the repo | a directory of skill folders, flat or one group deep, drafts the `skill-scan:` knob at that path (none found drafts `none`), declared once, because a second `skill-scan:` line makes the profile ambiguous and the guard refuses; the knob names the built directory where one exists, because unpackaged fixtures are adversarial on purpose |
 | SkillSpector (skill scanning) | nothing to detect — dev-review's guard locates the CLI itself and, under `skillspector-update: auto`, installs and upgrades it; confirm the drafted `skillspector-update:` value instead (`auto` provisions silently, `notify` only reports, `off` stays offline) |
@@ -81,7 +82,7 @@ Everything else — merge style, branch naming, the stop-and-ask list, the `arch
 
 ## Step 4 — Report
 
-One summary: what was created, what was skipped and why, what remains TODO, and every gh feature the detected version lacks with the floor that unlocks it (on gh 2.92.0: "native issue types, sub-issues and dependencies need gh 2.94.0; name-based project field edits need gh 2.97.0"). When `gh` was unauthenticated, print the exact `gh auth login` and `gh label create` commands to run later, and name the gap plainly.
+One summary: what was created, what was skipped and why, what remains TODO, what the `issue-types:` and `issue-fields:` knobs ended up holding — and where either is `none`, one plain sentence saying issues here carry their labels and nothing else — and every gh feature the detected version lacks with the floor that unlocks it (on gh 2.92.0: "native issue types, sub-issues and dependencies need gh 2.94.0; name-based project field edits need gh 2.97.0"). When `gh` was unauthenticated, print the exact `gh auth login` and `gh label create` commands to run later, and name the gap plainly.
 
 ## Re-runs
 

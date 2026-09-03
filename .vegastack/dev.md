@@ -20,6 +20,8 @@ branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the
 worktree-include: none      # nothing gitignored is needed by a fresh checkout here; `bun install` (the setup command) rebuilds node_modules
 worktree-retention: 14d     # a parked worktree survives this long with no session, measured from the later of its last commit and its last ledger edit
 labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents (org has no native Epic issue type)
+issue-types: Feature=feat · Bug=fix · Task=docs,chore,refactor,research   # no Epic type in this org — the epic label marks map parents
+issue-fields: Priority=Urgent,High,Medium,Low default Medium · Effort=High,Medium,Low default quick-build→Low, full-plan→Medium   # detected 03-09-2026, options in .priority order
 changelog: changesets
 decisions: .vegastack/decisions.md
 release: on-request         # only when the operator says "release" — covers everything merged since the last one (switched from per-merge for the v3 epic, operator 28-08-2026)

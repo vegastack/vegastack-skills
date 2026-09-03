@@ -80,6 +80,21 @@ describe('dev-setup contract', () => {
     for (const line of floors) expect(line).toContain('<!-- source: GH-CLI -->')
   })
 
+  test('profile template carries the issue-types and issue-fields knobs with a none fallback', () => {
+    const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
+    const knobs = template.split('## Knobs')[1].split('\n## ')[0]
+    expect(knobs).toMatch(/^issue-types: \{\{.*\| none\}\}\s+#/m)
+    expect(knobs).toMatch(/^issue-fields: \{\{.*\| none\}\}\s+#/m)
+  })
+
+  test('Step 1 detection reads the org issue fields and drafts both knobs', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('gh api orgs/<org>/issue-types')
+    expect(skill).toContain('gh api orgs/<org>/issue-fields')
+    expect(skill).toContain('`issue-types:`')
+    expect(skill).toContain('`issue-fields:`')
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
