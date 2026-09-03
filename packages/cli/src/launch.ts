@@ -72,6 +72,44 @@ export function buildLaunchPlan(input: LaunchInput): LaunchPlan {
   }
 }
 
+const STAGE_COMMAND: Record<Stage, string> = {
+  plan: '/dev-plan',
+  implement: '/dev-implement',
+  corrections: '/dev-implement',
+}
+
+const STAGE_SKILL: Record<Stage, string> = {
+  plan: 'dev-plan',
+  implement: 'dev-implement',
+  corrections: 'dev-implement',
+}
+
+// The whole first turn of a headless run, in the order a session reads it: who it is and that
+// nobody is watching, what the scope is, who it is for and what they need, which stage to run, what
+// it must never do, how long the answer should be, and — only when resuming — the start ritual.
+//
+// The order is load-bearing. Autonomy first, because everything after it is read differently by a
+// session that knows there is no one to ask; the stop-list last before the ritual, because it is
+// the sentence that has to still be in mind when the run starts making choices.
 export function buildPrompt(input: LaunchInput): string {
-  return `I'm working on ${input.issue.title} for ${input.operator}; they need: ${input.outcome}`
+  const stageInstruction = input.skillPath
+    ? `Read ${input.skillPath} and follow it for issue ${input.issue.number}.`
+    : `${STAGE_COMMAND[input.stage]} ${input.issue.number}`
+  const sections: string[] = [
+    'You are operating autonomously. The operator is not watching and cannot answer mid-run. Deliver what the brief and plan ask, completely; report outcomes faithfully — if a check fails, say so with its output. Stop with a hand-back comment only for a real scope change or a blocker the plan cannot resolve.',
+    'The approved brief and plan are the scope: build what they describe, and take anything beyond them to the operator instead of deciding it yourself.',
+    `I'm working on ${input.issue.title} for ${input.operator}; they need: ${input.outcome}`,
+    stageInstruction,
+  ]
+  if (input.stage === 'corrections') {
+    sections.push('This is a corrections run: the reacted comment and every operator comment since the hand-back are the correction input. A reaction is a start signal, never an approval.')
+  }
+  if (input.stopList.length > 0) {
+    sections.push(`Stop and ask the operator rather than proceeding when the work would mean any of these:\n${input.stopList.map(entry => `- ${entry}`).join('\n')}`)
+  }
+  sections.push('Length follows the work: say what happened and what is worth checking, and stop there.')
+  if (input.resume) {
+    sections.push(`This run resumes work already in progress in ${input.worktree}. Before touching code: print the working directory, read the brief, then the plan, then the ledger, then git log on the branch — nothing else — and run the project's check command once so you know the state you inherited.`)
+  }
+  return sections.join('\n\n')
 }

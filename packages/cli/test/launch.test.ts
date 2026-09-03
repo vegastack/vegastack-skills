@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { buildLaunchPlan, type LaunchInput } from '../src/launch.ts'
+import { buildLaunchPlan, buildPrompt, type LaunchInput } from '../src/launch.ts'
 
 const base: LaunchInput = {
   harness: 'claude', model: 'fable-5-1', effort: 'high', stage: 'implement',
   worktree: '/w/12-thing', issue: { number: 12, title: 'feat: thing' }, operator: 'mk',
-  outcome: 'the thing exists and is tested', stopList: ['spending money'], resume: false,
+  outcome: 'the thing exists and is tested', stopList: ['spending money', 'touching production'], resume: false,
   skillPath: null, subagents: { spawnDepth: 1, concurrent: 3 },
 }
 
@@ -41,5 +41,39 @@ describe('buildLaunchPlan', () => {
       expect(plan.args.join(' ')).not.toContain('no-think')
       expect(plan.args.join(' ')).not.toContain('reasoning_effort=none')
     }
+  })
+})
+
+describe('buildPrompt', () => {
+  test('carries the autonomy block, the operator framing and the stop-list', () => {
+    const prompt = buildPrompt(base)
+    expect(prompt).toContain('You are operating autonomously. The operator is not watching')
+    expect(prompt).toContain("I'm working on feat: thing for mk; they need: the thing exists and is tested")
+    expect(prompt).toContain('spending money')
+    expect(prompt).toContain('touching production')
+  })
+
+  test('the approved brief and plan are named as the scope', () => {
+    expect(buildPrompt(base)).toContain('The approved brief and plan are the scope')
+  })
+
+  test('the stage instruction is the slash command when skills load, the SKILL.md path when they do not', () => {
+    expect(buildPrompt(base)).toContain('/dev-implement 12')
+    expect(buildPrompt({ ...base, stage: 'plan' })).toContain('/dev-plan 12')
+    expect(buildPrompt({ ...base, harness: 'codex', skillPath: '~/.agents/skills/dev-implement/SKILL.md' }))
+      .toContain('Read ~/.agents/skills/dev-implement/SKILL.md and follow it for issue 12')
+  })
+
+  test('a resume run gets the start ritual and a first run does not', () => {
+    expect(buildPrompt({ ...base, resume: true })).toContain('read the brief, then the plan, then the ledger, then git log')
+    expect(buildPrompt(base)).not.toContain('read the brief, then the plan, then the ledger, then git log')
+  })
+
+  test('a corrections run names the reacted comment as the correction input', () => {
+    expect(buildPrompt({ ...base, stage: 'corrections' })).toContain('the reacted comment and every operator comment since the hand-back')
+  })
+
+  test('one line calibrates length, so the run does not pad', () => {
+    expect(buildPrompt(base)).toContain('Length follows the work')
   })
 })
