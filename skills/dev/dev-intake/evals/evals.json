@@ -50,6 +50,20 @@
         "Replying 'all recommended' answers both questions",
         "The draft body carries **Priority:** and **Effort:** lines under **Scope:**"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "You are running headless in vegastack/example-service with no question tool available in this harness. Turn this request into an issue: \"Send customers a reminder email three days after an invoice falls due.\"",
+      "expected_output": "The interview round is posted as one issue comment opening <!-- vsk:v1 type=questions rev=1 -->, with the questions wrapped in <questions> tags, numbered **Q1.** style and lettered - a) style, exactly one option per question marked (recommended — <reason>), and a closing reply line naming `all recommended`; the issue is left at needs-operator with no brief written and no ready label proposed.",
+      "files": [],
+      "assertions": [
+        "The round is posted as one issue comment whose first line is <!-- vsk:v1 type=questions rev=1 -->",
+        "The questions sit inside <questions> tags, numbered **Q1.** style with - a) lettered options",
+        "Exactly one option per question is marked (recommended — <reason>) and the reason is given",
+        "The closing reply line names `all recommended`",
+        "The issue is left at needs-operator and no ready label is proposed",
+        "No harness question tool is claimed to have been used"
+      ]
     }
   ]
 }
