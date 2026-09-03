@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { normalizeRecord } from '../src/stats/record.ts'
@@ -137,4 +137,30 @@ test('the dry-run push names the records it would copy and the commit it would m
   expect(output).toContain('dry run')
   expect(output).toContain('(+1)')
   expect(output).toContain('stats: vegastack/vegafactory +1 runs SEP-2026 · kmanojkumar@mini · claude/fable-5.1')
+})
+
+// --- the people gate on every scope --------------------------------------------------------
+
+test('--org and --repo carry a per-person block only for a lead, whatever stats-people says', async () => {
+  const { lines, deps: base } = await deps()
+  await seed(base.cloneRoot, 'SEP-2026', [row({}), row({ human: 'someone-else', issue: 999, cost_usd: 50 })])
+  expect(await runStats(parseStatsArgs(['--org', '--json']), { ...base, isLead: false })).toBe(0)
+  expect(JSON.parse(lines.join('')).people).toBeNull()
+  lines.length = 0
+  expect(await runStats(parseStatsArgs(['--repo', '--json']), { ...base, isLead: false })).toBe(0)
+  expect(JSON.parse(lines.join('')).people).toBeNull()
+  lines.length = 0
+  expect(await runStats(parseStatsArgs(['--org', '--json']), { ...base, isLead: true })).toBe(0)
+  expect(Object.keys(JSON.parse(lines.join('')).people)).toEqual(['kmanojkumar', 'someone-else'])
+})
+
+test('the committed summaries never carry a per-person block: the clone is readable by everyone', async () => {
+  const { deps: base } = await deps()
+  await seed(base.cloneRoot, 'SEP-2026', [row({}), row({ human: 'someone-else', issue: 999 })])
+  expect(await runStats(parseStatsArgs(['rollup', '--since', 'SEP-2026']), { ...base, isLead: true })).toBe(0)
+  const repo = JSON.parse(await readFile(join(base.cloneRoot, 'stats/vegastack__vegafactory/SEP-2026.summary.json'), 'utf8'))
+  const org = JSON.parse(await readFile(join(base.cloneRoot, 'stats/org/SEP-2026.summary.json'), 'utf8'))
+  expect(repo.people).toBeNull()
+  expect(org.people).toBeNull()
+  expect(repo.runs).toBe(2)
 })

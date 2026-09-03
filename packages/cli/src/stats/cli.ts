@@ -335,10 +335,13 @@ async function runRollup(args: StatsArgs, deps: StatsDeps): Promise<number> {
     const records = await readMonth(deps.cloneRoot, dir, month)
     if (records.length === 0) continue
     allRecords.push(...records)
+    // Never a per-person block in a committed summary: the control room is readable by everyone
+    // the org onboards, and people-level statistics are for the person or a lead — which `show`
+    // checks per caller and a file in a shared clone cannot.
     const summary = rollupRepo(records, await readTimelines(deps.cloneRoot, dir, month), {
       repo: records[0]?.repo ?? dir,
       month,
-      people: deps.policy.people,
+      people: false,
     })
     summaries.push(summary)
     const file = join(deps.cloneRoot, 'stats', dir, `${month}.summary.json`)
@@ -348,7 +351,7 @@ async function runRollup(args: StatsArgs, deps: StatsDeps): Promise<number> {
   }
   const orgSummary = join(deps.cloneRoot, 'stats', 'org', `${month}.summary.json`)
   await mkdir(dirname(orgSummary), { recursive: true })
-  await writeFile(orgSummary, `${stableStringify(rollupOrg(summaries, { month, people: deps.policy.people }))}\n`)
+  await writeFile(orgSummary, `${stableStringify(rollupOrg(summaries, { month, people: false }))}\n`)
   written.push(orgSummary)
   const skillsSummary = join(deps.cloneRoot, 'stats', 'org', `${month}.skills.json`)
   await writeFile(skillsSummary, `${stableStringify(rollupSkills(allRecords, { month }))}\n`)
@@ -372,6 +375,10 @@ async function runShow(args: StatsArgs, deps: StatsDeps): Promise<number> {
   }
   const buckets = await windowBuckets(deps, args.since)
   const label = windowLabel(buckets, fallback)
+  // A per-person block on an org or repo summary is a people-level view of everyone at once, so it
+  // is a lead's to read and nobody else's — `stats-people: on` is what lets a lead read it, not
+  // what hands it to every viewer.
+  const people = deps.policy.people && deps.isLead
 
   if (args.scope === 'skills') {
     const summary = rollupSkills(buckets.flatMap(bucket => bucket.records), { month: label })
@@ -379,7 +386,7 @@ async function runShow(args: StatsArgs, deps: StatsDeps): Promise<number> {
     return 0
   }
   if (args.scope === 'org') {
-    const summary = rollupOrg(summariesByRepo(buckets, deps.policy.people, fallback), { month: label, people: deps.policy.people })
+    const summary = rollupOrg(summariesByRepo(buckets, people, fallback), { month: label, people })
     deps.log(args.json ? stableStringify(summary) : renderStatsTable(summary, 'org'))
     return 0
   }
@@ -402,7 +409,7 @@ async function runShow(args: StatsArgs, deps: StatsDeps): Promise<number> {
   const summary = rollupRepo(records, scoped.flatMap(bucket => bucket.timelines), {
     repo: args.scope === 'me' ? `${subject} · ${deps.repo ?? 'every repo'}` : (deps.repo ?? scoped[0]!.repo),
     month: label,
-    people: deps.policy.people || args.scope === 'me',
+    people: people || args.scope === 'me',
   })
   deps.log(args.json ? stableStringify(summary) : renderStatsTable(summary, args.scope))
   return 0
