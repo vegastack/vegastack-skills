@@ -54,6 +54,8 @@ A knob whose value differs between two repos in the group is a question, not an 
 
 The full checklist ships as `onboarding/new-repo.md`, so the org can edit the procedure without editing this skill.
 
+The org's third onboarding path is a machine rather than a repo or a person: `onboarding/dispatcher-box.md` provisions the always-on box that runs the Actions runner and the dispatcher, under two accounts so a CI job cannot read the dispatcher's tokens.
+
 ## `onboard <login>`
 
 Walk `onboarding/new-teammate.md` with the person: `gh auth login` at or above the group's `gh-floor:`, the harnesses the group's `harness:` lines name, `vegafactory skills add --group dev --global`, control-room read access, and the Slack subscription through the official GitHub Slack app. Then add their `people.csv` row — `login,name,role,slack,timezone,groups`.
