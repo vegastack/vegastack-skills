@@ -6,6 +6,14 @@ import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.m
 const skillRoot = resolve(import.meta.dir, '..')
 
 describe('dev-review contract', () => {
+  test('the review knob paragraph points at the harness-policy review entry for model and effort', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('harness-policy:')
+    const crossAgent = readFileSync(join(skillRoot, 'references/cross-agent.md'), 'utf8')
+    expect(crossAgent).toContain('harness-policy:')
+    expect(crossAgent).toContain("'-c', 'model_reasoning_effort=")
+  })
+
   test('SKILL.md passes repo validation', () => {
     const result = validateSkill(skillRoot)
     expect(result.message).toBe('Skill is valid!')
