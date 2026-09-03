@@ -171,6 +171,13 @@ The issue-driven development workflow: ten stages from project bootstrap to the 
 | [dev-status](skills/dev/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev/dev-status/README.md) · [SKILL.md](skills/dev/dev-status/SKILL.md) |
 | [dev-chronicle](skills/dev/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev/dev-chronicle/README.md) · [SKILL.md](skills/dev/dev-chronicle/SKILL.md) |
 
+### Factory
+
+Org-level skills: the control room whose defaults every repo layers on, and the onboarding of repos and people into it.
+
+| Skill | What it does | Docs |
+|---|---|---|
+
 ### Repo tooling
 
 Skills that work on this repository itself: they are not installed by --all, and do nothing useful in another project.
