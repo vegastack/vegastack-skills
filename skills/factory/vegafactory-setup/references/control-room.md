@@ -63,7 +63,7 @@ login,name,role,slack,timezone,groups
 
 ## Boards
 
-A board is created, field-configured and linked by **the operator runs these** commands, in this order — every one of them needs the `project` scope, which lives on a human token and never on an agent's:
+A board is created, field-configured and linked by the operator, never by an agent: **the operator runs these** commands, in this order — every one of them needs the `project` scope, which lives on a human token and never on an agent's:
 
 1. `gh auth refresh -s project` — adds the scope to the operator's own `gh` login; without it every command below 403s.
 2. `gh project create --owner <org> --title "<title>"` — note the number it prints; that number is the `board:` knob and the `number` column of `boards.md`.

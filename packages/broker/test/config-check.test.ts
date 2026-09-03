@@ -30,6 +30,17 @@ describe('checkBrokerConfig', () => {
     expect(checkBrokerConfig(JSON.stringify(kv)).blocks.join(' ')).toContain('kv_namespaces')
   })
 
+  test('a secret-shaped var or a storage binding at the top level is blocked, not just inside env blocks', () => {
+    // The plan constraint is no plaintext secret anywhere in wrangler.jsonc; the leak is the
+    // committed file, whether or not wrangler inherits the key into a named environment.
+    const topVars = structuredClone(base) as Record<string, any>
+    topVars.vars = { VEGAFACTORY_APP_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----AAAA' }
+    expect(checkBrokerConfig(JSON.stringify(topVars)).blocks).toEqual(['vars.VEGAFACTORY_APP_PRIVATE_KEY is a secret-shaped plain var — secrets belong in the Secrets Store binding'])
+    const topKv = structuredClone(base) as Record<string, any>
+    topKv.kv_namespaces = [{ binding: 'X', id: 'y' }]
+    expect(checkBrokerConfig(JSON.stringify(topKv)).blocks).toEqual(['kv_namespaces is declared — the broker persists nothing and declares no storage binding'])
+  })
+
   test('blocks a workers.dev origin, a missing custom domain, and a secret-shaped var', () => {
     const devOrigin = structuredClone(base); devOrigin.env.production.workers_dev = true
     expect(checkBrokerConfig(JSON.stringify(devOrigin)).blocks.join(' ')).toContain('workers_dev')

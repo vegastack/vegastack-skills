@@ -40,6 +40,18 @@ export function checkBrokerConfig(text) {
     if (typeof config[field] !== 'string' || config[field].length === 0) blocks.push(`${field} is missing at the top level`)
   }
 
+  // The top level is checked with the same two rules as the environments: a plaintext key or a
+  // storage binding committed there is the leak whether or not wrangler inherits it into an env.
+  for (const binding of STORAGE_BINDINGS) {
+    if (binding in config) blocks.push(`${binding} is declared — the broker persists nothing and declares no storage binding`)
+  }
+  const topVars = typeof config.vars === 'object' && config.vars !== null ? config.vars : {}
+  for (const key of Object.keys(topVars)) {
+    if (SECRET_SHAPED.some((shape) => key.toUpperCase().includes(shape))) {
+      blocks.push(`vars.${key} is a secret-shaped plain var — secrets belong in the Secrets Store binding`)
+    }
+  }
+
   const namespaceIds = new Map()
   for (const name of ENVIRONMENTS) {
     const block = config.env?.[name]

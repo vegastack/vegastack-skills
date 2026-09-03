@@ -18,7 +18,7 @@ describe('vegafactory-setup — boards', () => {
       'gh project link',
     ]) expect(section).toContain(command)
     expect(section).toContain('needs-operator,needs-plan,ready,working,for-operator,Done')
-    expect(section).toContain('the operator runs these')
+    expect(section).toContain('by the operator, never by an agent: **the operator runs these** commands')
   })
 
   test('boards.md.template states the one-way rule, the option order and the auto-add cap', () => {
