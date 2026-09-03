@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { classifyCommand, extractCommand, readPolicy, renderDecision, splitSegments } from '../assets/hooks/ship-guard.mjs'
+import { renderContext, sessionMarkerPath, shouldSync, worktreeClaim } from '../assets/hooks/session-start.mjs'
 
 const DEV_MD = [
   'repo: vegastack/vegafactory · default branch main',
@@ -125,5 +126,61 @@ describe('ship-guard harness I/O', () => {
     const run = Bun.spawnSync(['node', script, '--harness', 'claude'], { stdin: new TextEncoder().encode('not json') })
     expect(run.exitCode).toBe(0)
     expect(JSON.parse(run.stdout.toString()).hookSpecificOutput.permissionDecision).toBe('ask')
+  })
+})
+
+describe('session-start context', () => {
+  const status = {
+    repo: 'vegastack/vegafactory',
+    board: {
+      'needs-operator': [{ number: 91, title: 'plan approval', ageDays: 2 }, { number: 88, title: 'brief question', ageDays: 4 }],
+      'needs-plan': [],
+      ready: [{ number: 110, title: 'hooks package', ageDays: 0 }],
+      working: [{ number: 106, title: 'worktrees', ageDays: 1, possiblyOrphaned: true }],
+      'for-operator': [{ number: 104, title: 'epic', ageDays: 1 }],
+    },
+  }
+  const states = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-operator']
+
+  test('renders at most five lines and leads with what needs the operator', () => {
+    const lines = renderContext(status, { cwd: '/repo', states })
+    expect(lines.length).toBeGreaterThan(0)
+    expect(lines.length).toBeLessThanOrEqual(5)
+    expect(lines[0]).toContain('3 need you')
+    expect(lines.join('\n')).toContain('#91')
+    expect(lines.join('\n')).toContain('possibly orphaned')
+  })
+
+  test('names the worktree claim when the session is inside one', () => {
+    const lines = renderContext(status, { cwd: '/repo/.vegastack/.worktrees/106-worktrees/skills', states })
+    expect(lines.length).toBeLessThanOrEqual(5)
+    expect(lines.join('\n')).toContain('this checkout is worktree 106-worktrees, state working')
+  })
+
+  test('recognises a worktree path and refuses everything else', () => {
+    expect(worktreeClaim('/r/.vegastack/.worktrees/110-hooks-package')).toEqual({ number: 110, slug: 'hooks-package' })
+    expect(worktreeClaim('/r/.vegastack/.worktrees/110-hooks-package/skills/x')).toEqual({ number: 110, slug: 'hooks-package' })
+    expect(worktreeClaim('/r/packages/cli')).toBe(null)
+    expect(worktreeClaim('/r/.vegastack/.worktrees/scratch')).toBe(null)
+  })
+
+  test('an empty board says so in one line rather than five empty ones', () => {
+    const empty = { repo: 'o/r', board: Object.fromEntries(states.map((s) => [s, []])) }
+    expect(renderContext(empty, { cwd: '/repo', states })).toEqual(['vegafactory: nothing on the board needs you.'.replace('vegafactory', 'o/r')])
+  })
+
+  test('the session marker lives under the OS temp dir, never in the repo', () => {
+    const path = sessionMarkerPath('abc-123', '/tmp')
+    expect(path).toBe('/tmp/vsk-session-abc-123')
+  })
+
+  test('the control-room sync fires only for an existing clone past the max age', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-cr-'))
+    mkdirSync(join(dir, 'org'))
+    const now = Date.now()
+    utimesSync(join(dir, 'org'), new Date(now - 45 * 60_000), new Date(now - 45 * 60_000))
+    expect(shouldSync(join(dir, 'org'), now, 30)).toBe(true)
+    expect(shouldSync(join(dir, 'org'), now, 60)).toBe(false)
+    expect(shouldSync(join(dir, 'missing'), now, 30)).toBe(false)
   })
 })
