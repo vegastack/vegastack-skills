@@ -30,6 +30,7 @@ decisions: .vegastack/decisions.md
 release: on-request         # per-merge = Ship runbook runs as part of shipping · on-request = only when the operator says "release"
 chronicle: on               # on = dev-implement writes a .vegastack/chronicle.md story entry per behavior-changing branch · off
 architect: {{github-username}}   # the architecture owner dev-architect speaks to — dev-setup writes `gh api user -q .login` (fallback `git config user.name`) without asking; changing it later is one edit here
+control-room: {{org}}/vegafactory-control-room#{{group}}   # org control room and this repo's group; delete the line when the org has none — layering and drift are the vegafactory-setup skill's
 operators: {{github-username}}   # csv of the humans who own issues here — every state flip assigns per conventions' Labels table; dev-setup writes the detected login, and the line is edited to add people
 chronicle-style: plain      # plain | story | witty — the voice of chronicle entries; the rule and one worked example per style live in dev-chronicle's references/styles.md
 emoji: none                 # none | sparing — sparing allows at most one emoji per chronicle entry, in the title or footer, never inside a field's facts

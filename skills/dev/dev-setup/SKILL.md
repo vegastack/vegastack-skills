@@ -18,6 +18,7 @@ Gather these silently and present them as findings — "here's what I found — 
 | What | How |
 |---|---|
 | repo, default branch | `git remote get-url origin` · `gh repo view --json nameWithOwner,defaultBranchRef` |
+| org defaults (control room) | the repo's `control-room:` knob, else `gh api repos/<org>/vegafactory-control-room` — a control room that answers a knob removes that question from Round B; layout and precedence are the `vegafactory-setup` skill's |
 | gh authenticated | `gh auth status` |
 | operator username (the `architect:` knob) | `gh api user -q .login`, fallback `git config user.name` — written as the knob's value with no question, because the architecture owner defaults to whoever runs setup; the decision-register header uses the same lookup |
 | the operator list (the `operators:` knob) | the same `gh api user -q .login` lookup, written as a one-name csv without asking — assignment needs a default owner from run one, and the operator edits the line to add colleagues |
@@ -41,9 +42,11 @@ Not a git repo, or no origin remote → a greenfield run, not an error: follow t
 
 Ask with your harness's question tool — AskUserQuestion in Claude Code, `request_user_input` in Codex where the mode allows it, `clarify` in Hermes ([harness-facts](references/harness-facts.md)). When none is available (headless run, gated mode), write the defaults, mark every unconfirmed knob `# TODO confirm`, and say so, because a wrong invented preference costs more than a TODO. The route the other dev skills take when no tool is available is [ask-route](references/ask-route.md); dev-setup can run before any issue exists, so its own fallback stays the documented defaults above.
 
-**Round A — confirm the detected facts** in one compact summary (repo, stack, commands, web app or not, matched playbook, detected architecture facts). Ask only about what detection could not fill.
+**Round A — confirm the detected facts** in one compact summary (repo, stack, commands, web app or not, matched playbook, detected architecture facts). Ask only about what detection could not fill. The summary names which knobs came from the control room and which are this repo's own, because an inherited answer and a local one are corrected in different files.
 
 **Round B — the workflow knobs**, recommended default first:
+
+Every knob `groups/<g>/group.md` or `org.md` already answers is stated as inherited rather than asked — the questions below are only the ones no layer has answered.
 
 1. Review of finished work (`review:` knob, mapped by dev-review): **cross-agent-risky** (subagent axes, the other agent on `risky` — recommended where the Codex CLI was detected; otherwise recommend `subagent`) · `subagent` (no cross-agent) · `cross-agent` (always). Detection found only one harness on the box → recommend `subagent` and say cross-agent is off until a second harness exists, because a knob promising an independent reviewer that cannot run is worse than an honest self-review; the `harness-policy:` line is still drafted in full, so the stage set does not change with the box
 2. Proof for UI work: **playwright screenshots** · none
@@ -65,6 +68,7 @@ Ask with your harness's question tool — AskUserQuestion in Claude Code, `reque
 - AGENTS.md already has content → append the marked section (default) or show a merge proposal first
 - CLAUDE.md already has content → add the `@AGENTS.md` import as its first line (default) or move its content into AGENTS.md and leave only the import
 - Gitignored files a fresh checkout needs (`.env`) or a setup command detected → confirm `worktree-include:`, `commands: setup` and `worktree-retention:` (default 14d), replayed into every new worktree; nothing detected → `worktree-include: none`
+- No control room exists and the operator wants one → hand the request to `vegafactory-setup`, which bootstraps it; this skill never creates the org repository itself
 - Different label names, `gates: 1` under branch protection (it blocks direct pushes — surface the conflict), or a different decision-register path, when the situation or the user brings it up
 
 Everything else — merge style, branch naming, the stop-and-ask list, the `architect:` owner (the detected username), `chronicle-style: plain`, and `emoji: none` — takes its documented default straight into dev.md, because the profile is plain text the user can edit anytime.

@@ -198,6 +198,35 @@ describe('dev-setup contract', () => {
     expect(skill).toContain('`issue-fields:`')
   })
 
+  test('conventions carries the precedence rule and did not grow doing it', () => {
+    const conventions = readFileSync(join(skillRoot, 'references/conventions.md'), 'utf8')
+    expect(conventions).toContain(
+      "Knob precedence, nearest wins: hand edits in `.vegastack/dev.md`, then the org control room's `groups/<g>/*`, then its `org.md`, then skill defaults; decision registers concatenate instead of overriding.",
+    )
+    expect(conventions).not.toContain('A checkpoint retains what a compaction summary must retain')
+    expect(conventions.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(1090)
+  })
+
+  test('the checkpoint-retention rule now lives with the skill that applies it', () => {
+    const ledger = readFileSync(
+      resolve(skillRoot, '../dev-implement/references/ledger-and-resume.md'),
+      'utf8',
+    )
+    expect(ledger).toContain('A checkpoint retains what a compaction summary must retain')
+    expect(ledger).toContain("the operator's words near-verbatim, the agent's reasoning condensed")
+  })
+
+  test('the profile template carries the control-room knob for the layering rule', () => {
+    const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
+    expect(template).toMatch(/^control-room: \{\{org\}\}\/vegafactory-control-room#\{\{group\}\}\s+#/m)
+  })
+
+  test('dev-setup detects org defaults before it asks for knobs', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('org defaults (control room)')
+    expect(skill).toContain('vegafactory-setup')
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.

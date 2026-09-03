@@ -2,6 +2,8 @@
 
 The single spec for every artifact dev-family skills read and write. One home per rule: skills cite this file, never restate it. Everything here is harness-neutral.
 
+Knob precedence, nearest wins: hand edits in `.vegastack/dev.md`, then the org control room's `groups/<g>/*`, then its `org.md`, then skill defaults; decision registers concatenate instead of overriding.
+
 ## Comment metadata markers
 
 Every workflow-generated comment opens with an invisible HTML marker, then a human heading:
@@ -81,7 +83,6 @@ Maintained by the implement session as one comment, edited in place:
 - Deferred minor: <one-liner>
 ```
 
-A checkpoint retains what a compaction summary must: difficulties and their resolutions; options tried or set aside, and why; anything decided, ruled out, or established as a constraint, stated exactly; where things stand; what is open; exact names, numbers, links — the operator's words near-verbatim, the agent's reasoning condensed.
 
 **Resume protocol:** a fresh, compacted, or handed-over session reads, in order: brief → plan comment → ledger → `git log` — nothing else.
 
