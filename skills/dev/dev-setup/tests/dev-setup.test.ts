@@ -119,6 +119,18 @@ describe('dev-setup contract', () => {
   // the line, and turn this into a real test.
   test.todo('the codex exec skill-loading verdict sentence is recorded')
 
+  test('the profile template carries the harness detection line and the six-stage policy default', () => {
+    const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
+    expect(template).toMatch(/^harnesses: \{\{.*\}\}\s+#/m)
+    const policy = template.split('\n').find((line) => line.startsWith('harness-policy:'))
+    expect(policy).toBeDefined()
+    const entries = policy!.replace(/^harness-policy:\s*/, '').split('#')[0].trim().split(' · ')
+    expect(entries.map((entry) => entry.split(' ')[0])).toEqual(['intake', 'plan', 'implement', 'review', 'status', 'chronicle'])
+    for (const entry of entries) expect(entry.split(' ')).toHaveLength(4)
+    expect(policy).toContain('review codex gpt-5.6 xhigh')
+    expect(policy).toContain('xhigh')
+  })
+
   test('Step 1 detection reads the org issue fields and drafts both knobs', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     expect(skill).toContain('gh api orgs/<org>/issue-types')
