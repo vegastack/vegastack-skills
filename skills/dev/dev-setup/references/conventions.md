@@ -62,9 +62,9 @@ Modifiers (may coexist with the state label): `risky` · scope `research` / `qui
 
 ## Titles, types, hierarchy
 
-- **Title prefixes** on issues, branches, and PRs identically: dev.md's `branch:` knob type list plus `research:` for research issues. PR title = issue title.
-- **Native issue types** where the org defines them: Feature (feat) · Bug (fix) · Task (docs/chore/refactor/research) · Epic for parents (label fallback otherwise).
-- **Hierarchy:** epic parent = map only (Destination · Decisions so far as one-line gists · Not clear yet · Out of scope), children attached as native sub-issues; issues = the unit of work (brief in description, own approvals/branch/PR/evidence); tasks = checkboxes **in the plan comment only**. Blockers use native dependencies; phases, milestones. Only issues — never epics — get `ready`.
+- **Title prefixes** on issues, branches, and PRs identically: dev.md's `branch:` type list plus `research:`. PR title = issue title.
+- **Native issue types and fields** where the org defines them: Feature (feat) · Bug (fix) · Task (docs/chore/refactor/research) · Epic for parents (else the label); intake sets Priority and Effort. Scope classes stay labels.
+- **Hierarchy:** epic parent = map only (Destination · Decisions so far · Not clear yet · Out of scope), children as native sub-issues; issues = the unit of work (brief, approvals, branch, PR, evidence); tasks = checkboxes **in the plan comment only**. Blockers use dependencies; phases milestones. Only issues, never epics, get `ready`.
 
 ## The ledger
 
