@@ -62,6 +62,9 @@ These operate on the vegafactory repository itself and do nothing useful in anot
 | `doctor` | Diagnose an install: integrity across all skills, dev profile (`.vegastack/dev.md`) presence, installed-vs-latest version |
 | `remove <selection>` | Uninstall skills from the selected agent directories |
 | `sync` | Refresh this machine's shallow control-room clone from the repo's `control-room:` knob |
+| `dispatch` | Turn labels and 🚀 reactions on the watched repos into headless runs in feature worktrees |
+| `service <install\|uninstall\|status>` | Install that dispatcher as a launchd LaunchAgent (macOS) or a systemd user unit (Linux) |
+| `status` | The board, the worktrees, the last tick, the runs in flight, and the dispatcher's own health |
 
 ### Selecting what to act on
 
@@ -98,6 +101,55 @@ Uninstall it again:
 ```sh
 npx @vegastack/vegafactory skills remove --group dev --global
 ```
+
+### The dispatcher
+
+`vegafactory dispatch` polls the repos this machine watches and starts headless runs in their feature worktrees: `needs-plan` → dev-plan, unassigned `ready` → dev-implement, and a 🚀 reaction from a listed operator on any comment of a `for-operator` issue → the corrections run. It runs as **you** — your `gh` token, your harness authentication, your machine — which is why installing it is the operator's own step and never an agent's.
+
+Which repos, how often, and how many at a time is machine-local, in `~/.vegastack/factory.json` (the same file the control-room clone state lives in; keys it does not recognise are left untouched):
+
+```json
+{
+  "repos": [{ "path": "~/code/app", "repo": "acme/app", "org": "acme" }],
+  "interval": 120,
+  "maxRuns": 1,
+  "subagents": { "spawnDepth": 1, "concurrent": 3 }
+}
+```
+
+Whether a repo may be dispatched at all is **not** machine-local — it is the repo's own `.vegastack/dev.md`:
+
+```
+dispatch: local             # off | local
+```
+
+Three refusals stand between a board and a dark build, and each one names itself in the output:
+
+- `dispatch: off`, no `dispatch:` line, or any other value — opting in is explicit, and the default is off.
+- The ship guard is not wired for the harness that would run: the guard script at `.vegastack/hooks/ship-guard.mjs` **and** the harness's hook config (`.claude/settings.json` or `.codex/hooks.json`) must both be there. Dark builds run under bypassed permissions; the guard is what bounds them.
+- Another run holds the repo's lock, the issue is assigned, or `maxRuns` is already committed.
+
+Read the plan before anything ever runs — this is the default, and both `--once` and `--watch` are opt-ins:
+
+```sh
+vegafactory dispatch --once --dry-run --json    # exactly what would launch, and launch nothing
+vegafactory dispatch --once                     # one tick, for real
+vegafactory dispatch --watch                    # the loop the service runs
+vegafactory status --json                       # what happened
+```
+
+Every run's stdout and stderr land in `~/.vegastack/factory/logs/<org>/<repo>/<issue>-<timestamp>.jsonl`. A run that fails or times out posts a hand-back comment carrying the last 40 log lines with token shapes redacted, moves the issue to `needs-operator` assigned to its operator, and leaves the worktree exactly as the run left it.
+
+### Running it as a service
+
+```sh
+vegafactory service install                     # dry run: prints the unit file and the commands
+vegafactory service install --write             # writes it and loads it
+vegafactory service status
+vegafactory service uninstall --write
+```
+
+macOS gets `~/Library/LaunchAgents/com.vegastack.factory.plist` with `RunAtLoad` and `KeepAlive`, bootstrapped into your GUI domain; Linux gets `~/.config/systemd/user/vegafactory.service` with `Restart=always`, `loginctl enable-linger` first so it survives logout. Both are user-level: nothing here needs or asks for root.
 
 ## Upgrading and health checks
 
