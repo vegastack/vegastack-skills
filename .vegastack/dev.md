@@ -29,7 +29,8 @@ decisions: .vegastack/decisions.md
 release: on-request         # only when the operator says "release" — covers everything merged since the last one (switched from per-merge for the v3 epic, operator 28-08-2026)
 chronicle: on               # story entry per behavior-changing branch in .vegastack/chronicle.md
 architect: kmanojkumar      # the architecture owner dev-architect speaks to — gh api user -q .login at setup, one edit to change
-control-room: vegastack/vegafactory-control-room#dev   # this repo's org control room and group; seeded 03-09-2026 (#112), read over `gh api …/contents/` until the local clone and drift line land in #120
+control-room: vegastack/vegafactory-control-room#dev@0000000   # org control room · group · the clone sha this profile was drafted from; the sha is recorded on the first real sync, once the control room exists (#112)
+sync-max-age: 30m           # how stale the local control-room clone may be before a session refreshes it — <n>m or <n>h
 operators: kmanojkumar      # csv of the humans who own issues here; every state flip assigns per conventions' Labels table
 chronicle-style: plain      # plain | story | witty — the voice of chronicle entries (dev-chronicle's references/styles.md)
 emoji: none                 # none | sparing

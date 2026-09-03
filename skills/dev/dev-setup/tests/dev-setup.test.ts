@@ -216,9 +216,21 @@ describe('dev-setup contract', () => {
     expect(ledger).toContain("the operator's words near-verbatim, the agent's reasoning condensed")
   })
 
-  test('the profile template carries the control-room knob for the layering rule', () => {
+  test('the profile template records the clone sha the profile was drafted from', () => {
     const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
-    expect(template).toMatch(/^control-room: \{\{org\}\}\/vegafactory-control-room#\{\{group\}\}\s+#/m)
+    expect(template).toMatch(/^control-room: \{\{org\}\}\/vegafactory-control-room#\{\{group\}\}@\{\{sha7\}\}\s+#/m)
+    expect(template).toMatch(/^sync-max-age: 30m\s+#/m)
+  })
+
+  test('dev-setup refreshes the clone before it reads the control room', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('vegafactory sync --json')
+    expect(skill).toContain('never the network')
+  })
+
+  test("this repo's own profile carries a parseable control-room knob", () => {
+    const devMd = readFileSync(resolve(skillRoot, '../../../.vegastack/dev.md'), 'utf8')
+    expect(devMd).toMatch(/^control-room: vegastack\/vegafactory-control-room#dev@[0-9a-f]{7}\s+#/m)
   })
 
   test('dev-setup detects org defaults before it asks for knobs', () => {
