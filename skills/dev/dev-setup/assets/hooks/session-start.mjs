@@ -6,7 +6,7 @@
 // at most five plain lines. It never blocks and never fails a session: every error path
 // prints nothing and exits 0.
 
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawn } from 'node:child_process'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -30,11 +30,49 @@ export function sessionMarkerPath(sessionId, tmp) {
   return join(tmp, `vsk-session-${sessionId}`)
 }
 
-// The control-room clone is refreshed on a timer, not on every session: an absent clone is
-// never fetched here, because a first clone is the operator's decision.
-export function shouldSync(cloneDir, now, maxAgeMinutes) {
-  if (!existsSync(cloneDir)) return false
-  return now - statSync(cloneDir).mtimeMs > maxAgeMinutes * 60_000
+// The hook carries its own copies of the control-room knob grammar and the machine state read:
+// hooks are installed standalone into consumer projects and cannot import the CLI or a sibling
+// skill. Every helper is total — a session never fails over its opening context.
+
+// The machine-local state document, `<home>/.vegastack/factory.json`, is the one place that knows
+// where an org's clone lives and when it was last successfully fetched.
+export function readSyncState(configText, org) {
+  if (typeof configText !== 'string') return null
+  let parsed
+  try {
+    parsed = JSON.parse(configText)
+  } catch {
+    return null
+  }
+  const entry = parsed && parsed.controlRooms && parsed.controlRooms[org]
+  if (!entry || typeof entry !== 'object') return null
+  return {
+    lastSyncedAt: typeof entry.lastSyncedAt === 'string' ? entry.lastSyncedAt : null,
+    path: typeof entry.path === 'string' ? entry.path : null,
+  }
+}
+
+export function syncTarget(devMdText, home, configText = null) {
+  const match = /^control-room:\s*([^\s#]+)(#[^\s]*)?/m.exec(String(devMdText ?? ''))
+  if (!match) return null
+  const repo = match[1]
+  if (repo === 'none' || !repo.includes('/')) return null
+  const org = repo.split('/')[0]
+  const age = /^sync-max-age:\s*(\d+)\s*([mh])/m.exec(String(devMdText ?? ''))
+  const value = age ? Number(age[1]) : 0
+  const maxAgeMinutes = age && Number.isFinite(value) && value > 0 ? (age[2] === 'h' ? value * 60 : value) : 30
+  const state = readSyncState(configText, org)
+  return { org, path: (state && state.path) || join(home, '.vegastack/control-room', org), maxAgeMinutes }
+}
+
+// Freshness is measured from the last successful fetch, never from the clone directory's mtime:
+// a fetch that finds nothing new leaves mtime untouched, so an unchanged control room would look
+// permanently stale and re-fetch on every session.
+export function shouldSync({ lastSyncedAt, now, maxAgeMinutes }) {
+  if (typeof lastSyncedAt !== 'string') return true
+  const at = Date.parse(lastSyncedAt)
+  if (!Number.isFinite(at)) return true
+  return now - at >= maxAgeMinutes * 60_000
 }
 
 function item(issue) {
@@ -101,13 +139,26 @@ function flag(argv, name) {
   return argv[index + 1]
 }
 
-function maybeSync() {
-  const clone = join(homedir(), '.vegastack/control-room')
-  if (!shouldSync(clone, Date.now(), 30)) return
+function readIfPresent(path) {
   try {
-    spawn('vegafactory', ['sync'], { detached: true, stdio: 'ignore' }).unref()
+    return existsSync(path) ? readFileSync(path, 'utf8') : null
   } catch {
-    // no vegafactory on PATH: the clone stays as it is
+    return null
+  }
+}
+
+function maybeSync() {
+  try {
+    const devMdText = readIfPresent(join(process.cwd(), '.vegastack/dev.md'))
+    if (devMdText === null) return
+    const configText = readIfPresent(join(homedir(), '.vegastack/factory.json'))
+    const target = syncTarget(devMdText, homedir(), configText)
+    if (!target) return
+    const state = readSyncState(configText, target.org)
+    if (!shouldSync({ lastSyncedAt: state && state.lastSyncedAt, now: Date.now(), maxAgeMinutes: target.maxAgeMinutes })) return
+    spawn('vegafactory', ['sync', '--json'], { detached: true, stdio: 'ignore' }).unref()
+  } catch {
+    // no vegafactory on PATH, or nothing readable: the clone stays as it is
   }
 }
 

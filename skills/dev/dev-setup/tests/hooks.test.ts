@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { classifyCommand, extractCommand, readPolicy, renderDecision, splitSegments } from '../assets/hooks/ship-guard.mjs'
-import { renderContext, sessionMarkerPath, shouldSync, worktreeClaim } from '../assets/hooks/session-start.mjs'
+import { readSyncState, renderContext, sessionMarkerPath, shouldSync, syncTarget, worktreeClaim } from '../assets/hooks/session-start.mjs'
 import { HEARTBEAT_REASON, shouldNudge } from '../assets/hooks/stop-heartbeat.mjs'
 import { NUDGE_REASON, isDirectional } from '../assets/hooks/decision-nudge.mjs'
 
@@ -190,14 +190,31 @@ describe('session-start context', () => {
     expect(path).toBe('/tmp/vsk-session-abc-123')
   })
 
-  test('the control-room sync fires only for an existing clone past the max age', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'vsk-cr-'))
-    mkdirSync(join(dir, 'org'))
-    const now = Date.now()
-    utimesSync(join(dir, 'org'), new Date(now - 45 * 60_000), new Date(now - 45 * 60_000))
-    expect(shouldSync(join(dir, 'org'), now, 30)).toBe(true)
-    expect(shouldSync(join(dir, 'org'), now, 60)).toBe(false)
-    expect(shouldSync(join(dir, 'missing'), now, 30)).toBe(false)
+  test('the sync target comes from the profile knobs, and no knob means no sync', () => {
+    const devMd = 'control-room: vegastack/vegafactory-control-room#dev@a1b2c3d\nsync-max-age: 45m\n'
+    expect(syncTarget(devMd, '/home/mk')).toEqual({ org: 'vegastack', path: '/home/mk/.vegastack/control-room/vegastack', maxAgeMinutes: 45 })
+    expect(syncTarget('## Knobs\nreview: subagent\n', '/home/mk')).toBe(null)
+    expect(syncTarget('control-room: none\n', '/home/mk')).toBe(null)
+  })
+
+  test('freshness is measured from the last successful fetch, not from a directory mtime', () => {
+    const now = Date.parse('2026-09-03T12:00:00Z')
+    expect(shouldSync({ lastSyncedAt: '2026-09-03T11:00:00Z', now, maxAgeMinutes: 30 })).toBe(true)
+    expect(shouldSync({ lastSyncedAt: '2026-09-03T11:45:00Z', now, maxAgeMinutes: 30 })).toBe(false)
+    expect(shouldSync({ lastSyncedAt: null, now, maxAgeMinutes: 30 })).toBe(true)
+  })
+
+  test('the state file supplies the org path and its last fetch; a broken one is ignored', () => {
+    const text = JSON.stringify({ schemaVersion: 1, controlRooms: { vegastack: { path: '/elsewhere/cr', lastSyncedAt: '2026-09-03T11:00:00Z' } } })
+    expect(readSyncState(text, 'vegastack')).toEqual({ lastSyncedAt: '2026-09-03T11:00:00Z', path: '/elsewhere/cr' })
+    expect(readSyncState(text, 'acme')).toBe(null)
+    expect(readSyncState('{ not json', 'vegastack')).toBe(null)
+    expect(readSyncState(null, 'vegastack')).toBe(null)
+  })
+
+  test('a hook failure never blocks the session: every helper is total', () => {
+    expect(syncTarget('', '/home/mk')).toBe(null)
+    expect(shouldSync({ lastSyncedAt: 'not-a-date', now: Date.now(), maxAgeMinutes: 30 })).toBe(true)
   })
 })
 
