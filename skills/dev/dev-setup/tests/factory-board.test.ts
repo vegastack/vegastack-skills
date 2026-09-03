@@ -17,7 +17,7 @@ function runBlock(script: string, env: Record<string, string>, ghVersion = 'gh v
   const ghLog = join(dir, 'gh.log')
   writeFileSync(
     join(bin, 'gh'),
-    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "${ghVersion}"; exit 0; fi\nprintf '%s\\n' "$*" >> "${ghLog}"\nif [ -f "${dir}/failfirst" ] && ! grep -q item-add "${ghLog}"; then exit 1; fi\nexit 0\n`,
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "${ghVersion}"; exit 0; fi\nif [ -n "\${FAIL_FIRST:-}" ]; then : > "${dir}/failfirst"; fi\nprintf '%s\\n' "$*" >> "${ghLog}"\nif [ -f "${dir}/failfirst" ] && ! grep -q item-add "${ghLog}"; then exit 1; fi\nexit 0\n`,
   )
   chmodSync(join(bin, 'gh'), 0o755)
   const file = join(dir, 'block.sh')
@@ -102,5 +102,39 @@ describe('factory-board template — resolve step', () => {
     expect(r.code).toBe(0)
     expect(r.outputs).toContain('decision=skip')
     expect(r.stdout).toContain('ambiguous, skipped')
+  })
+})
+
+describe('factory-board template — token and mirror steps', () => {
+  test('both mutation steps are gated on the resolve decision', () => {
+    expect(step('token').if).toBe("steps.resolve.outputs.decision == 'sync'")
+    expect(step('mirror').if).toBe("steps.resolve.outputs.decision == 'sync'")
+    expect(step('token').uses).toBe('actions/create-github-app-token@v2')
+    expect(step('token').with['private-key']).toBe('${{ secrets.VEGAFACTORY_APP_PRIVATE_KEY }}')
+  })
+
+  test('the mirror step uses the gh 2.97 name-based field form', () => {
+    expect(step('mirror').run).toContain('gh project item-edit "$BOARD" --owner "$OWNER" --url "$ISSUE_URL" --field Status --value "$STATUS"')
+  })
+
+  test('one mutation when the item is already on the board', () => {
+    const r = runBlock(step('mirror').run as string, { BOARD: '7', OWNER: 'vegastack', STATUS: 'ready', ISSUE_URL: 'https://github.com/vegastack/vegafactory/issues/1' })
+    expect(r.code).toBe(0)
+    expect(r.ghLog.trim().split('\n')).toHaveLength(1)
+    expect(r.ghLog).toContain('--field Status --value ready')
+  })
+
+  test('an item missing from the board is added, then edited once', () => {
+    const r = runBlock(step('mirror').run as string, {
+      BOARD: '7',
+      OWNER: 'vegastack',
+      STATUS: 'ready',
+      ISSUE_URL: 'https://github.com/vegastack/vegafactory/issues/1',
+      FAIL_FIRST: '1',
+    })
+    expect(r.code).toBe(0)
+    const calls = r.ghLog.trim().split('\n')
+    expect(calls).toHaveLength(3)
+    expect(calls[1]).toContain('item-add')
   })
 })
