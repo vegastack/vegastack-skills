@@ -505,7 +505,10 @@ const SECRET_PATTERNS: RegExp[] = [
   /\bgho_[A-Za-z0-9]{16,}/g,
   /\bsk-[A-Za-z0-9_-]{16,}/g,
   /\bnpm_[A-Za-z0-9]{16,}/g,
-  /(Authorization:\s*\S+\s*)\S+/gi,
+  // The header label and an optional scheme are kept; whatever one token follows them, on the same
+  // line, is the credential. Quotes end the token, so a JSON-shaped or curl-quoted header loses only
+  // its value, and the pattern never reaches across a line break to the next header.
+  /(Authorization["']?:[ \t]*["']?(?:(?:Bearer|Basic|Token|Digest)[ \t]+)?)[^\s"']+/gi,
   /((?:AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|GITHUB_TOKEN|GH_TOKEN|ANTHROPIC_API_KEY|OPENAI_API_KEY)\s*[=:]\s*)\S+/g,
 ]
 

@@ -263,6 +263,19 @@ describe('redact', () => {
     expect(clean).toContain('[redacted]')
   })
 
+  test('a schemeless Authorization value is redacted wherever it sits, and the text around it survives', () => {
+    // Next line follows: the credential, not the next header, is what goes.
+    expect(redact('Authorization: abcdef123456\nX-Api-Key: secret')).toBe('Authorization: [redacted]\nX-Api-Key: secret')
+    // Last line of the tail: no token behind it to lean on.
+    expect(redact('Authorization: 8f3c1d0a9b4e7f2c6d5a')).toBe('Authorization: [redacted]')
+    // Mid-line, quoted: the URL after it stays.
+    expect(redact('curl -H "Authorization: 8f3c1d0a9b4e7f2c6d5a" https://api.example.com/v1/x')).toBe('curl -H "Authorization: [redacted]" https://api.example.com/v1/x')
+    // A scheme is kept, the credential behind it is not.
+    expect(redact('Authorization: Bearer xyz.123 then more')).toBe('Authorization: Bearer [redacted] then more')
+    // A JSON-shaped header.
+    expect(redact('{"Authorization": "Basic dXNlcjpwYXNz"}')).toBe('{"Authorization": "Basic [redacted]"}')
+  })
+
   test('covers the other token shapes a run can print', () => {
     const clean = redact('github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz sk-abcdefghijklmnopqrst npm_abcdefghijklmnopqrstuvwxyz012345 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY')
     for (const secret of ['github_pat_11ABCDEFG', 'sk-abcdefghijklmnopqrst', 'npm_abcdefghijklmnopqrstuvwxyz012345', 'wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY']) {
