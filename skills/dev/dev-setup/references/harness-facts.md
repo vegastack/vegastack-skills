@@ -43,7 +43,7 @@ Verified 03-09-2026: Claude Code's effort levels are low, medium, high, xhigh an
 
 ### The `codex exec` skill-loading drill
 
-Whether a headless Codex run discovers project skills on its own decides one thing downstream: if it does not, every dispatched Codex run has to name the SKILL.md path in its prompt. The drill answers it in one command, from a scratch directory so the repo's un-ignored `.agents/` is never written to:
+Whether a headless Codex run discovers project skills on its own decides one thing downstream: if it does not, every dispatched Codex run has to name the SKILL.md path in its prompt. The drill answers it in one command. **The operator runs it by hand.** It starts a real Codex session, so it spends the operator's own Codex quota on the operator's own account — no skill, hook or dispatcher may run it unasked, and dev-setup only ever prints it for the operator to copy. Run it from a scratch directory so the repo's un-ignored `.agents/` is never written to:
 
 ```sh
 codex login status                      # must print "Logged in"; a revoked session still prints it — the run below is the real check
