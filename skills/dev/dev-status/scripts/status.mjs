@@ -5,7 +5,8 @@
 // Usage: node status.mjs [--repo o/r] [--orphan-hours 6] [--dev-md <path>] [--viewer <login>] [--me | --all] --json
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_LABELS = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-operator', 'risky', 'research', 'quick-build', 'full-plan', 'epic'];
@@ -142,7 +143,87 @@ export function checksState(rollup) {
   return rollup.every(ok) ? 'green' : 'pending-or-red';
 }
 
-export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/dev.md', chroniclePath = '.vegastack/chronicle.md', me, view = 'me', now = Date.now() } = {}) {
+
+// --- control-room drift ---------------------------------------------------------------
+// This script ships standalone into consumer projects, so it carries its own copies of the
+// knob grammar rather than importing packages/cli. Every function here is total: a control
+// room nobody has synced is a reported fact, never an error, and never an edit to dev.md.
+
+export function knobMap(text) {
+  const map = {};
+  for (const line of String(text ?? '').split('\n')) {
+    const m = /^([a-z][a-z0-9-]*):\s*(.+)$/.exec(line);
+    if (!m) continue;
+    map[m[1]] = m[2].split(/\s+#/)[0].trim();
+  }
+  return map;
+}
+
+export function controlRoomKnob(devMdText) {
+  const value = knobMap(devMdText)['control-room'];
+  if (!value || value === 'none') return null;
+  const [repoPart, tail = ''] = value.split('#');
+  if (!repoPart || !repoPart.includes('/')) return null;
+  const [groupPart, shaPart] = tail.split('@');
+  return { org: repoPart.split('/')[0], repo: repoPart, group: groupPart || null, sha: shaPart || null };
+}
+
+// Drift is only ever a proposal: a hand edit in dev.md outranks the org and group defaults, so
+// a knob both sides name with different values is shown with both values and the operator decides.
+export function controlRoomDrift({ devMdText, orgText, groupText, cloneSha }) {
+  const knob = controlRoomKnob(devMdText);
+  if (!knob) return null;
+  const repoKnobs = knobMap(devMdText);
+  const orgKnobs = knobMap(orgText);
+  const groupKnobs = knobMap(groupText);
+  const merged = { ...orgKnobs, ...groupKnobs };
+  const knobs = Object.keys(merged)
+    .filter((name) => name in repoKnobs && repoKnobs[name] !== merged[name])
+    .sort()
+    .map((name) => ({ knob: name, repo: repoKnobs[name], controlRoom: merged[name], source: name in groupKnobs ? 'group' : 'org' }));
+  return {
+    recordedSha: knob.sha,
+    cloneSha: cloneSha ?? null,
+    behind: Boolean(knob.sha && cloneSha && knob.sha !== cloneSha),
+    knobs,
+  };
+}
+
+function controlRoomState(devMdText, home) {
+  const knob = controlRoomKnob(devMdText);
+  if (!knob) return null;
+  let path = join(home, '.vegastack/control-room', knob.org);
+  let lastSyncedAt = null;
+  try {
+    const state = JSON.parse(readFileSync(join(home, '.vegastack/factory.json'), 'utf8'));
+    const entry = state?.controlRooms?.[knob.org];
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.path === 'string') path = entry.path;
+      if (typeof entry.lastSyncedAt === 'string') lastSyncedAt = entry.lastSyncedAt;
+    }
+  } catch {
+    // no state file, or one this machine cannot read: the default path still answers
+  }
+  if (!existsSync(path)) {
+    return { available: false, reason: `no local control-room clone at ${path} — run \`vegafactory sync\``, recordedSha: knob.sha, lastSyncedAt };
+  }
+  const read = (relative) => { try { return readFileSync(join(path, relative), 'utf8'); } catch { return ''; } };
+  let cloneSha = null;
+  try {
+    cloneSha = execFileSync('git', ['-C', path, 'rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    // a clone without a readable head still answers on its files
+  }
+  const drift = controlRoomDrift({
+    devMdText,
+    orgText: read('org.md'),
+    groupText: knob.group ? read(join('groups', knob.group, 'group.md')) : '',
+    cloneSha,
+  });
+  return { available: true, path, lastSyncedAt, recordedSha: drift.recordedSha, cloneSha: drift.cloneSha, behind: drift.behind, knobs: drift.knobs };
+}
+
+export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/dev.md', chroniclePath = '.vegastack/chronicle.md', me, view = 'me', now = Date.now(), home = homedir() } = {}) {
   const resolvedRepo = repo || gh(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
   // One caller lookup for the whole run; a gh failure propagates to the CLI's exit 2.
   const viewer = me || gh(['api', 'user']).login;
@@ -201,7 +282,7 @@ export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/de
   const needsYou = human.filter((i) => view === 'all' || i.assignees.includes(viewer));
   const unowned = human.filter((i) => i.assignees.length === 0);
 
-  return { repo: resolvedRepo, orphanHours, viewer, view, operators: knobs.operators, board, needsYou, unowned, prs, pendingDecisions: decisions, lastChronicle };
+  return { repo: resolvedRepo, orphanHours, viewer, view, operators: knobs.operators, board, needsYou, unowned, prs, pendingDecisions: decisions, lastChronicle, controlRoom: controlRoomState(devMdText, home) };
 }
 
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

@@ -33,6 +33,7 @@ Ready to build (N): - <linked title> — <scope>
 In flight (N): - <linked title> — working, task <x>/<y>, ledger moved <n>h ago
 Possibly orphaned (N): - <linked title> — working <age>d, ledger silent <n>h → heartbeat stopped; check, resume, or reclaim (`reclaim.mjs --issue <n>`)
 Open PRs (N): - <linked title> — checks <green|pending-or-red|no-checks>
+Control room: <n> knob(s) moved since this profile was drafted (<sha7> → <sha7>): <knob> <repo value> → <control-room value> — propose the edit, never make it
 Pending decisions (N): "<gist-plain>" (<linked issue>) — records at that issue's merge
 Last chronicle chapter: <date> — <title-plain>
 Next: <the single most valuable operator action, and why>
@@ -45,6 +46,7 @@ Next: <the single most valuable operator action, and why>
 - **Next** is one line, chosen not computed-looking: the action that unblocks the most (a plan approval blocking several ready issues beats a lone review).
 - **Possibly orphaned** is the ledger heartbeat gone silent past the orphan window (or not yet started) — likely a dead session, not certainly one. Surface it with the `reclaim.mjs` command inline; the operator decides (check the session, hand it to a resume, or release the claim). A long-running task that keeps checkpointing stays out of this section, because its heartbeat is alive.
 - <linked title> means a markdown link this report builds around the issue/PR title and its URL; numbers ride inside the link, because a bare number means nothing in a terminal. That governs the references the board itself makes.
+- **Control room** is a proposal, never an edit: dev.md hand edits outrank the org and group defaults, so a differing knob is shown with both values and the operator decides; no clone yet, or a sync that failed, is reported as "control room not synced — run `vegafactory sync`" rather than as agreement
 - `<title-plain>` / `<gist-plain>` are the script's `titlePlain` / `gistPlain` fields — text quoted from elsewhere (a chronicle title, a decision gist) may arrive carrying markdown links, and raw bracket-and-parenthesis markup means nothing in a terminal, so it is quoted with the markup removed rather than relinked.
 
 The board is one screen: one line per issue, one Next line.
