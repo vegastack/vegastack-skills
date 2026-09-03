@@ -36,6 +36,110 @@ Exactly this set, and no others.
 
 Workflows stays at No access and no webhook is configured, so nothing about this App can change a workflow file or receive an event. `Contents: read` is deliberately not `No access`: `actions/checkout` with an App token needs to read the repository, and read cannot write.
 
+## Hosted token broker
+
+VegaStack runs a hosted broker so an organisation can use the factory **without holding any private
+key**: install the public App, and your Actions jobs exchange their own OIDC token for a
+one-repository token. Written here for an org that is not `vegastack`.
+
+| Fact | Value |
+|---|---|
+| Endpoint | `POST https://factory-token.vegastack.com/token` |
+| Preview endpoint | `POST https://factory-token.vegastack.dev/token` |
+| Audience | `vegastack-factory` |
+| Auth | `Authorization: Bearer <the job's OIDC token>` |
+| Health probe | `GET https://factory-token.vegastack.com/health` → `{"status":"ok"}`, unauthenticated |
+| Token lifetime | GitHub's fixed 1 hour; the broker reports `expires_at`, it does not set it |
+
+Request: no body. The broker reads nothing the caller sends — see the tenancy statement below.
+
+Response `200`:
+
+```json
+{
+  "token": "ghs_…",
+  "expires_at": "2026-09-03T12:00:00Z",
+  "repository": "acme/widgets",
+  "permissions": { "issues": "write", "metadata": "read", "organization_projects": "write" }
+}
+```
+
+### Status codes
+
+| Code | Meaning | What to do |
+|---|---|---|
+| 200 | Minted | Use the token; it expires in an hour |
+| 401 | The OIDC token did not verify — the body's `reason` is one of `malformed` `alg` `kid` `signature` `issuer` `audience` `expired` `not_yet_valid` `claims` | Check the job has `permissions: id-token: write` and requests the audience `vegastack-factory` |
+| 403 | The App is not installed on that repository | Install it, or accept the refusal — this is the kill switch working |
+| 404 / 405 | No such route, or the wrong method | Only `POST /token` and `GET /health` answer |
+| 429 | Rate limited for that repository | Retry after the `Retry-After` seconds |
+| 502 | GitHub was unreachable or answered unusably | Retry; nothing was minted |
+| 503 | The rate limiter was unavailable | Retry; the broker fails closed rather than granting |
+| 500 | The broker refused its own result — a widened permission echo, or an unusable App key | Report it; the token, if any, was discarded |
+
+### The permission cap
+
+Every token carries exactly `issues: write`, `metadata: read`, `organization_projects: write`, on
+exactly one repository. The cap is enforced twice: the mint asks for precisely that set, and the
+response's own `permissions` echo is compared to the same constant before the token is returned. A
+widening on GitHub's side becomes a 500 and a discarded token, never a broader token in your
+workflow. There is no `contents: write` and no way to ask for one.
+
+### Tenancy
+
+The repository a caller receives a token for comes from the **verified** `repository` and
+`repository_owner` claims in its own OIDC token, and from nothing in the request. There is no
+repository parameter. One organisation cannot mint a token for another's repository, and the
+installation lookup refuses any repository the App is not installed on.
+
+### What is stored
+
+Nothing of yours. The broker declares **no storage binding at all** — no KV, no D1, no R2, no
+Durable Object. GitHub's public signing keys sit in an in-isolate memo and the Cloudflare edge
+cache for an hour. Each request emits one audit record holding the repository, owner, installation
+id, decision and status — never a token, never code, never repository content. `GET /health` writes
+no record at all.
+
+### The rate limit
+
+An abuse brake, not a quota you can budget against: Cloudflare's rate-limit binding counts per
+Cloudflare location rather than globally, and its period is 10 or 60 seconds. It is sized in
+requests per minute per repository, so a legitimate burst degrades to a 429 and a retry. It is never
+an authorization decision — the OIDC claims and the installation lookup are.
+
+### Rotating the private key
+
+VegaStack operates this; the order matters, so no window exists with zero valid keys.
+
+1. Generate a new private key in the App's settings.
+2. `openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in app.pem -out app.pkcs8.pem` — the
+   Worker accepts PKCS#8 only and refuses a PKCS#1 PEM with this same command in the error.
+3. `wrangler secrets-store secret update <STORE-ID> --secret-id <SECRET-ID> --remote` with the new value.
+4. Redeploy the Worker.
+5. Only then delete the old key in the App's settings.
+
+### Kill switch
+
+Uninstall the App. The next request for any of your repositories fails at the installation lookup
+with 403, and every token already minted for you is invalidated by GitHub. No broker change, no
+deploy, no ticket.
+
+### Support boundary
+
+VegaStack operates the Worker, the App, and the key. You operate your installation and your
+workflows. The broker is offered **as is, with no uptime commitment**; its dependency chain is
+GitHub's OIDC JWKS endpoint and `api.github.com`, and it fails closed with a plain reason when
+either is unavailable. An organisation that wants its own availability guarantee registers its own
+App and uses `actions/create-github-app-token` directly, as the sections above describe. Issues go
+to `vegastack/vegafactory`.
+
+### Abuse surface
+
+Anyone who can run Actions in a repository where the App is installed can obtain an
+issues-and-projects token for **that one repository**. That is the same boundary as an organisation
+running its own App, and it is why the cap excludes `contents: write`: the worst a compromised
+workflow gets is what its own repository's issues and projects allow.
+
 ## Creating the App
 
 The operator's own browser flow. `gh` has no create-app command and the manifest flow needs a browser redirect, so no agent does this step.
