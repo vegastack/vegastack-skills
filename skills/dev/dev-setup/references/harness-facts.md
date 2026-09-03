@@ -27,6 +27,20 @@ Verified mechanics of the three harnesses this workflow targets — Claude Code,
 - Hermes hooks: a shell `pre_tool_call` hook can block a tool call or fail closed; plugin hooks register `pre_tool_call`, `post_tool_call`, `pre_llm_call` and `post_llm_call` through `ctx.register_hook`, bounded by `plugins.hook_callback_timeout` (default 30s). There is no Stop-style turn hook, so the decision-capture recipe below has no Hermes wiring. <!-- source: HERMES-HOOKS -->
 - Hermes tools: the structured question tool is `clarify`; `delegate_task` spawns subagents; both are ordinary toolset entries (`clarify`, `delegation`), so a headless Hermes run with the toolset off degrades exactly like a Claude Code `-p` run. Skills load from `~/.hermes/skills/` only — no project-level discovery. <!-- source: HERMES-TOOLS -->
 
+## Model, effort, and concurrency controls
+
+Which model and which reasoning effort a stage runs at is dev.md's `harness-policy:` knob; these are the flags each value turns into.
+
+| Harness | Model control | Effort control | Concurrency cap |
+|---|---|---|---|
+| Claude Code | `--model` takes an alias or a full model name — aliases `fable`, `sonnet`, `opus`, `haiku` (plus `best`, `default`, `opusplan`, `sonnet[1m]`, `opus[1m]`), full names look like `claude-sonnet-5`; overrides the `model` setting and `ANTHROPIC_MODEL` <!-- source: CC-CLI --> | `--effort` sets the level for the session; overrides the `modelSettings` and `effortLevel` settings and does not persist <!-- source: CC-CLI --> | `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` (nesting depth below the main conversation, default 3; `1` turns nesting off) and `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` (simultaneous subagents, default 20) — both env vars, settable under settings.json's `env` <!-- source: CC-SUBAGENT-ENV --> |
+| Codex | `codex exec -m <model>`, or `-c model=<id>` as a config override <!-- source: CODEX-CONFIG --> | `-c model_reasoning_effort=<level>` — the config key the docs demonstrate as `"high"` and do not enumerate, so read the level names off the model's own documentation before promising one <!-- source: CODEX-CONFIG --> | `agents.max_concurrent_threads_per_session` in config.toml caps concurrently open spawned-agent threads, excluding the primary; unset means Codex picks the default <!-- source: CODEX-AGENTS-MULTI --> <!-- source: CODEX-CONFIG --> |
+| Hermes | none documented | none documented | `plugins.hook_callback_timeout` bounds hooks, not agents <!-- source: HERMES-HOOKS --> |
+
+Hermes has no documented model or effort flag, so a `harness-policy:` entry never names it as the agent — a policy value that cannot be passed as a flag is a promise the dispatcher cannot keep.
+
+Verified 03-09-2026: Claude Code's effort levels are low, medium, high, xhigh and max on Fable 5.1, Fable 5, Opus 5 and Sonnet 5 (high is the default on every model except Opus 4.7, whose default is xhigh), and `ultracode` is a Claude Code setting on top that starts the session at xhigh with dynamic workflows on and needs v2.1.203 or later; `claude --version` here reads 2.1.247 and its `--help` lists the first five. Model ids move, which is why dev.md's `harness-policy:` knob holds them and this file only dates them. <!-- source: CC-CLI -->
+
 ## GitHub CLI
 
 - Floor **2.94.0**: `gh issue create` and `gh issue edit` take `--type`, `--parent` / `--add-sub-issue`, and `--blocked-by` (edit forms `--add-…`/`--remove-…`) — native issue types, sub-issues and dependencies without the API (GitHub.com; GHES 3.17+ for types and sub-issues, 3.19+ for relationships). <!-- source: GH-CLI -->

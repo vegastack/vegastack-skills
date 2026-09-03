@@ -49,7 +49,7 @@ describe('dev-setup contract', () => {
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
-  const REGISTRY_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'CODEX-CONFIG', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
+  const REGISTRY_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CC-CLI', 'CC-SUBAGENT-ENV', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'CODEX-CONFIG', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
   const harnessFacts = readFileSync(join(skillRoot, 'references/harness-facts.md'), 'utf8')
 
   test('refresh registry carries exactly the harness-facts sources, each manual-review on a 14-day clock', () => {
@@ -85,6 +85,21 @@ describe('dev-setup contract', () => {
     const knobs = template.split('## Knobs')[1].split('\n## ')[0]
     expect(knobs).toMatch(/^issue-types: \{\{.*\| none\}\}\s+#/m)
     expect(knobs).toMatch(/^issue-fields: \{\{.*\| none\}\}\s+#/m)
+  })
+
+  test('the flag table names every model, effort and concurrency control under its own source', () => {
+    const section = harnessFacts.split('## Model, effort, and concurrency controls')[1].split('\n## ')[0]
+    for (const control of ['`--model`', '`--effort`', '`effortLevel`', '`-c model=', '`-c model_reasoning_effort=', '`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`', '`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`', '`agents.max_concurrent_threads_per_session`']) {
+      expect(section, `missing control ${control}`).toContain(control)
+    }
+    for (const id of ['CC-CLI', 'CC-SUBAGENT-ENV', 'CODEX-CONFIG']) expect(section).toContain(`<!-- source: ${id} -->`)
+  })
+
+  test('the dated model-currency sentence carries the effort vocabulary and a source', () => {
+    const section = harnessFacts.split('## Model, effort, and concurrency controls')[1].split('\n## ')[0]
+    const dated = section.split('\n').find((line) => /\b\d{2}-\d{2}-\d{4}\b/.test(line) && line.includes('<!-- source: CC-CLI -->'))
+    expect(dated).toBeDefined()
+    for (const level of ['low', 'medium', 'high', 'xhigh']) expect(dated).toContain(level)
   })
 
   test('Step 1 detection reads the org issue fields and drafts both knobs', () => {

@@ -25,7 +25,7 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [SKILL.md](SKILL.md) | Agent entry point: detect-first discipline, the interview rounds, write targets, re-run rules |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | [references/conventions.md](references/conventions.md) | The workflow artifact spec — authored here, duplicated into every dev-family install |
-| [references/harness-facts.md](references/harness-facts.md) | Verified, refresh-tracked Claude Code, Codex and Hermes mechanics (AGENTS.md handling, skill discovery, question tools, hooks, subagents), the GitHub CLI floors, and the shared decision-capture Stop-hook recipe |
+| [references/harness-facts.md](references/harness-facts.md) | Verified, refresh-tracked Claude Code, Codex and Hermes mechanics (AGENTS.md handling, skill discovery, question tools, hooks, subagents), the GitHub CLI floors, the per-harness model/effort/concurrency controls, and the shared decision-capture Stop-hook recipe |
 | [references/stack-playbooks.md](references/stack-playbooks.md) | Per-stack detection → draft mapping (npm/changesets, Node app, Flutter, Python, Go, generic), the guard library, and the greenfield playbook |
 | [assets/dev-profile.md.template](assets/dev-profile.md.template) | The `.vegastack/dev.md` starting point |
 | [assets/agents-section.md.template](assets/agents-section.md.template) | The marked AGENTS.md block this skill owns |
