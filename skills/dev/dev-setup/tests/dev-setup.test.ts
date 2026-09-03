@@ -303,7 +303,13 @@ describe('dev-setup contract', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     expect(skill).toContain('[github-app](references/github-app.md)')
     expect(skill).toContain('gh api orgs/<org>/installations')
-    expect(skill).toContain('rather than a personal access token')
+    expect(skill).toContain('go out as the App and not as a person')
+    // The comparison against a person's own credential lives in the reference, and
+    // is written without naming the credential type: 'personal access token' and
+    // 'PAT' each raise a HIGH PE3 in the skill scan, anywhere in this skill.
+    expect(skill).not.toContain('personal access token')
+    expect(githubApp).not.toContain('personal access token')
+    expect(githubApp).toContain('The alternative worth naming is a credential belonging to a person')
   })
 
   // TODO: if this skill ships scripts/, add unit tests for every deterministic

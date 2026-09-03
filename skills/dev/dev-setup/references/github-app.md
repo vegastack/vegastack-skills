@@ -6,6 +6,8 @@ The one identity every automated write uses. Facts verified 03-09-2026 against t
 
 Humans own issues. A person approves a brief, a person says "ship it", and a person's name is on every state flip. The App is the identity for the writes no person is sitting behind: the board mirror that sets a project Status when a label changes, an Actions job that edits a label, and the hosted token broker that serves other organisations. It is **not** the dispatcher's identity — the dispatcher runs headless sessions as the operator's own `gh` login, and giving it the App's identity would hide which human a run belongs to.
 
+The alternative worth naming is a credential belonging to a person: it stands for their whole account, outlives the job that used it, and dies when they leave the org. The App stands for a named permission set instead, its tokens live an hour, and uninstalling it revokes every one of them at once.
+
 The App is public, so any account may install it. That is the point: one App, installed by any org that wants the factory, with a permission set each of them can read before consenting.
 
 | Fact | Value |
