@@ -21,7 +21,9 @@ describe('CI and release run on a reachable self-hosted runner', () => {
       // pointing at it before the operator's org-admin grant would strand every PR.
       expect(executable(name)).toMatch(/^ {4}runs-on: \[self-hosted, vsk-runners-mac\]$/m)
       expect(executable(name)).not.toMatch(/^\s*runs-on: ubuntu-latest$/m)
-      expect(executable(name)).not.toMatch(/^\s*group: /m)
+      // Scoped to a runner group, not the bare `group:` key: `concurrency:` takes
+      // one too, and a future concurrency block must not read as a runner target.
+      expect(executable(name)).not.toMatch(/^\s*group: vsk-runners-/m)
     })
 
     test(`${name} names the pending Mac mini group and its provisioning checklist`, () => {
