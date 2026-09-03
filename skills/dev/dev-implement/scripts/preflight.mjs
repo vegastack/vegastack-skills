@@ -45,8 +45,15 @@ export function evaluatePreflight({ issue, comments, devMd, me, expect = 'ready'
   const openBlockers = issue.blockedBy ?? [];
   if (openBlockers.length > 0) blocks.push(`open blockers: ${openBlockers.map((b) => `#${b.number}`).join(', ')}`);
 
-  const others = (issue.assignees ?? []).map((a) => a.login).filter((l) => l !== me);
+  // `ready` means unassigned (conventions' Labels table): an assignee here is a
+  // fact worth naming, not a stop — a human may have picked it up by hand, and a
+  // block would strand a claimable issue. A foreign assignee still blocks.
+  const assigned = (issue.assignees ?? []).map((a) => a.login);
+  const others = assigned.filter((l) => l !== me);
   if (others.length > 0) blocks.push(`already assigned to ${others.join(', ')} — a working issue belongs to its claimant`);
+  if (expect === 'ready' && assigned.length > 0) {
+    warns.push(`a ready issue is unassigned by convention; this one is assigned to ${assigned.join(', ')} — confirm nobody else is mid-claim before taking it`);
+  }
 
   const repoLine = /^repo:\s*(\S+)/m.exec(devMd ?? '');
   if (!repoLine) {

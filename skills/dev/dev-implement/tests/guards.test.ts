@@ -113,6 +113,24 @@ describe('preflight', () => {
     expect(r.blocks.some((b: string) => b.includes('#7'))).toBe(true)
     expect(r.blocks.some((b: string) => b.includes('someone-else'))).toBe(true)
   })
+  test('a ready issue carrying an assignee warns and names them; the foreign-assignee block still fires', () => {
+    const mine = baseIssue()
+    mine.assignees = [{ login: 'kmanojkumar' }]
+    const r = evaluatePreflight({ issue: mine, comments: [approval()], devMd, me: 'kmanojkumar' })
+    expect(r.blocks).toEqual([])
+    expect(r.warns.some((w: string) => w.includes('kmanojkumar'))).toBe(true)
+
+    const foreign = baseIssue()
+    foreign.assignees = [{ login: 'someone-else' }]
+    const f = evaluatePreflight({ issue: foreign, comments: [approval()], devMd, me: 'kmanojkumar' })
+    expect(f.blocks.some((b: string) => b.includes('someone-else'))).toBe(true)
+    expect(f.warns.some((w: string) => w.includes('someone-else'))).toBe(true)
+
+    const resume = baseIssue()
+    resume.labels = [{ name: 'working' }, { name: 'quick-build' }]
+    resume.assignees = [{ login: 'kmanojkumar' }]
+    expect(evaluatePreflight({ issue: resume, comments: [approval()], devMd, me: 'kmanojkumar', expect: 'working' }).warns).toEqual([])
+  })
   test('blocks a closed issue and a wrong state label; expect=working accepts a resume', () => {
     const closed = baseIssue(); closed.state = 'closed'
     expect(evaluatePreflight({ issue: closed, comments: [approval()], devMd, me: 'kmanojkumar' }).blocks.some((b: string) => b.includes('only open issues'))).toBe(true)
