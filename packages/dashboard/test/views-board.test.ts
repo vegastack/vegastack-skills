@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { acrossRepos } from '../src/lib/live/github'
 import { buildBoardView } from '../src/lib/views/board'
 import { buildDispatcherView } from '../src/lib/views/dispatcher'
 import { contextFixture } from './helpers/context'
@@ -36,4 +37,25 @@ test('a failed live source sets offline, names the reason, and keeps the page us
   const blind = buildDispatcherView({ context, now, status: { ok: false, reason: 'no vegafactory binary was passed to the dashboard' } })
   expect(blind).toMatchObject({ running: false, reasons: ['no vegafactory binary was passed to the dashboard'] })
   expect(blind.freshness.offline).toBe(true)
+})
+
+test('one repo failing keeps every other repo\'s rows and names every failure', async () => {
+  const read = async ({ repo }: { repo: string; token: string | null }) => (repo.endsWith('/private')
+    ? { ok: false as const, reason: `GitHub returned HTTP 404 for ${repo}` }
+    : { ok: true as const, data: [issue(Number(repo.length), 'ready')] })
+  const partial = await acrossRepos(['a/ok', 'b/private', 'c/ok', 'd/private'], null, read)
+  expect(partial.live.ok).toBe(true)
+  if (!partial.live.ok) throw new Error('unreachable')
+  expect(partial.live.data).toHaveLength(2)
+  expect(partial.reasons).toEqual(['GitHub returned HTTP 404 for b/private', 'GitHub returned HTTP 404 for d/private'])
+  const none = await acrossRepos(['b/private'], null, read)
+  expect(none.live).toEqual({ ok: false, reason: 'GitHub returned HTTP 404 for b/private' })
+  expect(none.reasons).toEqual(['GitHub returned HTTP 404 for b/private'])
+  expect(await acrossRepos([], null, read)).toEqual({ live: { ok: false, reason: 'no repos were passed to the dashboard' }, reasons: ['no repos were passed to the dashboard'] })
+
+  const context = await contextFixture({ month: 'SEP-2026' })
+  const view = buildBoardView({ context, now, issues: partial.live, pulls: { ok: true, data: [] }, status: live, warnings: partial.reasons })
+  expect(view.columns[2]!.issues).toHaveLength(2)
+  expect(view.freshness.offline).toBe(true)
+  expect(view.reasons).toEqual(partial.reasons)
 })

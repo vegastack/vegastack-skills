@@ -18,18 +18,22 @@ export interface BoardView {
 // Every live source contributes independently: GitHub down still leaves the worktree list the
 // local dispatcher reported, and the columns render empty rather than the page erroring. What a
 // reader must never get is an empty column that looks like a fact — hence the reasons list and
-// the offline flag, which the banner renders above the board.
-export function buildBoardView({ context, issues, pulls, status, now }: {
+// the offline flag, which the banner renders above the board. `warnings` are the per-repo
+// failures behind a live read that still answered for other repos: they set offline and reach
+// the banner without emptying the columns the healthy repos filled.
+export function buildBoardView({ context, issues, pulls, status, now, warnings = [] }: {
   context: PageContext
   issues: Live<LiveIssue[]>
   pulls: Live<LivePull[]>
   status: Live<StatusReport>
   now: number
+  warnings?: string[]
 }): BoardView {
   const reasons: string[] = []
   if (!issues.ok) reasons.push(issues.reason)
   if (!pulls.ok) reasons.push(pulls.reason)
   if (!status.ok) reasons.push(status.reason)
+  for (const warning of warnings) if (!reasons.includes(warning)) reasons.push(warning)
 
   const rows = issues.ok ? issues.data : []
   return {

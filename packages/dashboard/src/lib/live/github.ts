@@ -80,6 +80,25 @@ export async function fetchOpenIssues(input: LiveInput): Promise<Live<LiveIssue[
   return { ok: true, data: issues }
 }
 
+// The repos the CLI passed, read in parallel and flattened into one org-wide list. A repo that
+// fails contributes its reason and nothing else: the rows the other repos answered with stay, and
+// every failure — not only the first — reaches the banner. `Live` cannot say "some of it", so the
+// reasons travel beside it, and the live half is a failure only when no repo answered at all.
+export async function acrossRepos<T>(
+  repos: string[],
+  token: string | null,
+  read: (input: { repo: string; token: string | null }) => Promise<Live<T[]>>,
+): Promise<{ live: Live<T[]>; reasons: string[] }> {
+  if (repos.length === 0) {
+    const reason = 'no repos were passed to the dashboard'
+    return { live: { ok: false, reason }, reasons: [reason] }
+  }
+  const results = await Promise.all(repos.map((repo) => read({ repo, token })))
+  const reasons = results.flatMap((result) => (result.ok ? [] : [result.reason]))
+  if (reasons.length === results.length) return { live: { ok: false, reason: reasons.join('; ') }, reasons }
+  return { live: { ok: true, data: results.flatMap((result) => (result.ok ? result.data : [])) }, reasons }
+}
+
 export async function fetchOpenPulls(input: LiveInput): Promise<Live<LivePull[]>> {
   const result = await get(`/repos/${input.repo}/pulls?state=open&per_page=100`, input)
   if (!result.ok) return result
