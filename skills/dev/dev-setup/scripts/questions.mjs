@@ -162,6 +162,29 @@ export function parseAnswers(replyText, spec) {
   return { answers, missing, malformed }
 }
 
+// The next round: the questions a reply left open, each carrying the number it
+// had in the original round, so a re-ask re-uses `**Q3.**` rather than renumbering
+// and inviting an answer to a question nobody asked twice.
+export function openQuestions(spec, parsed) {
+  const questions = checkSpec(spec)
+  const numbers = questions.map((question, index) => numberOf(question, index))
+  const open = new Set(parsed.missing)
+  // A malformed entry names its question; reopen it unless an earlier line in the
+  // same reply already answered it (a repeat is malformed, but the first stands).
+  for (const problem of parsed.malformed) {
+    const named = /^question (\d+)\b/.exec(problem)
+    if (!named) continue
+    const n = Number(named[1])
+    if (!numbers.includes(n)) continue
+    if (Object.prototype.hasOwnProperty.call(parsed.answers, n)) continue
+    open.add(n)
+  }
+  const kept = questions
+    .map((question, index) => ({ ...question, n: numbers[index] }))
+    .filter((question) => open.has(question.n))
+  return { ...spec, questions: kept }
+}
+
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -170,6 +193,7 @@ const USAGE = [
   'usage:',
   '  questions.mjs render --spec <file.json> [--rev <n>] [--json]',
   '  questions.mjs parse  --comment <file> --spec <file.json> [--json]',
+  '  questions.mjs re-ask --spec <file.json> --comment <file> --rev <n> [--json]',
 ].join('\n')
 
 function readSpec(path) {
@@ -211,6 +235,24 @@ if (invokedDirectly) {
       if (parsed.missing.length) human.push('  open: ' + parsed.missing.join(', '))
       for (const problem of parsed.malformed) human.push('  malformed: ' + problem)
       report(json, { command: 'parse', ok: !open, ...parsed }, open ? 1 : 0, human)
+    } catch (error) {
+      refuse(error.message)
+    }
+  } else if (command === 're-ask') {
+    const specPath = get('--spec')
+    const commentPath = get('--comment')
+    const revRaw = get('--rev')
+    if (!specPath || !commentPath || !revRaw) refuse(USAGE)
+    try {
+      const spec = readSpec(specPath)
+      const parsed = parseAnswers(readTextFile(commentPath), spec)
+      const open = openQuestions(spec, parsed)
+      if (open.questions.length === 0) {
+        report(json, { command: 're-ask', ok: false, open: [], reason: 'nothing is open — every question is answered' }, 1, ['questions: nothing is open'])
+      }
+      const rev = Number(revRaw)
+      const markdown = renderQuestions(open, { rev })
+      report(json, { command: 're-ask', ok: true, rev, open: open.questions.map((q) => q.n), markdown }, 0, [markdown])
     } catch (error) {
       refuse(error.message)
     }

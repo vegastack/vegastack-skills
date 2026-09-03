@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { parseAnswers, renderQuestions } from '../scripts/questions.mjs'
+import { openQuestions, parseAnswers, renderQuestions } from '../scripts/questions.mjs'
 
 const spec = {
   questions: [
@@ -143,5 +143,35 @@ describe('parseAnswers', () => {
     expect(r.answers[1].option).toBe('b')
     expect(r.answers[2]).toEqual({ option: 'a', text: 'because' })
     expect(r.malformed).toEqual([])
+  })
+})
+
+const opt = (letter: string, text: string, rec?: boolean) => (rec ? { letter, text, recommended: true, reason: 'r' } : { letter, text })
+const threeQ = {
+  questions: [
+    { text: 'Q one', options: [opt('a', 'one'), opt('b', 'two', true)] },
+    { text: 'Q two', options: [opt('a', 'one', true), opt('b', 'two')] },
+    { text: 'Q three', options: [opt('a', 'one', true), opt('b', 'two')] },
+  ],
+}
+
+describe('openQuestions', () => {
+  test('keeps the original numbers and drops what was answered', () => {
+    const open = openQuestions(threeQ, parseAnswers('2: a', threeQ))
+    expect(open.questions.map((q) => q.n)).toEqual([1, 3])
+    const out = renderQuestions(open, { rev: 2 })
+    expect(out).toContain('<!-- vsk:v1 type=questions rev=2 -->')
+    expect(out).toContain('**Q1.** Q one')
+    expect(out).toContain('**Q3.** Q three')
+    expect(out).not.toContain('Q two')
+  })
+
+  test('a malformed answer keeps its question open', () => {
+    const open = openQuestions(threeQ, parseAnswers('1: z\n2: a\n3: a', threeQ))
+    expect(open.questions.map((q) => q.n)).toEqual([1])
+  })
+
+  test('a fully answered round leaves nothing open', () => {
+    expect(openQuestions(threeQ, parseAnswers('all recommended', threeQ)).questions).toEqual([])
   })
 })
