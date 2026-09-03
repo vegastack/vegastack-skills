@@ -7,7 +7,7 @@
 // in the log, because "nothing happened" and "the ship guard is unwired" look identical otherwise.
 import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { Stage } from './config.ts'
+import type { Harness, RepoPolicy, Stage } from './config.ts'
 
 export interface BoardIssue {
   number: number
@@ -217,4 +217,96 @@ export async function refuseSymlink(path: string): Promise<void> {
   } catch (error) {
     if ((error as Error).message.startsWith('refusing to write')) throw error
   }
+}
+
+export interface GuardState {
+  shipGuard: { wired: boolean; detail: string }
+  lock: { held: boolean; pid: number | null }
+  activeRuns: number
+}
+
+// The four things that must all be true before a repo may start anything. Each returns its own
+// refusal so the operator reads a reason and not a silence; a non-empty result means nothing
+// launches for that repo this tick.
+export function evaluateGuards(input: { repo: string; policy: RepoPolicy; guards: GuardState; maxRuns: number }): Refusal[] {
+  const refusals: Refusal[] = []
+  const at = (reason: string): Refusal => ({ repo: input.repo, issue: null, reason })
+  if (input.policy.dispatch !== 'local') {
+    refusals.push(at(`${input.repo} has dispatch: off — a repo runs dark builds only once its operator opts in`))
+  }
+  if (!input.guards.shipGuard.wired) {
+    refusals.push(at(`${input.repo} has no wired ship guard: ${input.guards.shipGuard.detail} — dark builds run under bypass, and the guard is what bounds them`))
+  }
+  if (input.guards.lock.held) {
+    refusals.push(at(`${input.repo} is locked by pid ${input.guards.lock.pid ?? 'unknown'} — another run holds it`))
+  }
+  if (input.guards.activeRuns >= input.maxRuns) {
+    refusals.push(at(`${input.repo} is at maxRuns ${input.maxRuns} with ${input.guards.activeRuns} in flight`))
+  }
+  return refusals
+}
+
+// Wired means two files agree: the guard script exists, and this harness's hook config actually
+// calls it. Either one missing or unreadable is unwired — the whole point of the check is that a
+// repo whose guard state cannot be established never starts an unattended run.
+export async function shipGuardWired(repoPath: string, harness: Harness): Promise<{ wired: boolean; detail: string }> {
+  const guardPath = join(repoPath, '.vegastack', 'hooks', 'ship-guard.mjs')
+  try {
+    await readFile(guardPath, 'utf8')
+  } catch {
+    return { wired: false, detail: `no ${join('.vegastack', 'hooks', 'ship-guard.mjs')} in ${repoPath}` }
+  }
+  const wiringPath = harness === 'claude'
+    ? join(repoPath, '.claude', 'settings.json')
+    : join(repoPath, '.codex', 'hooks.json')
+  const relative = harness === 'claude' ? '.claude/settings.json' : '.codex/hooks.json'
+  let text: string
+  try {
+    text = await readFile(wiringPath, 'utf8')
+  } catch {
+    return { wired: false, detail: `${relative} is missing — the guard script is there but nothing calls it` }
+  }
+  try {
+    JSON.parse(text)
+  } catch {
+    return { wired: false, detail: `${relative} is not valid JSON — the wiring cannot be read, so it counts as unwired` }
+  }
+  if (!text.includes('ship-guard.mjs')) {
+    return { wired: false, detail: `${relative} does not call ship-guard.mjs` }
+  }
+  return { wired: true, detail: `.vegastack/hooks/ship-guard.mjs wired for ${harness} in ${relative}` }
+}
+
+// Guards first, then the board, then the reactions, then the budget. Truncation is loud: every run
+// the budget drops is named, because a silently dropped correction looks to the operator exactly
+// like a dispatcher that ignored them.
+export function planTick(input: {
+  repo: string
+  policy: RepoPolicy
+  board: { needsPlan: BoardIssue[]; ready: BoardIssue[]; corrections: BoardIssue[] }
+  rockets: Rocket[]
+  state: DispatchState
+  guards: GuardState
+  maxRuns: number
+}): TickPlan {
+  const guardRefusals = evaluateGuards({ repo: input.repo, policy: input.policy, guards: input.guards, maxRuns: input.maxRuns })
+  if (guardRefusals.length > 0) return { runs: [], refusals: guardRefusals }
+
+  const labels = planLabelRuns({ repo: input.repo, needsPlan: input.board.needsPlan, ready: input.board.ready })
+  const rockets = planRocketRuns({
+    repo: input.repo,
+    corrections: input.board.corrections,
+    rockets: input.rockets,
+    operators: input.policy.operators,
+    state: input.state,
+  })
+  const candidates = [...labels.runs, ...rockets.runs]
+  const budget = Math.max(0, input.maxRuns - input.guards.activeRuns)
+  const runs = candidates.slice(0, budget)
+  const dropped = candidates.slice(budget).map(run => ({
+    repo: input.repo,
+    issue: run.issue,
+    reason: `#${run.issue} (${run.stage}) waits for the next tick — maxRuns ${input.maxRuns} is already committed`,
+  }))
+  return { runs, refusals: [...labels.refusals, ...rockets.refusals, ...dropped] }
 }

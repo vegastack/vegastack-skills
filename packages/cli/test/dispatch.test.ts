@@ -2,10 +2,13 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { mkdirSync } from 'node:fs'
 import {
-  planLabelRuns, planRocketRuns, readState, recordHandled, searchQueries, writeState,
-  type BoardIssue, type DispatchState, type Rocket,
+  evaluateGuards, planLabelRuns, planRocketRuns, planTick, readState, recordHandled,
+  searchQueries, shipGuardWired, writeState,
+  type BoardIssue, type DispatchState, type GuardState, type Rocket,
 } from '../src/dispatch.ts'
+import { parseRepoPolicy } from '../src/config.ts'
 
 const issue = (number: number, labels: string[], assignees: string[] = []): BoardIssue =>
   ({ number, title: `feat: thing ${number}`, labels, assignees, updatedAt: '2026-09-03T10:00:00Z' })
@@ -119,5 +122,102 @@ describe('readState and writeState', () => {
     const link = join(dir, 'link.json')
     symlinkSync(real, link)
     await expect(writeState(link, empty)).rejects.toThrow(/symlink/)
+  })
+})
+
+const wired: GuardState = { shipGuard: { wired: true, detail: '.vegastack/hooks/ship-guard.mjs wired for claude' }, lock: { held: false, pid: null }, activeRuns: 0 }
+const local = parseRepoPolicy('dispatch: local\noperators: mk\nplan: claude fable-5-1 high\nimplement: claude fable-5-1 high\n')
+const board = {
+  needsPlan: [{ number: 7, title: 'feat: a', labels: ['needs-plan'], assignees: [], updatedAt: '2026-09-03T10:00:00Z' }],
+  ready: [{ number: 8, title: 'feat: b', labels: ['ready'], assignees: [], updatedAt: '2026-09-03T10:00:00Z' }],
+  corrections: [],
+}
+
+describe('evaluateGuards', () => {
+  test('an unwired ship guard refuses the whole repo with the reason', () => {
+    const refusals = evaluateGuards({ repo: 'acme/app', policy: local, guards: { ...wired, shipGuard: { wired: false, detail: 'no .vegastack/hooks/ship-guard.mjs' } }, maxRuns: 1 })
+    expect(refusals[0]!.reason).toContain('ship guard')
+    expect(refusals[0]!.reason).toContain('no .vegastack/hooks/ship-guard.mjs')
+  })
+
+  test('dispatch: off refuses even with everything else wired', () => {
+    const refusals = evaluateGuards({ repo: 'acme/app', policy: parseRepoPolicy('dispatch: off\n'), guards: wired, maxRuns: 1 })
+    expect(refusals[0]!.reason).toContain('dispatch: off')
+  })
+
+  test('a held lock refuses and names the pid', () => {
+    const refusals = evaluateGuards({ repo: 'acme/app', policy: local, guards: { ...wired, lock: { held: true, pid: 4242 } }, maxRuns: 1 })
+    expect(refusals[0]!.reason).toContain('4242')
+  })
+
+  test('a repo already at maxRuns refuses without reading the board', () => {
+    const refusals = evaluateGuards({ repo: 'acme/app', policy: local, guards: { ...wired, activeRuns: 1 }, maxRuns: 1 })
+    expect(refusals[0]!.reason).toContain('maxRuns')
+  })
+
+  test('a fully wired opted-in repo with a free lock refuses nothing', () => {
+    expect(evaluateGuards({ repo: 'acme/app', policy: local, guards: wired, maxRuns: 1 })).toEqual([])
+  })
+})
+
+describe('shipGuardWired', () => {
+  function repoWith(options: { guard: boolean; settings: string | null; harness: 'claude' | 'codex' }): string {
+    const root = mkdtempSync(join(tmpdir(), 'vsk-guard-'))
+    mkdirSync(join(root, '.vegastack/hooks'), { recursive: true })
+    if (options.guard) writeFileSync(join(root, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+    const dir = options.harness === 'claude' ? '.claude' : '.codex'
+    const file = options.harness === 'claude' ? 'settings.json' : 'hooks.json'
+    mkdirSync(join(root, dir), { recursive: true })
+    if (options.settings !== null) writeFileSync(join(root, dir, file), options.settings)
+    return root
+  }
+
+  const claudeSettings = JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node .vegastack/hooks/ship-guard.mjs --harness claude' }] }] } })
+
+  test('a guard file wired into the harness config reads as wired', async () => {
+    const result = await shipGuardWired(repoWith({ guard: true, settings: claudeSettings, harness: 'claude' }), 'claude')
+    expect(result.wired).toBe(true)
+  })
+
+  test('a guard file that no harness config references is unwired, and says which file is missing it', async () => {
+    const result = await shipGuardWired(repoWith({ guard: true, settings: JSON.stringify({ hooks: {} }), harness: 'claude' }), 'claude')
+    expect(result.wired).toBe(false)
+    expect(result.detail).toContain('.claude/settings.json')
+  })
+
+  test('a missing guard file is unwired whatever the harness config says', async () => {
+    const result = await shipGuardWired(repoWith({ guard: false, settings: claudeSettings, harness: 'claude' }), 'claude')
+    expect(result.wired).toBe(false)
+    expect(result.detail).toContain('ship-guard.mjs')
+  })
+
+  test('codex wiring is read from .codex/hooks.json', async () => {
+    const settings = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'node .vegastack/hooks/ship-guard.mjs --harness codex' }] }] } })
+    expect((await shipGuardWired(repoWith({ guard: true, settings, harness: 'codex' }), 'codex')).wired).toBe(true)
+  })
+
+  test('an unreadable wiring file is treated as unwired, never as fine', async () => {
+    const result = await shipGuardWired(repoWith({ guard: true, settings: '{ not json', harness: 'claude' }), 'claude')
+    expect(result.wired).toBe(false)
+  })
+})
+
+describe('planTick', () => {
+  test('maxRuns 1 launches the first run and refuses the rest by name', () => {
+    const plan = planTick({ repo: 'acme/app', policy: local, board, rockets: [], state: { lastTick: {}, handled: [] }, guards: wired, maxRuns: 1 })
+    expect(plan.runs.map(run => run.issue)).toEqual([7])
+    expect(plan.refusals.some(refusal => refusal.reason.includes('maxRuns'))).toBe(true)
+  })
+
+  test('a guard refusal means no runs at all, whatever the board says', () => {
+    const plan = planTick({ repo: 'acme/app', policy: local, board, rockets: [], state: { lastTick: {}, handled: [] }, guards: { ...wired, shipGuard: { wired: false, detail: 'unwired' } }, maxRuns: 1 })
+    expect(plan.runs).toEqual([])
+  })
+
+  test('corrections come after the label runs, and the budget counts every stage', () => {
+    const rockets: Rocket[] = [{ issue: 12, commentId: 555, reactionId: 999, login: 'mk' }]
+    const withCorrections = { ...board, corrections: [forOperator] }
+    const plan = planTick({ repo: 'acme/app', policy: local, board: withCorrections, rockets, state: { lastTick: {}, handled: [] }, guards: wired, maxRuns: 3 })
+    expect(plan.runs.map(run => run.stage)).toEqual(['plan', 'implement', 'corrections'])
   })
 })
