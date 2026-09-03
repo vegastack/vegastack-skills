@@ -6,7 +6,7 @@
 // the CLI's own version keeps the two in step without a resolution step that can drift.
 
 import { execFile, spawn } from 'node:child_process'
-import { lstat } from 'node:fs/promises'
+import { lstat, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -217,7 +217,7 @@ async function collect(home: string): Promise<{
   const stateFile = factoryConfigPath(home)
   let config
   try {
-    const text = await Bun.file(stateFile).text().catch(() => null)
+    const text = await readFile(stateFile, 'utf8').catch(() => null)
     config = readFactoryConfig(text)
   } catch (error) {
     return { error: (error as Error).message }

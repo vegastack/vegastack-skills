@@ -36,3 +36,10 @@ test('unchanged sources are skipped, changed ones replace their rows, vanished o
   await writeFile(cache, 'this is not a database')
   expect(count(await openCache(cache), 'runs')).toBe(0)
 })
+
+test('the cache directory is created; the server owns the path, not the caller', async () => {
+  const { root } = await room()
+  const nested = join(root, 'does', 'not', 'exist', 'yet', 'stats.db')
+  const db = await openCache(nested)
+  expect(count(db, 'runs')).toBe(0)
+})

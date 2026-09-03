@@ -1,5 +1,5 @@
-import { readFile, readdir, rm, stat } from 'node:fs/promises'
-import { join, relative, sep } from 'node:path'
+import { mkdir, readFile, readdir, rm, stat } from 'node:fs/promises'
+import { dirname, join, relative, sep } from 'node:path'
 
 import { readRecords, type StatsRecord } from '../stats/record'
 import { CACHE_SCHEMA_VERSION, SCHEMA_SQL } from './schema'
@@ -23,9 +23,14 @@ interface SqliteModule {
   Database: new (file: string, options?: { create?: boolean }) => Db
 }
 
+// The specifier is computed and carries both bundlers' ignore comments, so neither Turbopack nor
+// webpack tries to resolve a Bun built-in that has no npm counterpart. Under Node this import
+// simply fails, and the message says the one thing worth saying about it.
+const SQLITE = ['bun', 'sqlite'].join(':')
+
 async function loadSqlite(): Promise<SqliteModule> {
   try {
-    return (await import(/* webpackIgnore: true */ 'bun:sqlite')) as unknown as SqliteModule
+    return (await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ SQLITE)) as unknown as SqliteModule
   } catch {
     throw new Error('the dashboard server runs under Bun; bun:sqlite is unavailable')
   }
@@ -41,6 +46,9 @@ function initialise(db: Db): void {
 // throwing the file away costs one re-ingest and never any data.
 export async function openCache(file: string): Promise<Db> {
   const { Database } = await loadSqlite()
+  // The cache path is the server's to own: `vegafactory dashboard` names ~/.vegastack/cache/stats.db
+  // and nothing creates that directory, because the file is derived and may be deleted at any time.
+  await mkdir(dirname(file), { recursive: true })
   const fresh = async (): Promise<Db> => {
     await rm(file, { force: true })
     const db = new Database(file, { create: true })

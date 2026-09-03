@@ -11,18 +11,13 @@ const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..
 const config: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: workspaceRoot,
-  // bun:sqlite is a Bun built-in with no npm counterpart; both of these keep the bundler
-  // from trying to resolve it at build time, on a server that only ever runs under Bun.
+  // bun:sqlite is a Bun built-in with no npm counterpart. It is reached through a dynamic import
+  // of a computed specifier carrying `turbopackIgnore`, so the bundler leaves it alone; this
+  // entry states the same intent for the tracing pass, on a server that only runs under Bun.
   serverExternalPackages: ['bun:sqlite'],
-  webpack: (webpackConfig: { externals?: unknown[] }) => {
-    const externals = webpackConfig.externals ?? []
-    webpackConfig.externals = [
-      ...(Array.isArray(externals) ? externals : [externals]),
-      ({ request }: { request?: string }, callback: (error?: Error | null, result?: string) => void) =>
-        request?.startsWith('bun:') ? callback(null, `commonjs ${request}`) : callback(),
-    ]
-    return webpackConfig
-  },
+  // Next 16 runs Turbopack by default and errors on a bare `webpack` config. Nothing here needs
+  // a custom bundler rule, so the empty object is the whole configuration.
+  turbopack: {},
 }
 
 export default config
