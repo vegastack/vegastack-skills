@@ -20,7 +20,7 @@ Every skill this repo ships is scanned by [NVIDIA SkillSpector](https://github.c
 
 ```sh
 uv tool install git+https://github.com/NVIDIA/skillspector.git
-bun run build && node skills/dev-skills/dev-review/scripts/skill-scan.mjs --json
+bun run build && node skills/dev/dev-review/scripts/skill-scan.mjs --json
 ```
 
 Run it from the repo root: with no `--root` it reads the `skill-scan:` knob from `.vegastack/dev.md` and applies `.vegastack/skillspector-baseline.json` by convention. A profile it cannot read is an error, not a skip — the guard refuses rather than quietly passing from the wrong directory.
@@ -36,7 +36,7 @@ Suppressions live in `.vegastack/skillspector-baseline.json`. Adding one is a se
 | Path | What it is |
 |---|---|
 | `skills/` | Authored skill content — the single source of truth. Edit here. A skill sits at `skills/<name>/` or, inside a group, at `skills/<group>/<name>/` — one level, never deeper. |
-| `skills/dev-skills/` | The dev-workflow group (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): a `GROUP.md` plus ten skills, each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
+| `skills/dev/` | The dev-workflow group (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): a `GROUP.md` plus ten skills, each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
 | `<skill>/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/skills` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
 | `packages/cli/repo-only.json` | The skills `add --all` skips because they only make sense inside this repository. Hand-maintained; validated by the build. |
@@ -87,4 +87,4 @@ Branches named `refresh/**` are reserved for the automated freshness loop and ar
 
 ## Releases
 
-Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. Changeset entries follow the shape in the dev-implement skill's changelog rule ([skills/dev-skills/dev-implement/SKILL.md](skills/dev-skills/dev-implement/SKILL.md)) — the published changelog and the release notes reproduce them verbatim.
+Versioning and publishing are maintainer-driven via changesets and tag-triggered CI — the `## Ship` runbook in [.vegastack/dev.md](.vegastack/dev.md) is the release flow, rollback included. Contributors do not bump versions in PRs. Changeset entries follow the shape in the dev-implement skill's changelog rule ([skills/dev/dev-implement/SKILL.md](skills/dev/dev-implement/SKILL.md)) — the published changelog and the release notes reproduce them verbatim.

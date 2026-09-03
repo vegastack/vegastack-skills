@@ -37,7 +37,7 @@ Phase 0 gates ("should this be a skill at all?" — invoked twice, real logic, r
 ```sh
 node scripts/scaffold-skill.mjs my-skill --dir ../..            # dry run: plan + wiring actions
 node scripts/scaffold-skill.mjs my-skill --dir ../.. --write                 # create skills/my-skill/ and wire the repo
-node scripts/scaffold-skill.mjs my-skill --dir ../.. --group dev-skills --write  # ...inside an existing group
+node scripts/scaffold-skill.mjs my-skill --dir ../.. --group dev --write  # ...inside an existing group
 node scripts/scaffold-skill.mjs my-skill --dir ../.. --json     # machine-readable plan
 ```
 

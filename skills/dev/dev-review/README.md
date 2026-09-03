@@ -11,7 +11,7 @@ npx @vegastack/skills add dev-review --global
 Or the whole dev workflow at once:
 
 ```sh
-npx @vegastack/skills add --group dev-skills --global
+npx @vegastack/skills add --group dev --global
 ```
 
 `--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install. See the [installer README](../../../packages/cli/README.md) for all flags.

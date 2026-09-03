@@ -7,7 +7,7 @@
 
 Agent Skills for [Claude Code](https://code.claude.com), [Codex](https://developers.openai.com/codex), and [Hermes](https://hermes-agent.nousresearch.com) — plus the `@vegastack/skills` installer that ships them. Each skill is self-contained: its own entry point, references, deterministic scripts, freshness contract, and walkthrough.
 
-The headline set is **`dev-skills`**: a ten-stage, issue-driven development workflow where every gate that matters is held by a person, not an agent.
+The headline set is **`dev`**: a ten-stage, issue-driven development workflow where every gate that matters is held by a person, not an agent.
 
 - [Quick start](#quick-start)
 - [Installing](#installing)
@@ -36,7 +36,7 @@ Only Node is needed to install. `dev-setup` tells you if `git` or `gh` is missin
 ### 1. Install the dev workflow
 
 ```sh
-npx @vegastack/skills add --group dev-skills --global
+npx @vegastack/skills add --group dev --global
 ```
 
 This is the **recommended** install: one command, once per machine, and the workflow is available in every project you open. The installer detects which agents you have (Claude Code, Codex, Hermes) and targets them without asking.
@@ -44,7 +44,7 @@ This is the **recommended** install: one command, once per machine, and the work
 Prefer a project-local install when a repository should carry its own copy — so collaborators get the same skills from a checkout, or so one project can pin a version while the rest of the machine moves on:
 
 ```sh
-npx @vegastack/skills add --group dev-skills
+npx @vegastack/skills add --group dev
 ```
 
 Pick one or the other per skill rather than installing both: in Claude Code, a personal (global) skill takes precedence over a project one, so a project-local copy would not override a global install of the same skill — it would just sit there unused.
@@ -71,7 +71,7 @@ Work flows through GitHub issues:
 
 | Selector | Installs |
 |---|---|
-| `--group dev-skills` | The ten dev-workflow skills |
+| `--group dev` | The ten dev-workflow skills |
 | `--all` | Every bundled skill except the repo-only ones |
 | `<skill-name>` | That one skill — works for every bundled skill, repo-only ones included |
 
@@ -108,7 +108,7 @@ Skills always install **flat**, as `<surface>/<skill-name>/`. Groups are a way o
 Upgrade to the latest release. `--force` is required because the installer refuses to overwrite an installed copy that differs from the bundle, rather than silently discarding local edits:
 
 ```sh
-npx @vegastack/skills@latest add --group dev-skills --global --force
+npx @vegastack/skills@latest add --group dev --global --force
 ```
 
 Diagnose an install — integrity across all skills, and installed-vs-latest version:
@@ -122,13 +122,13 @@ Run `doctor` without `--global` from inside a project to additionally check that
 Re-check installed bytes against the shipped checksum manifest:
 
 ```sh
-npx @vegastack/skills verify --group dev-skills --global
+npx @vegastack/skills verify --group dev --global
 ```
 
 Uninstall:
 
 ```sh
-npx @vegastack/skills remove --group dev-skills --global
+npx @vegastack/skills remove --group dev --global
 ```
 
 Every flag: [installer README](packages/cli/README.md).
@@ -160,16 +160,16 @@ The issue-driven development workflow: ten stages from project bootstrap to the 
 
 | Skill | What it does | Docs |
 |---|---|---|
-| [dev-setup](skills/dev-skills/dev-setup/) | Bootstraps a project for the issue-driven workflow: `.vegastack/dev.md`, the AGENTS.md section, the workflow labels, and the decision register | [Walkthrough](skills/dev-skills/dev-setup/README.md) · [SKILL.md](skills/dev-skills/dev-setup/SKILL.md) |
-| [dev-intake](skills/dev-skills/dev-intake/) | Turns brainstorms, requests, and SOWs into agent-ready issues, with quoted-approval recording that flips `needs-operator` to `ready` | [Walkthrough](skills/dev-skills/dev-intake/README.md) · [SKILL.md](skills/dev-skills/dev-intake/SKILL.md) |
-| [dev-plan](skills/dev-skills/dev-plan/) | The planning stage between intake and implementation: approaches, a no-placeholder plan with failing-test-first steps, and the scope ratchet | [Walkthrough](skills/dev-skills/dev-plan/README.md) · [SKILL.md](skills/dev-skills/dev-plan/SKILL.md) |
-| [dev-architect](skills/dev-skills/dev-architect/) | VegaStack's architecture advisor: the locked stack, recorded rejections, and dated platform facts behind a verify-before-you-recommend protocol | [Walkthrough](skills/dev-skills/dev-architect/README.md) · [SKILL.md](skills/dev-skills/dev-architect/SKILL.md) |
-| [dev-implement](skills/dev-skills/dev-implement/) | Implements an approved issue end to end without user input: preflight, claim, dark build, tests, independent review, evidence comment, hand-back | [Walkthrough](skills/dev-skills/dev-implement/README.md) · [SKILL.md](skills/dev-skills/dev-implement/SKILL.md) |
-| [dev-debug](skills/dev-skills/dev-debug/) | Reproduce-first bug work: a red repro command before any theory, ranked falsifiable suspects, and the regression test before the fix | [Walkthrough](skills/dev-skills/dev-debug/README.md) · [SKILL.md](skills/dev-skills/dev-debug/SKILL.md) |
-| [dev-review](skills/dev-skills/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop; ships the skill-scan vulnerability guard | [Walkthrough](skills/dev-skills/dev-review/README.md) · [SKILL.md](skills/dev-skills/dev-review/SKILL.md) |
-| [dev-ship](skills/dev-skills/dev-ship/) | The shipping gates, each spent only by the operator's words: PR, merge per the `merge:` knob, then the project's `## Ship` runbook | [Walkthrough](skills/dev-skills/dev-ship/README.md) · [SKILL.md](skills/dev-skills/dev-ship/SKILL.md) |
-| [dev-status](skills/dev-skills/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev-skills/dev-status/README.md) · [SKILL.md](skills/dev-skills/dev-status/SKILL.md) |
-| [dev-chronicle](skills/dev-skills/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev-skills/dev-chronicle/README.md) · [SKILL.md](skills/dev-skills/dev-chronicle/SKILL.md) |
+| [dev-setup](skills/dev/dev-setup/) | Bootstraps a project for the issue-driven workflow: `.vegastack/dev.md`, the AGENTS.md section, the workflow labels, and the decision register | [Walkthrough](skills/dev/dev-setup/README.md) · [SKILL.md](skills/dev/dev-setup/SKILL.md) |
+| [dev-intake](skills/dev/dev-intake/) | Turns brainstorms, requests, and SOWs into agent-ready issues, with quoted-approval recording that flips `needs-operator` to `ready` | [Walkthrough](skills/dev/dev-intake/README.md) · [SKILL.md](skills/dev/dev-intake/SKILL.md) |
+| [dev-plan](skills/dev/dev-plan/) | The planning stage between intake and implementation: approaches, a no-placeholder plan with failing-test-first steps, and the scope ratchet | [Walkthrough](skills/dev/dev-plan/README.md) · [SKILL.md](skills/dev/dev-plan/SKILL.md) |
+| [dev-architect](skills/dev/dev-architect/) | VegaStack's architecture advisor: the locked stack, recorded rejections, and dated platform facts behind a verify-before-you-recommend protocol | [Walkthrough](skills/dev/dev-architect/README.md) · [SKILL.md](skills/dev/dev-architect/SKILL.md) |
+| [dev-implement](skills/dev/dev-implement/) | Implements an approved issue end to end without user input: preflight, claim, dark build, tests, independent review, evidence comment, hand-back | [Walkthrough](skills/dev/dev-implement/README.md) · [SKILL.md](skills/dev/dev-implement/SKILL.md) |
+| [dev-debug](skills/dev/dev-debug/) | Reproduce-first bug work: a red repro command before any theory, ranked falsifiable suspects, and the regression test before the fix | [Walkthrough](skills/dev/dev-debug/README.md) · [SKILL.md](skills/dev/dev-debug/SKILL.md) |
+| [dev-review](skills/dev/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop; ships the skill-scan vulnerability guard | [Walkthrough](skills/dev/dev-review/README.md) · [SKILL.md](skills/dev/dev-review/SKILL.md) |
+| [dev-ship](skills/dev/dev-ship/) | The shipping gates, each spent only by the operator's words: PR, merge per the `merge:` knob, then the project's `## Ship` runbook | [Walkthrough](skills/dev/dev-ship/README.md) · [SKILL.md](skills/dev/dev-ship/SKILL.md) |
+| [dev-status](skills/dev/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev/dev-status/README.md) · [SKILL.md](skills/dev/dev-status/SKILL.md) |
+| [dev-chronicle](skills/dev/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev/dev-chronicle/README.md) · [SKILL.md](skills/dev/dev-chronicle/SKILL.md) |
 
 ### Repo tooling
 
@@ -238,7 +238,7 @@ That path is the guard's location for a global Claude Code install. Substitute y
 
 Point `--root` at a single skill directory, or at a directory of them — flat, or one group deep. Exit `0` is clean, `1` clean with warnings, `2` blocked — either by a finding, reported with its rule, severity and `file:line`, or because the scan could not be trusted at all: the scanner missing from PATH, an unreadable report or profile, a baseline that fails its own discipline, coverage the scanner says it never completed, or **a directory holding a `SKILL.md` that discovery did not reach** — buried too deep, dot-prefixed, or behind a symlink. That last one matters: an unscanned skill that nobody mentions is indistinguishable from a clean one, so the guard names it and refuses. Without `--root` it reads the `skill-scan:` knob from your project's `.vegastack/dev.md`, and a project with no skills (`skill-scan: none`) is told it was skipped rather than erroring. Add `--llm` for the semantic pass — it needs a provider, is non-deterministic, and is advisory: a run whose analyzer fails scores *higher* than a clean one, which is why the gate never uses it.
 
-The judgement is still yours. A scanner hit is evidence, not a verdict — the `dev-review` skill's [security axis](skills/dev-skills/dev-review/references/security-axis.md) sets out how to trace one before acting on it.
+The judgement is still yours. A scanner hit is evidence, not a verdict — the `dev-review` skill's [security axis](skills/dev/dev-review/references/security-axis.md) sets out how to trace one before acting on it.
 
 Report vulnerabilities in these skills via [GitHub Security Advisories](SECURITY.md) — not public issues.
 

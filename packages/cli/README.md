@@ -5,7 +5,7 @@ Installer for VegaStack Agent Skills — a family of self-contained skills for C
 Install the whole dev workflow, once per machine:
 
 ```sh
-npx @vegastack/skills add --group dev-skills --global
+npx @vegastack/skills add --group dev --global
 ```
 
 `--global` is the recommended install: the skills land in your home directory and are available in every project you open. Drop it for a project-local install when a repository should carry its own copy.
@@ -18,9 +18,9 @@ npx @vegastack/skills list
 
 ## Skills in this package
 
-### `dev-skills` — the issue-driven dev workflow
+### `dev` — the issue-driven dev workflow
 
-Install the family with `add --group dev-skills --global`.
+Install the family with `add --group dev --global`.
 
 | Skill | What it does |
 |---|---|
@@ -69,7 +69,7 @@ A `--group` or `--all` install is **one transaction**: every skill is checked an
 The ten dev-workflow skills:
 
 ```sh
-npx @vegastack/skills add --group dev-skills --global
+npx @vegastack/skills add --group dev --global
 ```
 
 Everything worth installing outside this repo:
@@ -81,13 +81,13 @@ npx @vegastack/skills add --all --global
 Check the family against the manifest:
 
 ```sh
-npx @vegastack/skills verify --group dev-skills --global
+npx @vegastack/skills verify --group dev --global
 ```
 
 Uninstall it again:
 
 ```sh
-npx @vegastack/skills remove --group dev-skills --global
+npx @vegastack/skills remove --group dev --global
 ```
 
 ## Upgrading and health checks
@@ -95,7 +95,7 @@ npx @vegastack/skills remove --group dev-skills --global
 Upgrade to the latest release. `--force` is required because `add` refuses to overwrite an installed copy that differs from the bundle rather than silently discarding local edits:
 
 ```sh
-npx @vegastack/skills@latest add --group dev-skills --global --force
+npx @vegastack/skills@latest add --group dev --global --force
 ```
 
 Diagnose an install — integrity across all skills, plus installed-vs-latest version:

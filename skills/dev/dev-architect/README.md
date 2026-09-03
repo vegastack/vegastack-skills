@@ -1,6 +1,6 @@
 # dev-architect
 
-VegaStack's architecture advisor as a skill — the fifth member of the dev-skills family.
+VegaStack's architecture advisor as a skill — the fifth member of the dev family.
 It encodes MK's recorded stack decisions, rejections, lean-first principles, and current
 platform facts so that any team member's Claude Code/Codex session architects the way the
 architecture owner (dev.md `architect:`) would, without re-briefing — and it verifies
@@ -8,7 +8,7 @@ platform claims against live docs before recommending on them (the
 verify-before-you-recommend protocol) instead of trusting training-data memory.
 
 Rebuilt 2026-08 from the original `architect` skill (itself distilled from a full-corpus
-mining of seven months of session history): renamed into the dev-skills family,
+mining of seven months of session history): renamed into the dev family,
 deduplicated to one-rule-one-home, and integrated with the workflow — `dev-setup` writes
 the `## Architecture` section of `.vegastack/dev.md` this skill consumes, `dev-intake`
 routes stack-bearing approach choices here, and decisions land as one-line entries in
@@ -48,7 +48,7 @@ npx @vegastack/skills add dev-architect --global
 Or the whole dev workflow at once:
 
 ```sh
-npx @vegastack/skills add --group dev-skills --global
+npx @vegastack/skills add --group dev --global
 ```
 
 Then in a project session: "Should I add Redis for caching?" (expect a trigger-based no),

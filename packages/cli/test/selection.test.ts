@@ -4,8 +4,8 @@ import { selectSkills, type SkillEntry } from '../src/selection.ts'
 // A catalog shaped like the real manifest: a grouped family, and a repo-only skill in its own
 // group. `--all` is the only selector that filters; a name and a group never do.
 const catalog: SkillEntry[] = [
-  { name: 'dev-plan', group: 'dev-skills', repoOnly: false },
-  { name: 'dev-ship', group: 'dev-skills', repoOnly: false },
+  { name: 'dev-plan', group: 'dev', repoOnly: false },
+  { name: 'dev-ship', group: 'dev', repoOnly: false },
   { name: 'skillify', group: 'repo-tooling', repoOnly: true },
 ]
 
@@ -15,7 +15,7 @@ describe('selectSkills', () => {
   })
 
   test('--group selects every member, sorted, and nothing else', () => {
-    expect(selectSkills({ group: 'dev-skills' }, catalog)).toEqual(['dev-plan', 'dev-ship'])
+    expect(selectSkills({ group: 'dev' }, catalog)).toEqual(['dev-plan', 'dev-ship'])
   })
 
   test('--all skips repo-only skills', () => {
@@ -33,20 +33,20 @@ describe('selectSkills', () => {
   })
 
   test('two selectors at once is an error naming the conflict', () => {
-    expect(() => selectSkills({ skill: 'dev-plan', group: 'dev-skills' }, catalog)).toThrow(/one of/i)
+    expect(() => selectSkills({ skill: 'dev-plan', group: 'dev' }, catalog)).toThrow(/one of/i)
     expect(() => selectSkills({ skill: 'dev-plan', all: true }, catalog)).toThrow(/one of/i)
-    expect(() => selectSkills({ group: 'dev-skills', all: true }, catalog)).toThrow(/one of/i)
+    expect(() => selectSkills({ group: 'dev', all: true }, catalog)).toThrow(/one of/i)
   })
 
   test('an unknown skill lists the bundled skills; an unknown group lists the groups', () => {
     expect(() => selectSkills({ skill: 'ghost' }, catalog)).toThrow(/skillify/)
     const unknownGroup = () => selectSkills({ group: 'ghost' }, catalog)
-    expect(unknownGroup).toThrow(/dev-skills/)
+    expect(unknownGroup).toThrow(/Available groups: dev, repo-tooling/)
     expect(unknownGroup).toThrow(/repo-tooling/)
   })
 
   test('a group with no members is unknown, not a silent empty install', () => {
-    expect(() => selectSkills({ group: 'dev-skills' }, [{ name: 'x', group: null, repoOnly: false }]))
+    expect(() => selectSkills({ group: 'dev' }, [{ name: 'x', group: null, repoOnly: false }]))
       .toThrow(/unknown group/i)
   })
 
@@ -57,9 +57,9 @@ describe('selectSkills', () => {
 
   test('the result is sorted and free of duplicates regardless of catalog order', () => {
     const shuffled: SkillEntry[] = [
-      { name: 'dev-ship', group: 'dev-skills', repoOnly: false },
-      { name: 'dev-plan', group: 'dev-skills', repoOnly: false },
+      { name: 'dev-ship', group: 'dev', repoOnly: false },
+      { name: 'dev-plan', group: 'dev', repoOnly: false },
     ]
-    expect(selectSkills({ group: 'dev-skills' }, shuffled)).toEqual(['dev-plan', 'dev-ship'])
+    expect(selectSkills({ group: 'dev' }, shuffled)).toEqual(['dev-plan', 'dev-ship'])
   })
 })
