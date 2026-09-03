@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { branchName, classifyWorktree, parseWorktreeList, slugify, worktreeName, worktreePath } from '../scripts/worktree.mjs'
+import { branchName, childWorktreePlan, classifyWorktree, parseWorktreeList, slugify, worktreeName, worktreePath } from '../scripts/worktree.mjs'
 
 const base = { dirExists: true, branchExists: true, locked: false, issueState: 'open' as const, mergedIntoDefault: false }
 
@@ -94,5 +94,19 @@ describe('knobs and retention', () => {
     expect(isPastRetention({ lastCommitAt: old, ledgerUpdatedAt: fresh, now, retentionMs })).toBe(false)
     expect(isPastRetention({ lastCommitAt: fresh, ledgerUpdatedAt: old, now, retentionMs })).toBe(false)
     expect(isPastRetention({ lastCommitAt: null, ledgerUpdatedAt: null, now, retentionMs })).toBe(false)
+  })
+})
+
+describe('childWorktreePlan', () => {
+  test('a child branches from the parent HEAD sha, in the factory worktree location', () => {
+    const plan = childWorktreePlan({ repoRoot: '/r', issue: 131, title: 'Dispatch parent launches', type: 'feat', baseSha: 'abc1234' })
+    expect(plan.name).toBe('131-dispatch-parent-launches')
+    expect(plan.path).toBe('/r/.vegastack/.worktrees/131-dispatch-parent-launches')
+    expect(plan.branch).toBe('feat/131-dispatch-parent-launches')
+    expect(plan.args).toEqual(['worktree', 'add', '-b', 'feat/131-dispatch-parent-launches', '/r/.vegastack/.worktrees/131-dispatch-parent-launches', 'abc1234'])
+  })
+  test('a moving ref is refused as a base', () => {
+    expect(() => childWorktreePlan({ repoRoot: '/r', issue: 131, title: 'x', type: 'feat', baseSha: 'main' })).toThrow(/base must be a commit sha/)
+    expect(() => childWorktreePlan({ repoRoot: '/r', issue: 131, title: 'x', type: 'feat', baseSha: 'abc' })).toThrow(/base must be a commit sha/)
   })
 })

@@ -60,6 +60,22 @@ export function branchName(type, issue, slug) {
   return type + '/' + worktreeName(issue, slug);
 }
 
+// A child worktree of a parent branch. Correctness never rests on a harness
+// setting: the child branches from the parent's HEAD *sha*, spelled out, so a
+// parallel run that moves the parent branch cannot move the child's base under
+// it. A ref is refused for exactly that reason.
+export const CHILD_BASE_SHA = /^[0-9a-f]{7,40}$/;
+
+export function childWorktreePlan({ repoRoot, issue, title, type, baseSha }) {
+  const sha = String(baseSha ?? '');
+  if (!CHILD_BASE_SHA.test(sha)) throw new Error('base must be a commit sha, not a ref: ' + sha);
+  const name = worktreeName(issue, slugify(title));
+  const path = worktreePath(repoRoot, name);
+  const branch = branchName(type, issue, slugify(title));
+  return { name, path, branch, baseSha: sha, args: ['worktree', 'add', '-b', branch, path, sha] };
+}
+
+
 // --- porcelain ------------------------------------------------------------
 
 // Parse `git worktree list --porcelain`. Records are blank-line separated;
@@ -394,6 +410,41 @@ export function createWorktree({ repoRoot, issue, slug, type, base, parent, devM
     prepareCheckout({ repoRoot, path, devMd, home, write: false, actions, warns, blocks });
   }
   return { blocks, warns, actions, path, branch };
+}
+
+// The `create --base <sha>` path: one child checkout of a parallel run, cut
+// from the parent's HEAD commit. It shares createWorktree's symlink refusal,
+// existing-branch refusal and post-add preparation, and differs only in the
+// start point, which is a commit rather than a ref.
+export function createChildWorktree({ repoRoot, issue, slug, type, baseSha, devMd, home, write = false }) {
+  const blocks = [];
+  const warns = [];
+  const actions = [];
+  let plan;
+  try {
+    plan = childWorktreePlan({ repoRoot, issue, title: slug, type, baseSha });
+  } catch (error) {
+    return { blocks: [at('--base', error.message)], warns, actions, path: '', branch: '' };
+  }
+  for (const candidate of [join(repoRoot, '.vegastack'), join(repoRoot, WORKTREES_DIR), plan.path]) {
+    const symlink = symlinkBlock(candidate);
+    if (symlink) blocks.push(symlink);
+  }
+  if (blocks.length > 0) return { blocks, warns, actions, path: plan.path, branch: plan.branch };
+  if (branchExistsIn(repoRoot, plan.branch)) {
+    blocks.push(at(plan.branch, 'the branch already exists — use restore to re-add its worktree'));
+    return { blocks, warns, actions, path: plan.path, branch: plan.branch };
+  }
+  actions.push(at(plan.path, 'git worktree add -b ' + plan.branch + ' from ' + plan.baseSha));
+  if (write) {
+    const added = git(repoRoot, plan.args);
+    if (!added.ok) {
+      blocks.push(at(plan.path, 'git worktree add failed: ' + added.out));
+      return { blocks, warns, actions, path: plan.path, branch: plan.branch };
+    }
+  }
+  prepareCheckout({ repoRoot, path: plan.path, devMd, home, write, actions, warns, blocks });
+  return { blocks, warns, actions, path: plan.path, branch: plan.branch };
 }
 
 // Re-add the checkout for a branch that still exists but whose directory is
@@ -809,6 +860,13 @@ function runVerb(verb, flags) {
   if (verb === 'create' || verb === 'restore') {
     if (!slug) return { blocks: ['--slug is required for ' + verb], warns: [] };
     const options = { ...shared, issue, slug, type: flags.type || 'feat', parent: flags.parent };
+    // A `--base` that is a commit sha means a child of a parallel run: its
+    // checkout is cut from that exact commit, never from a ref that another
+    // child could move. Any other `--base` keeps its long-standing meaning,
+    // the branch the new worktree is cut from.
+    if (verb === 'create' && flags.base && CHILD_BASE_SHA.test(String(flags.base))) {
+      return createChildWorktree({ ...options, baseSha: String(flags.base) });
+    }
     return verb === 'create' ? createWorktree(options) : restoreWorktree(options);
   }
   return { blocks: [at(verb, 'unknown verb — expected create|restore|remove|list|prune|status')], warns: [] };
