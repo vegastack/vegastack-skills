@@ -37,6 +37,19 @@
         "No child is proposed with the `ready` label; every child is presented for the operator's approval",
         "Unclear deliverables are listed under Not clear yet with a question each, rather than silently assigned a class"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Add a --since flag to our status script in vegastack/example-service; the flag parsing already lives in scripts/status.mjs. Write it up as an issue.",
+      "expected_output": "A quick-build brief whose numbered interview questions include one for Priority and one for Effort, each carrying a recommended answer drawn from the options the org actually defines, so that replying \"all recommended\" answers both; the draft body carries **Priority:** and **Effort:** lines under **Scope:**.",
+      "files": [],
+      "assertions": [
+        "The numbered questions include one for Priority and one for Effort, each carrying a recommended answer",
+        "The recommended Effort is justified by the scope class rather than by an invented letter scale",
+        "The option names offered come from gh api orgs/<org>/issue-fields, not from a guess",
+        "Replying 'all recommended' answers both questions",
+        "The draft body carries **Priority:** and **Effort:** lines under **Scope:**"
+      ]
     }
   ]
 }

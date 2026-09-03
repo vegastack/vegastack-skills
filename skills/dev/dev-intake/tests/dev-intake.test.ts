@@ -40,6 +40,15 @@ describe('dev-intake contract', () => {
     expect(template).toContain('`issue-fields:`')
   })
 
+  test('the interview reads the org field options instead of guessing them', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const interview = skill.split('## The interview')[1].split('\n## ')[0]
+    expect(interview).toContain('gh api orgs/<org>/issue-fields')
+    expect(interview).toContain('`issue-fields:`')
+    expect(interview).toMatch(/lowest option/)
+    expect(interview).toMatch(/middle option/)
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
