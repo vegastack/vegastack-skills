@@ -20,6 +20,7 @@ Gather these silently and present them as findings — "here's what I found — 
 | repo, default branch | `git remote get-url origin` · `gh repo view --json nameWithOwner,defaultBranchRef` |
 | gh authenticated | `gh auth status` |
 | operator username (the `architect:` knob) | `gh api user -q .login`, fallback `git config user.name` — written as the knob's value with no question, because the architecture owner defaults to whoever runs setup; the decision-register header uses the same lookup |
+| the operator list (the `operators:` knob) | the same `gh api user -q .login` lookup, written as a one-name csv without asking — assignment needs a default owner from run one, and the operator edits the line to add colleagues |
 | gh version | `gh --version` against the floors in [harness-facts](references/harness-facts.md); each feature the version lacks is named in the Step 4 report, so the operator upgrades once instead of hitting the gap mid-run |
 | stack and commands | package.json scripts, lockfiles, framework configs |
 | web app (UI evidence relevant) | framework dependencies (next, react, vue, …) |
@@ -47,6 +48,7 @@ Ask with your harness's question tool — AskUserQuestion in Claude Code, `reque
 2. Proof for UI work: **playwright screenshots** · none
 3. Gates: **3** (approve → PR → merge as separate user words) · 2 (approve → one "ship it" covers PR and merge) · 1 (direct-to-main for single-operator projects: the ship word merges locally and pushes, no PR — everything else unchanged)
 4. Tests: **required for every change** · required for logic changes only
+5. Who may be assigned issues here (`operators:` knob): **just you** (the detected login) · a csv of logins — every human who can receive a `needs-operator` or `for-operator` issue
 
 **Round C — only when the situation exists:**
 
@@ -69,7 +71,7 @@ Everything else — merge style, branch naming, the stop-and-ask list, the `arch
 
 | Target | Action |
 |---|---|
-| `.vegastack/dev.md` | render [dev-profile template](assets/dev-profile.md.template) with the answers — the project's single canonical process doc (Ship/Verify/Environments/Design from the playbook, Architecture from detection, Decisions test included, placeholders deleted, TODO lines where machinery is absent; `architect:` from the detected username, `chronicle-style` and `emoji` at their template defaults). dev.md is short directional bullets — one line per knob or rule — because every skill reads it on every run |
+| `.vegastack/dev.md` | render [dev-profile template](assets/dev-profile.md.template) with the answers — the project's single canonical process doc (Ship/Verify/Environments/Design from the playbook, Architecture from detection, Decisions test included, placeholders deleted, TODO lines where machinery is absent; `architect:` and `operators:` from the detected username, `chronicle-style` and `emoji` at their template defaults). dev.md is short directional bullets — one line per knob or rule — because every skill reads it on every run |
 | `AGENTS.md` | create it, or insert/replace only the block between `<!-- vsk-dev:start -->` and `<!-- vsk-dev:end -->` using the [agents-section template](assets/agents-section.md.template); content outside the markers is the user's and stays untouched |
 | `CLAUDE.md` | ensure its first line is `@AGENTS.md` — Claude Code does not read AGENTS.md natively and needs this import ([harness-facts](references/harness-facts.md)); create the file when absent |
 | labels | `gh label create <name> --color <hex> --description "<text>"` for the names the `labels:` knob records, skipping ones that exist; creation colors ([conventions](references/conventions.md) holds meanings): state `needs-operator` FBCA04 · `needs-plan` E36209 · `ready` 0E8A16 · `working` 1D76DB · `for-operator` 5319E7; modifiers `risky` B60205 · scope `research` C5DEF5 · `quick-build` 76C7C0 · `full-plan` 2A9D8F · `epic` 24292E (only when the org has no native Epic issue type) |
