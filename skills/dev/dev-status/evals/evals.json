@@ -54,15 +54,28 @@
     },
     {
       "id": 5,
-      "prompt": "status — the attached status.json shows controlRoom.knobs with one entry.",
-      "expected_output": "The board plus one control-room line naming the knob, this repo's value, the control room's value, and the two shas — labelled a proposal the operator decides, with no claim that .vegastack/dev.md was edited.",
+      "prompt": "status — here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached); its controlRoom is synced and its knobs array has one entry.",
+      "expected_output": "The board plus one control-room line naming the knob (review), this repo's value (cross-agent-risky), the control room's value (cross-agent) and the two shas (a1b2c3d recorded, e4f5a6b in the clone) — labelled a proposal the operator decides, with no claim that .vegastack/dev.md was edited.",
       "files": [
         "evals/files/status.json"
       ],
       "assertions": [
-        "The control-room line names both values and is labelled a proposal",
-        "The report does not claim to have changed .vegastack/dev.md",
-        "An unsynced control room is reported as unsynced, never as no drift"
+        "The control-room line names the knob review with both values, cross-agent-risky and cross-agent, and is labelled a proposal",
+        "Both shas from the data, a1b2c3d and e4f5a6b, appear on that line",
+        "The report does not claim to have changed .vegastack/dev.md"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "status — here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached); its controlRoom is not available on this machine.",
+      "expected_output": "The board plus one control-room line saying the control room is not synced and naming `vegafactory sync` as the fix — never a claim that the knobs agree, because nothing was compared.",
+      "files": [
+        "evals/files/status-unsynced.json"
+      ],
+      "assertions": [
+        "The control-room line reports the room as not synced and names `vegafactory sync`",
+        "No knob is reported as agreeing or drifting, because the data carries no knobs array",
+        "The report does not claim to have changed .vegastack/dev.md"
       ]
     }
   ]
