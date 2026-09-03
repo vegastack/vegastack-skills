@@ -4,7 +4,7 @@ This file is the project's handbook and its only process document: short directi
 
 repo: vegastack/vegafactory · default branch main
 stack: Bun monorepo — authored skills under skills/<name>/ or skills/<group>/<name>/ (one level, GROUP.md per group; the packaged bundle stays flat), @vegastack/vegafactory installer under packages/cli (Node >= 24)
-commands: test `bun test` · check `bun run check` · build `bun run build`
+commands: test `bun test` · check `bun run check` · build `bun run build` · setup `bun install --frozen-lockfile`
 authority: CONTRIBUTING.md → this file → skill-maintainer's release-ops.md (expanded release/rename detail) → skill defaults
 
 ## Knobs
@@ -17,6 +17,8 @@ skillspector-update: auto   # off | notify | auto — the CLI self-installs and 
 skill-scan: packages/cli/skill   # the BUILT bundle — authored skills/ carries unpackaged tests/ fixtures that are deliberately adversarial and score higher than anything shipped; suppressions in .vegastack/skillspector-baseline.json
 merge: rebase               # meaningful commits, linear history
 branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the only place this list lives
+worktree-include: none      # nothing gitignored is needed by a fresh checkout here; `bun install` (the setup command) rebuilds node_modules
+worktree-retention: 14d     # a parked worktree survives this long with no session, measured from the later of its last commit and its last ledger edit
 labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents (org has no native Epic issue type)
 changelog: changesets
 decisions: .vegastack/decisions.md
@@ -43,6 +45,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 ## Verify — how to see it working (pre-merge)
 
 - `bun run check` is the whole local verification (validate + tests + lint + typecheck); CI adds a packed-tarball install smoke test
+- `vegafactory worktree status` (or `node skills/dev/dev-implement/scripts/worktree.mjs status --json`) reconciles the worktrees against open issues before a hand-back: orphan directories, worktrees with no open issue, open issues with no checkout
 - Skill scanning is separate from `check` because it needs Python 3.12 + SkillSpector, while `check` must stay Bun+Node only: `bun run build && node skills/dev/dev-review/scripts/skill-scan.mjs --json` — build first, the knob names the built bundle and `.vegastack/skillspector-baseline.json` is picked up by convention. Exit 2 blocks the hand-back; a new suppression needs the operator's word, never a widened rule to reach green
 
 ## Environments

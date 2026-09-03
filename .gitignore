@@ -18,6 +18,7 @@ work/
 # Tool caches and session artifacts
 .turbo/
 .claude/
+.vegastack/.worktrees/
 
 # Eval runs — claude plugin eval results and agentskills.io workspaces
 **/evals/results/
