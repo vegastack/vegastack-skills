@@ -9,6 +9,7 @@ The comment a plan lives in, verbatim. dev-implement executes it task by task an
 **Goal:** <one sentence: what exists when this plan is done>
 **Approach:** <2–3 sentences — and the alternatives considered with why they lost, one line each>
 **Constraints:** <binding requirements from the brief and Architecture facts, exact values, one per line>
+**Independent groups:** (optional — only when the work below can run at the same time; see ## Independent groups)
 
 ### Tasks
 
@@ -20,6 +21,21 @@ The comment a plan lives in, verbatim. dev-implement executes it task by task an
 
 **Revisions:** (absent until a post-approval edit; then one line per edit)
 ````
+
+## Independent groups
+
+Optional. Declare it only when the work below can run at the same time; its absence means the work runs in plan order, which is the safe default.
+
+```markdown
+**Independent groups:** (only when the work below can run at the same time)
+- `api` — #131 · Files: `packages/cli/src/dispatch.ts`, `packages/cli/test/dispatch.test.ts`
+- `docs` — #132 · Files: `README.md`
+```
+
+- **Members** are `#<issue>` on an epic parent's plan, or `Task <n>` inside one issue's plan. A member belongs to exactly one group.
+- **File sets are the contract, not a hint.** Every group declares one; a path ending in `/` is a directory and covers everything beneath it. Two groups' sets must be disjoint — plan-lint blocks an overlap, a repeated id, a member in two groups, a missing set, and a line outside the grammar above.
+- The declared set is also the **scope check** dev-implement runs after the join: a child whose diff touches a path outside its own set is not merged, and the parent says so. Declare the whole set a group will touch, tests included.
+- `node <path-to-this-skill>/scripts/plan-lint.mjs --file <plan.md> --groups --json` prints the validated groups as JSON — the one parser for this grammar, and the input dev-implement's `children.mjs` consumes. Blocked plans print no groups.
 
 ## Rules
 

@@ -155,7 +155,11 @@ if (invokedDirectly) {
   // --groups hands the validated groups to the rest of the family, so exactly one
   // parser for the grammar exists. Without the flag the shape is untouched:
   // dev-implement's evidence flow and the dev-plan body both read it.
-  const groups = wantGroups ? (ok && text !== null ? parseIndependentGroups(text) : []) : null;
+  // The published contract is { id, members, files }; `line` is the parser's own
+  // reporting aid and stays out of the JSON other skills consume.
+  const groups = wantGroups
+    ? (ok && text !== null ? parseIndependentGroups(text).map((g) => ({ id: g.id, members: g.members, files: g.files })) : [])
+    : null;
   if (json) {
     const payload = { guard: 'plan-lint', ok, ...outcome };
     if (wantGroups) payload.groups = groups;
