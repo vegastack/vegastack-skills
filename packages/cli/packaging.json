@@ -84,6 +84,7 @@
     "references/conventions.md",
     "references/harness-facts.md",
     "references/stack-playbooks.md",
+    "scripts/questions.mjs",
     "assets/dev-profile.md.template",
     "assets/agents-section.md.template",
     "assets/hooks/ship-guard.mjs",

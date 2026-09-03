@@ -1,0 +1,143 @@
+#!/usr/bin/env node
+// The ask round: render questions into a `questions` comment, parse whatever a
+// teammate replies, re-ask only what is still open, and decide which route the
+// round takes at all. Text in, text out — this script makes no `gh` call, no
+// network call, and writes no file, so it needs no credentials and no dry run.
+//
+// The route, the comment shape and the reply grammar are documented once in
+// dev-setup's references/ask-route.md; this file is the method behind them.
+//
+//   node questions.mjs render  --spec <file.json> [--rev <n>] [--json]
+//   node questions.mjs parse   --comment <file> --spec <file.json> [--json]
+//   node questions.mjs re-ask  --spec <file.json> --comment <file> --rev <n> [--json]
+//   node questions.mjs route   --tool <name|none> --asker <login> --operator <login> [--json]
+//
+// Exit codes: 0 pass · 1 answers still open or malformed (nothing to re-ask, for
+// `re-ask`) · 2 refusal or usage error.
+import { lstatSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// Options run a through h: eight is already more than a person will weigh, and a
+// bounded set is what makes the reply grammar a single character.
+const LETTERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+
+// Every path this script reads goes through here. A symlink is refused rather
+// than followed: the caller hands it a path from an issue comment's neighbourhood,
+// and a guard that resolves links reads whatever the link points at.
+export function readTextFile(path) {
+  const stats = lstatSync(path)
+  if (stats.isSymbolicLink()) throw new Error('refusing to read a symlink: ' + path)
+  if (!stats.isFile()) throw new Error('not a regular file: ' + path)
+  return readFileSync(path, 'utf8')
+}
+
+// The display number of a question: its `n` when the round is a re-ask carrying
+// the original numbering, otherwise its position.
+function numberOf(question, index) {
+  return typeof question.n === 'number' ? question.n : index + 1
+}
+
+// A spec that cannot render is a bug in the caller, not a question for the user,
+// so every check throws with the question's own number in the message.
+export function checkSpec(spec) {
+  const questions = spec && Array.isArray(spec.questions) ? spec.questions : null
+  if (!questions) throw new Error('spec has no questions array')
+  if (questions.length === 0) throw new Error('a round needs at least one question')
+  questions.forEach((question, index) => {
+    const n = numberOf(question, index)
+    const label = 'question ' + n
+    if (typeof question.text !== 'string' || question.text.trim() === '') throw new Error(label + ' has no text')
+    const options = Array.isArray(question.options) ? question.options : []
+    if (options.length < 2) throw new Error(label + ' has fewer than two options')
+    const seen = new Set()
+    for (const option of options) {
+      if (typeof option.text !== 'string' || option.text.trim() === '') throw new Error(label + ' has an option with no text')
+      if (!LETTERS.includes(option.letter)) {
+        throw new Error(label + ' uses the letter "' + option.letter + '" — options run a through h')
+      }
+      if (seen.has(option.letter)) throw new Error(label + ' repeats the letter "' + option.letter + '"')
+      seen.add(option.letter)
+      if (option.recommended && (typeof option.reason !== 'string' || option.reason.trim() === '')) {
+        throw new Error(label + ' recommends "' + option.letter + '" without a reason')
+      }
+    }
+    const recommended = options.filter((option) => option.recommended)
+    if (recommended.length === 0) throw new Error(label + ' has no recommended option')
+    if (recommended.length > 1) throw new Error(label + ' has ' + recommended.length + ' recommended options')
+  })
+  return questions
+}
+
+// The rendered comment. The `<questions>` wrapper is what lets the parser and the
+// model both find the round inside a comment that may carry prose around it.
+export function renderQuestions(spec, options) {
+  const rev = options && options.rev ? Number(options.rev) : 1
+  if (!Number.isInteger(rev) || rev < 1) throw new Error('rev must be a positive integer')
+  const questions = checkSpec(spec)
+  const lines = []
+  lines.push('<!-- vsk:v1 type=questions rev=' + rev + ' -->')
+  lines.push('## Questions (v' + rev + ')')
+  lines.push('')
+  lines.push('<questions>')
+  questions.forEach((question, index) => {
+    if (index > 0) lines.push('')
+    lines.push('**Q' + numberOf(question, index) + '.** ' + question.text)
+    for (const option of question.options) {
+      let line = '- ' + option.letter + ') ' + option.text
+      if (option.recommended) line += ' (recommended — ' + option.reason + ')'
+      lines.push(line)
+    }
+  })
+  // The example in the reply line is the round's own first question and its first
+  // letter, so a re-ask that starts at Q3 tells the reader to write `3: a`.
+  const first = questions[0]
+  const example = numberOf(first, 0) + ': ' + first.options[0].letter
+  lines.push('')
+  lines.push('Reply with `' + example + '` per question, or `all recommended`.')
+  lines.push('</questions>')
+  lines.push('')
+  return lines.join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+
+const USAGE = [
+  'usage:',
+  '  questions.mjs render --spec <file.json> [--rev <n>] [--json]',
+].join('\n')
+
+function readSpec(path) {
+  return JSON.parse(readTextFile(path))
+}
+
+function report(json, payload, exitCode, humanLines) {
+  if (json) console.log(JSON.stringify(payload, null, 2))
+  else for (const line of humanLines) console.log(line)
+  process.exit(exitCode)
+}
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+if (invokedDirectly) {
+  const argv = process.argv.slice(2)
+  const json = argv.includes('--json')
+  const get = (flag) => { const i = argv.indexOf(flag); return i === -1 ? undefined : argv[i + 1] }
+  const command = argv[0]
+  const refuse = (reason) => report(json, { command: command || null, ok: false, error: reason }, 2, ['questions: ' + reason])
+
+  if (command === 'render') {
+    const specPath = get('--spec')
+    if (!specPath) refuse(USAGE)
+    try {
+      const rev = get('--rev') ? Number(get('--rev')) : 1
+      const markdown = renderQuestions(readSpec(specPath), { rev })
+      report(json, { command: 'render', ok: true, rev, markdown }, 0, [markdown])
+    } catch (error) {
+      refuse(error.message)
+    }
+  } else {
+    refuse(USAGE)
+  }
+}

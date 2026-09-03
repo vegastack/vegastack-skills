@@ -27,6 +27,7 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [references/conventions.md](references/conventions.md) | The workflow artifact spec — authored here, duplicated into every dev-family install |
 | [references/harness-facts.md](references/harness-facts.md) | Verified, refresh-tracked Claude Code, Codex and Hermes mechanics (AGENTS.md handling, skill discovery, question tools, hooks, subagents), the GitHub CLI floors, the per-harness model/effort/concurrency controls, and the four-hook package wiring for all three harnesses |
 | [references/stack-playbooks.md](references/stack-playbooks.md) | Per-stack detection → draft mapping (npm/changesets, Node app, Flutter, Python, Go, generic), the guard library, and the greenfield playbook |
+| [scripts/questions.mjs](scripts/questions.mjs) | The ask round renderer, answer parser and route decision — authored here, duplicated into intake, plan and implement |
 | [assets/dev-profile.md.template](assets/dev-profile.md.template) | The `.vegastack/dev.md` starting point |
 | [assets/agents-section.md.template](assets/agents-section.md.template) | The marked AGENTS.md block this skill owns |
 | [assets/hooks/ship-guard.mjs](assets/hooks/ship-guard.mjs) | Environment-aware PreToolUse ship guard: reads dev.md's Environments lines, gates knob and Ship ask: lines, asks on anything else in the shipping family |
