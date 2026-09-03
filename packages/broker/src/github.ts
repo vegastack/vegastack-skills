@@ -94,3 +94,67 @@ export async function findInstallationId(
   if (typeof id !== 'number' || !Number.isInteger(id)) throw new UpstreamFailure('the installation lookup returned no installation id')
   return id
 }
+
+// The permission cap, and the only place it is written. The mint asks for exactly these three
+// permissions on exactly one repository, and the response's own echo is compared to the same
+// constant before a token is ever returned — so a widening on GitHub's side is a refusal here
+// rather than a broader token in a customer's workflow.
+export const CAPPED_PERMISSIONS: Readonly<Record<string, string>> = Object.freeze({
+  issues: 'write',
+  metadata: 'read',
+  organization_projects: 'write',
+})
+
+export class PermissionCapViolation extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PermissionCapViolation'
+  }
+}
+
+export function permissionsMatchCap(echo: unknown): boolean {
+  if (typeof echo !== 'object' || echo === null || Array.isArray(echo)) return false
+  const actual = echo as Record<string, unknown>
+  const expectedKeys = Object.keys(CAPPED_PERMISSIONS)
+  const actualKeys = Object.keys(actual)
+  if (actualKeys.length !== expectedKeys.length) return false
+  return expectedKeys.every((key) => actual[key] === CAPPED_PERMISSIONS[key])
+}
+
+function offendingKeys(echo: unknown): string[] {
+  if (typeof echo !== 'object' || echo === null || Array.isArray(echo)) return ['<not an object>']
+  const actual = echo as Record<string, unknown>
+  const keys = new Set([...Object.keys(CAPPED_PERMISSIONS), ...Object.keys(actual)])
+  return [...keys].filter((key) => actual[key] !== CAPPED_PERMISSIONS[key]).sort()
+}
+
+export async function mintRepoToken(args: {
+  installationId: number
+  repo: string
+  jwt: string
+  doFetch: typeof fetch
+}): Promise<{ token: string; expiresAt: string; permissions: Record<string, string> }> {
+  const url = `https://api.github.com/app/installations/${encodeURIComponent(String(args.installationId))}/access_tokens`
+  const response = await allowedFetch(
+    url,
+    {
+      method: 'POST',
+      headers: { ...API_HEADERS, Authorization: `Bearer ${args.jwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repositories: [args.repo], permissions: CAPPED_PERMISSIONS }),
+    },
+    args.doFetch,
+  )
+  if (response.status !== 201) throw new UpstreamFailure(`the token mint failed (HTTP ${response.status})`)
+  const body = (await response.json().catch(() => null)) as
+    | { token?: unknown; expires_at?: unknown; permissions?: unknown }
+    | null
+  const token = body?.token
+  const expiresAt = body?.expires_at
+  if (typeof token !== 'string' || token.length === 0) throw new UpstreamFailure('the token mint returned no token')
+  if (typeof expiresAt !== 'string' || expiresAt.length === 0) throw new UpstreamFailure('the token mint returned no expiry')
+  if (!permissionsMatchCap(body?.permissions)) {
+    // The token is discarded here and never reaches the caller or a log line.
+    throw new PermissionCapViolation(`the minted token exceeds the cap on: ${offendingKeys(body?.permissions).join(', ')}`)
+  }
+  return { token, expiresAt, permissions: body?.permissions as Record<string, string> }
+}
