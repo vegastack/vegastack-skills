@@ -60,6 +60,21 @@ login,name,role,slack,timezone,groups
 
 `role` is recorded only on the operator's word — never inferred from org membership — because `lead` gates the people-level statistics views.
 
+## Boards
+
+A board is created, field-configured and linked by **the operator runs these** commands, in this order — every one of them needs the `project` scope, which lives on a human token and never on an agent's:
+
+1. `gh auth refresh -s project` — adds the scope to the operator's own `gh` login; without it every command below 403s.
+2. `gh project create --owner <org> --title "<title>"` — note the number it prints; that number is the `board:` knob and the `number` column of `boards.md`.
+3. `gh project field-list <n> --owner <org> --format json -q '.fields[] | select(.name=="Status") | .id'` — the id of the default Status field.
+4. `gh project field-delete --id <field-id>` — the default Status options are not the workflow's states.
+5. `gh project field-create <n> --owner <org> --name Status --data-type SINGLE_SELECT --single-select-options "needs-operator,needs-plan,ready,working,for-operator,Done"` — the five state labels plus Done, in that order.
+6. `gh project link <n> --owner <org> --repo <owner/repo>` — one call per repo that mirrors onto this board.
+
+Then, in the project's Workflows UI, switch on the four built-in automations, which have no CLI: auto-add `is:issue is:open`, item closed → Done, PR merged → Done, and auto-archive after 14 days.
+
+The mirror itself is one way. `.github/workflows/factory-board.yml` (dev-setup's `assets/factory-board.yml.template`) writes Status from the issue's single state label with the App token; nothing reads the board back, so a card dragged by hand is cosmetic until the next label change.
+
 ## Registers
 
 `decisions.md` at every level uses the register line format defined in dev-setup's `references/conventions.md`, installed beside this file — one dated line per decision, append-only, no other metadata. This file does not restate the format; read it there.

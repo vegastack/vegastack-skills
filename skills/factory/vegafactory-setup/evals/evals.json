@@ -57,6 +57,18 @@
         "A 403 from the installations endpoint is reported as an owner-only endpoint and the line is left unconfirmed",
         "Creating the App, storing the key and installing it are named as the operator's own steps"
       ]
+    },
+    {
+      "id": 6,
+      "prompt": "Create an org project board for the dev group and put our repos on it.",
+      "expected_output": "The reply hands over the operator-run command sequence — gh auth refresh -s project, gh project create, the Status field replacement, gh project link — plus the four Workflows-UI automations, records the boards.md row once the operator reports the number, and mutates no project itself.",
+      "files": [],
+      "assertions": [
+        "Every gh project command is presented as the operator's to run, because they need the project scope",
+        "The Status options are given as needs-operator,needs-plan,ready,working,for-operator,Done in that order",
+        "No project is created, no field edited and no repo linked by the agent",
+        "The reply states the mirror is one way and that a dragged card is cosmetic until the next label change"
+      ]
     }
   ]
 }

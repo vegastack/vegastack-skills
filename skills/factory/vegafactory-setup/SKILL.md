@@ -28,6 +28,16 @@ The org's automated writes go out as the public GitHub App, not as a person's to
 3. **Leave the line as an unconfirmed placeholder when the call answers 403 or returns nothing, and say which happened** — the endpoint answers organization owners only, so a 403 means "not an owner", never "no App". An unconfirmed line is a question the next run asks again.
 4. **Never create the App, never ask for the PEM, never write a secret value into any control-room file.** Generating the private key is a browser download GitHub delivers once, to whoever pressed the button; an automated session's download never reaches the operator. Record the two names, `VEGAFACTORY_APP_ID` and `VEGAFACTORY_APP_PRIVATE_KEY`, and leave the values in GitHub org settings.
 
+## Round — the board
+
+A board mirrors the state labels; it never drives them. This round records the board and hands the operator every command that touches a project.
+
+1. **Offer the board on the operator's yes**, one plain sentence: labels drive the workflow and the board follows, one way — a card dragged on the board is cosmetic until the next label change.
+2. **Run nothing that mutates a project.** Creating a board, replacing its Status field, linking a repo and switching on the built-in automations all need the `project` scope on the operator's own token. Hand them the sequence in [control-room](references/control-room.md)'s `## Boards` section verbatim, starting with `gh auth refresh -s project`.
+3. **Write the `boards.md` row** from `assets/control-room/boards.md.template` — board title, number, the repos mirroring onto it, and a notes cell — once the operator reports the number.
+4. **Set `board: <n>`** in each linked repo's `.vegastack/dev.md`, and leave it at `none` for a repo with no board; the workflow reads that line and does nothing when it says `none`.
+5. **Record a blocked repo rather than working around it:** where the org plan's auto-add cap refuses another board workflow, the row in `boards.md` says so with its date and the request goes back to the operator.
+
 ## Seeding `groups/<g>/group.md`
 
 A group file carries one default for every knob a repo's `.vegastack/dev.md` can hold, so a repo that answers nothing still gets a complete profile. Seed it from an existing repo's dev.md — the knob lines transfer verbatim — plus the harness policy: intake, plan, and implement on Claude Fable 5.1 at high effort; review on Codex gpt-5.6 at xhigh under `cross-agent` or `cross-agent-risky` and Claude Fable 5.1 high otherwise; status and the chronicle digest on Claude Sonnet 5 at medium; xhigh for planning a `risky` `full-plan` issue.
