@@ -1,0 +1,43 @@
+import { describe, expect, test } from 'bun:test'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { parseWorktreeArgs, recordRepoRoot, runWorktree } from '../src/worktree.ts'
+
+describe('parseWorktreeArgs', () => {
+  test('create passes --write, remove and prune stay dry-run', () => {
+    expect(parseWorktreeArgs(['create', '106'])).toMatchObject({ verb: 'create', issue: 106, write: true })
+    expect(parseWorktreeArgs(['remove', '106'])).toMatchObject({ verb: 'remove', issue: 106, write: false, force: false })
+    expect(parseWorktreeArgs(['remove', '106', '--force', '--write'])).toMatchObject({ force: true, write: true })
+    expect(parseWorktreeArgs(['prune', '--older-than', '7d'])).toMatchObject({ verb: 'prune', olderThan: '7d', write: false })
+    expect(parseWorktreeArgs(['list', '--all-repos'])).toMatchObject({ verb: 'list', allRepos: true })
+  })
+  test('an unknown verb is a usage error naming the real ones', () => {
+    expect(() => parseWorktreeArgs(['nuke'])).toThrow(/list\|create\|restore\|remove\|prune\|status/)
+  })
+})
+
+describe('runWorktree', () => {
+  test('a blocked script run becomes exit 2 and the blocks reach the user', async () => {
+    const calls: string[][] = []
+    const spawn = (args: string[]) => {
+      calls.push(args)
+      return { status: 2, stdout: JSON.stringify({ guard: 'worktree', ok: false, blocks: ['uncommitted changes in the worktree'], warns: [] }) }
+    }
+    const registryPath = join(mkdtempSync(join(tmpdir(), 'vf-reg-')), 'worktree-roots.json')
+    expect(await runWorktree(['remove', '106'], { spawn, registryPath })).toBe(2)
+    expect(calls[0]).toContain('remove')
+    expect(calls[0]).not.toContain('--write')
+  })
+})
+
+describe('recordRepoRoot', () => {
+  test('the cross-repo registry dedupes and prunes vanished roots', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vf-reg-'))
+    const registryPath = join(dir, 'worktree-roots.json')
+    writeFileSync(registryPath, JSON.stringify([join(dir, 'gone')]))
+    const roots = await recordRepoRoot(registryPath, dir)
+    expect(roots).toEqual([dir])
+    expect(JSON.parse(readFileSync(registryPath, 'utf8'))).toEqual([dir])
+  })
+})

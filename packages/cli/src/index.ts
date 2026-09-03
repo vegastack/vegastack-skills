@@ -7,13 +7,14 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
 import { selectSkills, type SkillEntry } from './selection.ts'
+import { runWorktree, worktreeUsage } from './worktree.ts'
 
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree'
 // Top-level verbs the factory reserves; they are named in usage and refuse until they land.
-const reservedTopLevel: readonly string[] = ['dispatch', 'service', 'status', 'worktree', 'sync', 'stats', 'dashboard'] as const
+const reservedTopLevel: readonly string[] = ['dispatch', 'service', 'status', 'sync', 'stats', 'dashboard'] as const
 const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
 interface Options {
   command: Command
@@ -26,6 +27,7 @@ interface Options {
   dryRun: boolean
   force: boolean
   nonInteractive: boolean
+  rest?: string[]
 }
 interface SkillIntegrity { files: Record<string, string>; group?: string | null; repoOnly?: boolean }
 interface Integrity { schemaVersion: number; skills: Record<string, SkillIntegrity> }
@@ -61,7 +63,13 @@ Options:
   --non-interactive
   --version
 
-Reserved (not yet available): dispatch, service, status, worktree, sync, stats, dashboard
+Worktrees (one feature, one worktree — the main checkout never leaves the default branch):
+  vegafactory worktree <list|create|restore|remove|prune|status> [options]
+  list [--all-repos] · status · create <issue> · restore <issue>
+  remove <issue> [--force] [--write] · prune [--older-than 14d] [--write]
+  remove and prune are dry-run until --write, and never touch a branch or anything uncommitted.
+
+Reserved (not yet available): dispatch, service, status, sync, stats, dashboard
 
 Run "vegafactory skills list" to see the bundled skills.
 `
@@ -84,6 +92,7 @@ function parse(argv: string[]): Options {
       if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
       command = verb as Command
     }
+    else if (head === 'worktree') return { command: 'worktree', all: false, dryRun: false, force: false, nonInteractive: false, rest: argv.splice(0) }
     else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
     else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
     else if (head === 'help' || head === 'version') command = head
@@ -633,6 +642,12 @@ async function doctor(options: Options) {
 
 async function main() {
   const options = parse(process.argv.slice(2))
+  if (options.command === 'worktree') {
+    const rest = options.rest ?? []
+    if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(worktreeUsage())
+    process.exitCode = await runWorktree(rest)
+    return
+  }
   if (options.command === 'help') return console.log(usage())
   if (options.command === 'version') return console.log(packageVersion)
   if (options.command === 'list') return list()

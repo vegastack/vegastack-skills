@@ -770,8 +770,19 @@ function runVerb(verb, flags) {
     return { blocks: [], warns, entries, reconciled: reconcileWorktrees({ entries, openIssues: github.openIssues }) };
   }
   if (verb === 'remove') {
-    if (!flags.name) return { blocks: ['--name <n>-<slug> is required for remove'], warns: [] };
-    return removeWorktree({ repoRoot, name: flags.name, base, force: Boolean(flags.force), push: Boolean(flags.push), write: shared.write });
+    // --name is exact; --issue resolves it from the inventory, which is what a
+    // caller that only knows the issue number (the CLI, dev-ship) has.
+    let name = flags.name;
+    if (!name && issue !== null) {
+      const matches = inventory(repoRoot).filter((entry) => issueOfWorktree(entry.name) === issue);
+      if (matches.length === 0) return { blocks: [at('#' + issue, 'no worktree for that issue')], warns: [] };
+      if (matches.length > 1) {
+        return { blocks: [at('#' + issue, 'several worktrees match (' + matches.map((m) => m.name).join(', ') + ') — pass --name')], warns: [] };
+      }
+      name = matches[0].name;
+    }
+    if (!name) return { blocks: ['--name <n>-<slug> or --issue <n> is required for remove'], warns: [] };
+    return removeWorktree({ repoRoot, name, base, force: Boolean(flags.force), push: Boolean(flags.push), write: shared.write });
   }
   if (verb === 'prune') {
     const warns = [];

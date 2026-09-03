@@ -456,14 +456,24 @@ describe('selecting a family', () => {
   })
 
   test('reserved top-level verbs are named in usage and refuse until they land', () => {
-    for (const verb of ['dispatch', 'service', 'status', 'worktree', 'sync', 'stats', 'dashboard']) {
+    for (const verb of ['dispatch', 'service', 'status', 'sync', 'stats', 'dashboard']) {
       const result = run(temporary, [verb])
       expect(result.exitCode).not.toBe(0)
       expect(result.stderr.toString()).toContain(`${verb} is not available yet`)
     }
     const help = run(temporary, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory skills <add|verify|remove>')
-    for (const verb of ['dispatch', 'service', 'status', 'worktree', 'sync', 'stats', 'dashboard']) expect(help).toContain(verb)
+    for (const verb of ['dispatch', 'service', 'status', 'sync', 'stats', 'dashboard']) expect(help).toContain(verb)
+  })
+
+  test('worktree has landed: it is no longer reserved and prints its own verbs', () => {
+    const bare = run(temporary, ['worktree'])
+    expect(bare.exitCode).toBe(0)
+    expect(bare.stdout.toString()).toContain('vegafactory worktree <list|create|restore|remove|prune|status>')
+    const unknown = run(temporary, ['worktree', 'nuke'])
+    expect(unknown.exitCode).not.toBe(0)
+    expect(unknown.stderr.toString()).toContain('list|create|restore|remove|prune|status')
+    expect(run(temporary, ['--help']).stdout.toString()).toContain('vegafactory worktree')
   })
 
   test('the package manifest carries the vegafactory identity', async () => {
