@@ -45,12 +45,21 @@ export function evaluatePreflight({ issue, comments, devMd, me, expect = 'ready'
   const openBlockers = issue.blockedBy ?? [];
   if (openBlockers.length > 0) blocks.push(`open blockers: ${openBlockers.map((b) => `#${b.number}`).join(', ')}`);
 
-  // `ready` means unassigned (conventions' Labels table): an assignee here is a
-  // fact worth naming, not a stop — a human may have picked it up by hand, and a
-  // block would strand a claimable issue. A foreign assignee still blocks.
+  // Who the assignee is depends on the state (conventions' Labels table): `ready`
+  // is unassigned, `working` is the claimant, `for-operator` is the operator. So a
+  // foreign assignee blocks on the first two — someone else's claim — and is the
+  // expected shape on a corrections run, where the hand-back moved the assignee to
+  // the operator and the runner's gh login need not be that person. On `ready`,
+  // an assignee that is you is a fact worth naming, not a stop — a human may have
+  // picked it up by hand, and a block would strand a claimable issue.
   const assigned = (issue.assignees ?? []).map((a) => a.login);
   const others = assigned.filter((l) => l !== me);
-  if (others.length > 0) blocks.push(`already assigned to ${others.join(', ')} — a working issue belongs to its claimant`);
+  if (others.length > 0 && expect !== 'for-operator') {
+    const why = expect === 'working'
+      ? 'a working issue belongs to its claimant'
+      : "a ready issue is unassigned by convention, so another assignee is someone else's claim";
+    blocks.push(`already assigned to ${others.join(', ')} — ${why}`);
+  }
   if (expect === 'ready' && assigned.length > 0) {
     warns.push(`a ready issue is unassigned by convention; this one is assigned to ${assigned.join(', ')} — confirm nobody else is mid-claim before taking it`);
   }

@@ -131,6 +131,25 @@ describe('preflight', () => {
     resume.assignees = [{ login: 'kmanojkumar' }]
     expect(evaluatePreflight({ issue: resume, comments: [approval()], devMd, me: 'kmanojkumar', expect: 'working' }).warns).toEqual([])
   })
+  test('a for-operator issue assigned to its operator is not a foreign claim: the corrections run starts', () => {
+    // The hand-back moves the assignee to the operator, so on a multi-operator project (or a
+    // runner whose gh login is not the operator) every corrections run sees a foreign assignee.
+    const corrections = baseIssue()
+    corrections.labels = [{ name: 'for-operator' }, { name: 'quick-build' }]
+    corrections.assignees = [{ login: 'ada' }]
+    expect(evaluatePreflight({ issue: corrections, comments: [approval()], devMd, me: 'kmanojkumar', expect: 'for-operator' }).blocks).toEqual([])
+    // A working issue still belongs to its claimant, and the block says so.
+    const claimed = baseIssue()
+    claimed.labels = [{ name: 'working' }, { name: 'quick-build' }]
+    claimed.assignees = [{ login: 'ada' }]
+    const w = evaluatePreflight({ issue: claimed, comments: [approval()], devMd, me: 'kmanojkumar', expect: 'working' })
+    expect(w.blocks).toEqual(['already assigned to ada — a working issue belongs to its claimant'])
+    // A ready issue is unassigned by convention, so a foreign assignee is someone else's claim.
+    const taken = baseIssue()
+    taken.assignees = [{ login: 'ada' }]
+    const r = evaluatePreflight({ issue: taken, comments: [approval()], devMd, me: 'kmanojkumar' })
+    expect(r.blocks).toEqual(['already assigned to ada — a ready issue is unassigned by convention, so another assignee is someone else\'s claim'])
+  })
   test('blocks a closed issue and a wrong state label; expect=working accepts a resume', () => {
     const closed = baseIssue(); closed.state = 'closed'
     expect(evaluatePreflight({ issue: closed, comments: [approval()], devMd, me: 'kmanojkumar' }).blocks.some((b: string) => b.includes('only open issues'))).toBe(true)
