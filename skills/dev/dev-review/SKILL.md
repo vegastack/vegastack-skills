@@ -1,6 +1,6 @@
 ---
 name: dev-review
-description: Independent review of finished implementation work — a diff against its brief and plan — and the skill-scan vulnerability guard. Use when dev-implement's review step runs, when asked to "review this branch/diff/issue", "give this a second pair of eyes", "check the finished work on issue N", when a cross-agent session (Claude or Codex) is handed a REVIEW REQUEST, when review findings need a fix loop, re-review, or adjudication, or when asked to scan skills for vulnerabilities, triage scanner findings, or judge whether a third-party skill is safe to install. Not for reviewing an unbuilt plan (dev-plan's approval gate), architecture review (dev-architect), shipping gates (dev-ship), or generic PR review in repos outside this workflow.
+description: Independent review of finished implementation work — a diff against its brief and plan. Use when dev-implement's review step runs, when asked to "review this branch/diff/issue", "give this a second pair of eyes", "check the finished work on issue N", when a cross-agent session (Claude or Codex) is handed a REVIEW REQUEST, or when review findings need a fix loop, re-review, or adjudication. Not for reviewing an unbuilt plan (dev-plan's approval gate), architecture review (dev-architect), shipping gates (dev-ship), scanning skills for vulnerabilities or vetting a skill you did not write (skill-scan), or generic PR review in repos outside this workflow.
 ---
 
 # dev-review
@@ -15,9 +15,7 @@ Nearest neighbors: `dev-implement` invokes this per dev.md's `review:` knob and 
 
 Build the review package first — `git log --oneline <base>..<head>` + `git diff --stat` + `git diff -U10` — at `.vegastack/.tmp/<issue>-<slug>/review-<base7>..<head7>.diff`. Reviewers get paths — the brief (issue body), the plan comment, the package file, the project's `.vegastack/review-known-patterns.md` — plus the binding constraints copied verbatim, ordered data first and ask last, as the dispatch prompts show. **Read the file before judging it** — the full files where the diff needs context, because a diff-only read misses invariants. Reviewers write full reports to `.tmp` files and return short status, so a dead reviewer's findings survive on disk.
 
-The guard provisions its own scanner: dev.md's `skillspector-update:` knob (`auto | notify | off`) and `--no-provision` govern it, and `skill-scan.mjs --help` says the rest.
-
-When dev.md names a `skill-scan:` root, the security dispatch also gets the scan report: `node <path-to-this-skill>/scripts/skill-scan.mjs --json > .vegastack/.tmp/<issue>-<slug>/skill-scan.json` (add `--llm` for the semantic pass — advisory, because it is non-deterministic and a degraded run inflates scores). The same guard ran at `dev-implement`'s Verify gate; the axis triages what sits below the blocking bar and judges whether anything above it was suppressed rather than fixed.
+When dev.md names a `skill-scan:` root, the security dispatch also gets the scan report, at `.vegastack/.tmp/<issue>-<slug>/skill-scan.json`, produced by `node <path-to-skill-scan>/scripts/skill-scan.mjs --json` — the `skill-scan` skill owns running it, its knobs, and its baseline. The same guard already ran at `dev-implement`'s Verify gate; this axis triages what sits below the blocking bar and judges whether anything above it was suppressed rather than fixed.
 
 ## The axes — parallel, fresh, reported separately
 
@@ -65,11 +63,11 @@ Severities: `[CRITICAL]` (security axis: exploitable now — blocks) > `[MUST-FI
 
 - Default quiet profile: spec, bugs, and security always; style only where a documented rule exists.
 - `.vegastack/review-known-patterns.md` (seed: [template](assets/review-known-patterns.md.template)) holds the project's never-flag patterns — each entry requires a **"Still flag if:"** exception clause; a suppression without one is a blind spot. dev-implement's corrections loop appends operator dismissals there, so a dismissed pattern stays dismissed.
-- The skill scan's suppressions follow the same discipline in its own baseline file, and the guard enforces the clause — a rule scoped `id:` with no `path:` is a repo-wide blind spot. A finding suppressed rather than fixed is a review finding, not a settled matter.
+- The skill scan's suppressions follow the same discipline in the baseline the `skill-scan` skill owns, and its guard enforces the clause — a rule scoped `id:` with no `path:` is a repo-wide blind spot. A finding suppressed rather than fixed is a review finding, not a settled matter.
 
 ## A scan with no issue attached
 
-A scan run outside an issue — a standalone check, or the pre-publish guard in dev.md's `## Ship` — has no review comment to land in, so its findings go to intake as a `risky` issue, because a comment posted somewhere convenient is a finding nobody owns. Offer the operator one `risky` issue whose brief body carries the findings, their locations, and what is known about each cause; intake's questions, scope call and approval follow.
+A `skill-scan` run outside an issue — a standalone check, or the pre-publish guard in dev.md's `## Ship` — has no review comment to land in, so its findings go to intake as a `risky` issue, because a comment posted somewhere convenient is a finding nobody owns. Offer the operator one `risky` issue whose brief body carries the findings, their locations, and what is known about each cause; intake's questions, scope call and approval follow.
 
 ## Cross-agent — the independence upgrade
 

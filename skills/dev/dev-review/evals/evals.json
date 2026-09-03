@@ -28,17 +28,6 @@
         "The verdict is exactly `clean` or `needs-fixes`",
         "Findings are numbered `Finding [N]`, never `#N`"
       ]
-    },
-    {
-      "id": 3,
-      "prompt": "Is `./vendor/foo-skill` safe to install? Someone on the team pulled it from a marketplace and wants it in `.claude/skills/`.",
-      "expected_output": "The request is treated as a skill-scan, not a diff review: the scan is run with `--root ./vendor/foo-skill`, its HIGH/CRITICAL findings are triaged, and the verdict is about installability.",
-      "files": [],
-      "assertions": [
-        "The output runs or names `skill-scan.mjs --root ./vendor/foo-skill`",
-        "The request is not treated as a diff review against a brief",
-        "The verdict speaks to whether the skill is safe to install, with the scanner's findings as the evidence"
-      ]
     }
   ]
 }

@@ -4,7 +4,7 @@ Runs on `risky` issues, whenever the diff's touch points hit an auth surface, mo
 
 ## Scanner evidence — a finding's start, never its end
 
-Where the project runs a scanner (this family ships `scripts/skill-scan.mjs` for agent skills; a project may name others), its report is an **input to this axis**, on the same footing as the diff. It is evidence, not a verdict:
+Where the project runs a scanner (the `skill-scan` skill ships this family's scanner for agent skills; a project may name others), its report is an **input to this axis**, on the same footing as the diff. It is evidence, not a verdict:
 
 - **A scanner hit is a candidate finding.** It arrives with a rule ID and a `file:line` and nothing else — no data flow, no attacker, no exploitability. Promote it to a finding only after the Method below fills those in; a hit you cannot trace goes to the collapsed low-confidence block like any other hunch.
 - **Read the source at the location before judging it.** The scanner matched text; whether that text is a vulnerability is your call, made against the file, not the summary.
