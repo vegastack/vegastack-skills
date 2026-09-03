@@ -55,11 +55,13 @@ export function parseSkillTable(body) {
   let end = start
   while (end < lines.length && lines[end].startsWith('|')) end += 1
   const rows = []
+  const malformed = []
   for (const line of lines.slice(start + 2, end)) {
     const match = ROW.exec(line)
     if (match) rows.push({ cell: match[1], purpose: match[2], line })
+    else malformed.push(line)
   }
-  return { start, end, rows }
+  return { start, end, rows, malformed }
 }
 
 export function classifyCell(cell) {
@@ -164,6 +166,9 @@ export function syncSkillReadme({ skillDir, entry, write }) {
   const table = parseSkillTable(body)
   if (!table) throw new Error(`${readme} has no "## What's in this skill" table — add the heading and header, then run again`)
   const { lines, unclassified, todo } = renderTable(entry, table.rows, skillIo(skillDir))
+  // A pipe line the row regex rejects (a hand edit missing its trailing pipe, say) would
+  // otherwise vanish in the splice; it is unclassified, and unclassified stops the write.
+  for (const line of table.malformed) unclassified.push(`malformed row: ${line}`)
   const before = body.split('\n')
   const current = before.slice(table.start, table.end)
   const spliced = [...before.slice(0, table.start), ...lines, ...before.slice(table.end)].join('\n')

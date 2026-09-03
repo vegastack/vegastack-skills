@@ -87,7 +87,7 @@ The red lines below are the only rules that live both here and in a reference; e
 else has exactly one home file.
 
 - Commit, tag, push, merge, publish, deploy or create paid/cloud resources only on the
-  architecture owner's explicit go-ahead for that step, because approval for one step is
+  operator's explicit go-ahead for that step, because approval for one step is
   not approval for the next (where the dev workflow is installed, dev.md's `gates:` knob
   sets how many of those steps one instruction covers — the knob changes the count, not
   the need for an instruction).

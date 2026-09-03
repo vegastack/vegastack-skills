@@ -162,6 +162,15 @@ describe('readme-sync CLI', () => {
     expect(readFileSync(join(dir, 'README.md'), 'utf8')).toBe(before)
     clean(root)
   })
+  test('a malformed row (missing its trailing pipe) is unclassified, stops the run, and is not deleted', () => {
+    const { root, dir } = repo(['SKILL.md'], README.replace('| `tests/` |', '| [scripts/hand.mjs](scripts/hand.mjs) | hand-written, no trailing pipe\n| `tests/` |'))
+    const before = readFileSync(join(dir, 'README.md'), 'utf8')
+    const result = run('--dir', root, '--write', '--json')
+    expect(result.exitCode).toBe(2)
+    expect(JSON.parse(result.stdout.toString()).skills[0].unclassified[0]).toMatch(/^malformed row: /)
+    expect(readFileSync(join(dir, 'README.md'), 'utf8')).toBe(before)
+    clean(root)
+  })
   test('usage errors exit 2', () => {
     expect(run('--bogus').exitCode).toBe(2)
   })

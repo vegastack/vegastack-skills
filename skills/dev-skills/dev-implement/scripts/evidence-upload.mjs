@@ -77,6 +77,7 @@ export function plan({ repo, issue, file, evidenceRepo, devMd, now = new Date() 
 
   const target = evidenceRepo || evidenceRepoFrom(devMd);
   if (!target) blocks.push('no evidence repo: dev.md has no evidence-repo: line and --evidence-repo was not passed');
+  else if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(target)) blocks.push(`evidence repo "${target}" is not owner/name — it becomes an API path segment, so it is checked before use`);
 
   if (blocks.length > 0) return { blocks, put: null };
 
