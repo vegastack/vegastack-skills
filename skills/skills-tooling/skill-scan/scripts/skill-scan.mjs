@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// dev-review guard: scans the project's agent skills with NVIDIA SkillSpector and
+// The skill-scan guard: scans the project's agent skills with NVIDIA SkillSpector and
 // blocks on any unsuppressed HIGH/CRITICAL finding. Facts block; heuristics warn.
 // The scanner's own exit code (0 for score <= 50) is never the verdict — an
 // aggregate score is distorted by meta-content, individual findings are not.
-// Self-contained (ships with dev-review; no cross-skill imports, no dependencies).
+// Self-contained (ships with skill-scan; no cross-skill imports, no dependencies).
 //
 // Exit codes: 0 pass (or skipped) · 1 pass-with-warnings · 2 blocked.
 // Usage: node skill-scan.mjs [--root <path>] [--dev-md <path>] [--baseline <path>]
@@ -842,7 +842,7 @@ if (invokedDirectly) {
   // The update mode is read from the profile ALWAYS, including for --root runs.
   // --root chooses what to scan; it never decides whether this machine may be
   // written to. Skipping this is how `skillspector-update: off` got ignored on
-  // exactly the invocation dev-review documents for vetting a stranger's skill.
+  // exactly the invocation this skill's README documents for vetting a stranger's skill.
   {
     let profileForMode = null;
     try {

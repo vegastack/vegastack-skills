@@ -166,7 +166,7 @@ The issue-driven development workflow: ten stages from project bootstrap to the 
 | [dev-architect](skills/dev/dev-architect/) | VegaStack's architecture advisor: the locked stack, recorded rejections, and dated platform facts behind a verify-before-you-recommend protocol | [Walkthrough](skills/dev/dev-architect/README.md) · [SKILL.md](skills/dev/dev-architect/SKILL.md) |
 | [dev-implement](skills/dev/dev-implement/) | Implements an approved issue end to end without user input: preflight, claim, dark build, tests, independent review, evidence comment, hand-back | [Walkthrough](skills/dev/dev-implement/README.md) · [SKILL.md](skills/dev/dev-implement/SKILL.md) |
 | [dev-debug](skills/dev/dev-debug/) | Reproduce-first bug work: a red repro command before any theory, ranked falsifiable suspects, and the regression test before the fix | [Walkthrough](skills/dev/dev-debug/README.md) · [SKILL.md](skills/dev/dev-debug/SKILL.md) |
-| [dev-review](skills/dev/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop; ships the skill-scan vulnerability guard | [Walkthrough](skills/dev/dev-review/README.md) · [SKILL.md](skills/dev/dev-review/SKILL.md) |
+| [dev-review](skills/dev/dev-review/) | Independent multi-axis review of finished work — spec, standards, security — with severity-tiered findings and a bounded fix loop | [Walkthrough](skills/dev/dev-review/README.md) · [SKILL.md](skills/dev/dev-review/SKILL.md) |
 | [dev-ship](skills/dev/dev-ship/) | The shipping gates, each spent only by the operator's words: PR, merge per the `merge:` knob, then the project's `## Ship` runbook | [Walkthrough](skills/dev/dev-ship/README.md) · [SKILL.md](skills/dev/dev-ship/SKILL.md) |
 | [dev-status](skills/dev/dev-status/) | The operator's board: a deterministic gh-backed gather of state, progress, staleness, and PRs, rendered needs-you-first with one Next action | [Walkthrough](skills/dev/dev-status/README.md) · [SKILL.md](skills/dev/dev-status/SKILL.md) |
 | [dev-chronicle](skills/dev/dev-chronicle/) | The project's narrative record — one story entry per behavior-changing branch — plus the "catch me up" digest read from it and the register | [Walkthrough](skills/dev/dev-chronicle/README.md) · [SKILL.md](skills/dev/dev-chronicle/SKILL.md) |
@@ -194,6 +194,7 @@ Tools that work on agent skills themselves: scanning them for vulnerabilities, v
 
 | Skill | What it does | Docs |
 |---|---|---|
+| [skill-scan](skills/skills-tooling/skill-scan/) | Scans agent skills with NVIDIA SkillSpector and holds the suppression baseline: the Verify-gate guard, and the answer to "is this downloaded skill safe to install" | [Walkthrough](skills/skills-tooling/skill-scan/README.md) · [SKILL.md](skills/skills-tooling/skill-scan/SKILL.md) |
 
 ## Repository structure
 

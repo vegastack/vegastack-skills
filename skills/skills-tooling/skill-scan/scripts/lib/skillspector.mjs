@@ -9,7 +9,7 @@
 //
 // Every command runs through an injected `run`, and every path check through an
 // injected `exists`, so unit tests never install software or touch the disk.
-// Self-contained (ships with dev-review; no cross-skill imports, no dependencies).
+// Self-contained (ships with skill-scan; no cross-skill imports, no dependencies).
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

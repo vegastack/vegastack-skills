@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
 import {
   discoverSkills,
@@ -15,6 +15,31 @@ import {
   scanRootDeclarations,
   updateModeDeclarations,
 } from '../scripts/skill-scan.mjs'
+import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+
+const contractRoot = resolve(import.meta.dir, '..')
+
+describe('skill-scan contract', () => {
+  test('SKILL.md passes repo validation', () => {
+    const result = validateSkill(contractRoot)
+    expect(result.message).toBe('Skill is valid!')
+    expect(result.ok).toBe(true)
+  })
+
+  test('the guard and its library ship from this skill', () => {
+    expect(existsSync(join(contractRoot, 'scripts/skill-scan.mjs'))).toBe(true)
+    expect(existsSync(join(contractRoot, 'scripts/lib/skillspector.mjs'))).toBe(true)
+  })
+
+  test('trigger fixture is a hard set with near-miss negatives', () => {
+    const queries = JSON.parse(readFileSync(join(contractRoot, 'tests/fixtures/trigger-queries.json'), 'utf8'))
+    const positives = queries.filter((entry: { should_trigger: boolean }) => entry.should_trigger)
+    const negatives = queries.filter((entry: { should_trigger: boolean }) => !entry.should_trigger)
+    expect(positives.length).toBeGreaterThanOrEqual(5)
+    expect(negatives.length).toBeGreaterThanOrEqual(4)
+    for (const entry of queries) expect(typeof entry.query).toBe('string')
+  })
+})
 
 const SKILL_MD = '---\nname: x\ndescription: y\n---\n'
 

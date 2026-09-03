@@ -1,17 +1,17 @@
-# dev-review
+# skill-scan
 
-Independent review as a specified system instead of a vibe. Finished work (a diff, against its brief and plan) is judged by parallel fresh-context reviewers on separate axes — spec (does it do what the brief says), standards (project rules + a fixed code-smell baseline the repo's own docs override), and security (data-flow-traced, on risky work or security surfaces) — reported apart so one axis can't mask another. Findings carry `Finding [N]` ids, `[CRITICAL]`/`[MUST-FIX]`/`[SHOULD-FIX]`/`[NIT]` severities, confidence levels, and land in ONE review comment per cycle with a merge-readiness verdict up top and nitpicks collapsed. Must-fix findings enter a bounded loop (3 rounds, scoped re-reviews, fresh implementer on round 3), then open adjudication — every dismissal on the record. Cross-agent mode runs the review on the other agent (Codex ↔ Claude) with an announced invocation and a defined handoff, so independence is verifiable. The agent entry point is [SKILL.md](SKILL.md).
+The vulnerability guard for agent skills, and the discipline that keeps its suppressions honest. It runs [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) over the skills a project authors — or over a stranger's skill before it reaches your agent — and blocks on any unsuppressed HIGH or CRITICAL finding, never on the aggregate risk score. Suppressions live in a JSON baseline whose every entry is a literal matcher with a `reason` carrying a mandatory "Still flag if:" clause, and whose `coverage` section records the files the scanner could not finish reading, byte-pinned so an edit expires the acceptance rather than silently outliving it. It finds the scanner through whatever channel installed it (uv, Homebrew, pipx), keeps it current per the `skillspector-update:` knob, and refuses rather than guesses when it cannot. The agent entry point is [SKILL.md](SKILL.md).
 
 ## Install
 
 ```sh
-npx @vegastack/vegafactory skills add dev-review --global
+npx @vegastack/vegafactory skills add skill-scan --global
 ```
 
-Or the whole dev workflow at once:
+Or the whole skills-tooling group at once:
 
 ```sh
-npx @vegastack/vegafactory skills add --group dev --global
+npx @vegastack/vegafactory skills add --group skills-tooling --global
 ```
 
 `--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install. See the [installer README](../../../packages/cli/README.md) for all flags.
@@ -22,11 +22,8 @@ npx @vegastack/vegafactory skills add --group dev --global
 |---|---|
 | [SKILL.md](SKILL.md) | Agent entry point |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
-| references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
-| [references/dispatch-prompts.md](references/dispatch-prompts.md) | Verbatim reviewer briefs per axis + the scoped re-review brief |
-| [references/security-axis.md](references/security-axis.md) | Data-flow method, security finding format, severity rules |
-| [references/cross-agent.md](references/cross-agent.md) | The Codex↔Claude handoff, announcements, fallbacks |
-| [assets/review-known-patterns.md.template](assets/review-known-patterns.md.template) | Per-project never-flag seed (every entry needs "Still flag if:") |
+| [scripts/lib/skillspector.mjs](scripts/lib/skillspector.mjs) | Locating, installing, upgrading and version-reading the SkillSpector CLI itself — every command behind an injected runner |
+| [scripts/skill-scan.mjs](scripts/skill-scan.mjs) | The skill-scan guard: runs NVIDIA SkillSpector over the project's skills, blocks on unsuppressed HIGH/CRITICAL |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract: the upstream command surfaces the guard parses |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the SkillSpector install, version and release surfaces the guard parses |
 | `tests/` | Bun tests and fixtures (never packaged) |
@@ -34,7 +31,12 @@ npx @vegastack/vegafactory skills add --group dev --global
 
 ## Behavior
 
-Invoked by dev-implement per the project's `review:` knob, by a direct "review this" ask, or by a cross-agent REVIEW REQUEST. Builds a review-package file in `.vegastack/.tmp/`, dispatches the axes as fresh subagents that write reports to disk and return short status, posts the single review comment, and drives the fix loop to a clean verdict or an open adjudication. Guardrails: never pre-judge a reviewer ("do not flag…" is forbidden in dispatches), noise is controlled by hard filters (quiet profile + the known-patterns file), and every run ends with a plain-language summary for the operator.
+The guard is invoked at `dev-implement`'s Verify gate, from a project's `## Ship` runbook before publishing, and by a direct "scan this" or "is this safe to install" ask. `dev-review`'s Security axis does not run it — it consumes the report and triages what sits below the blocking bar, judging whether anything above it was suppressed rather than fixed.
+
+Two consequences worth stating plainly, because they are what installing this skill actually does:
+
+- **`--all` installs it into every consumer.** The group is installable everywhere, so `vegafactory skills add --all` brings `skill-scan` along even in a project that authors no skills. That project's scan reads `skill-scan: none` (or no line at all) and says it skipped — it does nothing, but it is there.
+- **Under `skillspector-update: auto`, it writes to the machine.** `auto` is the value an absent line reads as: the first run installs the SkillSpector CLI through uv, and every later run upgrades it before scanning. `notify` reports the newest release and changes nothing; `off` makes no network call; `--no-provision` opts a single run out. This move changed none of those defaults.
 
 ## Scanning skills
 
@@ -50,7 +52,7 @@ It also keeps the CLI current. `.vegastack/dev.md`'s `skillspector-update:` knob
 
 The mode is read from the profile on **every** run, `--root` included: `--root` chooses what to scan, never whether this machine may be written to. `--no-provision` forces a single run to leave the machine alone. No version comparison happens before an upgrade, deliberately — `uv tool upgrade` moves the whole dependency tree while the version string can hold steady, so "already current" is not a claim this guard can honestly make. An upgrade that changes anything is reported before the findings, because after an upgrade a new finding is the tool having learned something, not the diff having broken something.
 
-Run it **from your project root**, with `SKILL` standing in for wherever the skill is installed (`.claude/skills/dev-review`, `.agents/skills/dev-review`, …):
+Run it **from your project root**, with `SKILL` standing in for wherever the skill is installed (`.claude/skills/skill-scan`, `.agents/skills/skill-scan`, …):
 
 ```sh
 node $SKILL/scripts/skill-scan.mjs --json      # reads the knob and the project baseline; exit 2 = blocked
@@ -67,7 +69,7 @@ The baseline has three sections. `rules` suppress a finding by literal `id`/`pat
 
 Baseline matchers must be **literal** — `*`, `?`, `[` and `]` are rejected. A single `{"id": "*"}` once silenced every finding while the run reported success, and a fix that rejected `*` was bypassed by `?*` immediately; naming the file is the only version of "as narrow as its cause" a guard can actually check.
 
-It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score: that score is inflated by documentation of the very mechanics being scanned and deflated by unrelated suppressions. Suppressions live in a JSON baseline whose every rule carries a `reason` with a **"Still flag if:"** clause — the same discipline as the known-patterns file, enforced here rather than trusted. A degraded scan blocks too: a run whose analyzer failed reports a *higher* score with fewer filtered findings, so its silence proves nothing.
+It blocks on any unsuppressed **HIGH or CRITICAL** finding, never on the aggregate risk score: that score is inflated by documentation of the very mechanics being scanned and deflated by unrelated suppressions. Suppressions live in a JSON baseline whose every rule carries a `reason` with a **"Still flag if:"** clause — the same discipline as `dev-review`'s known-patterns file, enforced here rather than trusted. A degraded scan blocks too: a run whose analyzer failed reports a *higher* score with fewer filtered findings, so its silence proves nothing.
 
 ### Vetting a skill you did not write
 
@@ -77,4 +79,4 @@ The same guard answers "should I install this?" for a third-party skill — poin
 node $SKILL/scripts/skill-scan.mjs --root ~/Downloads/some-skill
 ```
 
-The report carries each finding's rule, severity, and `file:line`, plus every entry the baseline suppressed, so the [security axis](references/security-axis.md) can trace them rather than take a score on trust. Treat a hit as a candidate finding, not a verdict — and never downgrade an unexplained HIGH or CRITICAL on the strength of who published it.
+The report carries each finding's rule, severity, and `file:line`, plus every entry the baseline suppressed, so `dev-review`'s [security axis](../../dev/dev-review/references/security-axis.md) can trace them rather than take a score on trust. Treat a hit as a candidate finding, not a verdict — and never downgrade an unexplained HIGH or CRITICAL on the strength of who published it.
