@@ -34,3 +34,13 @@ A bot PR has no issue, no brief, no evidence comment — and merging it is still
 ## Guard failure at ship time
 
 A local `guard:` failure (missing changelog entry, tag/version mismatch) means the branch or release prep is incomplete: route it to dev-implement's corrections loop, get the evidence comment updated, then resume at the failed step. Never edit release artifacts inline just to get past a guard. `ship-gate.mjs` speaks the same language: exit 0 pass · 1 pass-with-warnings (read them twice, they never block) · 2 blocked with its reasons printed — a 2 routes to corrections exactly like a failing `guard:` line.
+
+## Worktrees at ship time
+
+One feature, one worktree — the full scenario matrix lives in `dev-implement`'s `references/worktrees.md`; what ship owns is the end of it.
+
+- **The gate runs where the branch is.** `ship-gate.mjs` reads `git worktree list --porcelain` and runs its git calls, its dev.md read and the fresh check command in the worktree holding the branch. `--worktree <path>` overrides. A branch no worktree holds and no matching checkout still blocks — that is the fact the old checkout-mismatch block was protecting, and it survives.
+- **One PR per feature.** An epic's children merge into the **parent branch**, on the child's own merge word, with no PR of their own: `git switch <parent-branch>` in the parent's worktree, merge the child branch per the `merge:` knob, delete nothing. When every child is done, the parent branch gets one PR to the default branch.
+- **After the merge, the directory goes and nothing else.** `worktree.mjs remove --issue <n> --write` removes the checkout when it is clean, pushed, merged and unlocked; it fails closed and reports which of those did not hold. The local branch and the remote branch are separate operator words, on the always-ask list.
+- **A parent's worktree survives its children.** It is removed only when the parent's own PR merges.
+- **Parked worktrees are pruned, not swept.** `worktree.mjs prune --older-than <window> --write` pushes an unpushed candidate first, proposes only `parked` worktrees past `worktree-retention:`, and keeps every branch. `--force` and branch deletion always take the operator's word.
