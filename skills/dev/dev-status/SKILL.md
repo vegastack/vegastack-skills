@@ -15,9 +15,10 @@ Nearest neighbors: `dev-chronicle` answers "how did we get here"; this skill ans
 
 ```
 node <path-to-this-skill>/scripts/status.mjs --orphan-hours 6 --json
+node <path-to-this-skill>/scripts/status.mjs --orphan-hours 6 --all --json   # the whole team's board
 ```
 
-Read-only; it returns the board (open issues per state label with age, scope, risky), task progress `x/y` from plan-comment checkboxes, ledger movement for `working` issues in hours (`possiblyOrphaned` = the ledger has been silent past `--orphan-hours`, default 6, or has not been written yet — the claim's heartbeat has stopped), open PRs with check state, pending unrecorded `Decision:` proposals, and the last chronicle entry. Exit 2 = cannot verify (offline, unauthenticated) — report the gap plainly and stop, because a guessed board sends the operator to the wrong issue.
+Read-only; it returns the board (open issues per state label with age, scope, risky), task progress `x/y` from plan-comment checkboxes, ledger movement for `working` issues in hours (`possiblyOrphaned` = the ledger has been silent past `--orphan-hours`, default 6, or has not been written yet — the claim's heartbeat has stopped), open PRs with check state, pending unrecorded `Decision:` proposals, and the last chronicle entry. It also returns who you are (`viewer`), the `operators:` list, each issue's `assignees` and its resolved `operator`, and two derived arrays — `needsYou` (the human-state issues assigned to you; every one of them under `--all`) and `unowned` (human-state issues nobody is assigned). Exit 2 = cannot verify (offline, unauthenticated) — report the gap plainly and stop, because a guessed board sends the operator to the wrong issue.
 
 ## Render — names, with numbers inside the links
 
@@ -26,6 +27,7 @@ Read-only; it returns the board (open issues per state label with age, scope, ri
 
 Needs you (N):
 - <linked title> — <state> <age>d: <one line: what it waits for and the word needed>
+Unowned (N): - <linked title> — <state> <age>d, nobody assigned → assign <operator>
 Waiting on plan (N): - <linked title> — needs-plan <age>d
 Ready to build (N): - <linked title> — <scope>
 In flight (N): - <linked title> — working, task <x>/<y>, ledger moved <n>h ago
@@ -36,7 +38,8 @@ Last chronicle chapter: <date> — <title-plain>
 Next: <the single most valuable operator action, and why>
 ```
 
-- **Needs you** first (for-operator + needs-operator merged, oldest first) — it's the operator's queue; everything else is context.
+- **Needs you** first (the script's `needsYou`, oldest first) — it's your queue by assignment, not by guesswork; everything else is context. `--all` widens it to every human-state issue and is what a second operator asks for.
+- **Unowned** is a human-state issue with no assignee — a flip that lost its assignment or an issue filed outside the workflow. Name the `operator` the script resolved and the one-line `gh issue edit <n> --add-assignee <operator>` that fixes it; the assignment is the operator's to make.
 - Sections with zero entries are omitted, not rendered empty. A completely quiet board is one line: "Nothing needs you — <n> issues ready for agents, nothing in flight."
 - `risky` issues get their flag shown inline wherever they appear.
 - **Next** is one line, chosen not computed-looking: the action that unblocks the most (a plan approval blocking several ready issues beats a lone review).
@@ -48,4 +51,4 @@ The board is one screen: one line per issue, one Next line.
 
 ## Honesty rules
 
-**Data comes only from the script** — ordering, the wait-reason one-liners and Next are the skill's judgment, labelled as judgment, because a judgment dressed as data is the one the operator cannot question. A possibly-orphaned `working` issue is a fact to surface, not an accusation — the ledger heartbeat went silent, which is likely but not certainly a dead session: "check, resume, or reclaim" is the operator's call (a takeover still needs their explicit handover, and `reclaim.mjs` is theirs to run, per dev-implement). Standalone, the report is the closing recap; add one only when invoked inside a larger run.
+**Data comes only from the script** — ordering, the wait-reason one-liners and Next are the skill's judgment, labelled as judgment, because a judgment dressed as data is the one the operator cannot question; assignment and the operator resolution are data from the script, never inferred from who spoke last in the thread. A possibly-orphaned `working` issue is a fact to surface, not an accusation — the ledger heartbeat went silent, which is likely but not certainly a dead session: "check, resume, or reclaim" is the operator's call (a takeover still needs their explicit handover, and `reclaim.mjs` is theirs to run, per dev-implement). Standalone, the report is the closing recap; add one only when invoked inside a larger run.

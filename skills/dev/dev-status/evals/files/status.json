@@ -1,6 +1,11 @@
 {
   "repo": "vegastack/billing",
   "orphanHours": 6,
+  "viewer": "kmanojkumar",
+  "view": "me",
+  "operators": [
+    "kmanojkumar"
+  ],
   "board": {
     "needs-operator": [
       {
@@ -9,7 +14,10 @@
         "url": "https://github.com/vegastack/billing/issues/44",
         "ageDays": 2,
         "scope": "full-plan",
-        "risky": true
+        "risky": true,
+        "assignees": [],
+        "author": "kmanojkumar",
+        "operator": "kmanojkumar"
       }
     ],
     "needs-plan": [
@@ -19,7 +27,12 @@
         "url": "https://github.com/vegastack/billing/issues/41",
         "ageDays": 1,
         "scope": "full-plan",
-        "risky": false
+        "risky": false,
+        "assignees": [
+          "kmanojkumar"
+        ],
+        "author": "kmanojkumar",
+        "operator": "kmanojkumar"
       }
     ],
     "ready": [
@@ -29,7 +42,10 @@
         "url": "https://github.com/vegastack/billing/issues/58",
         "ageDays": 0,
         "scope": "quick-build",
-        "risky": false
+        "risky": false,
+        "assignees": [],
+        "author": "kmanojkumar",
+        "operator": "kmanojkumar"
       }
     ],
     "working": [
@@ -45,7 +61,12 @@
           "total": 2
         },
         "ledgerAgeHours": 13,
-        "possiblyOrphaned": true
+        "possiblyOrphaned": true,
+        "assignees": [
+          "kmanojkumar"
+        ],
+        "author": "kmanojkumar",
+        "operator": "kmanojkumar"
       }
     ],
     "for-operator": [
@@ -61,10 +82,51 @@
           "total": 3
         },
         "ledgerAgeHours": 70,
-        "possiblyOrphaned": false
+        "possiblyOrphaned": false,
+        "assignees": [
+          "kmanojkumar"
+        ],
+        "author": "kmanojkumar",
+        "operator": "kmanojkumar"
       }
     ]
   },
+  "needsYou": [
+    {
+      "number": 39,
+      "title": "fix: login 500 on mobile after the session-cookie change",
+      "url": "https://github.com/vegastack/billing/issues/39",
+      "ageDays": 3,
+      "scope": "quick-build",
+      "risky": false,
+      "tasks": {
+        "done": 3,
+        "total": 3
+      },
+      "ledgerAgeHours": 70,
+      "possiblyOrphaned": false,
+      "assignees": [
+        "kmanojkumar"
+      ],
+      "author": "kmanojkumar",
+      "operator": "kmanojkumar",
+      "state": "for-operator"
+    }
+  ],
+  "unowned": [
+    {
+      "number": 44,
+      "title": "feat: customer portal magic-link login",
+      "url": "https://github.com/vegastack/billing/issues/44",
+      "ageDays": 2,
+      "scope": "full-plan",
+      "risky": true,
+      "assignees": [],
+      "author": "kmanojkumar",
+      "operator": "kmanojkumar",
+      "state": "needs-operator"
+    }
+  ],
   "prs": [
     {
       "number": 61,

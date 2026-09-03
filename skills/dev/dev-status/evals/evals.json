@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "status — here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached). Render the board.",
+      "prompt": "status \u2014 here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached). Render the board.",
       "expected_output": "The operator's board: every issue as a linked title with its state and age, sections with zero entries omitted, the working issue whose ledger has been silent 13 hours called out as possibly orphaned with the reclaim path, the open PR with its check state, and the pending decision with the issue it records at.",
       "files": [
         "evals/files/status.json"
@@ -30,13 +30,26 @@
     },
     {
       "id": 3,
-      "prompt": "status for vegastack/billing — note: `status.mjs` just exited 2 with `gh: not logged in to any hosts`.",
+      "prompt": "status for vegastack/billing \u2014 note: `status.mjs` just exited 2 with `gh: not logged in to any hosts`.",
       "expected_output": "No board: the verification gap is named plainly (the script could not read GitHub), the fix is named (authenticate gh), and nothing is guessed.",
       "files": [],
       "assertions": [
         "No board is rendered",
         "The output names the exit-2 reason and what would resolve it",
         "No issue state is guessed or recalled from memory"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "what needs me? \u2014 here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached).",
+      "expected_output": "The Needs-you queue built from the script's needsYou array \u2014 issue 39, for-operator, with its age and the word needed \u2014 then an Unowned section naming issue 44 as a human-state issue nobody is assigned, with the `gh issue edit 44 --add-assignee kmanojkumar` line that fixes it. Nothing outside the attached data; `needs-plan` and `ready` are agent states and never appear in either section.",
+      "files": [
+        "evals/files/status.json"
+      ],
+      "assertions": [
+        "Only issues present in the data's `needsYou` array appear under Needs you \u2014 issue 39 and nothing else; issue 44 is not among them",
+        "Issue 44 is listed separately as unowned with a `gh issue edit` line naming its resolved operator kmanojkumar",
+        "No issue, PR, or decision that is absent from the attached data is mentioned"
       ]
     }
   ]
