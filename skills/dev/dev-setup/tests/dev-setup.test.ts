@@ -64,7 +64,7 @@ describe('dev-setup contract', () => {
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
-  const HARNESS_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CC-CLI', 'CC-SUBAGENT-ENV', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'CODEX-CONFIG', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
+  const HARNESS_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CC-CLI', 'CC-SUBAGENT-ENV', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'CODEX-CONFIG', 'CC-TELEMETRY', 'CODEX-OTEL', 'HERMES-HOOKS', 'HERMES-TOOLS', 'HERMES-CURATOR', 'GH-CLI']
   const APP_IDS = ['GH-APP-PERMS', 'GH-APP-TOKEN', 'GH-APP-INSTALLS']
   const REGISTRY_IDS = [...HARNESS_IDS, ...APP_IDS]
   const harnessFacts = readFileSync(join(skillRoot, 'references/harness-facts.md'), 'utf8')
