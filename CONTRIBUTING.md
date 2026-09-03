@@ -20,7 +20,7 @@ Every skill this repo ships is scanned by [NVIDIA SkillSpector](https://github.c
 
 ```sh
 uv tool install git+https://github.com/NVIDIA/skillspector.git
-bun run build && node skills/dev/dev-review/scripts/skill-scan.mjs --json
+bun run build && node skills/skills-tooling/skill-scan/scripts/skill-scan.mjs --json
 ```
 
 Run it from the repo root: with no `--root` it reads the `skill-scan:` knob from `.vegastack/dev.md` and applies `.vegastack/skillspector-baseline.json` by convention. A profile it cannot read is an error, not a skip — the guard refuses rather than quietly passing from the wrong directory.
@@ -37,6 +37,7 @@ Suppressions live in `.vegastack/skillspector-baseline.json`. Adding one is a se
 |---|---|
 | `skills/` | Authored skill content — the single source of truth. Edit here. A skill sits at `skills/<name>/` or, inside a group, at `skills/<group>/<name>/` — one level, never deeper. |
 | `skills/dev/` | The dev-workflow group (setup, intake, plan, architect, implement, debug, review, ship, status, chronicle): a `GROUP.md` plus ten skills, each with `SKILL.md`, references, deterministic scripts where they earn them, tests. |
+| `skills/skills-tooling/` | The skills-about-skills group — tools that operate on agent skills themselves; currently `skill-scan`, the SkillSpector guard and its suppression baseline. |
 | `<skill>/refresh/` | Freshness contract: source registry and refresh instructions consumed by the weekly refresh automation. |
 | `packages/cli/` | The `@vegastack/vegafactory` installer. `packages/cli/skill/` and `skill-integrity.json` are **generated at build** from `skills/` — never edit or commit them. |
 | `packages/cli/repo-only.json` | The skills `add --all` skips because they only make sense inside this repository. Hand-maintained; validated by the build. |

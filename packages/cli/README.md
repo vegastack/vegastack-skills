@@ -35,6 +35,14 @@ Install the family with `add --group dev --global`.
 | `dev-status` | The operator's board: whose move is it, from deterministic gh data |
 | `dev-chronicle` | The project's narrative record: story entries per branch and the "catch me up" digest |
 
+### `skills-tooling` — tools that work on skills themselves
+
+Install the group with `add --group skills-tooling --global`.
+
+| Skill | What it does |
+|---|---|
+| `skill-scan` | Scans agent skills with NVIDIA SkillSpector and holds the suppression baseline: the Verify-gate guard, and the answer to "is this downloaded skill safe to install" |
+
 ### `repo-tooling` — repo-only
 
 These operate on the vegafactory repository itself and do nothing useful in another project, so **`--all` skips them**. Install one by name if you are contributing to that repo.

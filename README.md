@@ -238,19 +238,19 @@ Install the scanner:
 uv tool install git+https://github.com/NVIDIA/skillspector.git
 ```
 
-Install the guard, which ships inside `dev-review`:
+Install the guard, which ships as the `skill-scan` skill:
 
 ```sh
-npx @vegastack/vegafactory skills add dev-review --global
+npx @vegastack/vegafactory skills add skill-scan --global
 ```
 
 Then scan any skill directory:
 
 ```sh
-node ~/.claude/skills/dev-review/scripts/skill-scan.mjs --root path/to/some-skill
+node ~/.claude/skills/skill-scan/scripts/skill-scan.mjs --root path/to/some-skill
 ```
 
-That path is the guard's location for a global Claude Code install. Substitute your own surface from the [table above](#where-skills-install) — `~/.agents/skills/dev-review/…` for a global Codex install, `.claude/skills/dev-review/…` or `.agents/skills/dev-review/…` for a project-local one. If `scripts/skill-scan.mjs` is not there at all, your installed copy predates the guard; re-run `add` against `@vegastack/vegafactory@latest` with `--force`.
+That path is the guard's location for a global Claude Code install. Substitute your own surface from the [table above](#where-skills-install) — `~/.agents/skills/skill-scan/…` for a global Codex install, `.claude/skills/skill-scan/…` or `.agents/skills/skill-scan/…` for a project-local one. If the directory is not there at all, install it with the group's add command (`skills add --group skills-tooling`) or re-run `add` against `@vegastack/vegafactory@latest` with `--force`.
 
 Point `--root` at a single skill directory, or at a directory of them — flat, or one group deep. Exit `0` is clean, `1` clean with warnings, `2` blocked — either by a finding, reported with its rule, severity and `file:line`, or because the scan could not be trusted at all: the scanner missing from PATH, an unreadable report or profile, a baseline that fails its own discipline, coverage the scanner says it never completed, or **a directory holding a `SKILL.md` that discovery did not reach** — buried too deep, dot-prefixed, or behind a symlink. That last one matters: an unscanned skill that nobody mentions is indistinguishable from a clean one, so the guard names it and refuses. Without `--root` it reads the `skill-scan:` knob from your project's `.vegastack/dev.md`, and a project with no skills (`skill-scan: none`) is told it was skipped rather than erroring. Add `--llm` for the semantic pass — it needs a provider, is non-deterministic, and is advisory: a run whose analyzer fails scores *higher* than a clean one, which is why the gate never uses it.
 
