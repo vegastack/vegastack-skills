@@ -9,9 +9,9 @@ Turn a raw workflow into a properly-skilled unit of this monorepo, or audit an e
 
 ## The contract checklist
 
-Score every item pass / fail / N/A; N/A without a one-line rationale is a fail. Numbering is stable and additive, so other skills can cite "skillify item 6".
+Score every item pass / fail / N/A; N/A without a one-line rationale is a fail, and a justified N/A counts as a pass in the `<passed>/8` score. "The evidence" below is the audit report or the issue's evidence comment. skill-maintainer lives at `skills/repo-tooling/skill-maintainer/`. Numbering is stable and additive, so other skills can cite "skillify item 6".
 
-1. **SKILL.md spec-compliant** — frontmatter, name grammar, description limits, and body syntax per skill-maintainer's standards (operating rules 2–6); body ≤1,200 words with detail routed to references, or a named exception in the evidence; `bun run validate:skill` agrees, and it also verifies every relative link in the skill's prose resolves.
+1. **SKILL.md spec-compliant** — frontmatter, name grammar, description limits, and body syntax per skill-maintainer's standards (operating rules 2–6); body ≤1,200 words with detail routed to references, or a named exception in the evidence; `node packages/cli/scripts/validate-skill.mjs <skill-dir>` (the check `bun run validate:skill` runs over every skill) agrees, and it also verifies every relative link in the skill's prose resolves. Body words: the text below the frontmatter, `wc -w`.
 2. **Description triggers well** — states triggering conditions only (never the workflow), shaped per [authoring](references/authoring.md), the standard being skill-maintainer's rule 4; a query set of realistic positives and near-miss negatives at `tests/fixtures/trigger-queries.json`, `ambiguous_with` naming the competing skill. `scripts/trigger-check.mjs` (`validate:triggers` in `bun run check`) blocks when two fixtures claim one query without naming each other.
 3. **Sharp boundary** — the SKILL.md body names its nearest-neighbor skill and the one-sentence axis of difference (or states it has none). Two skills answering the same trigger get merged, not shipped.
 4. **References routed** — `references/` holds detail only some invocations need, behind a routing table; SKILL.md keeps the workflow, one excellent example, and the routes. N/A for a self-contained skill.

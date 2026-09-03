@@ -9,7 +9,7 @@ This skill states what must be true; skillify states how to get there. When a ru
 
 ## Operating rules
 
-1. Skill content lives only in the skill's own directory, at exactly two depths: `skills/<name>/` or `skills/<group>/<name>/`; deeper is a build error. A group is a directory of skills plus a `GROUP.md` (title, then a blurb line); group and skill names share one namespace and grammar. Wiring lives outside the skill — the `packages/cli/packaging.json` allowlist, keyed by **bare** skill name because the bundle is flat and an install carries no group; the root README row; the changeset — and the skillify scaffolder writes all three.
+1. Skill content lives only in the skill's own directory, at exactly two depths: `skills/<name>/` or `skills/<group>/<name>/`; deeper is a build error. A group is a directory of skills plus a `GROUP.md` (title, then a blurb line); group and skill names share one namespace and grammar. Wiring lives outside the skill — the `packages/cli/packaging.json` allowlist, keyed by **bare** skill name because the bundle is flat and an install carries no group; the root README row; the changeset (a `.changeset/<slug>.md` file whose frontmatter names the package and bump, shaped per dev-implement's changelog rule; changesets are compiled into `packages/cli/CHANGELOG.md` at release) — and the skillify scaffolder writes all three. "The operator" throughout is the human running the workflow, named by their GitHub username.
 2. Frontmatter is exactly `name` and `description`; the spec's `license`, `compatibility`, and `metadata` are a policy exception needing maintainer sign-off.
 3. `name` equals the directory name: a lowercase letter first, then `[a-z0-9-]`, no leading, trailing, or consecutive hyphens, at most 64 chars.
 4. `description`: at most 1024 chars, third person, no angle brackets, no space-hash. It states what the skill does and when to load it as a calm "Use when …" conditional carrying the concrete phrasings users type, plus one "Not for …" clause naming the nearest neighbour, because harnesses quote descriptions verbatim in the skill list and emphatic wording (all-caps "must", "critical", "load this before") over-triggers there. Triggers go in the first sentence because listings truncate. The description never summarises the workflow: agents follow the summary and skip the body.
@@ -53,7 +53,7 @@ Run skillify's `scripts/scaffold-skill.mjs` (`--group <name>` for a grouped skil
 
 ## Workflow: rename, deprecate, or remove
 
-Playbook in [release ops](references/release-ops.md): a rename changes the directory and the frontmatter `name` in the same commit, updates the packaging entry, root README row, and changeset, and is MINOR unless the operator declares MAJOR; deprecation is announced in README and CHANGELOG first; removal deletes the tree, unwires it, and is MAJOR.
+Playbook in [release ops](references/release-ops.md): a rename changes the directory and the frontmatter `name` in the same commit, updates the packaging entry, root README row, changeset, and every cross-reference to the old name (sibling descriptions, fixtures, `ambiguous_with` entries, docs — `grep -rn <old-name>` finds them), and is MINOR unless the operator declares MAJOR; deprecation is announced in README and CHANGELOG first; removal deletes the tree, unwires it, and is MAJOR.
 
 ## Workflow: release
 

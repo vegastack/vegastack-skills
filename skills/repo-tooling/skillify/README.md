@@ -50,3 +50,14 @@ Skillify's registry is deliberately empty (`sources: []`). Its only time-decayin
 ## For agents: how to behave
 
 Follow [SKILL.md](SKILL.md). The short version: gate before scaffolding (most things should not be skills, and near-duplicates get merged); audit means score-and-stop, not edit; every description states triggers and never the workflow; run the behavioral eval before writing lock-in tests; stop after three eval cycles and ship named gaps instead of polished mediocrity; evals are the cases in `evals/evals.json`, run by `claude plugin eval` or your own subagents, never by tooling you write.
+
+## KNOWN_GAPS
+
+- gap: the audit path does not say whether Phase 0 applies to an existing skill, whether item 6 can pass from a fresh checkout (eval results are gitignored), or what counts as a "workflow skill" for the sandbox drill
+  evidence: colleague test, 03-09-2026, prompt "audit dev-status for completeness"
+  why unresolved: each needs a rule the family has not settled (re-run the paid eval on audit, or accept the README's recorded result)
+  next: settle at the first audit of a released skill; write the rule in Phase 1 in one sentence
+- gap: item 7's "refresh-tracked files" and "evergreen waiver" and item 8's "packaging entry" are named before they are located
+  evidence: colleague test, 03-09-2026
+  why unresolved: locating them inline pushes the body past the budget; the routing table's authoring reference holds the detail
+  next: one parenthetical each at the first use, when the body is next trimmed
