@@ -56,6 +56,18 @@ Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs 
 ## Labels and approval
 
 - A new issue starts at `needs-operator` plus its scope label, and `risky` when it touches security, money, user data, or production (names from dev.md's `labels:` knob); create it with `--assignee <operator>`, the login conventions' Labels table resolves from dev.md's `operators:` list, so GitHub's own notification reaches the human whose move it is. An `--assignee` GitHub rejects is reported and the issue stands unassigned, because guessing another login hands the work to the wrong person.
+- Creation also stamps the native type where dev.md's `issue-types:` knob names one — `gh issue create --type <Name>` at gh 2.94.0 and above, otherwise `gh api -X PATCH repos/{owner}/{repo}/issues/{n} -f type=<Name>` in the same breath as creation — and both fields where `issue-fields:` names them, in one request, because the PUT replaces every value it does not carry:
+
+  ```sh
+  gh api "orgs/$ORG/issue-fields" --jq '.[] | select(.name=="Priority" or .name=="Effort") | {id, name}'   # once per run
+  printf '{"issue_field_values":[{"field_id":%s,"value":"%s"},{"field_id":%s,"value":"%s"}]}' \
+    "$PRIORITY_ID" "$PRIORITY" "$EFFORT_ID" "$EFFORT" |
+    gh api -X PUT "repos/$OWNER/$REPO/issues/$N/issue-field-values" --input -
+  gh api "repos/$OWNER/$REPO/issues/$N" --jq .type.name                 # read the type back
+  gh api "repos/$OWNER/$REPO/issues/$N/issue-field-values"              # read the values back
+  ```
+
+  GitHub drops a type or a field value written without push access and returns success, so the two readbacks decide the claim and a mismatch is reported rather than assumed away. Both knobs at `none` — a personal repo, or an org defining neither — means the issue carries its labels and nothing else; say that in one plain sentence instead of reporting a failure.
 - Approval is the operator's explicit words tied to the issue, because labels, silence and time say nothing about consent.
 - Record it as one approval marker comment per conventions — `scope=brief`, or `scope=brief+plan` when the inline plan was posted with it — quoting the operator's words in the (username) format; preflight verifies that comment.
 - Then flip the state, carrying the assignee the Labels table names: `research` and `quick-build` → `ready` (unassigned); `full-plan` → `needs-plan` (the operator).

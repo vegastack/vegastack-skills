@@ -34,4 +34,4 @@ npx @vegastack/vegafactory skills add --group dev --global
 
 ## Behavior contract
 
-Reads source material completely before asking anything — facts are the agent's job, decisions are the user's. Questions come in numbered rounds with recommended answers so "all recommended" is a valid reply. Issues are vertical slices sized for one agent session, wired with native dependencies/milestones/sub-issues; parent issues never get `ready`. Approval is only the user's explicit words, recorded once — labels and silence never create it.
+Reads source material completely before asking anything — facts are the agent's job, decisions are the user's. Questions come in numbered rounds with recommended answers so "all recommended" is a valid reply. Issues are vertical slices sized for one agent session, wired with native dependencies/milestones/sub-issues; parent issues never get `ready`. Approval is only the user's explicit words, recorded once — labels and silence never create it. Issues are stamped with the org's native type and its Priority and Effort fields where dev.md's knobs name them, and both are read back because GitHub drops them silently without push access.

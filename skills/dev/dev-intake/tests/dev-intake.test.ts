@@ -49,6 +49,18 @@ describe('dev-intake contract', () => {
     expect(interview).toMatch(/middle option/)
   })
 
+  test('creation sets the native type and both fields, and reads them back', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const section = skill.split('## Labels and approval')[1].split('\n## ')[0]
+    expect(section).toContain('gh issue create --type')
+    expect(section).toContain('2.94.0')
+    expect(section).toContain('-f type=')
+    expect(section).toContain('issue-field-values')
+    expect(section).toContain('--jq .type.name')
+    expect(section).toContain('issue_field_values')
+    expect(section).toMatch(/none/)
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
