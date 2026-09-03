@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { classifyCommand, extractCommand, readPolicy, renderDecision, splitSegments } from '../assets/hooks/ship-guard.mjs'
 import { renderContext, sessionMarkerPath, shouldSync, worktreeClaim } from '../assets/hooks/session-start.mjs'
+import { HEARTBEAT_REASON, shouldNudge } from '../assets/hooks/stop-heartbeat.mjs'
 
 const DEV_MD = [
   'repo: vegastack/vegafactory · default branch main',
@@ -182,5 +183,44 @@ describe('session-start context', () => {
     expect(shouldSync(join(dir, 'org'), now, 30)).toBe(true)
     expect(shouldSync(join(dir, 'org'), now, 60)).toBe(false)
     expect(shouldSync(join(dir, 'missing'), now, 30)).toBe(false)
+  })
+})
+
+describe('stop heartbeat', () => {
+  const base = {
+    stopHookActive: false,
+    worktree: { number: 106, slug: 'worktrees' },
+    issueState: 'working',
+    ledgerUpdatedAt: '2026-09-03T09:00:00Z',
+    sessionStartedAt: '2026-09-03T10:00:00Z',
+    alreadyNudged: false,
+  }
+
+  test('nudges when the ledger predates the session start', () => {
+    expect(shouldNudge(base)).toEqual({ nudge: true, why: 'ledger untouched this session' })
+  })
+
+  test('stays silent when the ledger was written during the session', () => {
+    expect(shouldNudge({ ...base, ledgerUpdatedAt: '2026-09-03T10:30:00Z' }).nudge).toBe(false)
+  })
+
+  test('stays silent outside a worktree, off a working issue, when already nudged, and when re-entered', () => {
+    expect(shouldNudge({ ...base, worktree: null }).nudge).toBe(false)
+    expect(shouldNudge({ ...base, issueState: 'for-operator' }).nudge).toBe(false)
+    expect(shouldNudge({ ...base, alreadyNudged: true }).nudge).toBe(false)
+    expect(shouldNudge({ ...base, stopHookActive: true }).nudge).toBe(false)
+  })
+
+  test('nudges when the issue is working and no ledger comment exists at all', () => {
+    expect(shouldNudge({ ...base, ledgerUpdatedAt: null })).toEqual({ nudge: true, why: 'no ledger comment yet' })
+  })
+
+  test('stays silent when the session start is unknown, rather than nudging on every stop', () => {
+    expect(shouldNudge({ ...base, sessionStartedAt: null }).nudge).toBe(false)
+  })
+
+  test('the reason is a plain checkpoint sentence and never mentions a budget', () => {
+    expect(HEARTBEAT_REASON).toBe('checkpoint the ledger before stopping')
+    expect(HEARTBEAT_REASON).not.toMatch(/context|budget|token|remaining/i)
   })
 })
