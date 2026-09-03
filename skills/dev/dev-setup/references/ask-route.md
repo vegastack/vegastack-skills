@@ -10,13 +10,13 @@ Three steps, in this order, first match wins:
 2. This harness and this run have no question tool → `issue`.
 3. The asker is not the issue's operator → `issue`. An unresolved asker or operator is also `issue`.
 
-Otherwise the tool. Settle it deterministically rather than by judgement:
+Otherwise the tool. The issue route needs an issue: where none exists yet — dev-intake's interview runs before its issue is created — the skill creates the issue first, at `needs-operator` with the operator assigned and the request as its body, and posts the round to it; the brief is written into that issue once the round is answered. On the tool route the issue is created after approval, as before. Settle it deterministically rather than by judgement:
 
 ```sh
 node <path-to-this-skill>/scripts/questions.mjs route --tool <name|none> --asker <login> --operator <login> --json
 ```
 
-Which tool each harness has — and the Codex Plan-mode gating on `request_user_input` — is recorded in [harness-facts](harness-facts.md) and not restated here. The operator identity comes from the caller under dev.md's `operators:` knob; the script takes both logins as inputs and never resolves them itself.
+Which tool each harness has — and the Codex Plan-mode gating on `request_user_input` — is recorded in dev-setup's `references/harness-facts.md` (a backticked path, not a link: this file ships into dev-intake, dev-plan and dev-implement, which do not carry that reference) and not restated here. The operator identity comes from the caller under dev.md's `operators:` knob; the script takes both logins as inputs and never resolves them itself.
 
 The bias is deliberate: a round in a comment is always readable by whoever owns the issue, and a round put to the wrong person is not.
 
@@ -52,7 +52,7 @@ Anyone on the issue may answer, in an ordinary comment, one line per question:
 - `3: other — a third way` (`other` is accepted for any question)
 - `all recommended` on its own line fills every question not answered explicitly
 
-An explicit line always beats `all recommended`. Bulleted lines, a `.` instead of `:`, and upper-case letters all parse. Surrounding prose is ignored; the first answer to a question stands and a repeat is reported.
+An explicit line always beats `all recommended`. Bulleted lines, a `.` instead of `:`, and upper-case letters all parse. Surrounding prose is ignored; the first answer to a question stands and a repeat is reported. A numbered line whose letter runs straight into prose with no dash (`1: a is wrong, go with b`) is malformed, not an answer of `a` — the parser reports it and the question is re-asked.
 
 ## Re-asks
 

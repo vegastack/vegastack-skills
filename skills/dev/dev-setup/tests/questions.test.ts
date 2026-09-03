@@ -132,6 +132,17 @@ describe('parseAnswers', () => {
     expect(r.missing).toEqual([])
   })
 
+  test('a letter followed by dashless prose is malformed, never recorded as that letter', () => {
+    // `1: a is wrong, go with b` led with a valid letter; recording option a would build on the
+    // option the operator was rejecting, with exit 0 and no re-ask.
+    const r = parseAnswers('1: a is wrong, go with b\n2: a', twoQ)
+    expect(r.answers[1]).toBeUndefined()
+    expect(r.answers[2]).toEqual({ option: 'a', text: null })
+    expect(r.missing).toEqual([1])
+    expect(r.malformed).toEqual(['question 1: "a is wrong, go with b" is not a bare answer — write "1: a" or "1: a — <note>"'])
+    // The documented shapes still parse: a note after a dash, a trailing full stop, upper case.
+    expect(parseAnswers('1: A.\n2: b — fine', twoQ)).toEqual({ answers: { 1: { option: 'a', text: null }, 2: { option: 'b', text: 'fine' } }, missing: [], malformed: [] })
+  })
   test('a reply with no answer line at all is malformed, not silently empty', () => {
     const r = parseAnswers('sounds good, go ahead', twoQ)
     expect(r.missing).toEqual([1, 2])

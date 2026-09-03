@@ -49,6 +49,17 @@ describe('dev-intake contract', () => {
     expect(interview).toMatch(/middle option/)
   })
 
+  test('the issue route has an issue to post to: intake creates it before the first round', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const interview = skill.split('## The interview')[1].split('\n## ')[0]
+    expect(interview).toContain('create the issue before the first round')
+    expect(interview).toContain('`needs-operator`, the operator assigned')
+    const route = readFileSync(resolve(skillRoot, '../dev-setup/references/ask-route.md'), 'utf8')
+    expect(route).toContain('the skill creates the issue first')
+    const evals = JSON.parse(readFileSync(join(skillRoot, 'evals/evals.json'), 'utf8'))
+    expect(evals.evals.find((e: { id: number }) => e.id === 5).assertions[0]).toContain('created before the round')
+  })
+
   test('creation sets the native type and both fields, and reads them back', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     const section = skill.split('## Labels and approval')[1].split('\n## ')[0]

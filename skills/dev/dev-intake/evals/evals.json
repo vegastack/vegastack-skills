@@ -54,9 +54,10 @@
     {
       "id": 5,
       "prompt": "You are running headless in vegastack/example-service with no question tool available in this harness. Turn this request into an issue: \"Send customers a reminder email three days after an invoice falls due.\"",
-      "expected_output": "The interview round is posted as one issue comment opening <!-- vsk:v1 type=questions rev=1 -->, with the questions wrapped in <questions> tags, numbered **Q1.** style and lettered - a) style, exactly one option per question marked (recommended — <reason>), and a closing reply line naming `all recommended`; the issue is left at needs-operator with no brief written and no ready label proposed.",
+      "expected_output": "A stub issue is created first at needs-operator with the operator assigned and the request as its body, because the round needs a comment surface; then the interview round is posted as one issue comment opening <!-- vsk:v1 type=questions rev=1 -->, with the questions wrapped in <questions> tags, numbered **Q1.** style and lettered - a) style, exactly one option per question marked (recommended — <reason>), and a closing reply line naming `all recommended`; the issue is left at needs-operator with no brief written and no ready label proposed.",
       "files": [],
       "assertions": [
+        "The issue is created before the round is posted, at needs-operator with the operator assigned, and the round is posted as a comment on it",
         "The round is posted as one issue comment whose first line is <!-- vsk:v1 type=questions rev=1 -->",
         "The questions sit inside <questions> tags, numbered **Q1.** style with - a) lettered options",
         "Exactly one option per question is marked (recommended — <reason>) and the reason is given",

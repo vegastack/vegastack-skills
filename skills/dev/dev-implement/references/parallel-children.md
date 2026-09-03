@@ -1,6 +1,6 @@
 # Parallel children
 
-A parent issue whose plan declares [independent groups](../../dev-plan/references/plan-format.md) with disjoint file sets can run those children at the same time. The parent owns everything deterministic through `scripts/children.mjs`; the harnesses own only the running.
+A parent issue whose plan declares independent groups (dev-plan's `references/plan-format.md`) with disjoint file sets can run those children at the same time. The parent owns everything deterministic through `scripts/children.mjs`; the harnesses own only the running.
 
 The safe default is sequential. Parallel is what a declared, validated, disjoint file set buys — nothing else unlocks it.
 

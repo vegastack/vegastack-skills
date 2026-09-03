@@ -122,9 +122,13 @@ export function renderQuestions(spec, options) {
 }
 
 // An answer line: an optional bullet, the question number, `:` or `.`, the option
-// word, and optional trailing prose after a dash. Anything else on the line is
-// prose — a reply is a comment written by a person, not a form.
-const ANSWER_LINE = /^\s*(?:[-*]\s+)?(\d+)\s*[:.]\s*([A-Za-z]+)\s*(?:—|–|--|-)?\s*(.*)$/
+// word, and optional trailing prose — only after a dash. The dash is what makes
+// `1: a — too slow` a note and `1: a is too slow, go with b` a sentence: without
+// it the letter is not an answer, and a numbered line that is not an answer is
+// reported rather than read as the letter it happens to open with. Lines with no
+// number are prose — a reply is a comment written by a person, not a form.
+const ANSWER_LINE = /^\s*(?:[-*]\s+)?(\d+)\s*[:.]\s*([A-Za-z]+)[.!]?\s*(?:(?:—|–|--|-)\s*(.*))?$/
+const NUMBERED_LINE = /^\s*(?:[-*]\s+)?(\d+)\s*[:.]\s*(\S.*)$/
 const ALL_RECOMMENDED = /^\s*(?:[-*]\s+)?all\s+recommended\s*[.!]?\s*$/i
 
 // Reads a reply comment against the round it answers. Never throws on the reply
@@ -145,11 +149,18 @@ export function parseAnswers(replyText, spec) {
       continue
     }
     const match = ANSWER_LINE.exec(line)
-    if (!match) continue
+    if (!match) {
+      const numbered = NUMBERED_LINE.exec(line)
+      if (numbered) {
+        sawAnswerLine = true
+        malformed.push('question ' + Number(numbered[1]) + ': "' + numbered[2].trim() + '" is not a bare answer — write "' + Number(numbered[1]) + ': a" or "' + Number(numbered[1]) + ': a — <note>"')
+      }
+      continue
+    }
     sawAnswerLine = true
     const n = Number(match[1])
     const token = match[2].toLowerCase()
-    const trailing = match[3].trim()
+    const trailing = (match[3] || '').trim()
     const position = numbers.indexOf(n)
     if (position === -1) {
       malformed.push('question ' + n + ' is not in this round')
