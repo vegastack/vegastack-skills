@@ -137,28 +137,36 @@ export async function pushOutbox(options: {
 
   const git = options.git
   const cwd = options.cloneRoot
-  await git(['add', 'stats'], cwd)
-  await git(['commit', '-m', plan.subject, '-m', plan.body], cwd)
-
   const maxRetries = options.maxRetries ?? 3
   let retries = 0
   let pushed = false
-  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
-    const push = await git(['push'], cwd)
-    if (push.code === 0) {
-      pushed = true
-      break
+  try {
+    await git(['add', 'stats'], cwd)
+    await git(['commit', '-m', plan.subject, '-m', plan.body], cwd)
+    for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+      const push = await git(['push'], cwd)
+      if (push.code === 0) {
+        pushed = true
+        break
+      }
+      if (!REJECTED.test(push.stderr) || attempt === maxRetries - 1) break
+      await git(['pull', '--rebase'], cwd)
+      retries += 1
     }
-    if (!REJECTED.test(push.stderr) || attempt === maxRetries - 1) break
-    await git(['pull', '--rebase'], cwd)
-    retries += 1
+  } catch {
+    // git missing, or the clone is not a repository: the same failure path as a rejected push.
+    pushed = false
   }
 
   if (!pushed) {
     // The spool is the source of truth, so the unpushed commit is dropped rather than left to be
     // duplicated by the next attempt's append. Best effort: if this fails too, the deferred list
     // still names every file the next attempt will replay.
-    await git(['reset', '--hard', '@{upstream}'], cwd)
+    try {
+      await git(['reset', '--hard', '@{upstream}'], cwd)
+    } catch {
+      // nothing more to try; the deferred list below is the honest answer
+    }
     return { ok: false, pushed: 0, retries, deferred: pending.map(batch => batch.file), refusals: plan.refusals }
   }
 

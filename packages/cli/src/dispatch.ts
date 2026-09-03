@@ -9,12 +9,18 @@ import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { parseControlRoomKnob } from './control-room.ts'
 import { appendFile, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { hostname, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadFactoryConfig, mergeRepoPolicy, stagePolicy, type FactoryConfig, type Harness, type RepoEntry, type RepoPolicy, type Stage, type Subagents } from './config.ts'
 import { buildLaunchPlan, type LaunchPlan } from './launch.ts'
 import { GhUnavailable, ghText } from './gh.ts'
+import { GIT_CREDENTIAL_ARGS } from './sync.ts'
+import { fromClaudeHeadless, fromCodexExec } from './stats/capture.ts'
+import { appendRecord, takeSkillInvocations } from './stats/outbox.ts'
+import { pushOutbox, type GitRunner, type PushResult } from './stats/push.ts'
+import { normalizeRecord, resolveStatsPolicy, type StatsPolicy, type StatsRecord } from './stats/record.ts'
+import { statsClonePath } from './stats/cli.ts'
 
 export interface BoardIssue {
   number: number
@@ -519,6 +525,11 @@ export interface RunOutcome {
   logFile: string
   pushed: boolean
   handedBack: boolean
+  // What the stats record is built from. Optional because the tick's `execute` seam is stubbed in
+  // several tests; a run with no stdout still produces a record, just a context-only one.
+  stdout?: string
+  startedAt?: string
+  finishedAt?: string
 }
 
 export interface ExecuteDeps {
@@ -581,6 +592,10 @@ export async function executeRun(
   await flush()
 
   let tail = ''
+  // The harness's own machine-readable result: `claude -p --output-format json` prints one object,
+  // `codex exec --json` one event per line. Capped at 2 MB, keeping the END, because both formats
+  // put what the record needs last.
+  let stdout = ''
   const outcome = await new Promise<{ exitCode: number | null; timedOut: boolean }>(resolve => {
     const child = spawn(plan.command, plan.args, { cwd: plan.cwd, env: { ...process.env, ...plan.env }, stdio: ['ignore', 'pipe', 'pipe'] })
     let timedOut = false
@@ -588,6 +603,10 @@ export async function executeRun(
     for (const stream of ['stdout', 'stderr'] as const) {
       child[stream].setEncoding('utf8')
       child[stream].on('data', (chunk: string) => {
+        if (stream === 'stdout') {
+          stdout = `${stdout}${chunk}`
+          if (stdout.length > 2_000_000) stdout = stdout.slice(-2_000_000)
+        }
         tail = `${tail}${chunk}`.split('\n').slice(-200).join('\n')
         record({ at: new Date().toISOString(), stream, text: chunk })
         void flush()
@@ -633,7 +652,104 @@ export async function executeRun(
   }
   record({ at: new Date().toISOString(), event: 'exit', exitCode: outcome.exitCode, timedOut: outcome.timedOut, pushed: push.ok, handedBack })
   await flush()
-  return { exitCode: outcome.exitCode, timedOut: outcome.timedOut, logFile: file, pushed: push.ok, handedBack }
+  return {
+    exitCode: outcome.exitCode,
+    timedOut: outcome.timedOut,
+    logFile: file,
+    pushed: push.ok,
+    handedBack,
+    stdout,
+    startedAt: startedAt.toISOString(),
+    finishedAt: new Date().toISOString(),
+  }
+}
+
+// --- statistics -------------------------------------------------------------------------
+//
+// One record per headless run, written to the machine-local outbox the moment the run ends. It is
+// deliberately the last thing the run does and deliberately cannot fail into the tick: a run that
+// finished is a run that finished, whether or not anyone was counting.
+
+export interface RunOutcomeInput {
+  harness: Harness
+  stdout: string
+  exitCode: number
+  startedAt: string
+  finishedAt: string
+  repo: string
+  issue: number | null
+  parent: number | null
+  stage: string
+  model: string | null
+  effort: string | null
+  human: string
+  worktree: string
+}
+
+function elapsedSeconds(startedAt: string, finishedAt: string): number | null {
+  const from = Date.parse(startedAt)
+  const to = Date.parse(finishedAt)
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return null
+  return Math.round((to - from) / 1000)
+}
+
+export async function recordRun(
+  input: RunOutcomeInput,
+  deps: { home: string; hostname: string; policy: StatsPolicy },
+): Promise<string | null> {
+  if (!deps.policy.enabled) return null
+  const context = {
+    repo: input.repo,
+    ts: input.finishedAt,
+    stage: input.stage,
+    model: input.model,
+    effort: input.effort,
+    human: input.human,
+    worktree: input.worktree,
+    parent: input.parent,
+    // The exit code is the authority on failure: a harness that printed a happy result object and
+    // then died is a failed run, whatever its own JSON claims.
+    outcome: input.exitCode !== 0 ? ('failed' as const) : undefined,
+  }
+  let record: StatsRecord
+  try {
+    record = input.harness === 'claude'
+      ? fromClaudeHeadless(JSON.parse(input.stdout), context)
+      : fromCodexExec(input.stdout.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line)), context)
+  } catch {
+    // Unparseable stdout is still a run that happened: the context-only record keeps the duration,
+    // the issue and the stage, and leaves every counter null rather than inventing one.
+    record = normalizeRecord({
+      ...context,
+      outcome: input.exitCode !== 0 ? 'failed' : null,
+      issue: input.issue,
+      harness: input.harness,
+      mode: 'headless',
+    })
+  }
+  if (record.issue === null) record.issue = input.issue
+  if (record.duration_s === null) record.duration_s = elapsedSeconds(input.startedAt, input.finishedAt)
+  if (record.session_id) record.skills = await takeSkillInvocations(deps.home, record.session_id)
+  try {
+    return await appendRecord(deps.home, record, deps.hostname)
+  } catch {
+    // A refused or unwritable outbox must never take a finished run down with it.
+    return null
+  }
+}
+
+export async function flushStats(deps: {
+  home: string
+  cloneRoot: string
+  ghUser: string
+  hostname: string
+  git: GitRunner
+}): Promise<PushResult> {
+  try {
+    return await pushOutbox({ ...deps, commit: true })
+  } catch {
+    return { ok: false, pushed: 0, retries: 0, deferred: [], refusals: [] }
+  }
 }
 
 // --- the tick ---------------------------------------------------------------
@@ -911,6 +1027,15 @@ async function readIfPresent(path: string): Promise<string | null> {
   }
 }
 
+// The org's own `org.md`, for the layered policies that are the org's to set. Same rule as the
+// group defaults: a missing clone is not an error.
+async function orgDefaults(config: FactoryConfig, entry: RepoEntry, devMd: string): Promise<string | null> {
+  const knob = parseControlRoomKnob(devMd)
+  const clone = knob ? config.controlRoom[knob.org] : undefined
+  if (!clone) return null
+  return readIfPresent(join(clone, 'org.md'))
+}
+
 // The org's group defaults, when this machine has a control-room clone for it. A missing clone is
 // not an error: the repo's own dev.md is the authority for everything that gates a run.
 async function groupDefaults(config: FactoryConfig, entry: RepoEntry, devMd: string): Promise<string | null> {
@@ -948,7 +1073,12 @@ export async function runTick(
       refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: no .vegastack/dev.md at ${entry.path} — the dispatcher reads its policy from the repo, and an absent profile is off` })
       continue
     }
-    const policy = mergeRepoPolicy(await groupDefaults(config, entry, devMd), devMd)
+    const groupMd = await groupDefaults(config, entry, devMd)
+    const policy = mergeRepoPolicy(groupMd, devMd)
+    // Whether this tick records anything is org policy layered over the repo's own line — never a
+    // machine setting, so a box cannot quietly opt itself out of the org's numbers.
+    const orgMd = await orgDefaults(config, entry, devMd)
+    const statsPolicy = resolveStatsPolicy({ org: orgMd ?? '', group: groupMd ?? '', repo: devMd })
     let harness: Harness
     try {
       harness = stagePolicy(policy, 'implement').harness
@@ -987,6 +1117,7 @@ export async function runTick(
     }
     const plan = planTick({ repo: entry.repo, policy, board, rockets, state, guards, maxRuns: config.maxRuns, parents })
     refusals.push(...plan.refusals)
+    let recorded = 0
 
     for (const run of plan.runs) {
       const stage = stagePolicy(policy, run.stage)
@@ -1046,6 +1177,22 @@ export async function runTick(
         report.launched = true
         report.exitCode = outcome.exitCode
         report.logFile = outcome.logFile
+        const written = await recordRun({
+          harness: stage.harness,
+          stdout: outcome.stdout ?? '',
+          exitCode: outcome.exitCode ?? 1,
+          startedAt: outcome.startedAt ?? now().toISOString(),
+          finishedAt: outcome.finishedAt ?? now().toISOString(),
+          repo: entry.repo,
+          issue: run.issue,
+          parent: parentOf?.parent.issue ?? null,
+          stage: run.stage,
+          model: stage.model,
+          effort: stage.effort,
+          human: policy.operators[0] ?? 'unknown',
+          worktree: target.path,
+        }, { home: config.home, hostname: hostname(), policy: statsPolicy })
+        if (written) recorded += 1
       } finally {
         await releaseLock(lockPath)
       }
@@ -1053,6 +1200,17 @@ export async function runTick(
       // record. Recording label runs here would grow the state file forever for no gain.
       if (run.reactionId !== null) state = recordHandled(state, run)
       runs.push(report)
+    }
+    // One push per tick, after every run in this repo has been recorded, and never allowed to
+    // fail into the tick: a control room that is unreachable costs the org a delay, not a run.
+    if (recorded > 0 && !options.dryRun) {
+      await flushStats({
+        home: config.home,
+        cloneRoot: statsClonePath(config.home, entry.org),
+        ghUser: policy.operators[0] ?? 'unknown',
+        hostname: hostname(),
+        git: defaultStatsGit,
+      })
     }
     state = withLastTick(state, entry.repo, now().toISOString())
   }
@@ -1200,3 +1358,21 @@ export async function runDispatchCli(argv: string[], home: string): Promise<numb
   emit(result)
   return result.runs.length > 0 ? 0 : 1
 }
+
+// The tick's own git runner for the stats push: the operator's existing gh credential, injected per
+// invocation exactly as `sync.ts` does, and never a token in argv or in the clone's config.
+const defaultStatsGit: GitRunner = (args, cwd) => new Promise(resolve => {
+  const child = spawn('git', [...GIT_CREDENTIAL_ARGS, ...args], {
+    cwd,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let stdout = ''
+  let stderr = ''
+  child.stdout.setEncoding('utf8')
+  child.stderr.setEncoding('utf8')
+  child.stdout.on('data', (chunk: string) => { stdout += chunk })
+  child.stderr.on('data', (chunk: string) => { stderr += chunk })
+  child.on('error', error => resolve({ code: 1, stdout, stderr: `${stderr}${(error as Error).message}` }))
+  child.on('close', code => resolve({ code: code ?? 1, stdout, stderr }))
+})
