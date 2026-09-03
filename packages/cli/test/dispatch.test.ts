@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import {
-  evaluateGuards, executeRun, failureComment, logPath, planLabelRuns, planRocketRuns, planTick, readState,
+  evaluateGuards, executeRun, failureComment, holdLock, logPath, parseDispatchArgs, readLock,
+  releaseLock, stopList, worktreeFor, planLabelRuns, planRocketRuns, planTick, readState,
   recordHandled, redact, searchQueries, shipGuardWired, tailLines, writeState,
   type BoardIssue, type DispatchState, type GuardState, type Rocket,
 } from '../src/dispatch.ts'
@@ -332,5 +333,67 @@ describe('executeRun', () => {
     const log = readFileSync(outcome.logFile, 'utf8')
     expect(log).toContain('handback-failed')
     expect(log).toContain('push-failed')
+  })
+})
+
+describe('worktreeFor', () => {
+  test('reads the type off the title prefix and slugs the rest', () => {
+    expect(worktreeFor('/w/app', 12, 'feat: vegafactory dispatch --watch')).toEqual({
+      path: '/w/app/.vegastack/.worktrees/12-vegafactory-dispatch-watch',
+      branch: 'feat/12-vegafactory-dispatch-watch',
+      slug: 'vegafactory-dispatch-watch',
+      type: 'feat',
+    })
+  })
+
+  test('a title with no known type prefix is a feat, and the prefix stays in the slug', () => {
+    expect(worktreeFor('/w/app', 3, 'make the thing faster').branch).toBe('feat/3-make-the-thing-faster')
+    expect(worktreeFor('/w/app', 3, 'spike: try it').slug).toBe('spike-try-it')
+  })
+
+  test('a long title is capped without a trailing dash', () => {
+    const target = worktreeFor('/w/app', 9, `fix: ${'word '.repeat(20)}`)
+    expect(target.slug.length).toBeLessThanOrEqual(40)
+    expect(target.slug.endsWith('-')).toBe(false)
+  })
+})
+
+describe('stopList', () => {
+  test('takes the profile bullets verbatim and stops at the next section', () => {
+    const devMd = '## Stop and ask\n\n- spending money\n- touching production\n\n## Project rules\n\n- never this one\n'
+    expect(stopList(devMd)).toEqual(['spending money', 'touching production'])
+  })
+
+  test('a profile with no stop section yields no lines rather than an invented one', () => {
+    expect(stopList('## Knobs\n\ndispatch: local\n')).toEqual([])
+  })
+})
+
+describe('locks', () => {
+  test('a lock held by this live process reads as held; releasing frees it', async () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'vsk-lock-')), 'app.lock')
+    expect(await readLock(path)).toEqual({ held: false, pid: null })
+    await holdLock(path, process.pid)
+    expect(await readLock(path)).toEqual({ held: true, pid: process.pid })
+    await releaseLock(path)
+    expect((await readLock(path)).held).toBe(false)
+  })
+
+  test('a lock left by a dead process is stale, not a wedge', async () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'vsk-lock-')), 'app.lock')
+    writeFileSync(path, JSON.stringify({ pid: 2147483000, at: '2026-09-03T10:00:00Z' }))
+    expect(await readLock(path)).toEqual({ held: false, pid: 2147483000 })
+  })
+})
+
+describe('parseDispatchArgs', () => {
+  test('neither --once nor --watch means dry run', () => {
+    expect(parseDispatchArgs([]).dryRun).toBe(true)
+    expect(parseDispatchArgs(['--once']).dryRun).toBe(false)
+  })
+
+  test('--once with --watch is a usage error, and --config needs a value', () => {
+    expect(() => parseDispatchArgs(['--once', '--watch'])).toThrow(/--once/)
+    expect(() => parseDispatchArgs(['--config'])).toThrow(/--config/)
   })
 })

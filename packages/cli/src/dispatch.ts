@@ -5,12 +5,14 @@
 //
 // Refusals are first-class output, never silence: a repo that is skipped says why, in the JSON and
 // in the log, because "nothing happened" and "the ship guard is unwired" look identical otherwise.
-import { spawn } from 'node:child_process'
-import { appendFile, lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { spawn, spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { parseControlRoomKnob } from './control-room.ts'
+import { appendFile, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { FactoryConfig, Harness, RepoPolicy, Stage } from './config.ts'
-import type { LaunchPlan } from './launch.ts'
-import { ghText } from './gh.ts'
+import { loadFactoryConfig, mergeRepoPolicy, stagePolicy, type FactoryConfig, type Harness, type RepoEntry, type RepoPolicy, type Stage } from './config.ts'
+import { buildLaunchPlan, type LaunchPlan } from './launch.ts'
+import { GhUnavailable, ghText } from './gh.ts'
 
 export interface BoardIssue {
   number: number
@@ -490,4 +492,444 @@ export async function executeRun(
   record({ at: new Date().toISOString(), event: 'exit', exitCode: outcome.exitCode, timedOut: outcome.timedOut, pushed: push.ok, handedBack })
   await flush()
   return { exitCode: outcome.exitCode, timedOut: outcome.timedOut, logFile: file, pushed: push.ok, handedBack }
+}
+
+// --- the tick ---------------------------------------------------------------
+
+export interface WorktreeTarget { path: string; branch: string; slug: string; type: string }
+
+const BRANCH_TYPES = ['feat', 'fix', 'docs', 'chore', 'refactor']
+const SLUG_MAX = 40
+
+// The same naming the packaged worktree script uses, and deliberately a copy of nothing else: this
+// predicts where the run will happen so `--dry-run` can print a real cwd without creating anything.
+// The script remains the only thing that makes a worktree.
+export function worktreeFor(repoPath: string, issue: number, title: string): WorktreeTarget {
+  const [prefix, ...rest] = title.split(':')
+  const hasType = rest.length > 0 && BRANCH_TYPES.includes(prefix!.trim())
+  const type = hasType ? prefix!.trim() : 'feat'
+  const subject = hasType ? rest.join(':') : title
+  const slug = subject
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, SLUG_MAX)
+    .replace(/-+$/g, '')
+  const name = `${issue}-${slug}`
+  return { path: join(repoPath, '.vegastack', '.worktrees', name), branch: `${type}/${name}`, slug, type }
+}
+
+interface SearchIssue {
+  number: number
+  title: string
+  labels?: { name: string }[]
+  assignees?: { login: string }[]
+  updated_at?: string
+}
+
+function toBoardIssue(row: SearchIssue): BoardIssue {
+  return {
+    number: row.number,
+    title: row.title,
+    labels: (row.labels ?? []).map(label => label.name),
+    assignees: (row.assignees ?? []).map(assignee => assignee.login),
+    updatedAt: row.updated_at ?? '',
+  }
+}
+
+export interface TickDeps {
+  gh: (args: string[], options?: { cwd?: string; input?: string }) => Promise<string>
+  now: () => Date
+  shipGuard: (repoPath: string, harness: Harness) => Promise<{ wired: boolean; detail: string }>
+  ensureWorktree: (repoPath: string, issue: number, title: string) => Promise<WorktreeTarget>
+  execute: (run: PlannedRun, plan: LaunchPlan, config: FactoryConfig, options: { operator: string | null }) => Promise<RunOutcome>
+}
+
+async function ghJsonVia<T>(gh: TickDeps['gh'], args: string[]): Promise<T> {
+  const stdout = await gh(args)
+  try {
+    return JSON.parse(stdout) as T
+  } catch {
+    throw new GhUnavailable(`gh ${args.join(' ')} returned output that is not JSON`)
+  }
+}
+
+export async function fetchBoard(gh: TickDeps['gh'], repo: string, since: string | null): Promise<{
+  needsPlan: BoardIssue[]
+  ready: BoardIssue[]
+  corrections: BoardIssue[]
+}> {
+  const queries = searchQueries(repo, since)
+  const search = async (q: string): Promise<BoardIssue[]> => {
+    const result = await ghJsonVia<{ items?: SearchIssue[] }>(gh, ['api', '-X', 'GET', 'search/issues', '-f', `q=${q}`, '--cache', '0'])
+    return (result.items ?? []).map(toBoardIssue)
+  }
+  return {
+    needsPlan: await search(queries.needsPlan),
+    ready: await search(queries.ready),
+    corrections: await search(queries.corrections),
+  }
+}
+
+// Reactions cost one call per comment, so they are read only for issues whose `updated_at` moved
+// since the last tick — that filter is already in the corrections query — and only comments that
+// actually carry a rocket are followed up.
+export async function fetchRockets(gh: TickDeps['gh'], repo: string, corrections: BoardIssue[]): Promise<Rocket[]> {
+  const rockets: Rocket[] = []
+  for (const issue of corrections) {
+    const comments = await ghJsonVia<{ id: number; reactions?: { rocket?: number } }[]>(
+      gh, ['api', `repos/${repo}/issues/${issue.number}/comments`, '--paginate'],
+    )
+    for (const comment of comments) {
+      if (!comment.reactions?.rocket) continue
+      const reactions = await ghJsonVia<{ id: number; content: string; user?: { login: string } }[]>(
+        gh, ['api', `repos/${repo}/issues/comments/${comment.id}/reactions`, '--paginate'],
+      )
+      for (const reaction of reactions) {
+        if (reaction.content !== 'rocket') continue
+        rockets.push({ issue: issue.number, commentId: comment.id, reactionId: reaction.id, login: reaction.user?.login ?? '' })
+      }
+    }
+  }
+  return rockets
+}
+
+export interface LockState { held: boolean; pid: number | null }
+
+export function repoLockPath(config: FactoryConfig, repo: string): string {
+  return join(config.lockRoot, `${repo.replace('/', '-')}.lock`)
+}
+
+// A pid that no longer exists never keeps a lock: a dispatcher killed mid-run would otherwise wedge
+// its repo until somebody deleted a file they have no reason to know about.
+export function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+export async function readLock(path: string): Promise<LockState> {
+  let raw: string
+  try {
+    raw = await readFile(path, 'utf8')
+  } catch {
+    return { held: false, pid: null }
+  }
+  let pid: number | null = null
+  try {
+    const parsed = JSON.parse(raw) as { pid?: unknown }
+    if (typeof parsed.pid === 'number') pid = parsed.pid
+  } catch {
+    // A lock file nobody can parse is a lock nobody can clear; treat it as stale rather than
+    // wedging the repo forever, and say so through the pid being unknown.
+    return { held: false, pid: null }
+  }
+  if (pid === null || !pidAlive(pid)) return { held: false, pid }
+  return { held: true, pid }
+}
+
+export async function holdLock(path: string, pid: number): Promise<void> {
+  await refuseSymlink(path)
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, `${JSON.stringify({ pid, at: new Date().toISOString() })}\n`)
+}
+
+export async function releaseLock(path: string): Promise<void> {
+  try {
+    await rm(path)
+  } catch {
+    // Already gone is the outcome we wanted.
+  }
+}
+
+// The worktree the run will happen in. Creating it is the packaged script's job — the CLI is a
+// caller here, exactly as `vegafactory worktree` is, so one removal and creation rule exists.
+export function defaultEnsureWorktree(repoPath: string, issue: number, title: string): Promise<WorktreeTarget> {
+  const target = worktreeFor(repoPath, issue, title)
+  const script = process.env.VSK_WORKTREE_SCRIPT
+    || join(dirname(dirname(new URL(import.meta.url).pathname)), 'skill', 'dev-implement', 'scripts', 'worktree.mjs')
+  const verb = existsSync(target.path) ? 'restore' : 'create'
+  const result = spawnSync(process.execPath, [script, verb, '--json', '--issue', String(issue), '--slug', target.slug, '--type', target.type, '--write'], {
+    cwd: repoPath,
+    encoding: 'utf8',
+  })
+  if ((result.status ?? 2) !== 0) {
+    throw new Error(`worktree ${verb} for #${issue} failed: ${(result.stdout ?? '').trim() || (result.stderr ?? '').trim()}`)
+  }
+  return Promise.resolve(target)
+}
+
+export interface RunReport {
+  repo: string
+  issue: number
+  title: string
+  stage: Stage
+  launch: { command: string; args: string[]; env: Record<string, string>; cwd: string }
+  launched: boolean
+  exitCode?: number | null
+  logFile?: string
+}
+
+export interface TickResult {
+  ok: boolean
+  dryRun: boolean
+  runs: RunReport[]
+  refusals: Refusal[]
+}
+
+async function readIfPresent(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+// The org's group defaults, when this machine has a control-room clone for it. A missing clone is
+// not an error: the repo's own dev.md is the authority for everything that gates a run.
+async function groupDefaults(config: FactoryConfig, entry: RepoEntry, devMd: string): Promise<string | null> {
+  const knob = parseControlRoomKnob(devMd)
+  if (!knob?.group) return null
+  const clone = config.controlRoom[knob.org]
+  if (!clone) return null
+  return readIfPresent(join(clone, 'groups', knob.group, 'group.md'))
+}
+
+export async function runTick(
+  config: FactoryConfig,
+  options: { dryRun: boolean },
+  deps?: Partial<TickDeps>,
+): Promise<TickResult> {
+  const gh = deps?.gh ?? ((args: string[], ghOptions?: { cwd?: string; input?: string }) => ghText(args, ghOptions))
+  const now = deps?.now ?? (() => new Date())
+  const shipGuard = deps?.shipGuard ?? shipGuardWired
+  const ensure = deps?.ensureWorktree ?? defaultEnsureWorktree
+  const execute = deps?.execute ?? ((run, plan, cfg, opts) => executeRun(run, plan, cfg, opts))
+
+  let state = await readState(config.stateFile)
+  const runs: RunReport[] = []
+  const refusals: Refusal[] = []
+
+  for (const entry of config.repos) {
+    const devMd = await readIfPresent(join(entry.path, '.vegastack', 'dev.md'))
+    if (devMd === null) {
+      refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: no .vegastack/dev.md at ${entry.path} — the dispatcher reads its policy from the repo, and an absent profile is off` })
+      continue
+    }
+    const policy = mergeRepoPolicy(await groupDefaults(config, entry, devMd), devMd)
+    let harness: Harness
+    try {
+      harness = stagePolicy(policy, 'implement').harness
+    } catch (error) {
+      refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: ${(error as Error).message}` })
+      continue
+    }
+    const lockPath = repoLockPath(config, entry.repo)
+    const guards: GuardState = {
+      shipGuard: await shipGuard(entry.path, harness),
+      lock: await readLock(lockPath),
+      activeRuns: 0,
+    }
+    const guardRefusals = evaluateGuards({ repo: entry.repo, policy, guards, maxRuns: config.maxRuns })
+    if (guardRefusals.length > 0) {
+      refusals.push(...guardRefusals)
+      continue
+    }
+
+    const since = state.lastTick[entry.repo] ?? null
+    let board: Awaited<ReturnType<typeof fetchBoard>>
+    let rockets: Rocket[]
+    try {
+      board = await fetchBoard(gh, entry.repo, since)
+      rockets = await fetchRockets(gh, entry.repo, board.corrections)
+    } catch (error) {
+      refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: the board could not be read — ${(error as Error).message}` })
+      continue
+    }
+
+    const plan = planTick({ repo: entry.repo, policy, board, rockets, state, guards, maxRuns: config.maxRuns })
+    refusals.push(...plan.refusals)
+
+    for (const run of plan.runs) {
+      const stage = stagePolicy(policy, run.stage)
+      const target = options.dryRun
+        ? worktreeFor(entry.path, run.issue, run.title)
+        : await ensure(entry.path, run.issue, run.title)
+      const launch = buildLaunchPlan({
+        harness: stage.harness,
+        model: stage.model,
+        effort: stage.effort,
+        stage: run.stage,
+        worktree: target.path,
+        issue: { number: run.issue, title: run.title },
+        operator: policy.operators[0] ?? 'the operator',
+        outcome: run.title,
+        stopList: stopList(devMd),
+        resume: run.stage === 'corrections',
+        skillPath: null,
+        subagents: config.subagents,
+      })
+      const report: RunReport = {
+        repo: entry.repo,
+        issue: run.issue,
+        title: run.title,
+        stage: run.stage,
+        launch: { command: launch.command, args: launch.args, env: launch.env, cwd: launch.cwd },
+        launched: false,
+      }
+      if (options.dryRun) {
+        runs.push(report)
+        continue
+      }
+      await holdLock(lockPath, process.pid)
+      try {
+        const outcome = await execute(run, launch, config, { operator: policy.operators[0] ?? null })
+        report.launched = true
+        report.exitCode = outcome.exitCode
+        report.logFile = outcome.logFile
+      } finally {
+        await releaseLock(lockPath)
+      }
+      state = recordHandled(state, run)
+      runs.push(report)
+    }
+    state = withLastTick(state, entry.repo, now().toISOString())
+  }
+
+  if (!options.dryRun) await writeState(config.stateFile, state)
+  return { ok: runs.length > 0, dryRun: options.dryRun, runs, refusals }
+}
+
+// The profile's own stop-list, handed to every run verbatim: the operator wrote those lines, and a
+// dispatcher that paraphrased them would be editing policy.
+export function stopList(devMd: string): string[] {
+  const section = devMd.split(/^## Stop and ask.*$/m)[1]
+  if (!section) return []
+  const body = section.split(/^## /m)[0] ?? ''
+  return body
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.startsWith('- '))
+    .map(line => line.slice(2).trim())
+}
+
+// One dispatcher per machine, and it never exits on its own: a tick that throws is logged through
+// the refusal list and the loop continues, because a service that dies on one bad repo stops
+// watching every other one.
+export async function watch(
+  config: FactoryConfig,
+  options: { dryRun: boolean; onTick?: (result: TickResult) => void; ticks?: number },
+  deps?: Partial<TickDeps>,
+): Promise<void> {
+  const existing = await readLock(config.dispatcherLock)
+  if (existing.held) throw new Error(`a dispatcher is already running on this machine (pid ${existing.pid}) — stop it before starting another`)
+  await holdLock(config.dispatcherLock, process.pid)
+  let stopping = false
+  const stop = (): void => { stopping = true }
+  process.on('SIGINT', stop)
+  process.on('SIGTERM', stop)
+  try {
+    for (let tick = 0; !stopping && (options.ticks === undefined || tick < options.ticks); tick += 1) {
+      const result = await runTick(config, { dryRun: options.dryRun }, deps).catch((error: Error) => ({
+        ok: false,
+        dryRun: options.dryRun,
+        runs: [],
+        refusals: [{ repo: '*', issue: null, reason: `the tick failed: ${error.message}` }],
+      } satisfies TickResult))
+      options.onTick?.(result)
+      if (stopping) break
+      await new Promise(resolve => setTimeout(resolve, config.interval * 1000))
+    }
+  } finally {
+    await releaseLock(config.dispatcherLock)
+  }
+}
+
+// --- the verb ---------------------------------------------------------------
+
+export function dispatchUsage(): string {
+  return `Usage: vegafactory dispatch [--once] [--watch] [--dry-run] [--json] [--config PATH]
+
+  --once        run exactly one tick
+  --watch       tick every interval seconds until stopped (the service form)
+  --dry-run     print the launch plan and launch nothing; the default when neither
+                --once nor --watch is given
+  --json        machine-readable output
+  --config      path to factory.json (default ~/.vegastack/factory.json)
+
+Exit 0 runs planned or launched · 1 nothing ran and every candidate was refused ·
+2 a usage error or a config that cannot be read.
+`
+}
+
+export interface DispatchArgs { once: boolean; watch: boolean; dryRun: boolean; json: boolean; config: string | null; help: boolean }
+
+export function parseDispatchArgs(argv: string[]): DispatchArgs {
+  const args: DispatchArgs = { once: false, watch: false, dryRun: false, json: false, config: null, help: false }
+  const rest = [...argv]
+  while (rest.length) {
+    const token = rest.shift()!
+    if (token === '--once') args.once = true
+    else if (token === '--watch') args.watch = true
+    else if (token === '--dry-run') args.dryRun = true
+    else if (token === '--json') args.json = true
+    else if (token === '--help' || token === '-h' || token === 'help') args.help = true
+    else if (token === '--config') {
+      const value = rest.shift()
+      if (value === undefined || value.startsWith('-')) throw new Error('--config requires a path')
+      args.config = value
+    }
+    else throw new Error(`Unknown option: ${token}`)
+  }
+  if (args.once && args.watch) throw new Error('--once and --watch are mutually exclusive: one tick, or the loop')
+  // Anything that can start a dark build is dry-run until asked for explicitly.
+  if (!args.once && !args.watch) args.dryRun = true
+  return args
+}
+
+function renderTick(result: TickResult): string {
+  const lines: string[] = []
+  for (const run of result.runs) {
+    lines.push(`  ${run.launched ? 'launched' : 'would launch'} ${run.stage} on ${run.repo}#${run.issue} — ${run.launch.command} in ${run.launch.cwd}`)
+  }
+  for (const refusal of result.refusals) lines.push(`  refused: ${refusal.reason}`)
+  return lines.length > 0 ? lines.join('\n') : '  nothing to do'
+}
+
+export async function runDispatchCli(argv: string[], home: string): Promise<number> {
+  let args: DispatchArgs
+  try {
+    args = parseDispatchArgs(argv)
+  } catch (error) {
+    console.error(`${(error as Error).message}\n\n${dispatchUsage()}`)
+    return 2
+  }
+  if (args.help) {
+    console.log(dispatchUsage())
+    return 0
+  }
+  const configPath = args.config ?? join(home, '.vegastack', 'factory.json')
+  let config: FactoryConfig
+  try {
+    config = await loadFactoryConfig(configPath, home)
+  } catch (error) {
+    console.error((error as Error).message)
+    return 2
+  }
+
+  const emit = (result: TickResult): void => {
+    if (args.json) console.log(JSON.stringify({ command: 'dispatch', ...result }, null, 2))
+    else console.log(renderTick(result))
+  }
+
+  if (args.watch) {
+    await watch(config, { dryRun: args.dryRun, onTick: emit })
+    return 0
+  }
+  const result = await runTick(config, { dryRun: args.dryRun })
+  emit(result)
+  return result.runs.length > 0 ? 0 : 1
 }

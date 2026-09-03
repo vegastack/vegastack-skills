@@ -9,14 +9,15 @@ import { createInterface } from 'node:readline/promises'
 import { factoryConfigPath, parseSyncMaxAge, readFactoryConfig, serializeFactoryConfig } from './control-room.ts'
 import { selectSkills, type SkillEntry } from './selection.ts'
 import { resolveTarget, syncControlRoom } from './sync.ts'
+import { dispatchUsage, runDispatchCli } from './dispatch.ts'
 import { runWorktree, worktreeUsage } from './worktree.ts'
 
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch'
 // Top-level verbs the factory reserves; they are named in usage and refuse until they land.
-const reservedTopLevel: readonly string[] = ['dispatch', 'service', 'status', 'stats', 'dashboard'] as const
+const reservedTopLevel: readonly string[] = ['service', 'status', 'stats', 'dashboard'] as const
 const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
 interface Options {
   command: Command
@@ -79,7 +80,13 @@ Control room (skills read the local clone, never the network):
   control-room: knob. Exit 0 synced, already fresh, or no control room · 1 the fetch
   failed and the existing clone stands · 2 a refusal (dirty clone, symlink, bad state file).
 
-Reserved (not yet available): dispatch, service, status, stats, dashboard
+The dispatcher (headless runs in feature worktrees, on the operator's own machine):
+  vegafactory dispatch [--once] [--watch] [--dry-run] [--json] [--config PATH]
+  Turns labels and rocket reactions on the repos named in ~/.vegastack/factory.json
+  into headless runs. Dry run unless --once or --watch is given, and every repo
+  stays refused until its dev.md says dispatch: local and its ship guard is wired.
+
+Reserved (not yet available): service, status, stats, dashboard
 
 Run "vegafactory skills list" to see the bundled skills.
 `
@@ -102,7 +109,7 @@ function parse(argv: string[]): Options {
       if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
       command = verb as Command
     }
-    else if (head === 'worktree') return { command: 'worktree', all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
+    else if (head === 'worktree' || head === 'dispatch') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
     else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
     else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
     else if (head === 'sync' || head === 'help' || head === 'version') command = head
@@ -726,6 +733,12 @@ async function main() {
     const rest = options.rest ?? []
     if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(worktreeUsage())
     process.exitCode = await runWorktree(rest)
+    return
+  }
+  if (options.command === 'dispatch') {
+    const rest = options.rest ?? []
+    if (rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(dispatchUsage())
+    process.exitCode = await runDispatchCli(rest, homedir())
     return
   }
   if (options.command === 'sync') return sync(options)
