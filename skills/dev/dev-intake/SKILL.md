@@ -56,7 +56,7 @@ Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs 
 ## Labels and approval
 
 - A new issue starts at `needs-operator` plus its scope label, and `risky` when it touches security, money, user data, or production (names from dev.md's `labels:` knob); create it with `--assignee <operator>`, the login conventions' Labels table resolves from dev.md's `operators:` list, so GitHub's own notification reaches the human whose move it is. An `--assignee` GitHub rejects is reported and the issue stands unassigned, because guessing another login hands the work to the wrong person.
-- Creation also stamps the native type where dev.md's `issue-types:` knob names one — `gh issue create --type <Name>` at gh 2.94.0 and above, otherwise `gh api -X PATCH repos/{owner}/{repo}/issues/{n} -f type=<Name>` in the same breath as creation — and both fields where `issue-fields:` names them, in one request, because the PUT replaces every value it does not carry:
+- Creation also stamps the native type where dev.md's `issue-types:` knob names one for the issue's title prefix — `gh issue create --type <Name>` at gh 2.94.0 and above, otherwise `gh api -X PATCH repos/{owner}/{repo}/issues/{n} -f type=<Name>` in the same breath as creation — and both fields where `issue-fields:` names them, in one request, because the PUT replaces every value it does not carry:
 
   ```sh
   gh api "orgs/$ORG/issue-fields" --jq '.[] | select(.name=="Priority" or .name=="Effort") | {id, name}'   # once per run

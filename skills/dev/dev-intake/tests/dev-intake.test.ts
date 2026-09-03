@@ -58,7 +58,7 @@ describe('dev-intake contract', () => {
     expect(section).toContain('issue-field-values')
     expect(section).toContain('--jq .type.name')
     expect(section).toContain('issue_field_values')
-    expect(section).toMatch(/none/)
+    expect(section).toContain('carries its labels and nothing else')
   })
 
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
