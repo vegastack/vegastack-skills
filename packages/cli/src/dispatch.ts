@@ -864,7 +864,17 @@ export async function defaultParentCandidates(
       }
     }
     if (groups.length < 2) continue
-    const target = worktreeFor(repoPath, parent, `parent ${parent}`)
+    // The parent worktree is named from the parent's real title, exactly as the parent's own run
+    // named it. A placeholder here would point every parallel launch at a directory that does not
+    // exist.
+    let parentTitle: string
+    try {
+      parentTitle = (JSON.parse(await gh(['issue', 'view', String(parent), '--repo', repo, '--json', 'title'])) as { title?: string }).title ?? ''
+    } catch {
+      continue
+    }
+    if (!parentTitle) continue
+    const target = worktreeFor(repoPath, parent, parentTitle)
     const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: target.path, encoding: 'utf8' })
     candidates.push({
       parent: { issue: parent, branch: target.branch, head: (head.stdout ?? '').trim(), worktree: target.path },
@@ -980,14 +990,22 @@ export async function runTick(
 
     for (const run of plan.runs) {
       const stage = stagePolicy(policy, run.stage)
-      const target = options.dryRun
-        ? worktreeFor(entry.path, run.issue, run.title)
-        : await ensure(entry.path, run.issue, run.title)
-      const launch = run.parallel
+      const parentOf = run.parallel ? parents.find(candidate => candidate.parent.issue === run.issue) : undefined
+      if (run.parallel && !parentOf) {
+        refusals.push({ repo: entry.repo, issue: run.issue, reason: `#${run.issue}: the parent worktree for a parallel run could not be resolved — its children run one at a time next tick` })
+        continue
+      }
+      // A parallel run happens in the parent's OWN worktree, which already exists — the children
+      // get their checkouts from the harness or from children.mjs, never from the tick.
+      const target: WorktreeTarget = parentOf
+        ? { path: parentOf.parent.worktree, branch: parentOf.parent.branch, slug: '', type: 'feat' }
+        : options.dryRun
+          ? worktreeFor(entry.path, run.issue, run.title)
+          : await ensure(entry.path, run.issue, run.title)
+      const launch = run.parallel && parentOf
         ? parentParallelLaunchPlan(
             { kind: 'parent-parallel', parent: run.issue, children: run.parallel },
-            parents.find(candidate => candidate.parent.issue === run.issue)?.parent
-              ?? { issue: run.issue, branch: target.branch, head: '', worktree: target.path },
+            parentOf.parent,
             {
               model: stage.model,
               effort: stage.effort,

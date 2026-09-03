@@ -7,7 +7,7 @@ import {
   evaluateGuards, executeRun, failureComment, holdLock, logPath, parseDispatchArgs, readLock,
   outcomeOf, releaseLock, stopList, worktreeFor, planLabelRuns, planRocketRuns, planTick, readState,
   recordHandled, redact, searchQueries, shipGuardWired, tailLines, writeState,
-  parentParallelLaunch, parentParallelLaunchPlan,
+  defaultParentCandidates, parentParallelLaunch, parentParallelLaunchPlan,
   type BoardIssue, type DispatchState, type GuardState, type Rocket,
 } from '../src/dispatch.ts'
 import { buildLaunchPlan } from '../src/launch.ts'
@@ -492,5 +492,39 @@ describe('the Codex child launch and the launch table cannot drift', () => {
     expect(launch.command).toBe(table.command)
     expect(launch.args.map(a => (a === launch.prompt ? '<prompt>' : a)))
       .toEqual(table.args.map(a => (a === table.prompt ? '<prompt>' : a)))
+  })
+})
+
+describe('defaultParentCandidates', () => {
+  test('the parent worktree is named from the parent issue title, not a placeholder', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vf-parents-'))
+    const planBody = [
+      '<!-- vsk:v1 type=plan rev=1 -->',
+      '## Plan (v1)',
+      '**Goal:** a thing exists.',
+      '**Approach:** the simple way; alternative B lost on cost.',
+      '**Independent groups:**',
+      '- `api` — #131 · Files: `packages/cli/src/dispatch.ts`',
+      '- `docs` — #132 · Files: `README.md`',
+      '',
+      '### Tasks',
+      '- [ ] **Task 1: build it**',
+      '  - Files — Create: `x.mjs` · Test: `x.test.ts`',
+      '  - Interfaces — Produces: `doThing(): number`',
+      '  - Steps: edit → verify → commit',
+    ].join('\n')
+    const gh = async (args: string[]): Promise<string> => {
+      if (args[0] === 'issue' && args.includes('parent')) return JSON.stringify({ parent: { number: 104 } })
+      if (args[0] === 'issue' && args.includes('title')) return JSON.stringify({ title: 'feat: the factory runtime' })
+      if (args[0] === 'api') return JSON.stringify([{ body: planBody }])
+      return '{}'
+    }
+    process.env.VSK_PLAN_LINT_SCRIPT = join(import.meta.dir, '../../../skills/dev/dev-plan/scripts/plan-lint.mjs')
+    const candidates = await defaultParentCandidates(gh, 'acme/app', dir, [issue(131, ['ready']), issue(132, ['ready'])])
+    delete process.env.VSK_PLAN_LINT_SCRIPT
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0]?.parent.worktree).toBe(join(dir, '.vegastack/.worktrees/104-the-factory-runtime'))
+    expect(candidates[0]?.parent.branch).toBe('feat/104-the-factory-runtime')
+    expect(candidates[0]?.groups.map(g => g.id)).toEqual(['api', 'docs'])
   })
 })

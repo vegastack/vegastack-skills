@@ -118,7 +118,7 @@ export function childPrompt(child, { parentIssue, parentBranch }) {
       + 'The operator is not watching and cannot answer mid-run.',
     'Your checkout is ' + child.path + ' and nothing outside it is yours: '
       + 'create your branch ' + child.branch + ' from ' + child.baseSha
-      + ' before your first commit. That commit is the tip of ' + parentBranch
+      + ' before your first commit. That sha is the tip of ' + parentBranch
       + ', so your branch fast-forwards back into it.',
     'The plan declares exactly which files this child may touch:\n'
       + child.files.map((file) => '- ' + file).join('\n'),
@@ -428,13 +428,17 @@ function runVerb(verb, flags) {
       }
     }
     const outcome = evaluateJoin({ children: run.children, results, changed });
+    const diffBlocked = blocks.length > 0;
     blocks.push(...outcome.blocks);
     warns.push(...outcome.warns);
     const actions = [];
+    // evaluateJoin has already decided per child. A child that failed or wandered is simply not in
+    // `merge`; its siblings still land, because the brief's rule is that the parent continues with
+    // the others and hands back — not that one wanderer strands the whole run.
     for (const merged of outcome.merge) {
       const child = run.children.find((c) => c.issue === merged.issue);
       actions.push(at(run.parentBranch, 'git merge --ff-only ' + merged.branch));
-      if (write && blocks.length === 0) {
+      if (write && !diffBlocked) {
         const done = gitRun(repoRoot, mergeArgs(child));
         if (!done.ok) blocks.push(at(merged.branch, 'merge --ff-only failed: ' + done.out));
       }
@@ -448,7 +452,7 @@ function runVerb(verb, flags) {
   for (const child of run.children) {
     const removal = removeWorktree({
       repoRoot,
-      name: child.path.split('/').pop(),
+      name: child.path.split(/[\\/]/).pop(),
       base: flags.base || run.parentBranch,
       force: false,
       write,

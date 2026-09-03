@@ -151,3 +151,27 @@ describe('the children.mjs command line', () => {
     expect(r.stdout.toString()).toContain('usage: children.mjs')
   })
 })
+
+describe('one wanderer never strands its siblings', () => {
+  test('the clean child is still in the merge list when another child left its set', () => {
+    const run = planParallelRun({ ...base, groups })
+    const outcome = evaluateJoin({
+      children: run.children,
+      results: { 131: { status: 'done', head: 'aaaaaaa' }, 132: { status: 'done', head: 'bbbbbbb' } },
+      changed: { 131: ['packages/cli/src/dispatch.ts'], 132: ['packages/cli/src/dispatch.ts'] },
+    })
+    expect(outcome.merge.map((m) => m.issue)).toEqual([131])
+    expect(outcome.stop.map((s) => s.issue)).toEqual([132])
+    expect(outcome.ledger).toContain('- Join: #131 merged aaaaaaa')
+  })
+  test('a failed child is a warn and the other still merges', () => {
+    const run = planParallelRun({ ...base, groups })
+    const outcome = evaluateJoin({
+      children: run.children,
+      results: { 131: { status: 'failed', message: 'tests red' }, 132: { status: 'done', head: 'bbbbbbb' } },
+      changed: { 131: [], 132: ['README.md'] },
+    })
+    expect(outcome.merge.map((m) => m.issue)).toEqual([132])
+    expect(outcome.blocks).toEqual([])
+  })
+})
