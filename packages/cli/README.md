@@ -66,6 +66,7 @@ These operate on the vegafactory repository itself and do nothing useful in anot
 | `service <install\|uninstall\|status>` | Install that dispatcher as a launchd LaunchAgent (macOS) or a systemd user unit (Linux) |
 | `status` | The board, the worktrees, the last tick, the runs in flight, and the dispatcher's own health |
 | `stats` | Where agent time and money went — record, push, roll up, and print the org's own numbers |
+| `dashboard` | Start the local read-only dashboard over the control room's statistics and the live board |
 
 ### Selecting what to act on
 
@@ -216,6 +217,41 @@ vegafactory stats record --source <kind>    # called by the capture hooks, reads
 
 `push` is a dry run until `--commit`, because it writes to a repository other people read.
 
+## Dashboard
+
+`vegafactory dashboard` starts a local, read-only web view of the factory and prints its URL.
+
+```bash
+vegafactory dashboard              # fetch on first use, then serve on 127.0.0.1:7777
+vegafactory dashboard --open       # …and open it in the browser
+vegafactory dashboard --dry-run    # print what a real run would do, change nothing
+```
+
+| Flag | Means |
+|---|---|
+| `--port N` | First port to try; the next nine are tried in turn |
+| `--open` | Open the URL in the browser once the server answers |
+| `--dir PATH` | Launch an already-built package tree instead of the fetched one |
+| `--dry-run` | Print the plan and change nothing |
+| `--json` | Machine-readable result: `{command, ok, url, dir, entry, fetched, pid}` |
+
+Exit **0** the server answered, or the dry-run plan printed · **1** the server exited or never
+answered on its health route · **2** a usage error or a refusal (a symlink on the install path, no
+control room recorded for this machine, `gh` unavailable).
+
+The app is a second published package, `@vegastack/vegafactory-dashboard`, fetched at this CLI's own
+version on first use into `~/.vegastack/dashboard/<version>/` — the core install stays small. The
+derived index lives at `~/.vegastack/cache/stats.db`; it holds nothing the control room does not, so
+**deleting it is always safe** and the next start rebuilds it.
+
+The server binds `127.0.0.1` only, and your `gh` token is passed to that process and never leaves
+it: the browser receives projected view models, not credentials.
+
+Six views — org, repo, people, skills, board, dispatcher — read the control-room clone; the board and
+dispatcher views also read live GitHub and `vegafactory status --json`. When the live half is
+unreachable the page still renders from the clone, behind a banner naming what failed and how stale
+the clone is.
+
 ## Flags
 
 | Flag | Meaning |
@@ -262,9 +298,10 @@ The tool makes three kinds of network call, all to somewhere you already own:
 
 - `doctor`'s single version check against registry.npmjs.org;
 - `sync`'s shallow git fetch of the control room named by the project's `control-room:` knob;
-- `stats push`'s git push of your statistics records into that same control room.
+- `stats push`'s git push of your statistics records into that same control room;
+- `dashboard`'s first-use fetch of `@vegastack/vegafactory-dashboard` from registry.npmjs.org, and that server's own reads of the GitHub API for the live board.
 
-All three use your existing `gh` credential, and the last two reach only your organization's own repository. `add`, `verify`, and `remove` are fully offline. Statistics are recorded only while the org's `stats:` policy says so, and a record carries counts and identifiers only — never transcript text (see [Statistics](#statistics)).
+All of them but the two registry calls use your existing `gh` credential, and the control-room calls reach only your organization's own repository. `add`, `verify`, and `remove` are fully offline. Statistics are recorded only while the org's `stats:` policy says so, and a record carries counts and identifiers only — never transcript text (see [Statistics](#statistics)).
 
 ## Requirements
 
