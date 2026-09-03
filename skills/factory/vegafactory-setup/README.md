@@ -1,6 +1,6 @@
 # vegafactory-setup
 
-TODO: one-paragraph summary for humans and agents browsing the repo. The agent entry point is [SKILL.md](SKILL.md); everything else loads progressively from there.
+The org's control room in one skill: `<org>/vegafactory-control-room` holds the org profile, the department groups, the people, the repo and board registries, the org-wide rules, the onboarding checklists, and the templates — and every repo's `.vegastack/dev.md` layers on top of it, so a second repo inherits the answers the first one gave. This skill bootstraps that repository from seed templates, registers repos into it, and onboards teammates. The agent entry point is [SKILL.md](SKILL.md); everything else loads progressively from there.
 
 ## Install
 
@@ -32,4 +32,12 @@ npx @vegastack/vegafactory skills add --group factory --global
 
 ## Behavior
 
-TODO: what the skill does when invoked, its output contract, and its guardrails.
+Three procedures, one file layout.
+
+- **Bootstrap** asks the `org.md` questionnaire — org name, goals, and what applies to everyone, including the three statistics lines — renders every template in `assets/control-room/` into a directory the operator can read, and then stops: creating the repository, granting access, and recording anyone's role are the operator's own account actions, named as exact commands and never attempted.
+- **`register <repo>`** confirms the repo's group, runs `dev-setup` there (which reads the control room first, so an inherited knob is stated rather than asked), appends the `repos.md` row, and links the board when one exists.
+- **`onboard <login>`** walks `onboarding/new-teammate.md` and adds the `people.csv` row. A person's `role` is recorded only on the operator's word, because `lead` gates the people-level statistics views.
+
+Guardrails: nothing secret goes in any control-room file — names of secrets only; department knobs never go in `org.md`; a declined step is written into `org.md`'s `## Unconfirmed` section so the next run asks again; and a control room that does not exist yet degrades to `dev-setup` asking the questions itself.
+
+Precedence, in one line: hand edits in a repo's `.vegastack/dev.md` beat `groups/<g>/*`, which beat `org.md`, which beat the skill defaults — except the decision registers, which concatenate.

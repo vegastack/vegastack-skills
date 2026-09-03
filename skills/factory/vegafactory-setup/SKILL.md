@@ -5,23 +5,52 @@ description: Bootstrap and maintain the org control room — the org, group, peo
 
 # vegafactory-setup
 
-TODO: one-paragraph overview - what this skill guarantees and the single trigger family it serves.
+Act: give the org one control room, so every repo inherits the answers it would otherwise be asked for.
 
-## When to use
+The control room is `<org>/vegafactory-control-room` — the org profile, the department groups, the people, the repo and board registries, the org-wide rules, the onboarding checklists, and the templates. `dev-setup` reads it before its interview and states an inherited knob instead of asking for it. The layout, the precedence rule, the read path, and what each file may carry live in [control-room](references/control-room.md); this file is the procedure.
 
-- TODO: concrete situations and user phrasings
-- TODO: when NOT to use - the nearest adjacent intent and where it goes instead
-- Nearest neighbor: TODO - name the closest existing skill and the one-sentence axis of difference (or state that none exists)
+Nearest neighbor: `dev-setup` owns one repo's profile — its knobs, labels, runbooks, and AGENTS.md section. This skill owns the defaults that profile layers on. When the question is "what should this repo do", that is dev-setup; when it is "what should every repo do", it is this one.
 
-## Workflow
+## Bootstrap — the org questionnaire, then the files, then a stop
 
-1. TODO
-2. TODO
+1. **Ask the questionnaire.** Only what `org.md` holds and nothing a department owns: the org name, the goals in one paragraph, and what applies to everyone — the language, the date format (DD-MM-YYYY across the workflow), the "nothing ships without the operator's explicit instruction" stance, and the three statistics lines `stats:`, `stats-people:`, `stats-override:`. A knob a department decides — review, gates, merge, the harness policy — is never asked here, because two departments reading one org answer would each need the other's to be wrong.
+2. **Render every template** in `assets/control-room/` into a working directory the operator can read before anything is pushed: `org.md`, `people.csv`, `decisions.md`, `groups/dev/{group.md,people.csv,decisions.md}`, `repos.md`, `boards.md`, `rules/`, `onboarding/`, `templates/`. Rendering is substitution only — a template is a default, and a default nobody has confirmed is still a default.
+3. **Stop before the repository exists.** Creating the org repository, granting anyone access, and recording anyone's role are the operator's own account actions. Name the exact commands, say what each one does, and let the operator run them. The skill positions the operator; it does not reach for the credential.
 
-## Example
+**Nothing secret goes in any file — names of secrets only.** A control room is readable by everyone the org onboards, so `NPM_TOKEN` is the entry and the value stays in the store that name points at.
 
-TODO: one excellent, realistic example (input and output). One great example beats five mediocre ones.
+## Seeding `groups/<g>/group.md`
+
+A group file carries one default for every knob a repo's `.vegastack/dev.md` can hold, so a repo that answers nothing still gets a complete profile. Seed it from an existing repo's dev.md — the knob lines transfer verbatim — plus the harness policy: intake, plan, and implement on Claude Fable 5.1 at high effort; review on Codex gpt-5.6 at xhigh under `cross-agent` or `cross-agent-risky` and Claude Fable 5.1 high otherwise; status and the chronicle digest on Claude Sonnet 5 at medium; xhigh for planning a `risky` `full-plan` issue.
+
+A knob whose value differs between two repos in the group is a question, not an average: ask which one is the group's default, and let the other repo keep its hand edit — the precedence rule already protects it.
+
+## `register <repo>`
+
+1. Confirm which group the repo belongs to.
+2. Run `dev-setup` in the repo. It reads the control room first, so every inherited knob is stated rather than asked, and only what no layer answers reaches the interview.
+3. Append the repo's row to `repos.md` — repo, group, board, owner.
+4. Link the board when `boards.md` names one for the group, and copy the board-mirror workflow and the CODEOWNERS pattern from `templates/` and `rules/`.
+5. Confirm the repo's `control-room:` knob names this control room and this group.
+
+The full checklist ships as `onboarding/new-repo.md`, so the org can edit the procedure without editing this skill.
+
+## `onboard <login>`
+
+Walk `onboarding/new-teammate.md` with the person: `gh auth login` at or above the group's `gh-floor:`, the harnesses the group's `harness:` lines name, `vegafactory skills add --group dev --global`, control-room read access, and the Slack subscription through the official GitHub Slack app. Then add their `people.csv` row — `login,name,role,slack,timezone,groups`.
+
+**A person's `role` is recorded only on the operator's word**, never inferred from org membership, because `lead` gates the people-level statistics views. A group-level row overrides an org row with the same `login`; a login absent at org level is added by the group row.
+
+## The declined step
+
+Every step here can be declined, and a declined step is recorded, not skipped: write it into `org.md`'s `## Unconfirmed` section as one line, in the same form `dev-setup` writes for a knob it could not confirm. The next run asks again. An unrecorded decline becomes an assumption, and an assumption in a file every repo inherits is the most expensive kind.
+
+A control room that does not exist yet, or that the caller cannot read, is not an error either: say which answers could not be inherited and let `dev-setup` ask them.
 
 ## Routing
 
-TODO: if this skill has references/, add a routing table (Need | Read) here; otherwise delete this section and record item 4 as N-A in the checklist with a rationale.
+| Need | Read |
+|---|---|
+| the file tree, precedence, read path, `people.csv` rules | [control-room](references/control-room.md) |
+| comment markers, operator identity, register line format, labels | dev-setup's `references/conventions.md`, installed beside this file |
+| the seed text of any control-room file | `assets/control-room/<file>.template` |
