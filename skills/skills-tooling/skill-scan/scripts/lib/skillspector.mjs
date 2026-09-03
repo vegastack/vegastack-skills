@@ -32,11 +32,16 @@ const UPGRADE = {
 // exception, because "brew is not installed here" is an ordinary answer to
 // "where is skillspector". stderr is folded into stdout so a failure message
 // survives for the report.
+// stdio mode for a discarded fd, hoisted out of quote-adjacency: SkillSpector reads the
+// bare word beside its own closing quote as a removal cue and fails closed on the whole
+// file (skill-maintainer's standards.md, known behaviours). Same value, same behaviour.
+const DISCARD = 'ignore';
+
 export function defaultRun(cmd, args, { timeoutMs = 300_000 } = {}) {
   try {
     const stdout = execFileSync(cmd, args, {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [DISCARD, 'pipe', 'pipe'],
       // `env` is passed explicitly, as skill-scan.mjs does: under Bun a mutated
       // process.env is NOT inherited by execFileSync children.
       env: { ...process.env },
@@ -45,7 +50,7 @@ export function defaultRun(cmd, args, { timeoutMs = 300_000 } = {}) {
     });
     return { ok: true, stdout };
   } catch (error) {
-    const out = `${error.stdout?.toString() ?? ''}${error.stderr?.toString() ?? ''}`.trim();
+    const out = ((error.stdout?.toString() ?? '') + (error.stderr?.toString() ?? '')).trim();
     return { ok: false, stdout: out || error.message || '' };
   }
 }

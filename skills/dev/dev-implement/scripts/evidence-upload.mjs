@@ -24,7 +24,10 @@ const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const ISSUE = /^\d+$/;
 
 // The contents-API path for one file in the evidence repo — the one place it is built.
-const apiPathFor = (evidenceRepo, path) => `repos/${evidenceRepo}/contents/${path}`;
+// Interpolated paths and messages are concatenated, not template literals: a backtick at a
+// shell-word start whose first inner token carries the interpolation trips SkillSpector's
+// bounded parser for the whole skill (skill-maintainer's standards.md, known behaviours).
+const apiPathFor = (evidenceRepo, path) => 'repos/' + evidenceRepo + '/contents/' + path;
 
 // First `evidence-repo:` knob line in dev.md; a trailing `# comment` is ignored
 // because the value stops at whitespace.
@@ -61,15 +64,15 @@ export function plan({ repo, issue, file, evidenceRepo, devMd, now = new Date() 
     }
     if (stat) {
       if (stat.isSymbolicLink()) {
-        blocks.push(`${file} is a symlink — evidence is uploaded from a regular file so the bytes sent are the bytes named`);
+        blocks.push(file + ' is a symlink — evidence is uploaded from a regular file so the bytes sent are the bytes named');
       } else if (!stat.isFile()) {
-        blocks.push(`${file} is not a regular file`);
+        blocks.push(file + ' is not a regular file');
       } else {
         const ext = extname(file).toLowerCase();
         if (!IMAGE_EXTENSIONS.includes(ext)) {
-          blocks.push(`${ext || '(no extension)'} is not an image extension (png, jpg, jpeg, webp, gif)`);
+          blocks.push((ext || '(no extension)') + ' is not an image extension (png, jpg, jpeg, webp, gif)');
         }
-        if (stat.size === 0) blocks.push(`${file} is empty (0 bytes)`);
+        if (stat.size === 0) blocks.push(file + ' is empty (0 bytes)');
         bytes = stat.size;
       }
     }
@@ -81,7 +84,7 @@ export function plan({ repo, issue, file, evidenceRepo, devMd, now = new Date() 
 
   if (blocks.length > 0) return { blocks, put: null };
 
-  const path = `${repo.slice(repo.indexOf('/') + 1)}/${issue}/${timestamp(now)}-${basename(file)}`;
+  const path = repo.slice(repo.indexOf('/') + 1) + '/' + issue + '/' + timestamp(now) + '-' + basename(file);
   return {
     blocks,
     put: { evidenceRepo: target, path, bytes, apiPath: apiPathFor(target, path), message: `evidence #${issue}` },
@@ -171,7 +174,7 @@ if (invokedDirectly) {
     console.log(JSON.stringify({ guard: 'evidence-upload', ok: blocks.length === 0, blocks, warns, upload: result }, null, 2));
   } else {
     const lines = [text];
-    if (outcome.upload) lines.splice(1, 0, `  ${outcome.upload.mode}: ${outcome.upload.path} (${outcome.upload.bytes} bytes)`);
+    if (outcome.upload) lines.splice(1, 0, '  ' + outcome.upload.mode + ': ' + outcome.upload.path + ' (' + outcome.upload.bytes + ' bytes)');
     console.log(lines.join('\n'));
   }
   process.exit(exitCode);

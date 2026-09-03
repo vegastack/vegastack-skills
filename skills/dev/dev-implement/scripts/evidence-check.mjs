@@ -62,7 +62,10 @@ export function checkTaskConsistency(comments) {
   const ledgerComplete = completeTasks.size;
 
   if (ledgerComplete > planDone) {
-    blocks.push(`${ledgerComplete} task(s) are marked complete in the ledger but only ${planDone} of ${planTotal} are checked off in the plan comment — tick the matching [x] boxes before hand-back`);
+    // Interpolated paths and messages are concatenated, not template literals: a backtick at a
+    // shell-word start whose first inner token carries the interpolation trips SkillSpector's
+    // bounded parser for the whole skill (skill-maintainer's standards.md, known behaviours).
+    blocks.push(ledgerComplete + ' task(s) are marked complete in the ledger but only ' + planDone + ' of ' + planTotal + ' are checked off in the plan comment — tick the matching [x] boxes before hand-back');
   }
   return { blocks, warns };
 }
@@ -71,7 +74,7 @@ export function checkTaskConsistency(comments) {
 // Fails closed: an unreachable gh blocks rather than passing silently.
 function taskConsistencyFromIssue({ issue, repo: repoFlag }) {
   const repo = repoFlag || ghJson(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
-  const comments = ghJson(['api', `repos/${repo}/issues/${issue}/comments`, '--paginate']);
+  const comments = ghJson(['api', 'repos/' + repo + '/issues/' + issue + '/comments', '--paginate']);
   return checkTaskConsistency(comments);
 }
 

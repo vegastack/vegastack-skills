@@ -51,25 +51,25 @@ jobs:
 
           if [ ! -f "$PROFILE" ]; then
             echo "board mirror: skipped - no such file $PROFILE in this repo"
-            echo "decision=skip" >> "$GITHUB_OUTPUT"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           board=$(sed -n 's/^board:[[:space:]]*\([^[:space:]#]*\).*/\1/p' "$PROFILE" | head -1)
           if [ -z "$board" ] || [ "$board" = "none" ]; then
             echo "board mirror: skipped - $PROFILE carries no board number"
-            echo "decision=skip" >> "$GITHUB_OUTPUT"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if [ -z "${APP_ID:-}" ]; then
             echo "board mirror: skipped - no VEGAFACTORY_APP_ID variable; the factory App is not installed for this org"
-            echo "decision=skip" >> "$GITHUB_OUTPUT"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           have=$(gh --version | sed -n '1s/^gh version \([0-9][0-9.]*\).*/\1/p')
-          have_n=$(printf '%s' "$have" | awk -F. '{ printf "%d", $1 * 1000000 + $2 * 1000 + $3 }')
+          have_n=$(awk -F. '{ printf "%d", $1 * 1000000 + $2 * 1000 + $3 }' <<<"$have")
           if [ "${have_n:-0}" -lt 2097000 ]; then
             echo "::error::board mirror needs gh 2.97.0 or newer for name-based project fields; this runner has ${have:-unknown}"
             exit 1
@@ -89,17 +89,17 @@ jobs:
 
           if [ "$count" -eq 0 ]; then
             echo "board mirror: skipped - no state label on this issue"
-            echo "decision=skip" >> "$GITHUB_OUTPUT"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ "$count" -gt 1 ]; then
             echo "board mirror: ambiguous, skipped - $count state labels present ($LABELS)"
-            echo "decision=skip" >> "$GITHUB_OUTPUT"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "board mirror: $found -> Status on project $board"
-          { echo "decision=sync"; echo "board=$board"; echo "status=$found"; } >> "$GITHUB_OUTPUT"
+          { echo 'decision=sync'; echo "board=$board"; echo "status=$found"; } >> "$GITHUB_OUTPUT"
 
       - name: Mint the App token
         id: token

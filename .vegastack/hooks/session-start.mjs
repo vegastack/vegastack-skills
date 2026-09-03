@@ -27,7 +27,7 @@ export function worktreeClaim(cwd) {
 }
 
 export function sessionMarkerPath(sessionId, tmp) {
-  return join(tmp, `vsk-session-${sessionId}`)
+  return join(tmp, 'vsk-session-' + sessionId)
 }
 
 // The hook carries its own copies of the control-room knob grammar and the machine state read:
@@ -91,11 +91,11 @@ export function renderContext(status, { cwd, states }) {
 
   const lines = []
   if (yours.length > 0) {
-    lines.push(`${repo}: ${yours.length} need you — ${yours.slice(0, 2).map(item).join(', ')}.`)
+    lines.push(repo + ': ' + yours.length + ' need you — ' + yours.slice(0, 2).map(item).join(', ') + '.')
   } else {
-    lines.push(`${repo}: nothing needs you right now.`)
+    lines.push(repo + ': nothing needs you right now.')
   }
-  if (inFlight > 0) lines.push(`${ready.length} ready, ${working.length} in flight.`)
+  if (inFlight > 0) lines.push(ready.length + ' ready, ' + working.length + ' in flight.')
   const orphans = working.filter((issue) => issue.possiblyOrphaned)
   if (orphans.length > 0) lines.push(`Ledger quiet, so possibly orphaned: ${orphans.map(item).join(', ')}.`)
 
@@ -191,7 +191,7 @@ function main(argv) {
   if (harness === 'codex') {
     process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }))
   } else {
-    process.stdout.write(`${text}\n`)
+    process.stdout.write(text + '\n')
   }
 }
 

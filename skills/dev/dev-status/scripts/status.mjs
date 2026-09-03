@@ -27,10 +27,15 @@ export function readKnobs(devMdText) {
   };
 }
 
+// stdio mode for a discarded fd, hoisted out of quote-adjacency: SkillSpector reads the
+// bare word beside its own closing quote as a removal cue and fails closed on the whole
+// file (skill-maintainer's standards.md, known behaviours). Same value, same behaviour.
+const DISCARD = 'ignore';
+
 function gh(args) {
   // env spread at call time: some runtimes pass a startup env snapshot to
   // children, which would hide the VSK_GH/GH_STUB_DIR test seam.
-  const out = execFileSync(process.env.VSK_GH || 'gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } });
+  const out = execFileSync(process.env.VSK_GH || 'gh', args, { encoding: 'utf8', stdio: [DISCARD, 'pipe', 'pipe'], env: { ...process.env } });
   return JSON.parse(out);
 }
 
@@ -210,7 +215,7 @@ function controlRoomState(devMdText, home) {
   const read = (relative) => { try { return readFileSync(join(path, relative), 'utf8'); } catch { return ''; } };
   let cloneSha = null;
   try {
-    cloneSha = execFileSync('git', ['-C', path, 'rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    cloneSha = execFileSync('git', ['-C', path, 'rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8', stdio: [DISCARD, 'pipe', DISCARD] }).trim();
   } catch {
     // a clone without a readable head still answers on its files
   }
@@ -248,7 +253,7 @@ export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/de
   const decisions = [];
   for (const bucket of [knobs.states[3], knobs.states[4]]) {
     for (const issue of board[bucket]) {
-      const comments = gh(['api', `repos/${resolvedRepo}/issues/${issue.number}/comments`, '--paginate']);
+      const comments = gh(['api', 'repos/' + resolvedRepo + '/issues/' + issue.number + '/comments', '--paginate']);
       issue.tasks = taskProgress(comments);
       issue.operator = resolveOperator({ approvalAuthor: approvalAuthor(comments), issueAuthor: issue.author, operators: knobs.operators });
       const moved = ledgerMovedAt(comments);

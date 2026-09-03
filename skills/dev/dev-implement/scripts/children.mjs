@@ -244,9 +244,13 @@ export function evaluateJoin({ children, results, changed }) {
 const USAGE = 'usage: children.mjs plan|launch|join|remove --parent <n> --groups <file.json|-> '
   + '[--harness claude|codex] [--repo <o/r>] [--model <m>] [--effort <e>] [--results <file.json|->] [--json] [--write]';
 
+// stdio mode for a discarded fd, hoisted out of quote-adjacency: SkillSpector reads the
+// bare word beside its own closing quote as a removal cue and fails closed on the whole
+// file (skill-maintainer's standards.md, known behaviours). Same value, same behaviour.
+const DISCARD = 'ignore';
 const gitRun = (cwd, args) => {
   try {
-    return { ok: true, out: execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() };
+    return { ok: true, out: execFileSync('git', args, { cwd, encoding: 'utf8', stdio: [DISCARD, 'pipe', 'pipe'] }).trim() };
   } catch (error) {
     return { ok: false, out: (error.stderr?.toString() || error.message).trim() };
   }

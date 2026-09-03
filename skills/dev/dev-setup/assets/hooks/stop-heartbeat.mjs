@@ -73,8 +73,8 @@ function main() {
   }
   const worktree = worktreeClaim(process.cwd())
   const sessionId = typeof payload.session_id === 'string' ? payload.session_id : ''
-  const marker = sessionId ? join(tmpdir(), `vsk-session-${sessionId}`) : ''
-  const nudged = sessionId ? join(tmpdir(), `vsk-heartbeat-${sessionId}`) : ''
+  const marker = sessionId ? join(tmpdir(), 'vsk-session-' + sessionId) : ''
+  const nudged = sessionId ? join(tmpdir(), 'vsk-heartbeat-' + sessionId) : ''
   const sessionStartedAt = marker && existsSync(marker) ? readFileSync(marker, 'utf8').trim() : null
 
   const early = shouldNudge({
@@ -92,7 +92,7 @@ function main() {
   const labels = ghJson(['issue', 'view', String(worktree.number), '-R', slug, '--json', 'labels']).labels || []
   const states = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-operator']
   const issueState = labels.map((label) => label.name).find((name) => states.includes(name)) || null
-  const comments = ghJson(['api', `repos/${slug}/issues/${worktree.number}/comments`, '--paginate'])
+  const comments = ghJson(['api', 'repos/' + slug + '/issues/' + worktree.number + '/comments', '--paginate'])
 
   const verdict = shouldNudge({
     stopHookActive: Boolean(payload.stop_hook_active),

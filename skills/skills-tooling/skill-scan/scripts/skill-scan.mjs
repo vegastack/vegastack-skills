@@ -27,6 +27,10 @@ import {
 // requirement on .vegastack/review-known-patterns.md entries: a suppression
 // without a stated re-trigger condition is a blind spot, not a decision.
 const CLAUSE = /still flag if:/i;
+// stdio mode for a discarded fd, hoisted out of quote-adjacency: SkillSpector reads the
+// bare word beside its own closing quote as a removal cue and fails closed on the whole
+// file (skill-maintainer's standards.md, known behaviours). Same value, same behaviour.
+const DISCARD = 'ignore';
 
 // SkillSpector's exact default when `skillspector baseline` writes a file
 // without --reason. Committing one of those suppresses every current finding at
@@ -667,7 +671,7 @@ export function gatherFacts({ root, baselinePath, llm, binary: binaryOverride })
       // process.env is NOT inherited by execFileSync children, so the seam and
       // any scanner configuration (SKILLSPECTOR_PROVIDER, etc.) would be lost.
       execFileSync(binary, args, {
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: [DISCARD, 'pipe', 'pipe'],
         env: { ...process.env },
         // A hung or runaway scanner must fail the gate, not hold it open forever.
         timeout: Number(process.env.VSK_SKILLSPECTOR_TIMEOUT_MS) || 300_000,

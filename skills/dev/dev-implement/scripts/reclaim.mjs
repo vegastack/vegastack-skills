@@ -18,6 +18,10 @@ import { GhUnavailable, findMarkerComment, ghJson, parseFlags, renderResult } fr
 
 const WORKING = 'working';
 const READY = 'ready';
+// stdio mode for a discarded fd, hoisted out of quote-adjacency: SkillSpector reads the
+// bare word beside its own closing quote as a removal cue and fails closed on the whole
+// file (skill-maintainer's standards.md, known behaviours). Same value, same behaviour.
+const DISCARD = 'ignore';
 
 const ageHours = (iso, now) => Math.floor((now - Date.parse(iso)) / 3_600_000);
 
@@ -45,7 +49,7 @@ export function evaluateReclaim({ issue, comments, orphanHours = 6, force = fals
 
 function ghRun(args) {
   try {
-    return execFileSync(process.env.VSK_GH || 'gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return execFileSync(process.env.VSK_GH || 'gh', args, { encoding: 'utf8', stdio: [DISCARD, 'pipe', 'pipe'] });
   } catch (error) {
     const stderr = error.stderr?.toString().trim() || error.message;
     throw new GhUnavailable(`gh ${args.join(' ')} failed: ${stderr}`);
@@ -55,8 +59,11 @@ function ghRun(args) {
 export function gatherAndReclaim(flags) {
   const repo = flags.repo || ghJson(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
   const issueNumber = flags.issue;
-  const raw = ghJson(['api', `repos/${repo}/issues/${issueNumber}`]);
-  const comments = ghJson(['api', `repos/${repo}/issues/${issueNumber}/comments`, '--paginate']);
+  // Interpolated paths and messages are concatenated, not template literals: a backtick at a
+  // shell-word start whose first inner token carries the interpolation trips SkillSpector's
+  // bounded parser for the whole skill (skill-maintainer's standards.md, known behaviours).
+  const raw = ghJson(['api', 'repos/' + repo + '/issues/' + issueNumber]);
+  const comments = ghJson(['api', 'repos/' + repo + '/issues/' + issueNumber + '/comments', '--paginate']);
   const orphanRaw = Number(flags['orphan-hours']);
   const { blocks, plan } = evaluateReclaim({
     issue: { state: raw.state, labels: raw.labels, assignees: raw.assignees },

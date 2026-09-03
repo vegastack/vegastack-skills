@@ -96,6 +96,12 @@ export function validateSkill(skillDir) {
   if (/\s#/.test(description)) {
     return { ok: false, message: "Description contains ' #', which YAML parses as a comment start and silently truncates (write 'issue 12', not 'issue #12')" };
   }
+  // A colon followed by whitespace (or ending the value) is a mapping indicator in a
+  // plain scalar: a real YAML parser refuses the whole frontmatter ("mapping values are
+  // not allowed here") and the skill loads with no description at all.
+  if (/:(\s|$)/.test(description)) {
+    return { ok: false, message: "Description contains ': ', which YAML reads as a nested mapping and refuses to parse (write 'this repo - editing', not 'this repo: editing')" };
+  }
   if (description.length > MAX_DESCRIPTION_LENGTH) {
     return { ok: false, message: `Description is too long (${description.length} characters). Maximum is ${MAX_DESCRIPTION_LENGTH} characters.` };
   }

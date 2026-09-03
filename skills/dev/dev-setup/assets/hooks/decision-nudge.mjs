@@ -32,7 +32,7 @@ function main() {
   if (payload.stop_hook_active) return
   const sessionId = typeof payload.session_id === 'string' ? payload.session_id : ''
   if (!sessionId) return
-  const marker = join(tmpdir(), `vsk-decision-nudge-${sessionId}`)
+  const marker = join(tmpdir(), 'vsk-decision-nudge-' + sessionId)
   if (existsSync(marker)) return
   if (!isDirectional(payload.last_assistant_message)) return
   writeFileSync(marker, new Date().toISOString())

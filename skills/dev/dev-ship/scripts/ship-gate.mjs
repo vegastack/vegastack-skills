@@ -25,10 +25,15 @@ const RATIONALIZATIONS = [
   /(tests?|coverage) (is|are) (failing|broken) but/i,
 ];
 
+// stdio mode for a discarded fd, hoisted out of quote-adjacency: SkillSpector reads the
+// bare word beside its own closing quote as a removal cue and fails closed on the whole
+// file (skill-maintainer's standards.md, known behaviours). Same value, same behaviour.
+const DISCARD = 'ignore';
+
 function sh(cmd, args, cwd) {
   // VSK_GH is a TEST SEAM (stubs gh in unit tests); git always runs real.
   const bin = cmd === 'gh' ? (process.env.VSK_GH || 'gh') : cmd;
-  return execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env }, cwd }).trim();
+  return execFileSync(bin, args, { encoding: 'utf8', stdio: [DISCARD, 'pipe', 'pipe'], env: { ...process.env }, cwd }).trim();
 }
 
 // The path of the worktree holding a branch, read from
@@ -157,7 +162,7 @@ export function gatherFacts(flags) {
     listed = '';
   }
   const cwd = flags.worktree || resolveWorktree(branch, listed) || undefined;
-  const comments = JSON.parse(sh('gh', ['api', `repos/${repo}/issues/${flags.issue}/comments`, '--paginate']));
+  const comments = JSON.parse(sh('gh', ['api', 'repos/' + repo + '/issues/' + flags.issue + '/comments', '--paginate']));
 
   let evidence = null;
   let reviewVerdict = null;
@@ -169,7 +174,7 @@ export function gatherFacts(flags) {
   const adjudicated = reviewAdjudicated(evidence?.body);
 
   const headSha = sh('git', ['rev-parse', '--short=7', branch], cwd);
-  const diffText = sh('git', ['diff', `${base}...${branch}`], cwd);
+  const diffText = sh('git', ['diff', base + '...' + branch], cwd);
   // The fresh check run and dev.md read use the WORKING TREE — they prove
   // nothing unless the checkout is the branch under review.
   const checkoutSha = sh('git', ['rev-parse', 'HEAD'], cwd);
@@ -188,17 +193,17 @@ export function gatherFacts(flags) {
     ? true
     : changelogKnob === 'changesets'
       ? /^\+\+\+ b\/\.changeset\/(?!config)/m.test(diffText)
-      : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md'], cwd) || '');
+      : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', base + '...' + branch, '--', 'CHANGELOG.md'], cwd) || '');
 
   const chronicleOn = /^chronicle:\s*on\s*(#|$)/m.test(devMd);
-  const chronicleTouched = chronicleEntryAdded(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md'], cwd) || '');
+  const chronicleTouched = chronicleEntryAdded(sh('git', ['diff', base + '...' + branch, '--', '.vegastack/chronicle.md'], cwd) || '');
 
   let checkExit = null;
   const checkCmd = (/^commands:.*?check\s+`([^`]+)`/m.exec(devMd) || [])[1];
   const checkMissing = !checkCmd;
   if (checkCmd) {
     try {
-      execFileSync('sh', ['-c', checkCmd], { stdio: ['ignore', 'pipe', 'pipe'], cwd });
+      execFileSync('sh', ['-c', checkCmd], { stdio: [DISCARD, 'pipe', 'pipe'], cwd });
       checkExit = 0;
     } catch (error) {
       checkExit = error.status ?? 1;

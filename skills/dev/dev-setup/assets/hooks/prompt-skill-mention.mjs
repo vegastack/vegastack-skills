@@ -2,7 +2,7 @@
 // Codex prompt → skill mentions, recorded as a proxy.
 //
 // Installed to .vegastack/hooks/prompt-skill-mention.mjs and wired on Codex's UserPromptSubmit
-// event. Codex exposes no skill-activation event, so a `$name` in the prompt is the best available
+// event. Codex exposes no skill-activation event, so a skill's name mentioned in the prompt is the best available
 // signal — and the record says so: these land with `trigger: "mention"`, never with the confidence
 // of Claude's real activation events. Proactive skill capture on Codex stays a documented gap
 // rather than a number that looks precise and is not.

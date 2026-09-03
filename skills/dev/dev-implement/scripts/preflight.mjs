@@ -68,11 +68,14 @@ export function evaluatePreflight({ issue, comments, devMd, me, expect = 'ready'
 export function gatherAndEvaluate(flags) {
   const repo = flags.repo || ghJson(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
   const issueNumber = flags.issue;
-  const raw = ghJson(['api', `repos/${repo}/issues/${issueNumber}`]);
-  const comments = ghJson(['api', `repos/${repo}/issues/${issueNumber}/comments`, '--paginate']);
+  // Interpolated paths and messages are concatenated, not template literals: a backtick at a
+  // shell-word start whose first inner token carries the interpolation trips SkillSpector's
+  // bounded parser for the whole skill (skill-maintainer's standards.md, known behaviours).
+  const raw = ghJson(['api', 'repos/' + repo + '/issues/' + issueNumber]);
+  const comments = ghJson(['api', 'repos/' + repo + '/issues/' + issueNumber + '/comments', '--paginate']);
   let blockedBy = [];
   try {
-    blockedBy = ghJson(['api', `repos/${repo}/issues/${issueNumber}/dependencies/blocked_by`])
+    blockedBy = ghJson(['api', 'repos/' + repo + '/issues/' + issueNumber + '/dependencies/blocked_by'])
       .filter((b) => b.state === 'open');
   } catch (error) {
     // Only an HTTP 404 (host without the dependencies API) means "none

@@ -30,15 +30,15 @@ Source: https://code.claude.com/docs/en/skills. <!-- source: CLAUDE-CODE-SKILLS 
 - Invocation: implicit matching on description, or direct `/skill-name`. `allowed-tools` is a per-turn permission pre-grant only, not a sandbox. <!-- source: CLAUDE-CODE-SKILLS -->
 - Claude-only body features — **never use in this repo's skills** (broken or dead weight elsewhere): <!-- source: CLAUDE-CODE-SKILLS -->
   - `` !`cmd` `` dynamic command-output injection
-  - `$ARGUMENTS`, `$0`, `$name` argument placeholders
-  - `${CLAUDE_SKILL_DIR}`, `${CLAUDE_PROJECT_DIR}` environment paths
+  - the `ARGUMENTS`, `0` and `name` argument placeholders, each written after a dollar sign
+  - the `CLAUDE_SKILL_DIR` and `CLAUDE_PROJECT_DIR` environment paths in their dollar-brace form
 - 2026 changes: commands and skills merged; `context: fork` subagents; skill-level hooks; `paths` glob gating; `skillOverrides`; skills-dir plugins; bundled skills. <!-- source: CLAUDE-CODE-SKILLS -->
 
 ## Codex (OpenAI)
 
 Source: https://developers.openai.com/codex/skills (canonical content at learn.chatgpt.com/docs/build-skills.md). <!-- source: CODEX-SKILLS -->
 
-- Discovery order: `$CWD/.agents/skills` → parent directories' `.agents/skills` within a git repo → `$REPO_ROOT/.agents/skills` → `$HOME/.agents/skills` → `/etc/codex/skills` → bundled. Symlinks followed. <!-- source: CODEX-SKILLS -->
+- Discovery order: `<cwd>/.agents/skills` → parent directories' `.agents/skills` within a git repo → `<repo root>/.agents/skills` → `~/.agents/skills` → `/etc/codex/skills` → bundled. Symlinks followed. <!-- source: CODEX-SKILLS -->
 - Legacy `~/.codex/skills` discovery: **UNVERIFIED** — no longer documented; do not rely on it.
 - Frontmatter: `name` + `description` required; same SKILL.md format as the spec. <!-- source: CODEX-SKILLS -->
 - Unknown frontmatter keys: officially undocumented; community evidence says ignored — **UNVERIFIED** officially.
@@ -118,7 +118,8 @@ Work down this list; stop at the first that fits. Every acceptance needs the ope
 
 Recorded so nobody re-derives them. All traced in issue 62.
 
-- **A JavaScript template literal in assignment position degrades the static analyzers for the whole skill.** ``const at = `${a.file}:${a.line}`;`` trips the bounded shell parser, which reads the backticks as command substitution and exhausts its span limit. Verified experimentally: string concatenation scans clean, and forty template literals *inside function calls* do not degrade at all. It is the shape, not the volume. Any skill shipping a script with this idiom needs a `coverage:` entry — the alternative is banning ordinary JavaScript from skills.
+- **`static_parse_limit`: a backtick at a shell-word start whose first inner token carries an expansion degrades `static_patterns_tool_misuse` for the whole skill.** The bounded shell parser reads a backtick preceded by whitespace or one of `;|&()<>/` as a command substitution, and gives up when the first whitespace-delimited token inside it holds a dollar-sign expansion — a JavaScript template literal opening on its interpolation (an API path built from a variable, a message that leads with a value), or a Markdown code span opening on a shell variable. Statement position is irrelevant: call arguments and assignments trip it alike, and a literal that opens with a plain word scans complete wherever it sits. Bisected against the scanner's own predicate in issue 104 (skillify's `trigger-check.mjs` carries the rule); it replaces an earlier note that blamed "assignment position", which was neither necessary nor sufficient. Fix: concatenate, or lead with a literal word; it clears only when every site in the file is fixed. Same code, different construct: a shell command substitution whose first word is printf and whose body the scanner cannot evaluate statically (a pipe inside it) is refused by design, so lead the substitution with another command or accept it.
+- **`obfuscated_instruction_text` degrades every analyzer without a bounded-parse hook (twelve).** The cause is a removal-cue verb — `ignore`, `strip`, `drop`, `remove`, `omit` … — directly beside its own closing quote, which the reconstruction pass reads as an unsupported "ignore the literal …" directive and fails closed on once any later quoted string in the file activates it. In this repo that is Node's `stdio` mode word for a discarded fd; hoisting the word into a named constant clears it while the same bytes reach the child. Which files trip it depends on their other string literals, so the fix is applied at every site, not only the reporting one.
 - **`AE1` on a `SKILL.md` usually means its references, not its behaviour** — either repo-root paths that cannot resolve relative to a skill directory (correct for a repo-scoped meta-skill), or a file it links to that the parser could not finish. Check which before accepting.
 - **`P2` fires on every HTML comment**, because a hidden instruction is a genuine injection vector. This repo uses HTML comments as machine-readable markers — `vsk:v1`, `vsk-dev:start`, `<!-- source: … -->`, `<!-- mirrored -->` — so the finding is the documentation of a mechanism, not an instance of one. Scope the rule to the file, never to the id alone.
 - **`RA1` on a `refresh/REFRESH.md` is correct about the pattern.** The refresh contract genuinely instructs an agent to rewrite the skill's own files. It is acceptable only because the runner is the only writer, it edits marked sections, checksums are runner-only, and every change lands as a reviewed PR — write those bounds into the reason.

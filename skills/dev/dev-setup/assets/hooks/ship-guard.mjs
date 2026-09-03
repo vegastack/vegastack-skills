@@ -33,7 +33,7 @@ export const DEFAULT_BRANCH_OPS = ['gh pr merge', 'git push origin <default-bran
 const DEFAULT_POLICY = { defaultBranch: 'main', gates: 3, environments: [], shipAsk: [] }
 
 function sectionOf(text, heading) {
-  const parts = text.split(new RegExp(`^${heading}.*$`, 'm'))
+  const parts = text.split(new RegExp('^' + heading + '.*$', 'm'))
   if (parts.length < 2) return ''
   return parts[1].split(/^## /m)[0]
 }
@@ -106,7 +106,7 @@ export function normalizeSegment(segment) {
 }
 
 function ask(reason, rule) {
-  return { decision: 'ask', reason: `${reason} — run it by hand`, rule }
+  return { decision: 'ask', reason: reason + ' — run it by hand', rule }
 }
 
 const ALLOW = { decision: 'allow', reason: null, rule: 'not-guarded' }
@@ -123,7 +123,7 @@ export function classifySegment(segment, policy) {
   const settings = policy && typeof policy === 'object' ? { ...DEFAULT_POLICY, ...policy } : { ...DEFAULT_POLICY }
 
   for (const entry of ALWAYS_ASK) {
-    if (text.includes(entry.pattern)) return ask(`${entry.label} needs the operator's word`, 'always-ask')
+    if (text.includes(entry.pattern)) return ask(entry.label + " needs the operator's word", 'always-ask')
   }
 
   // Longest pattern first, so `--env production` beats a shorter `wrangler deploy` line.
@@ -132,8 +132,8 @@ export function classifySegment(segment, policy) {
     .sort((a, b) => b.pattern.length - a.pattern.length)
   if (matches.length > 0) {
     const winner = matches[0]
-    if (winner.policy === 'auto') return { decision: 'allow', reason: null, rule: `environment:${winner.target}` }
-    return ask(`the ${winner.target} environment needs the operator's word`, `environment:${winner.target}`)
+    if (winner.policy === 'auto') return { decision: 'allow', reason: null, rule: 'environment:' + winner.target }
+    return ask('the ' + winner.target + " environment needs the operator's word", 'environment:' + winner.target)
   }
 
   const shipRule = settings.gates === 1 ? 'default-branch-ship' : 'default-branch'
@@ -228,8 +228,8 @@ function main(argv) {
   if (argv.includes('--check')) {
     const command = flag(argv, '--command') || ''
     const result = classifyCommand(command, policy)
-    if (argv.includes('--json')) process.stdout.write(`${JSON.stringify(result)}\n`)
-    else if (result.reason) process.stdout.write(`${result.reason}\n`)
+    if (argv.includes('--json')) process.stdout.write(JSON.stringify(result) + '\n')
+    else if (result.reason) process.stdout.write(result.reason + '\n')
     process.exit(result.decision === 'ask' ? 2 : 0)
   }
 
