@@ -73,6 +73,38 @@ export function splitSegments(command) {
     .filter(Boolean)
 }
 
+// Wrappers and environment assignments that carry a command without changing what it does.
+const PREFIXES = new Set(['sudo', 'env', 'command', 'nohup', 'time', 'exec'])
+// git's global options, which sit between `git` and the subcommand.
+const GIT_GLOBAL_WITH_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path'])
+
+// A guarded command must not walk past the guard behind a wrapper, an inline environment
+// assignment or a git global option, so the segment is reduced to the command it really runs
+// before anything is matched against it.
+export function normalizeSegment(segment) {
+  let tokens = segment.split(/\s+/).filter(Boolean)
+  let changed = true
+  while (changed && tokens.length > 1) {
+    changed = false
+    const head = tokens[0]
+    if (PREFIXES.has(head) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(head)) {
+      tokens = tokens.slice(1)
+      changed = true
+    }
+  }
+  if (tokens[0] === 'git') {
+    const rest = tokens.slice(1)
+    while (rest.length > 0 && rest[0].startsWith('-')) {
+      const option = rest[0]
+      const name = option.includes('=') ? option.slice(0, option.indexOf('=')) : option
+      if (GIT_GLOBAL_WITH_VALUE.has(name) && !option.includes('=')) rest.splice(0, 2)
+      else rest.splice(0, 1)
+    }
+    tokens = ['git', ...rest]
+  }
+  return tokens.join(' ')
+}
+
 function ask(reason, rule) {
   return { decision: 'ask', reason: `${reason} — run it by hand`, rule }
 }
@@ -86,7 +118,7 @@ function pushArguments(segment) {
 }
 
 export function classifySegment(segment, policy) {
-  const text = typeof segment === 'string' ? segment.trim() : ''
+  const text = typeof segment === 'string' ? normalizeSegment(segment.trim()) : ''
   if (!text) return ALLOW
   const settings = policy && typeof policy === 'object' ? { ...DEFAULT_POLICY, ...policy } : { ...DEFAULT_POLICY }
 

@@ -62,6 +62,18 @@ describe('ship-guard policy', () => {
     }
   })
 
+  test('a wrapper, an env assignment or a git global option cannot walk a guarded command past the guard', () => {
+    for (const command of ['git -C /repo push origin main', 'sudo git push --force', 'env FOO=1 gh pr merge 110', 'GIT_DIR=x git tag v1.0.0', 'command npm publish', 'git --no-pager push origin main']) {
+      expect(classifyCommand(command, policy).decision, command).toBe('ask')
+    }
+  })
+
+  test('normalising the prefix does not turn ordinary commands into asks', () => {
+    for (const command of ['git -C /repo push origin feat/x', 'env FOO=1 bun run check', 'git -C /repo status']) {
+      expect(classifyCommand(command, policy).decision, command).toBe('allow')
+    }
+  })
+
   test('asks on a deploy or publish command that matches no policy line — fail closed', () => {
     const result = classifyCommand('flyctl deploy --app acme', policy)
     expect(result.decision).toBe('ask')
