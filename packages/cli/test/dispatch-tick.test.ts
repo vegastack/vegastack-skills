@@ -243,3 +243,67 @@ describe('runs leave the tick (F19)', () => {
     await looped
   })
 })
+
+describe('the guard is checked for the harness and the checkout that will run (F21, F22)', () => {
+  const mixed = 'dispatch: local\noperators: mk\nplan: codex gpt-5.6 high\nimplement: claude fable-5-1 high\n'
+
+  test('a plan run on a harness the guard is not wired for is refused by name, while implement runs on the wired one', async () => {
+    const { config } = fixture({ devMd: mixed, maxRuns: 3 })
+    const { gh } = ghStub({ needsPlan: [{ number: 7, title: 'feat: a', labels: ['needs-plan'] }], ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const result = await runTick(config, { dryRun: true }, { gh, ensureWorktree, execute: async run => finished(run), parentCandidates: async () => [] })
+    expect(result.runs.map(run => run.issue)).toEqual([8])
+    const refusal = result.refusals.find(entry => entry.issue === 7)!
+    expect(refusal.reason).toContain('.codex/hooks.json')
+    expect(refusal.reason).toContain('codex')
+  })
+
+  test('a profile with no plan entry refuses the needs-plan issue by name instead of throwing out of the tick', async () => {
+    const { config } = fixture({ devMd: 'dispatch: local\noperators: mk\nimplement: claude fable-5-1 high\n', maxRuns: 3 })
+    const { gh } = ghStub({ needsPlan: [{ number: 7, title: 'feat: a', labels: ['needs-plan'] }], ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const result = await runTick(config, { dryRun: true }, { gh, ensureWorktree, execute: async run => finished(run), parentCandidates: async () => [] })
+    expect(result.runs.map(run => run.issue)).toEqual([8])
+    expect(result.refusals.find(entry => entry.issue === 7)!.reason).toContain('no harness policy for the plan stage')
+  })
+
+  test('a worktree that lacks the harness wiring the main checkout has is refused before anything launches', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const launched: number[] = []
+    // A fresh checkout: tracked files only, so the gitignored .claude/settings.json is not there.
+    const bare: TickDeps['ensureWorktree'] = async (repoPath, issue) => {
+      const path = join(repoPath, '.vegastack', '.worktrees', `${issue}-b`)
+      mkdirSync(join(path, '.vegastack/hooks'), { recursive: true })
+      writeFileSync(join(path, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+      return { path, branch: `feat/${issue}-b`, slug: 'b', type: 'feat' }
+    }
+    const tracker: RunTracker = new Map()
+    const result = await runTick(config, { dryRun: false }, { gh, ensureWorktree: bare, execute: async run => { launched.push(run.issue); return finished(run) }, parentCandidates: async () => [], tracker })
+    await settleRuns(tracker)
+    expect(launched).toEqual([])
+    expect(result.runs).toEqual([])
+    const refusal = result.refusals.find(entry => entry.issue === 8)!
+    expect(refusal.reason).toContain(join('.vegastack', '.worktrees', '8-b'))
+    expect(refusal.reason).toContain('worktree-include:')
+  })
+
+  test('a worktree that carries the wiring launches, and a codex plan run is checked against its own file there', async () => {
+    const { config } = fixture({ devMd: mixed, maxRuns: 3 })
+    const { gh } = ghStub({ needsPlan: [{ number: 7, title: 'feat: a', labels: ['needs-plan'] }] })
+    for (const entry of config.repos) {
+      mkdirSync(join(entry.path, '.codex'), { recursive: true })
+      writeFileSync(join(entry.path, '.codex/hooks.json'), CODEX_WIRING)
+    }
+    const withCodex: TickDeps['ensureWorktree'] = async (repoPath, issue, title) => {
+      const target = await ensureWorktree(repoPath, issue, title)
+      mkdirSync(join(target.path, '.codex'), { recursive: true })
+      writeFileSync(join(target.path, '.codex/hooks.json'), CODEX_WIRING)
+      return target
+    }
+    const launched: string[] = []
+    const tracker: RunTracker = new Map()
+    const result = await runTick(config, { dryRun: false }, { gh, ensureWorktree: withCodex, execute: async (run, plan) => { launched.push(plan.command); return finished(run) }, parentCandidates: async () => [], tracker })
+    await settleRuns(tracker)
+    expect(launched).toEqual(['codex'])
+    expect(result.refusals).toEqual([])
+  })
+})

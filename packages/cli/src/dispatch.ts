@@ -1191,8 +1191,32 @@ export async function runTick(
     const plan = planTick({ repo: entry.repo, policy, board, rockets, state, guards, maxRuns: config.maxRuns, parents, inFlight })
     refusals.push(...plan.refusals)
 
+    // The repo-level check above read the implement harness's wiring. A plan run may name another
+    // harness, whose wiring is a different file; it is checked once per harness, in the main
+    // checkout, before any run on it is considered.
+    const wiredInCheckout = new Map<Harness, { wired: boolean; detail: string }>([[harness, guards.shipGuard]])
+    const guardFor = async (stageHarness: Harness): Promise<{ wired: boolean; detail: string }> => {
+      let known = wiredInCheckout.get(stageHarness)
+      if (!known) {
+        known = await shipGuard(entry.path, stageHarness, { home: config.home, repo: entry.repo })
+        wiredInCheckout.set(stageHarness, known)
+      }
+      return known
+    }
+
     for (const run of plan.runs) {
-      const stage = stagePolicy(policy, run.stage)
+      let stage: ReturnType<typeof stagePolicy>
+      try {
+        stage = stagePolicy(policy, run.stage)
+      } catch (error) {
+        refusals.push({ repo: entry.repo, issue: run.issue, reason: `#${run.issue}: ${(error as Error).message}` })
+        continue
+      }
+      const checkoutGuard = await guardFor(stage.harness)
+      if (!checkoutGuard.wired) {
+        refusals.push({ repo: entry.repo, issue: run.issue, reason: `#${run.issue} would run on ${stage.harness}, and the ship guard is not wired for it: ${checkoutGuard.detail} — dark builds run under bypass, and the guard is what bounds them` })
+        continue
+      }
       const parentOf = run.parallel ? parents.find(candidate => candidate.parent.issue === run.issue) : undefined
       if (run.parallel && !parentOf) {
         refusals.push({ repo: entry.repo, issue: run.issue, reason: `#${run.issue}: the parent worktree for a parallel run could not be resolved — its children run one at a time next tick` })
@@ -1205,6 +1229,17 @@ export async function runTick(
         : options.dryRun
           ? worktreeFor(entry.path, run.issue, run.title)
           : await ensure(entry.path, run.issue, run.title)
+      // The harness reads its hook config from the directory it is started in, and that is the
+      // worktree — a fresh checkout of tracked files, where a gitignored .claude/ or .codex/ does
+      // not exist. So the wiring is verified again where the run will actually happen; a dry run
+      // checks a worktree that already exists and says nothing about one it would create.
+      if (!options.dryRun || existsSync(target.path)) {
+        const worktreeGuard = await shipGuard(target.path, stage.harness, { home: config.home, repo: entry.repo })
+        if (!worktreeGuard.wired) {
+          refusals.push({ repo: entry.repo, issue: run.issue, reason: `#${run.issue}: the ship guard is not wired for ${stage.harness} in the worktree ${target.path} (${worktreeGuard.detail}) — the run would start there under bypass with nothing bounding it; commit the harness wiring or list it in dev.md's worktree-include:` })
+          continue
+        }
+      }
       const launch = run.parallel && parentOf
         ? parentParallelLaunchPlan(
             { kind: 'parent-parallel', parent: run.issue, children: run.parallel },
