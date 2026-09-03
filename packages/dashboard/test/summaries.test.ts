@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
+import { mkdir, mkdtemp, copyFile, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { freshnessFrom } from '../src/lib/freshness'
-import { parseSummary } from '../src/lib/stats/summaries'
+import { parseSummary, readOrgSkills, readOrgSummary, readRepoSummary, repoSegment } from '../src/lib/stats/summaries'
 
 const now = Date.parse('2026-09-03T12:00:00.000Z')
 const state = (iso: string, org = 'vegastack') => JSON.stringify({
@@ -8,19 +11,64 @@ const state = (iso: string, org = 'vegastack') => JSON.stringify({
   controlRooms: { [org]: { repo: 'vegastack/vegafactory-control-room', path: '/c', branch: 'main', lastSyncedAt: iso, sha: 'abc1234' } },
 })
 
+// The CLI's rollup fixtures are the writer's own bytes (packages/cli/test/stats-rollup.test.ts
+// holds them to that), laid out here exactly as `stats rollup` and `stats push` lay them out in
+// the control room. Reading them through the same functions the pages call is what makes the
+// writer and this reader one shape.
+const writerFixtures = join(import.meta.dir, '../../cli/test/fixtures/stats/SEP-2026')
+async function roomWithSummaries(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'vf-summaries-'))
+  await mkdir(join(root, 'stats', 'vegastack__vegafactory'), { recursive: true })
+  await mkdir(join(root, 'stats', 'org'), { recursive: true })
+  await copyFile(join(writerFixtures, 'vegafactory.summary.json'), join(root, 'stats', 'vegastack__vegafactory', 'SEP-2026.summary.json'))
+  await copyFile(join(writerFixtures, 'org.summary.json'), join(root, 'stats', 'org', 'SEP-2026.summary.json'))
+  await copyFile(join(writerFixtures, 'org.skills.json'), join(root, 'stats', 'org', 'SEP-2026.skills.json'))
+  return root
+}
+
+test('the repo summary is found where the CLI writes it and read in the shape the CLI writes', async () => {
+  const root = await roomWithSummaries()
+  expect(repoSegment('vegastack/vegafactory')).toBe('vegastack__vegafactory')
+  const summary = await readRepoSummary(root, 'vegastack/vegafactory', 'SEP-2026')
+  expect(summary).not.toBeNull()
+  expect(summary).toMatchObject({
+    scope: 'vegastack/vegafactory', month: 'SEP-2026', runs: 5,
+    leadTimeH: { p50: 48, p90: 48 },
+    cycleTimeH: { ready: { p50: 12, p90: 12 }, working: { p50: 24, p90: 24 } },
+    rework: { reviewRounds: 3, fixRounds: 1, handbacks: 1 },
+    throughput: { issuesTouched: 2, issuesClosed: 1 },
+    missing: [],
+  })
+  expect(await readRepoSummary(root, 'vegastack/other', 'SEP-2026')).toBeNull()
+})
+
+test('the org summary carries cost and runs and is not asked for what the writer never puts there', async () => {
+  const root = await roomWithSummaries()
+  const summary = await readOrgSummary(root, 'SEP-2026')
+  expect(summary).toMatchObject({ scope: 'org', runs: 5, costUsd: 6.7, missing: [] })
+})
+
+test('the org skills rollup yields invocations per skill, and null when the document is not one', async () => {
+  const root = await roomWithSummaries()
+  expect(await readOrgSkills(root, 'SEP-2026')).toEqual({
+    'dev-architect': 1, 'dev-implement': 2, 'dev-plan': 1, 'dev-review': 1, 'dev-ship': 1,
+  })
+  await writeFile(join(root, 'stats', 'org', 'AUG-2026.skills.json'), JSON.stringify({ schemaVersion: 1, month: 'AUG-2026' }))
+  expect(await readOrgSkills(root, 'AUG-2026')).toBeNull()
+  expect(await readOrgSkills(root, 'JUL-2026')).toBeNull()
+})
+
 test('a summary is read field by field, and what it lacks is named rather than guessed', () => {
-  const summary = parseSummary('vegastack/vegafactory', 'SEP-2026', JSON.stringify({
-    stages: [{ stage: 'plan', lead_time_s: 3600, cycle_time_s: 1800 }, { stage: 'implement', lead_time_s: 7200 }],
-    rework: { review_rounds: 3, fix_rounds: 1 }, runs: 12,
+  const summary = parseSummary('repo', 'vegastack/vegafactory', 'SEP-2026', JSON.stringify({
+    runs: 12, lead_time_h: { p50: null, p90: null }, cycle_time_h: { ready: { p50: 2, p90: 5 } },
+    rework: { review_rounds: null, fix_rounds: 1, handbacks: 2, runs_with_rework: 1 },
   }))
-  expect(summary.stages).toEqual([
-    { stage: 'plan', leadTimeS: 3600, cycleTimeS: 1800 },
-    { stage: 'implement', leadTimeS: 7200, cycleTimeS: null },
-  ])
-  expect(summary.rework.handbacks).toBeNull()
-  expect(summary.missing).toContain('rework.handbacks')
-  expect(summary.missing).toContain('cost_usd')
-  expect(parseSummary('org', 'SEP-2026', '{not json')).toMatchObject({ stages: [], missing: ['document'] })
+  expect(summary.leadTimeH).toEqual({ p50: null, p90: null })
+  expect(summary.cycleTimeH).toEqual({ ready: { p50: 2, p90: 5 } })
+  expect(summary.rework).toEqual({ reviewRounds: null, fixRounds: 1, handbacks: 2 })
+  expect(summary.missing).toEqual(['rework.review_rounds', 'throughput.issues_touched', 'throughput.issues_closed'])
+  expect(parseSummary('org', 'org', 'SEP-2026', '{not json')).toMatchObject({ cycleTimeH: {}, missing: ['document'] })
+  expect(parseSummary('org', 'org', 'SEP-2026', JSON.stringify({ runs: 1 })).missing).toEqual(['cost_usd'])
 })
 
 test('freshness reads the org entry sync wrote; a failed live read only sets offline', () => {

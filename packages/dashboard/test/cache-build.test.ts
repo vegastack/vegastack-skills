@@ -12,7 +12,7 @@ const count = (db: Db, t: string) => db.query<{ n: number }>(`select count(*) as
 
 async function room() {
   const root = await mkdtemp(join(tmpdir(), 'vf-room-'))
-  const dir = join(root, 'stats', 'vegastack', 'vegafactory', 'SEP-2026')
+  const dir = join(root, 'stats', 'vegastack__vegafactory', 'SEP-2026')
   await mkdir(dir, { recursive: true })
   await writeFile(join(dir, 'mini.jsonl'), `${record(122)}\n{bad\n`)
   return { root, file: join(dir, 'mini.jsonl'), cache: join(root, 'stats.db') }

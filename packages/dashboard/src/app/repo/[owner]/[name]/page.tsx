@@ -26,19 +26,47 @@ export default async function RepoPage({ params, searchParams }: {
         </p>
       )}
 
+      <dl className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { label: 'Lead time p50', value: hours(view.leadTimeH.p50) },
+          { label: 'Lead time p90', value: hours(view.leadTimeH.p90) },
+          { label: 'Runs', value: String(view.totals.runs) },
+          { label: 'Cost', value: money(view.totals.costUsd) },
+        ].map((tile) => (
+          <div key={tile.label} className="border-border rounded-lg border p-4">
+            <dt className="text-muted-foreground text-sm">{tile.label}</dt>
+            <dd className="mt-1 text-2xl font-semibold tabular-nums">{tile.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-lg font-semibold">Cycle time by state</h2>
+        <StatTable
+          caption="Hours issues sat in each workflow state, from the rollup's label timelines"
+          rows={view.cycleTimeH}
+          rowKey={(row) => row.label}
+          empty="No state timings in the rollup for this month."
+          columns={[
+            { key: 'label', label: 'State', render: (row) => row.label },
+            { key: 'p50', label: 'p50', align: 'end', render: (row) => hours(row.p50) },
+            { key: 'p90', label: 'p90', align: 'end', render: (row) => hours(row.p90) },
+          ]}
+        />
+      </section>
+
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Stages</h2>
         <StatTable
-          caption="Lead and cycle time from the rollup, runs and cost from the cache"
+          caption="Runs, cost and human touchpoints per workflow stage, from the cache"
           rows={view.stages}
           rowKey={(row) => row.stage}
           empty="No stages recorded for this month."
           columns={[
             { key: 'stage', label: 'Stage', render: (row) => row.stage },
-            { key: 'lead', label: 'Lead time', align: 'end', render: (row) => hours(row.leadTimeS) },
-            { key: 'cycle', label: 'Cycle time', align: 'end', render: (row) => hours(row.cycleTimeS) },
             { key: 'runs', label: 'Runs', align: 'end', render: (row) => row.runs },
             { key: 'cost', label: 'Cost', align: 'end', render: (row) => money(row.costUsd) },
+            { key: 'human', label: 'Human touchpoints', align: 'end', render: (row) => row.humanTouchpoints },
           ]}
         />
       </section>

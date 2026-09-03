@@ -70,3 +70,14 @@ test('rework never measured is null, never a confident zero, and rounds count on
   expect(twice.rework.fix_rounds).toBe(1)
   expect(twice.rework.handbacks).toBe(1)
 })
+
+// The three fixture summaries are the writer's exact bytes, and the dashboard's reader tests
+// (packages/dashboard/test/summaries.test.ts) parse those same files: a change to the shape here
+// fails this test until the fixtures are regenerated, and then fails the reader until it follows.
+test('the fixture summaries are byte-identical to what the writer produces today', () => {
+  const read = (name: string) => readFileSync(join(fixtures, name), 'utf8')
+  const repo = rollupRepo(records, timelines, { ...options, people: false })
+  expect(`${stableStringify(repo)}\n`).toBe(read('vegafactory.summary.json'))
+  expect(`${stableStringify(rollupOrg([repo], { month: 'SEP-2026', people: false }))}\n`).toBe(read('org.summary.json'))
+  expect(`${stableStringify(rollupSkills(records, { month: 'SEP-2026' }))}\n`).toBe(read('org.skills.json'))
+})

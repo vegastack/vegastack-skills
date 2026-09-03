@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { parseSummary } from '../src/lib/stats/summaries'
 import { buildOrgView } from '../src/lib/views/org'
 import { buildRepoView } from '../src/lib/views/repo'
@@ -14,17 +16,20 @@ test('org totals, per-repo rows carrying their group, and a share that never div
   expect(empty.totals.runs).toBe(0)
 })
 
-test('lead and cycle time come from the summary, cost and rework from the cache', async () => {
+test('lead and cycle time come from the writer\'s summary, cost and rework per issue from the cache', async () => {
   const context = await contextFixture({ month: 'SEP-2026' })
-  const summary = parseSummary('vegastack/vegafactory', 'SEP-2026', JSON.stringify({
-    stages: [{ stage: 'implement', lead_time_s: 7200, cycle_time_s: 3600 }],
-    rework: { review_rounds: 2, fix_rounds: 1, handbacks: 2 },
-  }))
+  const bytes = await readFile(join(import.meta.dir, '../../cli/test/fixtures/stats/SEP-2026/vegafactory.summary.json'), 'utf8')
+  const summary = parseSummary('repo', 'vegastack/vegafactory', 'SEP-2026', bytes)
   const view = buildRepoView({ context, repo: 'vegastack/vegafactory', summary })
-  expect(view.stages.find((s) => s.stage === 'implement')).toMatchObject({ leadTimeS: 7200, cycleTimeS: 3600, runs: 2 })
+  expect(view.leadTimeH).toEqual({ p50: 48, p90: 48 })
+  expect(view.cycleTimeH).toEqual([{ label: 'ready', p50: 12, p90: 12 }, { label: 'working', p50: 24, p90: 24 }])
+  expect(view.stages.map((s) => s.stage)).toEqual(['implement'])
+  expect(view.stages[0]).toMatchObject({ runs: 2 })
   expect(view.issues.map((i) => i.issue).sort()).toEqual([121, 122])
-  expect(view.rework.handbacks).toBe(2)
+  expect(view.rework.handbacks).toBe(1)
+  expect(view.missing).toEqual([])
   const bare = buildRepoView({ context, repo: 'vegastack/vegafactory', summary: null })
-  expect(bare.stages[0]!.leadTimeS).toBeNull()
+  expect(bare.leadTimeH).toEqual({ p50: null, p90: null })
+  expect(bare.cycleTimeH).toEqual([])
   expect(bare.missing).toContain('summary')
 })

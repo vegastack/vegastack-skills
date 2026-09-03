@@ -1,6 +1,6 @@
 import type { PageContext } from '../context'
 import { perIssue, perStage, type Totals } from '../cache/queries'
-import type { StageTiming, Summary } from '../stats/summaries'
+import type { Pct, Summary } from '../stats/summaries'
 
 export interface RepoIssueRow {
   issue: number
@@ -14,41 +14,31 @@ export interface RepoView {
   repo: string
   month: string
   totals: Totals
-  stages: Array<StageTiming & Totals>
+  stages: Array<{ stage: string } & Totals>
+  /** Repo-wide hours from issue creation to close, from the rollup. */
+  leadTimeH: Pct
+  /** Hours issues sat in each workflow state label, from the rollup, sorted by label. */
+  cycleTimeH: Array<{ label: string } & Pct>
   issues: RepoIssueRow[]
   rework: Summary['rework']
   missing: string[]
 }
 
 const EMPTY_REWORK: Summary['rework'] = { reviewRounds: null, fixRounds: null, handbacks: null }
+const EMPTY_PCT: Pct = { p50: null, p90: null }
 
 // Two sources, kept apart on purpose. Lead and cycle time are durations only #121's rollup can
-// compute, so they come from the summary and stay null when it does not carry them — never
-// approximated from run counts. Cost and rework counts come from the cache, which holds the runs
-// themselves. `missing` names whichever half was unavailable.
+// compute — one lead time for the repo, one cycle time per state label — so they come from the
+// summary and stay null when it does not carry them, never approximated from run counts. Runs,
+// cost and rework per issue come from the cache, which holds the runs themselves. `missing` names
+// whichever half was unavailable.
 export function buildRepoView({ context, repo, summary }: {
   context: PageContext
   repo: string
   summary: Summary | null
 }): RepoView {
   const filters = { ...context.filters, repo, repos: [repo] }
-  const stageTotals = perStage(context.db, filters)
-  const timings = new Map((summary?.stages ?? []).map((stage) => [stage.stage, stage]))
-
-  const stages = stageTotals.map((row) => {
-    const timing = timings.get(row.stage)
-    return { ...row, leadTimeS: timing?.leadTimeS ?? null, cycleTimeS: timing?.cycleTimeS ?? null }
-  })
-  // A stage the summary times but the cache has no runs for still belongs on the page: it is a
-  // stage that ran in a month whose records this machine has not synced.
-  for (const timing of timings.values()) {
-    if (stages.some((stage) => stage.stage === timing.stage)) continue
-    stages.push({
-      stage: timing.stage, leadTimeS: timing.leadTimeS, cycleTimeS: timing.cycleTimeS,
-      runs: 0, costUsd: 0, durationS: 0, tokensIn: 0, tokensOut: 0, cacheRead: 0, cacheWrite: 0,
-      handbacks: 0, reviewRounds: 0, fixRounds: 0, humanTouchpoints: 0,
-    })
-  }
+  const stages = perStage(context.db, filters)
 
   const rows = perIssue(context.db, filters)
   const totals = rows.reduce<Totals>((sum, row) => ({
@@ -73,6 +63,10 @@ export function buildRepoView({ context, repo, summary }: {
     month: context.filters.month,
     totals,
     stages: stages.sort((a, b) => a.stage.localeCompare(b.stage)),
+    leadTimeH: summary?.leadTimeH ?? EMPTY_PCT,
+    cycleTimeH: Object.entries(summary?.cycleTimeH ?? {})
+      .map(([label, pct]) => ({ label, ...pct }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
     issues: rows.map((row) => ({
       issue: row.issue, costUsd: row.costUsd, reviewRounds: row.reviewRounds,
       fixRounds: row.fixRounds, handbacks: row.handbacks,

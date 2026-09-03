@@ -4,9 +4,10 @@ import { join } from 'node:path'
 
 import { openCache, refreshCache, type Db } from '../../src/lib/cache/build'
 
-// The two-repo, two-month control room every view test reads. Two September runs in
-// vegastack/vegafactory (one per person, one per harness) and one August run in vegastack/site,
-// so a month, group, harness or person filter each has something to exclude.
+// The two-repo, two-month control room every view test reads, laid out as the CLI lays out the
+// real one — `stats/<owner>__<name>/<MON-YYYY>/<host>.jsonl`, one path segment per repo. Two
+// September runs in vegastack/vegafactory (one per person, one per harness) and one August run in
+// vegastack/site, so a month, group, harness or person filter each has something to exclude.
 export const groups: Record<string, string> = {
   'vegastack/vegafactory': 'dev',
   'vegastack/site': 'design',
@@ -27,8 +28,8 @@ const record = (fields: Record<string, unknown>) => JSON.stringify({
 
 export async function fixtureRoom(): Promise<{ root: string; db: Db; groups: Record<string, string> }> {
   const root = await mkdtemp(join(tmpdir(), 'vf-fixture-'))
-  const september = join(root, 'stats', 'vegastack', 'vegafactory', 'SEP-2026')
-  const august = join(root, 'stats', 'vegastack', 'site', 'AUG-2026')
+  const september = join(root, 'stats', 'vegastack__vegafactory', 'SEP-2026')
+  const august = join(root, 'stats', 'vegastack__site', 'AUG-2026')
   await mkdir(september, { recursive: true })
   await mkdir(august, { recursive: true })
 

@@ -15,7 +15,7 @@ control room.
 | View | Reads | Shows |
 |---|---|---|
 | Org (`/`) | the cache | runs, cost, human touchpoints per run, and the same per repo and per stage |
-| Repo (`/repo/<owner>/<name>`) | the cache and the month's rollup | lead and cycle time per stage, rework, cost per issue |
+| Repo (`/repo/<owner>/<name>`) | the cache and the month's rollup | the repo's lead time, cycle time per workflow state, runs and cost per stage, rework and cost per issue |
 | People (`/people`, `/people/<login>`) | the cache and `people.csv` | runs and cost per person, behind the lead gate |
 | Skills (`/skills`) | the cache and the org skills rollup | invocations, trigger, outcome, cost per invocation |
 | Board (`/board`) | live GitHub and `vegafactory status --json` | the five workflow-state columns, open PRs, worktrees |
@@ -45,7 +45,8 @@ default, and the optional ones degrade the page rather than refusing it.
 The control-room clone is the source of truth and every cached view works from it alone. When a live
 source fails — GitHub unreachable, no token, no `vegafactory` binary — the page still renders, and a
 banner names each failure and how old the clone is. A failed live read is a value, never an
-exception: no page errors because GitHub was down.
+exception: no page errors because GitHub was down, and one repo the board cannot read keeps
+every other repo's issues and pull requests on the page while the banner names it.
 
 ## Building it locally
 
