@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { classifyCommand, extractCommand, readPolicy, renderDecision, splitSegments } from '../assets/hooks/ship-guard.mjs'
 import { renderContext, sessionMarkerPath, shouldSync, worktreeClaim } from '../assets/hooks/session-start.mjs'
 import { HEARTBEAT_REASON, shouldNudge } from '../assets/hooks/stop-heartbeat.mjs'
+import { NUDGE_REASON, isDirectional } from '../assets/hooks/decision-nudge.mjs'
 
 const DEV_MD = [
   'repo: vegastack/vegafactory · default branch main',
@@ -222,5 +223,35 @@ describe('stop heartbeat', () => {
   test('the reason is a plain checkpoint sentence and never mentions a budget', () => {
     expect(HEARTBEAT_REASON).toBe('checkpoint the ledger before stopping')
     expect(HEARTBEAT_REASON).not.toMatch(/context|budget|token|remaining/i)
+  })
+})
+
+describe('decision nudge', () => {
+  test('matches the directional vocabulary the shell recipe matched', () => {
+    for (const message of ['We decided to use Postgres instead of SQLite.', 'Chose changesets', 'from now on we standardise on Bun', 'switched to rebase merges', 'this is our convention now']) {
+      expect(isDirectional(message)).toBe(true)
+    }
+  })
+
+  test('stays quiet on an ordinary sign-off', () => {
+    for (const message of ['Fixed the failing test and pushed.', 'All twelve tests pass.', '']) {
+      expect(isDirectional(message)).toBe(false)
+    }
+  })
+
+  test('the reason still names the Decisions test and asks for one dated line', () => {
+    expect(NUDGE_REASON).toContain('the Decisions test in .vegastack/dev.md')
+    expect(NUDGE_REASON).toContain('one dated register line')
+  })
+
+  test('nudges once per session and stays silent on the second stop', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-nudge-'))
+    const script = join(import.meta.dir, '..', 'assets/hooks/decision-nudge.mjs')
+    const payload = '{"session_id":"s1","stop_hook_active":false,"last_assistant_message":"We decided to use Postgres instead of SQLite."}'
+    const env = { ...process.env, TMPDIR: dir }
+    const first = Bun.spawnSync(['node', script, '--harness', 'claude'], { stdin: new TextEncoder().encode(payload), env })
+    expect(first.stdout.toString()).toContain('"decision":"block"')
+    const second = Bun.spawnSync(['node', script, '--harness', 'claude'], { stdin: new TextEncoder().encode(payload), env })
+    expect(second.stdout.toString().trim()).toBe('')
   })
 })

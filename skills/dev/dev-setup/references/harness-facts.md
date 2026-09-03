@@ -67,27 +67,15 @@ Attempted 03-09-2026 on codex-cli 0.149.1 and **not answered**: `codex login sta
 
 ## Decision-capture Stop hook (optional, offered in Round C)
 
-Because both Stop contracts match, one shared script serves both harnesses. Write it to `.vegastack/hooks/decision-nudge.sh` and wire it as `sh .vegastack/hooks/decision-nudge.sh` (no exec bit needed). Only on the user's explicit yes, and only the `Stop` event. The wiring shape is doubly nested — matcher groups each holding their own `hooks` array — identical in Claude Code's `.claude/settings.json` and Codex's `<repo>/.codex/hooks.json` (merge into existing hook config, never overwrite): <!-- source: CC-HOOKS --> <!-- source: CODEX-HOOKS -->
+Because both Stop contracts match, one shared script serves both harnesses. Write it to `.vegastack/hooks/decision-nudge.mjs` and wire it as `node .vegastack/hooks/decision-nudge.mjs --harness <claude|codex>`. Only on the user's explicit yes, and only the `Stop` event. The wiring shape is doubly nested — matcher groups each holding their own `hooks` array — identical in Claude Code's `.claude/settings.json` and Codex's `<repo>/.codex/hooks.json` (merge into existing hook config, never overwrite): <!-- source: CC-HOOKS --> <!-- source: CODEX-HOOKS -->
 
 ```json
-{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "sh .vegastack/hooks/decision-nudge.sh" } ] } ] } }
+{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/decision-nudge.mjs --harness claude" } ] } ] } }
 ```
 
-```sh
-#!/bin/sh
-# Nudge at most once per session, and only when the last message smells directional.
-command -v jq >/dev/null 2>&1 || exit 0        # no jq -> no nudge, never break the harness
-input=$(cat)
-[ "$(printf '%s' "$input" | jq -r '.stop_hook_active')" = "true" ] && exit 0
-marker="${TMPDIR:-/tmp}/vsk-decision-nudge-$(printf '%s' "$input" | jq -r '.session_id')"
-[ -e "$marker" ] && exit 0
-printf '%s' "$input" | jq -r '.last_assistant_message // ""' \
-  | grep -qiE 'decided|chose|instead of|convention|from now on|standardi[sz]|switch(ed|ing)? to' || exit 0
-: > "$marker"
-printf '%s' '{"decision":"block","reason":"Before finishing: if this session settled a directional choice (the Decisions test in .vegastack/dev.md), propose one dated register line and ask the user to confirm; otherwise finish."}'
-```
+The script itself is a packaged asset — `assets/hooks/decision-nudge.mjs` — written to `.vegastack/hooks/decision-nudge.mjs` and wired as `node .vegastack/hooks/decision-nudge.mjs --harness <claude|codex>`; it uses Node rather than `jq`, which is not guaranteed on an operator's machine, and its marker lives under the OS temp dir, never inside the repo.
 
-The marker lives under the OS temp dir, never inside the repo. The prose instruction in the AGENTS.md dev section is the portable base on both harnesses; this hook is a deterministic nudge on top, not a replacement.
+The prose instruction in the AGENTS.md dev section is the portable base on both harnesses; this hook is a deterministic nudge on top, not a replacement.
 
 ## What this means for the dev skills
 

@@ -3,10 +3,11 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// The decision-nudge hook script and the changelog-entry guard ship embedded in
-// reference docs and get written verbatim into consumer projects. These tests
-// extract the fenced blocks from the docs themselves, so a doc edit that breaks
-// the snippet fails here instead of in a user's repo.
+// The decision-nudge hook and the changelog-entry guard get written verbatim into
+// consumer projects. The nudge is now a packaged asset, so it is run directly; the
+// changelog guard still ships embedded in a reference doc, so its fenced block is
+// extracted from the doc itself and a doc edit that breaks it fails here instead of
+// in a user's repo.
 
 const skillRoot = join(import.meta.dir, "..");
 const harnessFacts = readFileSync(join(skillRoot, "references", "harness-facts.md"), "utf8");
@@ -19,27 +20,23 @@ function fencedBlocks(markdown: string, lang: string): string[] {
   return blocks;
 }
 
-const haveJq = Bun.spawnSync(["sh", "-c", "command -v jq"]).exitCode === 0;
+describe("decision-nudge hook asset (assets/hooks/decision-nudge.mjs)", () => {
+  const script = join(skillRoot, "assets", "hooks", "decision-nudge.mjs");
 
-describe("decision-nudge hook snippet (harness-facts.md)", () => {
-  const block = fencedBlocks(harnessFacts, "sh").find((b) => b.includes("stop_hook_active"));
-  test("the snippet exists in the doc", () => {
-    expect(block).toBeDefined();
+  test("harness-facts points at the asset rather than carrying a shell copy of it", () => {
+    expect(harnessFacts).toContain("assets/hooks/decision-nudge.mjs");
+    expect(fencedBlocks(harnessFacts, "sh").find((b) => b.includes("stop_hook_active"))).toBeUndefined();
   });
-  if (!block) return;
 
   const dir = mkdtempSync(join(tmpdir(), "vsk-nudge-test-"));
-  const script = join(dir, "decision-nudge.sh");
-  writeFileSync(script, block);
-
   const run = (input: string) =>
-    Bun.spawnSync(["sh", script], {
+    Bun.spawnSync(["node", script, "--harness", "claude"], {
       stdin: new TextEncoder().encode(input),
       env: { ...process.env, TMPDIR: dir },
     });
   const sid = `t${Date.now()}`;
 
-  test.if(haveJq)("nudges once on a directional last message", () => {
+  test("nudges once on a directional last message", () => {
     const r = run(
       `{"session_id":"${sid}","stop_hook_active":false,"last_assistant_message":"We decided to use Postgres instead of SQLite."}`,
     );
@@ -47,7 +44,7 @@ describe("decision-nudge hook snippet (harness-facts.md)", () => {
     expect(r.stdout.toString()).toContain('"decision":"block"');
   });
 
-  test.if(haveJq)("stays silent the second time in the same session", () => {
+  test("stays silent the second time in the same session", () => {
     const r = run(
       `{"session_id":"${sid}","stop_hook_active":false,"last_assistant_message":"We decided again."}`,
     );
@@ -60,7 +57,7 @@ describe("decision-nudge hook snippet (harness-facts.md)", () => {
     ["no directional keyword", `{"session_id":"${sid}3","stop_hook_active":false,"last_assistant_message":"Fixed the typo."}`],
     ["null last message", `{"session_id":"${sid}4","stop_hook_active":false,"last_assistant_message":null}`],
   ] as const) {
-    test.if(haveJq)(`stays silent on ${name}`, () => {
+    test(`stays silent on ${name}`, () => {
       const r = run(input);
       expect(r.exitCode).toBe(0);
       expect(r.stdout.toString()).toBe("");
