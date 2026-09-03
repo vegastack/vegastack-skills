@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { classifyCommand, extractCommand, readPolicy, renderDecision, splitSegments } from '../assets/hooks/ship-guard.mjs'
 import { renderContext, sessionMarkerPath, shouldSync, worktreeClaim } from '../assets/hooks/session-start.mjs'
 import { HEARTBEAT_REASON, shouldNudge } from '../assets/hooks/stop-heartbeat.mjs'
@@ -164,6 +164,8 @@ describe('session-start context', () => {
     expect(worktreeClaim('/r/.vegastack/.worktrees/110-hooks-package/skills/x')).toEqual({ number: 110, slug: 'hooks-package' })
     expect(worktreeClaim('/r/packages/cli')).toBe(null)
     expect(worktreeClaim('/r/.vegastack/.worktrees/scratch')).toBe(null)
+    // A checkout nested inside another worktree is claimed by the innermost one.
+    expect(worktreeClaim('/r/.vegastack/.worktrees/104-epic/.vegastack/.worktrees/110-hooks')).toEqual({ number: 110, slug: 'hooks' })
   })
 
   test('an empty board says so in one line rather than five empty ones', () => {
@@ -253,5 +255,37 @@ describe('decision nudge', () => {
     expect(first.stdout.toString()).toContain('"decision":"block"')
     const second = Bun.spawnSync(['node', script, '--harness', 'claude'], { stdin: new TextEncoder().encode(payload), env })
     expect(second.stdout.toString().trim()).toBe('')
+  })
+})
+
+describe('this repo runs the hooks package it ships', () => {
+  const repoRoot = resolve(import.meta.dir, '../../../..')
+  const hooks = ['ship-guard.mjs', 'session-start.mjs', 'stop-heartbeat.mjs', 'decision-nudge.mjs']
+
+  test('every installed hook copy is byte-identical to its asset', () => {
+    for (const file of hooks) {
+      const asset = readFileSync(join(repoRoot, 'skills/dev/dev-setup/assets/hooks', file), 'utf8')
+      const installed = readFileSync(join(repoRoot, '.vegastack/hooks', file), 'utf8')
+      expect(installed).toBe(asset)
+    }
+  })
+
+  test('the committed Codex wiring names all four hooks on their events', () => {
+    const wiring = JSON.parse(readFileSync(join(repoRoot, '.codex/hooks.json'), 'utf8'))
+    expect(wiring.hooks.PreToolUse[0].hooks[0].command).toContain('ship-guard.mjs --harness codex')
+    expect(wiring.hooks.SessionStart[0].hooks[0].command).toContain('session-start.mjs --harness codex')
+    expect(wiring.hooks.Stop[0].hooks.map((h: { command: string }) => h.command).join(' ')).toContain('stop-heartbeat.mjs')
+    expect(wiring.hooks.Stop[0].hooks.map((h: { command: string }) => h.command).join(' ')).toContain('decision-nudge.mjs')
+  })
+
+  test("the guard asks on this repo's real shipping commands and allows its ordinary ones", () => {
+    const script = join(repoRoot, '.vegastack/hooks/ship-guard.mjs')
+    const devMd = join(repoRoot, '.vegastack/dev.md')
+    for (const command of ['gh pr merge 110 --rebase', 'git push origin main', 'git tag v0.19.0', 'git push origin v0.19.0', 'git push --force']) {
+      expect(Bun.spawnSync(['node', script, '--check', '--command', command, '--dev-md', devMd, '--json']).exitCode).toBe(2)
+    }
+    for (const command of ['bun run check', 'bun run build', 'git push origin feat/104-factory-runtime']) {
+      expect(Bun.spawnSync(['node', script, '--check', '--command', command, '--dev-md', devMd, '--json']).exitCode).toBe(0)
+    }
   })
 })

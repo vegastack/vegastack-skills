@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/ship-guard.mjs --harness codex" } ] }
+    ],
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/session-start.mjs --harness codex" } ] }
+    ],
+    "Stop": [
+      { "hooks": [
+        { "type": "command", "command": "node .vegastack/hooks/stop-heartbeat.mjs --harness codex" },
+        { "type": "command", "command": "node .vegastack/hooks/decision-nudge.mjs --harness codex" }
+      ] }
+    ]
+  }
+}
