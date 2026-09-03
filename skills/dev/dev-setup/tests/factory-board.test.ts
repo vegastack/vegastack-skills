@@ -17,7 +17,7 @@ function runBlock(script: string, env: Record<string, string>, ghVersion = 'gh v
   const ghLog = join(dir, 'gh.log')
   writeFileSync(
     join(bin, 'gh'),
-    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "${ghVersion}"; exit 0; fi\nif [ -n "\${FAIL_FIRST:-}" ]; then : > "${dir}/failfirst"; fi\nprintf '%s\\n' "$*" >> "${ghLog}"\nif [ -f "${dir}/failfirst" ] && ! grep -q item-add "${ghLog}"; then exit 1; fi\nexit 0\n`,
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "${ghVersion}"; exit 0; fi\nif [ -n "\${FAIL_FIRST:-}" ]; then : > "${dir}/failfirst"; fi\nprintf '%s\\n' "$*" >> "${ghLog}"\nif [ -n "\${FAIL_ALWAYS:-}" ]; then echo "GraphQL: Resource not accessible by integration (updateProjectV2ItemFieldValue)" >&2; exit 1; fi\nif [ -f "${dir}/failfirst" ] && ! grep -q item-add "${ghLog}"; then echo "https://github.com/vegastack/vegafactory/issues/1 is not an item in project 7; add it first with \\\`gh project item-add\\\`" >&2; exit 1; fi\nexit 0\n`,
   )
   chmodSync(join(bin, 'gh'), 0o755)
   const file = join(dir, 'block.sh')
@@ -52,6 +52,15 @@ describe('factory-board template — triggers and permissions', () => {
 
   test('the authoring notes end at the strip marker', () => {
     expect(template.split('\n').indexOf('# ---')).toBeGreaterThan(0)
+  })
+
+  test('runs-on is bound unquoted, so a label array renders as a YAML sequence and not one literal label', () => {
+    // `runs-on: "[self-hosted, x]"` is a string Actions treats as a single label nobody carries,
+    // and the job queues forever — before the resolve step's skips can run.
+    expect(template).toContain('\n    runs-on: {{runs-on}}\n')
+    const rendered = Bun.YAML.parse(template.replaceAll('{{runs-on}}', '[self-hosted, vsk-runners-mac]')) as any
+    expect(rendered.jobs.mirror['runs-on']).toEqual(['self-hosted', 'vsk-runners-mac'])
+    expect((Bun.YAML.parse(template.replaceAll('{{runs-on}}', 'ubuntu-latest')) as any).jobs.mirror['runs-on']).toBe('ubuntu-latest')
   })
 })
 
@@ -117,8 +126,19 @@ describe('factory-board template — token and mirror steps', () => {
   test('both mutation steps are gated on the resolve decision', () => {
     expect(step('token').if).toBe("steps.resolve.outputs.decision == 'sync'")
     expect(step('mirror').if).toBe("steps.resolve.outputs.decision == 'sync'")
-    expect(step('token').uses).toBe('actions/create-github-app-token@v2')
+    expect(step('token').uses).toBe('actions/create-github-app-token@v3')
     expect(step('token').with['private-key']).toBe('${{ secrets.VEGAFACTORY_APP_PRIVATE_KEY }}')
+  })
+
+  test('the minted token is scoped to the one repository the job runs in, never the whole installation', () => {
+    // `owner:` without `repositories:` mints for every repository the installation covers.
+    expect(step('token').with.owner).toBe('${{ github.repository_owner }}')
+    expect(step('token').with.repositories).toBe('${{ github.event.repository.name }}')
+    const reference = readFileSync(join(skillRoot, 'references/github-app.md'), 'utf8')
+    expect(reference).toContain('repositories: ${{ github.event.repository.name }}')
+    // One major for the action, in the recipe and in the workflow that implements it.
+    const docMajor = /actions\/create-github-app-token@(v\d+)/.exec(reference)![1]
+    expect(step('token').uses).toBe(`actions/create-github-app-token@${docMajor}`)
   })
 
   test('the mirror step uses the gh 2.97 name-based field form', () => {
@@ -130,6 +150,21 @@ describe('factory-board template — token and mirror steps', () => {
     expect(r.code).toBe(0)
     expect(r.ghLog.trim().split('\n')).toHaveLength(1)
     expect(r.ghLog).toContain('--field Status --value ready')
+  })
+
+  test('any other item-edit failure is reported as itself: no item-add, no misleading line, exit 1', () => {
+    const r = runBlock(step('mirror').run as string, {
+      BOARD: '7',
+      OWNER: 'vegastack',
+      STATUS: 'ready',
+      ISSUE_URL: 'https://github.com/vegastack/vegafactory/issues/1',
+      FAIL_ALWAYS: '1',
+    })
+    expect(r.code).toBe(1)
+    expect(r.ghLog.trim().split('\n')).toHaveLength(1)
+    expect(r.stdout).not.toContain('not on project')
+    expect(r.stdout).toContain('Resource not accessible by integration')
+    expect(r.stdout).toContain('::error::')
   })
 
   test('an item missing from the board is added, then edited once', () => {

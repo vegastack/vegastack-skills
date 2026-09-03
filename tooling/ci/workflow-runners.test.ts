@@ -13,18 +13,22 @@ const executable = (name: string) =>
     .join('\n')
 
 describe('CI and release run on a reachable self-hosted runner', () => {
-  for (const name of ['ci.yml', 'release.yml']) {
+  for (const name of ['ci.yml', 'release.yml', 'factory-board.yml']) {
     test(`${name} targets the registered laptop runners, never a hosted one`, () => {
       // The Mac mini's org group (#119) is documented in the comment block but is
       // NOT the target: an ungranted or empty runner group queues a job forever
       // with `runner: null`, and `check (node 24)` is a required status check, so
       // pointing at it before the operator's org-admin grant would strand every PR.
+      // Unquoted: a quoted `"[a, b]"` is one literal label, which also queues forever.
       expect(executable(name)).toMatch(/^ {4}runs-on: \[self-hosted, vsk-runners-mac\]$/m)
       expect(executable(name)).not.toMatch(/^\s*runs-on: ubuntu-latest$/m)
       // Scoped to a runner group, not the bare `group:` key: `concurrency:` takes
       // one too, and a future concurrency block must not read as a runner target.
       expect(executable(name)).not.toMatch(/^\s*group: vsk-runners-/m)
     })
+  }
+
+  for (const name of ['ci.yml', 'release.yml']) {
 
     test(`${name} names the pending Mac mini group and its provisioning checklist`, () => {
       const body = read(name)

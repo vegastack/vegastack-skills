@@ -181,6 +181,7 @@ steps:
       app-id: ${{ vars.VEGAFACTORY_APP_ID }}
       private-key: ${{ secrets.VEGAFACTORY_APP_PRIVATE_KEY }}
       owner: ${{ github.repository_owner }}
+      repositories: ${{ github.event.repository.name }}
   - run: gh issue edit "$NUMBER" --add-label ready
     env:
       GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -191,6 +192,7 @@ steps:
 - Its outputs are `token`, `installation-id`, and `app-slug`.
 - The minted installation token **expires after one hour**, and the action revokes it in its post step unless `skip-token-revoke` is set.
 - `permission-<name>` inputs narrow a token further — never wider than the installation already grants.
+- `repositories:` narrows the token to the named repositories. With `owner:` alone the action mints for **every** repository the installation covers — on an org installed "all repositories, current and future", that is the whole org — so a job that touches one repository always names it; `owner:` stays, because it is what resolves the organization installation behind the Projects surface.
 - The job's own `permissions:` block stays `contents: read`, so a push is refused twice over: once by the job's `GITHUB_TOKEN` scope and once by the App's own Contents level.
 
 Rate limits are not a design constraint here. An installation token starts at 5,000 requests per hour, gains 50 per hour for each repository beyond 20 and 50 per hour for each user beyond 20, caps at 12,500, and gets 15,000 on a GitHub Enterprise Cloud organization. A workflow's built-in `GITHUB_TOKEN` gets 1,000 per hour per repository and cannot touch Projects at all, which is why the board mirror needs the App rather than the built-in token.
@@ -231,5 +233,6 @@ Run on a throwaway repository, by the operator, after the App is installed and t
 1. A job that mints a token and runs `gh issue edit --add-label` leaves an event whose actor is `vegafactory[bot]`, not a human.
 2. A `git push` step in that same job, using the minted token, **fails** — the App has no Contents write.
 3. Uninstalling the App makes the mint step of the next run fail closed, and reinstalling makes it pass again.
+4. `gh issue comment` against an issue in a **second** repository of the same org, using the minted token, **fails** — the token is scoped by `repositories:` to the one repository the job runs in, not to the installation.
 
-Check 2 is the one worth being stubborn about. It is the difference between a token that can edit a label and a token that can rewrite the repository.
+Check 2 is the one worth being stubborn about, and check 4 is its twin: level and scope are two different ways a token can be too wide. It is the difference between a token that can edit a label and a token that can rewrite the repository.

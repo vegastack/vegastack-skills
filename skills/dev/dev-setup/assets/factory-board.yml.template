@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   mirror:
-    runs-on: "{{runs-on}}"
+    runs-on: {{runs-on}}
     steps:
       - name: Read the profile
         uses: actions/checkout@v7
@@ -104,11 +104,14 @@ jobs:
       - name: Mint the App token
         id: token
         if: steps.resolve.outputs.decision == 'sync'
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: "${{ vars.VEGAFACTORY_APP_ID }}"
           private-key: "${{ secrets.VEGAFACTORY_APP_PRIVATE_KEY }}"
+          # owner resolves the org installation; repositories narrows the token to this one
+          # repository — without it the token reaches every repository the installation covers.
           owner: "${{ github.repository_owner }}"
+          repositories: "${{ github.event.repository.name }}"
 
       - name: Write Status on the board
         id: mirror
@@ -121,9 +124,18 @@ jobs:
           ISSUE_URL: "${{ github.event.issue.html_url }}"
         run: |
           set -eu
-          if gh project item-edit "$BOARD" --owner "$OWNER" --url "$ISSUE_URL" --field Status --value "$STATUS"; then
+          err=$(mktemp)
+          if gh project item-edit "$BOARD" --owner "$OWNER" --url "$ISSUE_URL" --field Status --value "$STATUS" 2>"$err"; then
             echo "board mirror: Status=$STATUS on project $BOARD"
             exit 0
+          fi
+          cat "$err" >&2
+          # Only the one failure that means "not on the board yet" earns an item-add; gh names
+          # it ("<url> is not an item in project <n>; add it first with `gh project item-add`").
+          # A permission, option or transport error is reported as itself and stops here.
+          if ! grep -q 'is not an item in project' "$err"; then
+            echo "::error::board mirror: item-edit failed for a reason other than a missing item (the message above) - not adding, not retrying"
+            exit 1
           fi
           echo "board mirror: item not on project $BOARD yet - adding it, then retrying once"
           gh project item-add "$BOARD" --owner "$OWNER" --url "$ISSUE_URL"
