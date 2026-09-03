@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { join } from 'node:path'
 import { bannedPlaceholders, lintPlan, parseIndependentGroups } from '../scripts/plan-lint.mjs'
 
 const goodPlan = `<!-- vsk:v1 type=plan rev=1 -->
@@ -106,5 +107,32 @@ describe('independent groups', () => {
   test('a malformed group line is reported, never silently skipped', () => {
     const r = lintPlan(groupPlan.replace('- `docs` — #132 · Files: `README.md`', '- docs: whatever'))
     expect(r.blocks.some((b) => b.includes('independent group line'))).toBe(true)
+  })
+})
+
+describe('--groups output', () => {
+  const script = join(import.meta.dir, '../scripts/plan-lint.mjs')
+  const run = (fixture: string, ...flags: string[]) =>
+    Bun.spawnSync(['node', script, '--file', join(import.meta.dir, 'fixtures', fixture), ...flags])
+
+  test('a clean plan prints its groups and exits 0', () => {
+    const r = run('plan-with-groups.md', '--groups', '--json')
+    expect(r.exitCode).toBe(0)
+    const out = JSON.parse(r.stdout.toString())
+    expect(out.guard).toBe('plan-lint')
+    expect(out.ok).toBe(true)
+    expect(out.groups.map((g: { id: string }) => g.id)).toEqual(['api', 'docs'])
+    expect(out.groups[1].files).toEqual(['README.md'])
+  })
+  test('an overlapping plan prints no groups and exits 2', () => {
+    const r = run('plan-overlapping-groups.md', '--groups', '--json')
+    expect(r.exitCode).toBe(2)
+    const out = JSON.parse(r.stdout.toString())
+    expect(out.groups).toEqual([])
+    expect(out.blocks.some((b: string) => b.includes('overlap'))).toBe(true)
+  })
+  test('without --groups the JSON shape is unchanged', () => {
+    const out = JSON.parse(run('plan-with-groups.md', '--json').stdout.toString())
+    expect(Object.keys(out).sort()).toEqual(['blocks', 'guard', 'ok', 'warns'])
   })
 })

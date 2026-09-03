@@ -137,23 +137,33 @@ const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLT
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const json = argv.includes('--json');
+  const wantGroups = argv.includes('--groups');
   const fileIndex = argv.indexOf('--file');
   let outcome;
+  let text = null;
   if (fileIndex === -1 || !argv[fileIndex + 1]) {
-    outcome = { blocks: ['usage: plan-lint.mjs --file <plan.md> [--json]'], warns: [] };
+    outcome = { blocks: ['usage: plan-lint.mjs --file <plan.md> [--groups] [--json]'], warns: [] };
   } else {
     try {
-      outcome = lintPlan(readFileSync(argv[fileIndex + 1], 'utf8'));
+      text = readFileSync(argv[fileIndex + 1], 'utf8');
+      outcome = lintPlan(text);
     } catch (error) {
       outcome = { blocks: [`cannot read plan: ${error.message}`], warns: [] };
     }
   }
   const ok = outcome.blocks.length === 0;
+  // --groups hands the validated groups to the rest of the family, so exactly one
+  // parser for the grammar exists. Without the flag the shape is untouched:
+  // dev-implement's evidence flow and the dev-plan body both read it.
+  const groups = wantGroups ? (ok && text !== null ? parseIndependentGroups(text) : []) : null;
   if (json) {
-    console.log(JSON.stringify({ guard: 'plan-lint', ok, ...outcome }, null, 2));
+    const payload = { guard: 'plan-lint', ok, ...outcome };
+    if (wantGroups) payload.groups = groups;
+    console.log(JSON.stringify(payload, null, 2));
   } else {
     console.log(`plan-lint: ${ok ? 'pass' : 'BLOCKED'}`);
     for (const b of outcome.blocks) console.log(`  block: ${b}`);
+    if (wantGroups) console.log(`  groups: ${groups.map((g) => g.id).join(', ') || 'none'}`);
   }
   process.exit(ok ? 0 : 2);
 }
