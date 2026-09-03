@@ -104,6 +104,10 @@ describe('independent groups', () => {
     expect(lintPlan(groupPlan.replace('- `docs` — #132', '- `api` — #132')).blocks.some((b) => b.includes('appears twice'))).toBe(true)
     expect(lintPlan(groupPlan.replace('- `docs` — #132', '- `docs` — #131')).blocks.some((b) => b.includes('#131') && b.includes('more than one'))).toBe(true)
   })
+  test('a group naming two children blocks: they would run at once on one file set', () => {
+    const r = lintPlan(groupPlan.replace('- `api` — #131', '- `api` — #131, #133'))
+    expect(r.blocks.some((b) => b.includes('"api"') && b.includes('#131, #133') && b.includes('one child'))).toBe(true)
+  })
   test('a file every child edits blocks, naming the group and the file', () => {
     for (const shared of ['bun.lock', 'packages/cli/packaging.json', '.vegastack/dev.md', 'skills/dev/dev-plan/README.md']) {
       const r = lintPlan(groupPlan.replace('`docs/dispatcher.md`', '`' + shared + '`'))

@@ -66,12 +66,19 @@ const issueNumber = (member) => {
   return match ? Number(match[1]) : null;
 };
 
-// One child per group member, in the order the groups appear in the plan.
+// One child per group, in the order the groups appear in the plan. A group
+// naming two children would run them at the same time on ONE file set, which
+// is the collision the disjoint sets exist to rule out — so it does not plan.
 // Parallel needs two groups that carry members; anything less runs in plan
 // order, and the reason goes in the parent's ledger rather than nowhere.
 export function planParallelRun({ groups, issues, parentBranch, parentHead, repoRoot, parentIssue = null }) {
   const children = [];
   for (const group of groups) {
+    if (group.members.length > 1) {
+      throw new Error('group ' + quoted(group.id) + ' names ' + group.members.join(', ')
+        + ' — they would share one file set, and a parallel group carries one child; '
+        + 'give each its own group and a disjoint set, or run them in plan order');
+    }
     for (const member of group.members) {
       const number = issueNumber(member);
       const issue = number === null ? undefined : issues[number];
@@ -111,12 +118,12 @@ export function planParallelRun({ groups, issues, parentBranch, parentHead, repo
 // One child's whole first turn. It is self-contained on purpose: the child runs
 // in its own checkout with no memory of this session, so the branch, its base
 // commit and its declared file set have to be in the words themselves.
-export function childPrompt(child, { parentIssue, parentBranch }) {
+export function childPrompt(child, { parentIssue, parentBranch, checkout = child.path }) {
   const lines = [
     'You are operating autonomously on issue #' + child.issue + ' (' + child.title + '), '
       + 'one of several children of #' + parentIssue + ' running at the same time. '
       + 'The operator is not watching and cannot answer mid-run.',
-    'Your checkout is ' + child.path + ' and nothing outside it is yours: '
+    'Your checkout is ' + checkout + ' and nothing outside it is yours: '
       + 'create your branch ' + child.branch + ' from ' + child.baseSha
       + ' before your first commit. That sha is the tip of ' + parentBranch
       + ', so your branch fast-forwards back into it.',
@@ -133,7 +140,10 @@ export function childPrompt(child, { parentIssue, parentBranch }) {
 }
 
 // The Claude path: one saved-workflow call by name. The workflow itself has no
-// filesystem access, so everything it needs travels in these args.
+// filesystem access, so everything it needs travels in these args. Its agents
+// run in worktrees the harness creates (isolation: worktree), so the prompt
+// names that checkout rather than a path nothing created.
+export const HARNESS_CHECKOUT = 'the worktree the harness gave you';
 export function claudeWorkflowCall(run, { concurrency, parentIssue = null } = {}) {
   const parent = parentIssue === null || parentIssue === undefined ? run.parentIssue : parentIssue;
   return {
@@ -150,7 +160,7 @@ export function claudeWorkflowCall(run, { concurrency, parentIssue = null } = {}
         branch: child.branch,
         baseSha: child.baseSha,
         files: child.files,
-        prompt: childPrompt(child, { parentIssue: parent, parentBranch: run.parentBranch }),
+        prompt: childPrompt(child, { parentIssue: parent, parentBranch: run.parentBranch, checkout: HARNESS_CHECKOUT }),
       })),
     },
   };
@@ -203,10 +213,28 @@ export function mergeArgs(child, index = 0) {
     : ['merge', '--no-ff', '--no-edit', child.branch];
 }
 
+// A branch a child reports is data from the child, so it is checked as a ref
+// name before it reaches any git argv: no leading dash, no whitespace, no `..`.
+export function isBranchName(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9._/-]+$/.test(value) && !value.startsWith('-') && !value.includes('..');
+}
+
+// The child the join acts on: the plan's child, on the branch its result reports.
+// The planned name is a derivation from the issue title; the reported name is
+// where the work actually is, and the two need not coincide.
+export function joinedChildren(children, results) {
+  return children.map((child) => {
+    const reported = (results ?? {})[child.issue]?.branch;
+    return reported ? { ...child, branch: reported } : child;
+  });
+}
+
 // What the parent does with each child's result, in plan order. A failed child
 // WARNS — the parent continues with the others and hands back — while a child
 // that wrote outside its declared set BLOCKS: the contract the plan declared is
-// the only reason the parallel run was allowed at all.
+// the only reason the parallel run was allowed at all. A done child whose diff
+// is unknown (`changed[issue]` is null) is likewise not merged: its scope is
+// unproved, and an unverifiable state fails closed.
 export function evaluateJoin({ children, results, changed }) {
   const merge = [];
   const stop = [];
@@ -225,7 +253,15 @@ export function evaluateJoin({ children, results, changed }) {
       ledger.push('- Join: ' + label + ' not merged (' + why + ')');
       continue;
     }
-    const wandered = scopeViolations((changed ?? {})[child.issue], child.files);
+    const diff = (changed ?? {})[child.issue];
+    if (diff === null) {
+      const reason = 'its diff could not be read, so its scope cannot be proved';
+      blocks.push('child ' + label + ': ' + reason);
+      stop.push({ issue: child.issue, reason });
+      ledger.push('- Join: ' + label + ' not merged (' + reason + ')');
+      continue;
+    }
+    const wandered = scopeViolations(diff, child.files);
     if (wandered.length > 0) {
       for (const path of wandered) blocks.push('child ' + label + ' touched ' + path + ', outside its declared set');
       const reason = 'touched ' + wandered.join(', ') + ' outside its declared set';
@@ -287,13 +323,16 @@ function loadGroups(source) {
 // Child titles and types decide branch names, so a launch or a join reads them
 // from GitHub — a guessed title is a branch the child never created. `--repo`
 // is what turns that lookup on; without it `plan` previews from the numbers
-// alone and the write verbs refuse, rather than acting on a guess.
-function resolveIssues(numbers, { repo, warns }) {
+// alone. A lookup that fails leaves the placeholder in place and is reported in
+// `guessed`: `plan` previews with a warning, and every other verb blocks, so no
+// write ever acts on a name this script made up.
+function resolveIssues(numbers, { repo }) {
   const issues = {};
+  const guessed = [];
   for (const number of numbers) {
     issues[number] = { number, title: 'issue-' + number, type: 'feat' };
   }
-  if (!repo) return issues;
+  if (!repo) return { issues, guessed };
   for (const number of numbers) {
     try {
       const view = ghJson(['issue', 'view', String(number), '--repo', repo, '--json', 'number,title']);
@@ -305,10 +344,10 @@ function resolveIssues(numbers, { repo, warns }) {
         type: prefix ? prefix[1] : 'feat',
       };
     } catch (error) {
-      warns.push(at('#' + number, 'could not read the issue from ' + repo + ', using the number alone: ' + error.message));
+      guessed.push(at('#' + number, 'could not read the issue from ' + repo + ', so its branch name would be a guess: ' + error.message));
     }
   }
-  return issues;
+  return { issues, guessed };
 }
 
 function parentFacts(repoRoot) {
@@ -352,7 +391,9 @@ function runVerb(verb, flags) {
       if (match) numbers.push(Number(match[1]));
     }
   }
-  const issues = resolveIssues(numbers, { repo: flags.repo, warns });
+  const { issues, guessed } = resolveIssues(numbers, { repo: flags.repo });
+  if (guessed.length > 0 && verb !== 'plan') return { blocks: guessed, warns };
+  warns.push(...guessed);
   const parent = parentFacts(repoRoot);
   const parentHead = flags['parent-head'] || parent.head;
   if (!parentHead) return { blocks: [at(repoRoot, 'cannot read the parent HEAD sha — is this a git checkout?')], warns };
@@ -412,15 +453,23 @@ function runVerb(verb, flags) {
   if (verb === 'join') {
     let results = {};
     if (flags.results) {
+      // The results are what the children returned (the workflow's CHILD_RESULT
+      // per child): the branch each reports is the branch the join diffs and
+      // merges, so a harness-chosen name is found rather than re-derived.
       try {
         const text = flags.results === '-' ? readFileSync(0, 'utf8') : readFileSync(flags.results, 'utf8');
         for (const entry of JSON.parse(text)) results[entry.issue] = entry;
       } catch (error) {
         return { blocks: [at('--results', 'cannot read the child results: ' + error.message)], warns, plan };
       }
+      for (const entry of Object.values(results)) {
+        if (entry.branch !== undefined && entry.branch !== '' && !isBranchName(entry.branch)) {
+          return { blocks: [at('#' + entry.issue, 'reported ' + quoted(String(entry.branch)) + ', which is not a branch name')], warns, plan };
+        }
+      }
     } else {
-      // No results file: a child that produced a branch is treated as done, and
-      // one that produced nothing as failed. The scope check still decides.
+      // No results file: a child that produced its planned branch is treated as
+      // done, and one that produced nothing as failed. The scope check still decides.
       for (const child of run.children) {
         const head = gitRun(repoRoot, ['rev-parse', '--verify', '--quiet', 'refs/heads/' + child.branch]);
         results[child.issue] = head.ok
@@ -428,24 +477,30 @@ function runVerb(verb, flags) {
           : { issue: child.issue, status: 'failed', message: 'no branch ' + child.branch };
       }
     }
+    const children = joinedChildren(run.children, results);
     const changed = {};
-    for (const child of run.children) {
+    for (const child of children) {
       const diff = gitRun(repoRoot, ['diff', '--name-only', child.baseSha + '..' + child.branch]);
-      changed[child.issue] = diff.ok ? diff.out.split('\n').filter(Boolean) : [];
+      // null, not []: an unreadable diff is an unknown scope, and evaluateJoin
+      // refuses to merge on an unknown.
+      changed[child.issue] = diff.ok ? diff.out.split('\n').filter(Boolean) : null;
       if (!diff.ok && results[child.issue]?.status === 'done') {
-        blocks.push(at(child.branch, 'cannot read the child diff, so its scope cannot be proved: ' + diff.out));
+        warns.push(at(child.branch, 'git diff failed: ' + diff.out.split('\n')[0]));
       }
     }
-    const outcome = evaluateJoin({ children: run.children, results, changed });
-    const diffBlocked = blocks.length > 0;
+    const outcome = evaluateJoin({ children, results, changed });
+    // A done child whose scope could not be proved holds every merge, not just its
+    // own: the repo state the join was about to write into is not what it was told.
+    const diffBlocked = children.some((child) => changed[child.issue] === null && results[child.issue]?.status === 'done');
     blocks.push(...outcome.blocks);
     warns.push(...outcome.warns);
     const actions = [];
+    let landed = 0;
     // evaluateJoin has already decided per child. A child that failed or wandered is simply not in
     // `merge`; its siblings still land, because the brief's rule is that the parent continues with
     // the others and hands back — not that one wanderer strands the whole run.
     for (const [index, merged] of outcome.merge.entries()) {
-      const child = run.children.find((c) => c.issue === merged.issue);
+      const child = children.find((c) => c.issue === merged.issue);
       const args = mergeArgs(child, index);
       actions.push(at(run.parentBranch, 'git ' + args.join(' ')));
       if (write && !diffBlocked) {
@@ -457,9 +512,12 @@ function runVerb(verb, flags) {
           blocks.push(at(merged.branch, 'merge failed and was aborted: ' + done.out));
           break;
         }
+        landed += 1;
       }
     }
-    return { blocks, warns, plan, join: outcome, actions, wrote: write && blocks.length === 0 };
+    // `wrote` reports what happened to the parent branch, not whether the run was
+    // clean: a join that landed one child and then blocked on another has written.
+    return { blocks, warns, plan, join: outcome, actions, wrote: landed > 0 };
   }
 
   // remove: the child checkouts only, never a branch, and never a dirty or
@@ -494,9 +552,10 @@ if (invokedDirectly) {
   const { exitCode, text } = renderResult('children', outcome, { json: Boolean(flags.json) });
   if (flags.json) {
     const payload = JSON.parse(text);
-    for (const key of ['plan', 'launch', 'join', 'actions', 'wrote']) {
+    for (const key of ['plan', 'launch', 'join', 'actions']) {
       if (outcome[key] !== undefined) payload[key] = outcome[key];
     }
+    payload.wrote = Boolean(outcome.wrote); // a run that stopped before its verb wrote nothing
     console.log(JSON.stringify(payload, null, 2));
   } else {
     console.log(text);

@@ -20,7 +20,7 @@ describe('readGroupsReport', () => {
 })
 
 describe('planParallelRun', () => {
-  test('two groups plan a parallel run, one child per member, in plan order', () => {
+  test('two groups plan a parallel run, one child per group, in plan order', () => {
     const run = planParallelRun({ ...base, groups })
     expect(run.mode).toBe('parallel')
     expect(run.children.map((c) => c.issue)).toEqual([131, 132])
@@ -118,7 +118,7 @@ describe('the join', () => {
   })
 })
 
-import { existsSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -212,5 +212,166 @@ describe('the join against real git', () => {
     }
     expect(existsSync(join(repo, 'a.txt'))).toBe(true)
     expect(existsSync(join(repo, 'b.txt'))).toBe(true)
+  })
+})
+
+import { chmodSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+
+// A group carrying two children would run them at the same time on ONE file set —
+// the disjointness the whole parallel run rests on. One child per group, or the
+// run does not plan.
+describe('one child per group', () => {
+  test('a group naming two children is refused, not split into two concurrent children', () => {
+    const shared = [
+      { id: 'api', members: ['#131', '#132'], files: ['packages/cli/src/dispatch.ts'] },
+      { id: 'docs', members: ['#133'], files: ['docs/dispatcher.md'] },
+    ]
+    const three = { ...issues, 133: { number: 133, title: 'Docs', type: 'docs' } }
+    expect(() => planParallelRun({ ...base, issues: three, groups: shared })).toThrow(/one child/)
+  })
+})
+
+// The write verbs against real git, driven the way the parent drives them: the
+// script as a process, gh through the VSK_GH seam.
+const script = join(import.meta.dir, '../scripts/children.mjs')
+const sh = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+function parentRepo() {
+  const root = mkdtempSync(join(tmpdir(), 'vsk-children-git-'))
+  sh(root, 'init', '-q', '-b', 'feat/104-factory-runtime')
+  sh(root, 'config', 'user.email', 'test@example.test')
+  sh(root, 'config', 'user.name', 'test')
+  writeFileSync(join(root, 'base.txt'), 'base\n')
+  sh(root, 'add', '-A')
+  sh(root, 'commit', '-qm', 'base')
+  return root
+}
+// gh as the script calls it: `gh issue view <n> --repo <o/r> --json number,title`.
+function ghStub(titles: Record<string, string>) {
+  const dir = mkdtempSync(join(tmpdir(), 'vsk-gh-'))
+  const bin = join(dir, 'gh')
+  const cases = Object.entries(titles)
+    .map(([n, title]) => '  ' + n + ') printf \'%s\' \'' + JSON.stringify({ number: Number(n), title }) + '\';;')
+    .join('\n')
+  writeFileSync(bin, '#!/bin/sh\ncase "$3" in\n' + cases + '\n  *) echo "no such issue" >&2; exit 1;;\nesac\n')
+  chmodSync(bin, 0o755)
+  return bin
+}
+function runCli(root: string, gh: string, ...args: string[]) {
+  const r = Bun.spawnSync([process.execPath, script, ...args, '--repo-root', root, '--json'], {
+    cwd: root, env: { ...process.env, VSK_GH: gh },
+  })
+  return { status: r.exitCode, out: JSON.parse(r.stdout.toString()) }
+}
+const joinGroups = [
+  { id: 'api', members: ['#131'], files: ['packages/cli/src/dispatch.ts'] },
+  { id: 'docs', members: ['#132'], files: ['docs/dispatcher.md'] },
+]
+const titles = { 131: 'feat: Dispatch parent launches', 132: 'docs: README rows' }
+
+describe('a write verb never acts on a guessed branch name', () => {
+  test('launch --write with GitHub unreachable blocks and creates no worktree', () => {
+    const root = parentRepo()
+    const report = join(root, 'groups.json')
+    writeFileSync(report, JSON.stringify({ guard: 'plan-lint', ok: true, groups: joinGroups }))
+    const r = runCli(root, '/nonexistent-vsk-gh', 'launch', '--parent', '104', '--groups', report, '--repo', 'o/r', '--harness', 'codex', '--write')
+    expect(r.status).toBe(2)
+    expect(r.out.blocks.join(' ')).toContain('#131')
+    expect(r.out.wrote).toBe(false)
+    expect(existsSync(join(root, '.vegastack/.worktrees'))).toBe(false)
+    expect(sh(root, 'branch', '--list', 'feat/131-*')).toBe('')
+  })
+  test('plan --repo with GitHub unreachable still previews, with a warning', () => {
+    const root = parentRepo()
+    const report = join(root, 'groups.json')
+    writeFileSync(report, JSON.stringify({ guard: 'plan-lint', ok: true, groups: joinGroups }))
+    const r = runCli(root, '/nonexistent-vsk-gh', 'plan', '--parent', '104', '--groups', report, '--repo', 'o/r')
+    expect(r.status).toBe(1)
+    expect(r.out.plan.children.map((c: { issue: number }) => c.issue)).toEqual([131, 132])
+  })
+})
+
+describe('the join verb against real git', () => {
+  // Two children cut from the parent HEAD. #131 lands on the branch its harness
+  // chose, not the planned name, and says so in its result; #132 wanders.
+  function twoChildren(root: string) {
+    const baseSha = sh(root, 'rev-parse', 'HEAD')
+    const commit = (branch: string, files: Record<string, string>) => {
+      sh(root, 'switch', '-q', '-c', branch, baseSha)
+      for (const [file, text] of Object.entries(files)) {
+        mkdirSync(join(root, file, '..'), { recursive: true })
+        writeFileSync(join(root, file), text)
+      }
+      sh(root, 'add', '-A')
+      sh(root, 'commit', '-qm', branch)
+      const head = sh(root, 'rev-parse', 'HEAD')
+      sh(root, 'switch', '-q', 'feat/104-factory-runtime')
+      return head
+    }
+    const a = commit('agent/131-dispatch', { 'packages/cli/src/dispatch.ts': 'a\n' })
+    const b = commit('docs/132-readme-rows', { 'docs/dispatcher.md': 'b\n', 'packages/cli/src/index.ts': 'wandered\n' })
+    const report = join(root, 'groups.json')
+    writeFileSync(report, JSON.stringify({ guard: 'plan-lint', ok: true, groups: joinGroups }))
+    return { report, a, b }
+  }
+  const results = (root: string, entries: object[]) => {
+    const file = join(root, 'results.json')
+    writeFileSync(file, JSON.stringify(entries))
+    return file
+  }
+
+  test('the branch each child reports is the one diffed and merged; a wanderer blocks without stranding its sibling', () => {
+    const root = parentRepo()
+    const { report, a, b } = twoChildren(root)
+    const file = results(root, [
+      { issue: 131, status: 'done', branch: 'agent/131-dispatch', head: a, files: ['packages/cli/src/dispatch.ts'], message: 'built' },
+      { issue: 132, status: 'done', branch: 'docs/132-readme-rows', head: b, files: ['docs/dispatcher.md', 'packages/cli/src/index.ts'], message: 'built' },
+    ])
+    const r = runCli(root, ghStub(titles), 'join', '--parent', '104', '--groups', report, '--repo', 'o/r', '--results', file, '--write')
+    expect(r.status).toBe(2)
+    expect(r.out.blocks.join(' ')).toContain('#132')
+    expect(r.out.blocks.join(' ')).toContain('outside its declared set')
+    expect(r.out.join.merge).toEqual([{ issue: 131, branch: 'agent/131-dispatch' }])
+    expect(existsSync(join(root, 'packages/cli/src/dispatch.ts'))).toBe(true)
+    expect(existsSync(join(root, 'docs/dispatcher.md'))).toBe(false)
+    expect(sh(root, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe('feat/104-factory-runtime')
+    // A merge landed, so the run says it wrote — even though a sibling blocked.
+    expect(r.out.wrote).toBe(true)
+    expect(r.out.join.ledger).toContain('- Join: #131 merged ' + a.slice(0, 7))
+  })
+  test('a child whose diff cannot be read is not merged, is not written up as merged, and holds every merge', () => {
+    const root = parentRepo()
+    const { report, b } = twoChildren(root)
+    const file = results(root, [
+      { issue: 131, status: 'done', branch: 'agent/131-vanished', head: 'f00ba12', files: [], message: 'built' },
+      { issue: 132, status: 'done', branch: 'docs/132-readme-rows', head: b, files: ['docs/dispatcher.md'], message: 'built' },
+    ])
+    const r = runCli(root, ghStub(titles), 'join', '--parent', '104', '--groups', report, '--repo', 'o/r', '--results', file, '--write')
+    expect(r.status).toBe(2)
+    expect(r.out.blocks.join(' ')).toContain('scope cannot be proved')
+    expect(r.out.join.merge.map((m: { issue: number }) => m.issue)).not.toContain(131)
+    expect(r.out.join.ledger.some((line: string) => line.startsWith('- Join: #131 merged'))).toBe(false)
+    expect(r.out.wrote).toBe(false)
+    expect(existsSync(join(root, 'docs/dispatcher.md'))).toBe(false)
+  })
+  test('a reported branch that is not a branch name is refused before any git call', () => {
+    const root = parentRepo()
+    const { report, b } = twoChildren(root)
+    const file = results(root, [
+      { issue: 131, status: 'done', branch: '--squash', head: 'f00ba12', files: [], message: 'built' },
+      { issue: 132, status: 'done', branch: 'docs/132-readme-rows', head: b, files: ['docs/dispatcher.md'], message: 'built' },
+    ])
+    const r = runCli(root, ghStub(titles), 'join', '--parent', '104', '--groups', report, '--repo', 'o/r', '--results', file, '--write')
+    expect(r.status).toBe(2)
+    expect(r.out.blocks.join(' ')).toContain('not a branch name')
+    expect(r.out.wrote).toBe(false)
+  })
+  test('join --write with GitHub unreachable blocks and merges nothing', () => {
+    const root = parentRepo()
+    const { report } = twoChildren(root)
+    const r = runCli(root, '/nonexistent-vsk-gh', 'join', '--parent', '104', '--groups', report, '--repo', 'o/r', '--write')
+    expect(r.status).toBe(2)
+    expect(r.out.wrote).toBe(false)
+    expect(existsSync(join(root, 'packages/cli/src/dispatch.ts'))).toBe(false)
   })
 })

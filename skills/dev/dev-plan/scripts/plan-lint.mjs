@@ -141,6 +141,12 @@ export function lintPlan(text) {
     for (const file of group.files.filter(sharedByEveryChild)) {
       blocks.push(`independent group "${group.id}" declares ${file}, which nearly every change edits — these children run in sequence`);
     }
+    // A group is one child at a time: two issues in one group would run at once on
+    // one file set, the exact collision the disjoint sets rule out.
+    const children = group.members.filter((member) => /^#\d+$/.test(member));
+    if (children.length > 1) {
+      blocks.push(`independent group "${group.id}" names ${children.join(', ')} — they would share one file set, and a parallel group carries one child; give each its own group and a disjoint set, or run them in plan order`);
+    }
     for (const member of group.members) {
       if (seenMembers.has(member) && seenMembers.get(member) !== group.id) {
         blocks.push(`independent group member "${member}" appears in more than one group`);
