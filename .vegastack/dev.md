@@ -42,6 +42,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 - auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/vegafactory <version>` on a `chore/release-<version>` branch → open its PR — the install is there to carry dependency changes; main is branch-protected with no admin exemption, so the bump lands by merge and never by direct push
 - ask: merge the release PR — the version bump is the last reviewable moment before the tag publishes, so it takes the operator's word of its own, not the release word
+- guard: both packages carry the tag version — `V=$(node -p "require('./packages/cli/package.json').version"); test "$V" = "$(node -p "require('./packages/dashboard/package.json').version")"` — `vegafactory dashboard` fetches `@vegastack/vegafactory-dashboard` at the CLI's own version, so a mismatch ships a verb whose first-use fetch resolves nothing
 - guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
 - guard: the published bundle carries no unsuppressed HIGH/CRITICAL skill finding — `bun run build && node skills/skills-tooling/skill-scan/scripts/skill-scan.mjs --json` — runs here because the tag push below is what publishes, and the bundle is what the world installs; a failure stops the sequence and goes to the operator
 - auto: pull main, then tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` on the merged bump commit — covered by the operator's release word (release: on-request); tags are not branch-protected, so this push still works; deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
@@ -78,7 +79,7 @@ Pause for the operator only when the work genuinely requires them: a destructive
 
 ## Project rules
 
-- Every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet in Ship); contributors never bump versions
+- Every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet in Ship); contributors never bump versions, and every changeset names both `@vegastack/vegafactory` and `@vegastack/vegafactory-dashboard` so the two stay on one version and the first-use fetch always resolves
 - The single version lives in `packages/cli/package.json` (changesets-managed); the workspace root package.json is pinned at `0.0.0` — a placeholder `npm sbom` requires (purls need a version), never bumped, never a release identity; neither is the version `bun.lock` records for the workspace, which does not follow a version bump and is never hand-edited (mechanics: skill-maintainer's release-ops.md)
 - Every skill change goes through skillify's contract (8-item checklist, eval before tests)
 - A repo-wide prose or format sweep must include `assets/*.template`: dev-setup's profile template and dev-review's known-patterns template carry normative format strings that a `--include="*.md"` grep silently misses
