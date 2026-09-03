@@ -8,9 +8,13 @@ import { createWorktree, pruneWorktrees, removeWorktree } from '../scripts/workt
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' })
 const devMd = 'commands: check `true`\nworktree-include: none\nworktree-retention: 14d\n'
 
-function repoWithRemote() {
+function bareRemote() {
   const remote = mkdtempSync(join(tmpdir(), 'vf-remote-'))
   git(remote, 'init', '--bare', '-b', 'main')
+  return remote
+}
+
+function repoWithRemote(remote = bareRemote()) {
   const root = mkdtempSync(join(tmpdir(), 'vf-root-'))
   git(root, 'init', '-b', 'main')
   git(root, 'config', 'user.email', 'a@b.c')
@@ -21,6 +25,29 @@ function repoWithRemote() {
   git(root, 'remote', 'add', 'origin', remote)
   git(root, 'push', '-u', 'origin', 'main')
   return root
+}
+
+// A second clone stands in for GitHub: the merge lands there and reaches the
+// remote, and the first checkout's origin/main is stale until it fetches.
+function cloneOf(remote: string) {
+  const dir = mkdtempSync(join(tmpdir(), 'vf-clone-'))
+  git(dir, 'clone', '-q', remote, '.')
+  git(dir, 'config', 'user.email', 'a@b.c')
+  git(dir, 'config', 'user.name', 'a')
+  return dir
+}
+
+// A worktree for #106 carrying two pushed commits, so a merge has something to rewrite.
+function pushedFeature(root: string) {
+  const wt = createWorktree({ repoRoot: root, issue: 106, slug: 'x', type: 'feat', base: 'main', devMd, home: root, write: true })
+  writeFileSync(join(wt.path, 'one.txt'), 'one\n')
+  git(wt.path, 'add', '.')
+  git(wt.path, 'commit', '-qm', 'one')
+  writeFileSync(join(wt.path, 'two.txt'), 'two\n')
+  git(wt.path, 'add', '.')
+  git(wt.path, 'commit', '-qm', 'two')
+  git(wt.path, 'push', '-q', '-u', 'origin', 'feat/106-x')
+  return wt
 }
 
 describe('removeWorktree', () => {
@@ -49,6 +76,72 @@ describe('removeWorktree', () => {
     expect(after.blocks).toEqual([])
     expect(git(root, 'worktree', 'list')).not.toContain('106-x')
     expect(git(root, 'branch', '--list', 'feat/106-x').trim()).toContain('feat/106-x')
+  })
+  test('a pushed branch with commits nobody merged blocks without --force', () => {
+    const root = repoWithRemote()
+    const wt = pushedFeature(root)
+    const r = removeWorktree({ repoRoot: root, name: '106-x', base: 'main', force: false, push: false, write: true })
+    expect(r.blocks.some((b: string) => b.includes('not merged into the default branch'))).toBe(true)
+    expect(existsSync(wt.path)).toBe(true)
+  })
+  test('a merge-commit merge that landed only on the remote is seen: remove fetches before it judges', () => {
+    const remote = bareRemote()
+    const root = repoWithRemote(remote)
+    const wt = pushedFeature(root)
+    const other = cloneOf(remote)
+    git(other, 'merge', '-q', '--no-ff', '-m', 'merge', 'origin/feat/106-x')
+    git(other, 'push', '-q', 'origin', 'main')
+    const r = removeWorktree({ repoRoot: root, name: '106-x', base: 'main', force: false, push: false, write: true })
+    expect(r.blocks).toEqual([])
+    expect(r.state).toBe('merged')
+    expect(existsSync(wt.path)).toBe(false)
+    expect(git(root, 'branch', '--list', 'feat/106-x').trim()).toContain('feat/106-x')
+  })
+  test('a squash merge counts as merged — the whole diff is already on the default branch', () => {
+    const remote = bareRemote()
+    const root = repoWithRemote(remote)
+    const wt = pushedFeature(root)
+    const other = cloneOf(remote)
+    writeFileSync(join(other, 'moved.txt'), 'main moved on\n')
+    git(other, 'add', '.')
+    git(other, 'commit', '-qm', 'main moved')
+    git(other, 'merge', '-q', '--squash', 'origin/feat/106-x')
+    git(other, 'commit', '-qm', 'feat: x (#106)')
+    git(other, 'push', '-q', 'origin', 'main')
+    const r = removeWorktree({ repoRoot: root, name: '106-x', base: 'main', force: false, push: false, write: true })
+    expect(r.blocks).toEqual([])
+    expect(r.state).toBe('merged')
+    expect(existsSync(wt.path)).toBe(false)
+  })
+  test('a rebase merge counts as merged — every commit is already on the default branch by patch', () => {
+    const remote = bareRemote()
+    const root = repoWithRemote(remote)
+    const wt = pushedFeature(root)
+    const other = cloneOf(remote)
+    writeFileSync(join(other, 'moved.txt'), 'main moved on\n')
+    git(other, 'add', '.')
+    git(other, 'commit', '-qm', 'main moved')
+    git(other, 'switch', '-qc', 'rb', 'origin/feat/106-x')
+    git(other, 'rebase', '-q', 'main')
+    git(other, 'switch', '-q', 'main')
+    git(other, 'merge', '-q', '--ff-only', 'rb')
+    git(other, 'push', '-q', 'origin', 'main')
+    expect(() => git(root, 'merge-base', '--is-ancestor', 'feat/106-x', 'origin/main')).toThrow()
+    const r = removeWorktree({ repoRoot: root, name: '106-x', base: 'main', force: false, push: false, write: true })
+    expect(r.blocks).toEqual([])
+    expect(r.state).toBe('merged')
+    expect(existsSync(wt.path)).toBe(false)
+  })
+  test('a branch that only shares some commits with the default branch stays unmerged', () => {
+    const remote = bareRemote()
+    const root = repoWithRemote(remote)
+    const wt = pushedFeature(root)
+    const other = cloneOf(remote)
+    git(other, 'cherry-pick', 'origin/feat/106-x~1')
+    git(other, 'push', '-q', 'origin', 'main')
+    const r = removeWorktree({ repoRoot: root, name: '106-x', base: 'main', force: false, push: false, write: true })
+    expect(r.blocks.some((b: string) => b.includes('not merged into the default branch'))).toBe(true)
+    expect(existsSync(wt.path)).toBe(true)
   })
 })
 
@@ -88,6 +181,28 @@ describe('pruneWorktrees', () => {
     // The push happened, and the branch itself outlived the prune.
     expect(git(root, 'rev-parse', '--verify', 'refs/remotes/origin/feat/106-old').trim()).toMatch(/^[0-9a-f]{40}$/)
     expect(git(root, 'branch', '--list', 'feat/106-old').trim()).toContain('feat/106-old')
+  })
+
+  test('a parked worktree with pushed, unmerged commits is removed past retention and its branch survives', () => {
+    const root = repoWithRemote()
+    const wt = pushedFeature(root)
+    const now = Date.parse('2026-10-01T00:00:00Z')
+    const dry = pruneWorktrees({
+      repoRoot: root, base: 'main', olderThan: '14d', devMd,
+      ledgerTimes: { '106-x': '2026-09-01T00:00:00Z' }, now, write: false,
+    })
+    const candidate = dry.candidates.find((c: { name: string }) => c.name === '106-x')
+    expect(candidate?.state).toBe('parked')
+    expect(candidate?.removable).toBe(true)
+    expect(existsSync(wt.path)).toBe(true)
+    const wet = pruneWorktrees({
+      repoRoot: root, base: 'main', olderThan: '14d', devMd,
+      ledgerTimes: { '106-x': '2026-09-01T00:00:00Z' }, now, write: true,
+    })
+    expect(wet.candidates.find((c: { name: string }) => c.name === '106-x')?.removable).toBe(true)
+    expect(existsSync(wt.path)).toBe(false)
+    expect(git(root, 'branch', '--list', 'feat/106-x').trim()).toContain('feat/106-x')
+    expect(git(root, 'rev-parse', '--verify', 'refs/remotes/origin/feat/106-x').trim()).toMatch(/^[0-9a-f]{40}$/)
   })
 
   test('a worktree with uncommitted work is never pruned, however old', () => {

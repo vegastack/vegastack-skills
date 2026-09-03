@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { codexTrustToml, createWorktree, restoreWorktree } from '../scripts/worktree.mjs'
@@ -80,6 +80,55 @@ describe('restoreWorktree', () => {
     const root = repo()
     const r = restoreWorktree({ repoRoot: root, issue: 999, slug: 'nope', type: 'feat', base: 'main', devMd, home: root, write: true })
     expect(r.blocks[0]).toContain('no branch')
+  })
+})
+
+// The script as the CLI and dev-implement drive it: `create --issue <n>` with
+// no --slug names the worktree from the issue title, `restore --issue <n>`
+// from the branch that already exists.
+describe('worktree.mjs create and restore by issue number', () => {
+  const script = join(import.meta.dir, '..', 'scripts', 'worktree.mjs')
+  const run = (root: string, gh: string, ...args: string[]) => {
+    const devMdPath = join(root, 'dev.md')
+    writeFileSync(devMdPath, 'repo: o/r · default branch main\ncommands: check `true`\nworktree-include: none\n')
+    const result = Bun.spawnSync([process.execPath, script, ...args, '--json', '--repo-root', root, '--dev-md', devMdPath, '--home', root], {
+      cwd: root, env: { ...process.env, VSK_GH: gh },
+    })
+    return { status: result.exitCode, out: JSON.parse(result.stdout.toString()) }
+  }
+  const ghStub = (title: string) => {
+    const dir = mkdtempSync(join(tmpdir(), 'vf-gh-'))
+    const bin = join(dir, 'gh')
+    writeFileSync(bin, '#!/bin/sh\nprintf \'%s\' \'' + JSON.stringify({ title }) + '\'\n')
+    chmodSync(bin, 0o755)
+    return bin
+  }
+
+  test('create names the branch and directory from the issue title, prefix as the type', () => {
+    const root = repo()
+    const created = run(root, ghStub('fix: One feature, ONE worktree!'), 'create', '--issue', '106', '--write')
+    expect(created.out.blocks).toEqual([])
+    expect(created.status).toBeLessThan(2)
+    expect(created.out.branch).toBe('fix/106-one-feature-one-worktree')
+    expect(created.out.path).toBe(join(root, '.vegastack/.worktrees/106-one-feature-one-worktree'))
+    expect(git(created.out.path, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('fix/106-one-feature-one-worktree')
+  })
+  test('restore finds the branch by issue number and needs neither a slug nor GitHub', () => {
+    const root = repo()
+    const created = run(root, ghStub('feat: Restore me'), 'create', '--issue', '106', '--write')
+    git(root, 'worktree', 'remove', '--force', created.out.path)
+    const restored = run(root, '/nonexistent-vsk-gh', 'restore', '--issue', '106', '--write')
+    expect(restored.out.blocks).toEqual([])
+    expect(restored.status).toBeLessThan(2)
+    expect(restored.out.path).toBe(created.out.path)
+    expect(git(restored.out.path, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('feat/106-restore-me')
+  })
+  test('create without a slug and without GitHub blocks and names --slug as the way through', () => {
+    const root = repo()
+    const r = run(root, '/nonexistent-vsk-gh', 'create', '--issue', '106', '--write')
+    expect(r.status).toBe(2)
+    expect(r.out.blocks[0]).toContain('--slug')
+    expect(existsSync(join(root, '.vegastack/.worktrees'))).toBe(false)
   })
 })
 

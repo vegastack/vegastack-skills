@@ -6,11 +6,11 @@ The main checkout never leaves the default branch and never carries uncommitted 
 
 | Scenario | What happens |
 |---|---|
-| New issue, no parent | `worktree.mjs create --issue <n> --slug <slug> --type <type> --write` — fetches `origin/<default>`, `git worktree add` on a new branch, copies dev.md's `worktree-include:` files, runs `commands: setup`, adds the Codex trust entry. The ledger's first line records the path. |
+| New issue, no parent | `worktree.mjs create --issue <n> --write` — the slug and type come off the issue title (`<type>:` prefix, the rest slugified; `--slug`/`--type` override, and GitHub being unreachable blocks rather than guesses) — fetches `origin/<default>`, `git worktree add` on a new branch, copies dev.md's `worktree-include:` files, runs `commands: setup`, adds the Codex trust entry. The ledger's first line records the path. |
 | Epic parent | Branch `<type>/<parent-n>-<slug>`, one worktree, created when the **first child** is claimed. The parent never gets `ready`. |
 | Sub-issue of an epic | `create --parent <parent-branch>`: `git switch -c` from the parent branch **inside the parent's worktree**. One child at a time; children are sequential (parallel children are #115). |
 | Resume | Same branch, same worktree, reused. The resume read-order — brief → plan → ledger → `git log` — runs *there*, and the ledger names which "there" that is. |
-| Corrections / reclaim | Reuse the worktree. Directory gone but branch alive → `restore --issue <n> --slug <slug> --write`, which re-adds the checkout and re-runs include-copy, setup and trust. `restore` never creates a branch: a missing branch means the work is elsewhere. |
+| Corrections / reclaim | Reuse the worktree. Directory gone but branch alive → `restore --issue <n> --write`, which finds the branch carrying the number (`--slug` picks one when several do), re-adds the checkout and re-runs include-copy, setup and trust. `restore` never creates a branch: a missing branch means the work is elsewhere. |
 | Ship, PR | `ship-gate.mjs` resolves the branch's worktree itself (`--worktree <path>` overrides) and runs its git calls, its dev.md read and the fresh check command there, so the checkout test passes by construction. |
 | Ship, merge | After the merge: `worktree.mjs remove --issue <n> --write`. That removes the **directory only** — deleting the local branch and the remote branch are separate operator words. A parent's worktree goes only when the parent PR merges. |
 | Rebase onto the default branch | Done inside the worktree; re-verify whatever the rebase touched. |
@@ -29,7 +29,7 @@ Derived from git plus GitHub on every read, never stored — a second source of 
 | `orphan-dir` | The directory exists, its branch does not. |
 | `branch-only` | The branch exists, its directory does not — what `restore` fixes. |
 | `active` | A session holds it: `git worktree lock`, or the dispatcher's lock. |
-| `merged` | The branch is on the remote **and** an ancestor of `origin/<default>`. A never-pushed branch cannot have merged: the default branch is reached through a PR. |
+| `merged` | The branch is on the remote **and** on `origin/<default>` — by ancestry, or by content when a squash or rebase merge rewrote the commits: its whole diff against the merge base, or every one of its commits, has a patch-id already there. A never-pushed branch cannot have merged: the default branch is reached through a PR. |
 | `abandoned` | The issue is closed and the branch never merged. |
 | `parked` | The residue: issue open, no session. |
 
@@ -37,12 +37,12 @@ Derived from git plus GitHub on every read, never stored — a second source of 
 
 1. `git status --porcelain` is empty.
 2. `git rev-list <remote>/<branch>..<branch>` is empty, and the remote branch exists. Missing or behind → push first, then re-check (`--push` does exactly that).
-3. Merged into `origin/<default>`, **or** `--force` with the operator's word.
+3. Merged into `origin/<default>` — `remove` and `prune` fetch it first, because the merge lands on the server — **or** `--force` with the operator's word.
 4. Not locked.
 
 `--force` lifts only rule 3. Uncommitted, unpushed and locked are never lifted — those are the three ways real work disappears. Failing any rule keeps the worktree and reports which rule failed.
 
-**Retention.** `worktree-retention:` (default `14d`) measured from the **later** of the last commit and the last ledger edit. `prune` proposes only `parked` worktrees past the window and is dry-run until `--write`. On `--write` it pushes an unpushed candidate's branch first — that half protects the work and happens whatever else is wrong — then re-runs the safe-to-remove test, so a candidate that is still unmerged, dirty or locked keeps its worktree and says why. The branch always survives; branch deletion and `--force` take the operator's word.
+**Retention.** `worktree-retention:` (default `14d`) measured from the **later** of the last commit and the last ledger edit. `prune` proposes only `parked` worktrees past the window and is dry-run until `--write`. On `--write` it pushes an unpushed candidate's branch first — that half protects the work and happens whatever else is wrong — then re-runs the safe-to-remove test with the window standing in for rule 3 (parked means unmerged, and the pushed branch plus `restore` bring the checkout back), so a candidate that is still dirty, unpushed or locked keeps its worktree and says why. The branch always survives; branch deletion and `--force` on `remove` take the operator's word.
 
 ## Harness facts that bear on a worktree run
 

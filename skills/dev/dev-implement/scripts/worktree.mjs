@@ -64,6 +64,31 @@ export function branchName(type, issue, slug) {
   return type + '/' + worktreeName(issue, slug);
 }
 
+// The branch type and slug an issue title carries: a `<type>:` prefix from the
+// branch: knob's list is the type, the rest is the slug. The dispatcher
+// predicts a run's worktree the same way, so a title names one path.
+const BRANCH_TYPES = ['feat', 'fix', 'docs', 'chore', 'refactor'];
+
+export function titleParts(title) {
+  const [prefix, ...rest] = String(title ?? '').split(':');
+  const hasType = rest.length > 0 && BRANCH_TYPES.includes(prefix.trim());
+  return { type: hasType ? prefix.trim() : null, slug: slugify(hasType ? rest.join(':') : title) };
+}
+
+// The type and slug of the one local branch named for an issue — what restore
+// needs when no --slug is given, read from git rather than GitHub because the
+// branch is the fact restore acts on. Several matches need --slug to pick one.
+export function branchPartsForIssue(repoRoot, issue) {
+  const listed = git(repoRoot, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/']);
+  if (!listed.ok) return { error: 'cannot list branches: ' + listed.out };
+  const lead = String(issue) + '-';
+  const matches = listed.out.split('\n').filter((name) => name.slice(name.indexOf('/') + 1).startsWith(lead) && name.includes('/'));
+  if (matches.length === 0) return { error: 'no branch for #' + issue + ' — nothing to restore; create it instead' };
+  if (matches.length > 1) return { error: 'several branches match #' + issue + ' (' + matches.join(', ') + ') — pass --slug and --type' };
+  const slash = matches[0].indexOf('/');
+  return { type: matches[0].slice(0, slash), slug: matches[0].slice(slash + 1 + lead.length) };
+}
+
 // A child worktree of a parent branch. Correctness never rests on a harness
 // setting: the child branches from the parent's HEAD *sha*, spelled out, so a
 // parallel run that moves the parent branch cannot move the child's base under
@@ -230,10 +255,13 @@ export function isPastRetention({ lastCommitAt, ledgerUpdatedAt, now, retentionM
 // Every git call goes through execFileSync with an explicit argv: no shell, no
 // interpolation, and a failure surfaces as { ok: false, out } for the caller
 // to turn into a block or a warn rather than an unhandled throw.
-export function git(cwd, args) {
+// `input` feeds stdin (the patch-id calls below); `raw` keeps the output
+// untrimmed, because a diff's last line may be a lone space that a trim would
+// eat and a patch-id would then miss.
+export function git(cwd, args, { input, raw = false } = {}) {
   try {
-    const out = execFileSync('git', args, { cwd, encoding: 'utf8', stdio: [DISCARD, 'pipe', 'pipe'] });
-    return { ok: true, out: out.trim() };
+    const out = execFileSync('git', args, { cwd, encoding: 'utf8', input, stdio: [input === undefined ? DISCARD : 'pipe', 'pipe', 'pipe'] });
+    return { ok: true, out: raw ? out : out.trim() };
   } catch (error) {
     const stderr = error.stderr?.toString().trim() || error.message;
     return { ok: false, out: stderr };
@@ -515,8 +543,49 @@ function gatherRemovalFacts({ repoRoot, path, branch, base, remote, locked }) {
   // reached through a PR, so "ancestor of the default branch" alone would call a
   // brand-new branch cut from origin/main 'merged' and prune it on day one.
   const isAncestor = git(repoRoot, ['merge-base', '--is-ancestor', branch, baseRef]).ok;
-  const mergedIntoDefault = !remoteMissing && isAncestor;
+  const mergedIntoDefault = !remoteMissing && (isAncestor || mergedByContent(repoRoot, branch, baseRef));
   return { dirty, unpushed, remoteMissing, mergedIntoDefault, locked };
+}
+
+// Squash and rebase merges rewrite the commits, so by ancestry a merged branch
+// stays unmerged forever — and both are ordinary `merge:` knob values. Content
+// is the second test: the branch counts as merged when its whole diff against
+// the merge base (a squash) or every one of its commits (a rebase) carries a
+// patch-id already on the default branch. A merge whose conflicts were resolved
+// by hand changes the patch and stays unmerged here; --force remains the word.
+const PATCH_LOG = ['log', '-p', '--no-color', '--no-ext-diff', '--format=commit %H'];
+
+function patchIds(repoRoot, text) {
+  if (!text) return [];
+  const ids = git(repoRoot, ['patch-id', '--stable'], { input: text });
+  if (!ids.ok) return [];
+  return ids.out.split('\n').map((line) => line.split(' ')[0]).filter(Boolean);
+}
+
+export function mergedByContent(repoRoot, branch, baseRef) {
+  const mergeBase = git(repoRoot, ['merge-base', branch, baseRef]);
+  if (!mergeBase.ok || !mergeBase.out) return false;
+  const landed = git(repoRoot, [...PATCH_LOG, mergeBase.out + '..' + baseRef], { raw: true });
+  if (!landed.ok) return false;
+  const known = new Set(patchIds(repoRoot, landed.out));
+  if (known.size === 0) return false;
+  const squashed = git(repoRoot, ['diff', '--no-color', '--no-ext-diff', mergeBase.out, branch], { raw: true });
+  if (squashed.ok && patchIds(repoRoot, squashed.out).some((id) => known.has(id))) return true;
+  const own = git(repoRoot, [...PATCH_LOG, mergeBase.out + '..' + branch], { raw: true });
+  if (!own.ok) return false;
+  const ownIds = patchIds(repoRoot, own.out);
+  return ownIds.length > 0 && ownIds.every((id) => known.has(id));
+}
+
+// The merge lands on the server, so the local origin/<base> is only as fresh as
+// the last fetch and a stale one calls every merge unmerged. A fetch touches
+// nothing but remote-tracking refs, so it runs on a dry run too; a failure
+// warns, and the stale refs then judge — fail closed, never open.
+function refreshBase({ repoRoot, base, remote, actions, warns }) {
+  if (!hasRemote(repoRoot, remote)) return;
+  actions.push(at(remote, 'git fetch ' + remote + ' ' + base));
+  const fetched = git(repoRoot, ['fetch', remote, base]);
+  if (!fetched.ok) warns.push(at(remote, 'fetch of ' + base + ' failed, judging against the last-fetched ref: ' + fetched.out));
 }
 
 // Remove one worktree directory — and only the directory. The local branch and
@@ -536,6 +605,7 @@ export function removeWorktree({ repoRoot, name, base, force = false, push = fal
   if (!entry) return { blocks: [at(name, 'no worktree at ' + path + ' — nothing to remove')], warns, actions };
 
   const branch = entry.branch;
+  refreshBase({ repoRoot, base, remote, actions, warns });
   let facts = gatherRemovalFacts({ repoRoot, path, branch, base, remote, locked: entry.locked });
   if (push && branch && (facts.remoteMissing || facts.unpushed)) {
     actions.push(at(branch, 'git push -u ' + remote + ' ' + branch + ' before removing'));
@@ -584,12 +654,17 @@ export function inventory(repoRoot) {
 // worktrees whose branch and ledger have both gone quiet past the window. It
 // pushes an unpushed candidate first so nothing local-only is ever discarded,
 // then re-runs the same safe-to-remove test every other caller uses. Nothing
-// but a `parked` worktree is ever a candidate.
+// but a `parked` worktree is ever a candidate — and parked means unmerged, so
+// here the retention window is what lifts the not-merged rule: the pushed
+// branch keeps the work and `restore` brings the directory back. Uncommitted,
+// unpushed and locked still keep it.
 export function pruneWorktrees({ repoRoot, base, olderThan, devMd, ledgerTimes = {}, now = Date.now(), write = false, remote = 'origin' }) {
   const blocks = [];
   const warns = [];
+  const actions = [];
   const retentionMs = parseDuration(olderThan) ?? parseRetentionKnob(devMd);
   const candidates = [];
+  refreshBase({ repoRoot, base, remote, actions, warns });
   for (const entry of inventory(repoRoot)) {
     const branch = entry.branch;
     const lastCommitAt = branch ? (git(repoRoot, ['log', '-1', '--format=%cI', branch]).out || null) : null;
@@ -606,7 +681,7 @@ export function pruneWorktrees({ repoRoot, base, olderThan, devMd, ledgerTimes =
     const ageDays = stamps.length === 0 ? 0 : Math.floor((now - Math.max(...stamps)) / DAY_MS);
     if (state !== 'parked') continue;
     if (!isPastRetention({ lastCommitAt, ledgerUpdatedAt, now, retentionMs })) continue;
-    const verdict = evaluateRemoval({ state, ...facts, locked: entry.locked, force: false });
+    const verdict = evaluateRemoval({ state, ...facts, locked: entry.locked, force: true });
     // "Prune pushes then removes, and never automatically for anything with
     // unpushed work": the push half protects the work and happens on --write
     // whatever else is wrong; the remove half then re-runs the same safe test
@@ -622,12 +697,11 @@ export function pruneWorktrees({ repoRoot, base, olderThan, devMd, ledgerTimes =
       reason: verdict.blocks[0] ?? null,
     });
   }
-  const actions = [];
   for (const candidate of candidates) {
     if (!candidate.removable && !candidate.pushable) continue;
     actions.push(at(candidate.name, (candidate.pushable ? 'push the branch, then re-check for removal after ' : 'remove after ') + candidate.ageDays + ' quiet days'));
     if (!write) continue;
-    const removed = removeWorktree({ repoRoot, name: candidate.name, base, force: false, push: true, write: true, remote });
+    const removed = removeWorktree({ repoRoot, name: candidate.name, base, force: true, push: true, write: true, remote });
     if (removed.blocks.length > 0) {
       warns.push(at(candidate.name, 'kept after all: ' + removed.blocks[0]));
       candidate.removable = false;
@@ -862,8 +936,28 @@ function runVerb(verb, flags) {
     return { ...pruned, warns: [...warns, ...pruned.warns] };
   }
   if (verb === 'create' || verb === 'restore') {
-    if (!slug) return { blocks: ['--slug is required for ' + verb], warns: [] };
-    const options = { ...shared, issue, slug, type: flags.type || 'feat', parent: flags.parent };
+    // No --slug: create reads the issue title (GitHub unreachable blocks, never
+    // guesses), restore reads the branch that already carries the number.
+    let named = { type: flags.type || null, slug };
+    if (!slug && issue !== null && verb === 'restore') {
+      const parts = branchPartsForIssue(repoRoot, issue);
+      if (parts.error) return { blocks: [at('#' + issue, parts.error)], warns: [] };
+      named = { type: named.type || parts.type, slug: parts.slug };
+    } else if (!slug && issue !== null) {
+      const repo = repoOf();
+      if (!repo) return { blocks: [at('#' + issue, 'no repo known to read the title from — pass --repo, or --slug')], warns: [] };
+      let title;
+      try {
+        title = ghJson(['api', 'repos/' + repo + '/issues/' + issue]).title;
+      } catch (error) {
+        return { blocks: [at('#' + issue, 'could not read the issue title (' + error.message + ') — pass --slug')], warns: [] };
+      }
+      const parts = titleParts(title);
+      if (!parts.slug) return { blocks: [at('#' + issue, 'the title makes no slug — pass --slug')], warns: [] };
+      named = { type: named.type || parts.type, slug: parts.slug };
+    }
+    if (!named.slug) return { blocks: ['--slug is required for ' + verb + ' without --issue'], warns: [] };
+    const options = { ...shared, issue, slug: named.slug, type: named.type || 'feat', parent: flags.parent };
     // A `--base` that is a commit sha means a child of a parallel run: its
     // checkout is cut from that exact commit, never from a ref that another
     // child could move. Any other `--base` keeps its long-standing meaning,

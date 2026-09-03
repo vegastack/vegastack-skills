@@ -29,6 +29,18 @@ describe('runWorktree', () => {
     expect(calls[0]).toContain('remove')
     expect(calls[0]).not.toContain('--write')
   })
+  test('create and restore by issue number reach the script without a slug — the script names the worktree', async () => {
+    const calls: string[][] = []
+    const spawn = (args: string[]) => {
+      calls.push(args)
+      return { status: 0, stdout: JSON.stringify({ guard: 'worktree', ok: true, blocks: [], warns: [], path: '/r/.vegastack/.worktrees/106-x', branch: 'feat/106-x' }) }
+    }
+    const registryPath = join(mkdtempSync(join(tmpdir(), 'vf-reg-')), 'worktree-roots.json')
+    expect(await runWorktree(['create', '106'], { spawn, registryPath })).toBe(0)
+    expect(calls[0]).toEqual(['create', '--json', '--issue', '106', '--write'])
+    expect(await runWorktree(['restore', '106'], { spawn, registryPath })).toBe(0)
+    expect(calls[1]).toEqual(['restore', '--json', '--issue', '106', '--write'])
+  })
 })
 
 describe('recordRepoRoot', () => {

@@ -38,8 +38,10 @@ export function worktreeUsage(): string {
 
   list [--all-repos]                    every worktree with its lifecycle state and disk use
   status                                worktrees reconciled against open issues; orphans named
-  create <issue> [--slug S] [--type T]  cut the branch and its worktree (writes)
-  restore <issue> [--slug S]            re-add the checkout of a branch whose directory is gone
+  create <issue> [--slug S] [--type T]  cut the branch and its worktree (writes); the slug and
+                                        type come off the issue title unless given
+  restore <issue> [--slug S]            re-add the checkout of the branch that carries the issue
+                                        number; --slug picks one when several do
   remove <issue> [--force] [--write]    remove the directory only; dry-run unless --write
   prune [--older-than 14d] [--write]    push, then remove parked worktrees past retention
 
