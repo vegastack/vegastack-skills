@@ -40,6 +40,7 @@
     "scripts/evidence-check.mjs",
     "scripts/reclaim.mjs",
     "scripts/evidence-upload.mjs",
+    "scripts/worktree.mjs",
     "references/ledger-and-resume.md",
     "references/changelog-and-chronicle.md",
     "refresh/REFRESH.md",
