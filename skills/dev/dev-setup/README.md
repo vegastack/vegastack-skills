@@ -26,6 +26,7 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | [references/conventions.md](references/conventions.md) | The workflow artifact spec — authored here, duplicated into every dev-family install |
 | [references/harness-facts.md](references/harness-facts.md) | Verified, refresh-tracked Claude Code, Codex and Hermes mechanics (AGENTS.md handling, skill discovery, question tools, hooks, subagents), the GitHub CLI floors, the per-harness model/effort/concurrency controls, and the four-hook package wiring for all three harnesses |
+| [references/github-app.md](references/github-app.md) | The VegaFactory GitHub App contract: what the App is for, its exact permission set, the org variable and secret names, the token-minting recipe, rotation, the kill switch, and the acceptance drill |
 | [references/ask-route.md](references/ask-route.md) | The ask route — tool or issue, the questions comment format, the reply grammar, re-asks |
 | [references/stack-playbooks.md](references/stack-playbooks.md) | Per-stack detection → draft mapping (npm/changesets, Node app, Flutter, Python, Go, generic), the guard library, and the greenfield playbook |
 | [scripts/questions.mjs](scripts/questions.mjs) | The ask round renderer, answer parser and route decision — authored here, duplicated into intake, plan and implement |

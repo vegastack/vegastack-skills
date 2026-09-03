@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
 import { TODO_PURPOSE } from '../../../../packages/cli/scripts/readme-sync.mjs'
@@ -245,6 +245,55 @@ describe('dev-setup contract', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     expect(skill).toContain('org defaults (control room)')
     expect(skill).toContain('vegafactory-setup')
+  })
+
+  const githubApp = readFileSync(join(skillRoot, 'references/github-app.md'), 'utf8')
+
+  test('the App reference pins the permission set, the secret names, the mint recipe, and the kill switch', () => {
+    for (const row of [
+      '| Issues | Read and write |',
+      '| Metadata | Read-only |',
+      '| Projects (organization) | Read and write |',
+      '| Pull requests | Read and write |',
+      '| Contents | Read-only |',
+    ])
+      expect(githubApp).toContain(row)
+    expect(githubApp).toContain('vars.VEGAFACTORY_APP_ID')
+    expect(githubApp).toContain('secrets.VEGAFACTORY_APP_PRIVATE_KEY')
+    expect(githubApp).toContain('actions/create-github-app-token@v3')
+    expect(githubApp).toContain('GET /orgs/{org}/installations')
+    expect(githubApp).toContain('https://github.com/apps/vegafactory/installations/new')
+    for (const heading of [
+      '## What the App is for',
+      '## Permissions',
+      '## Creating the App',
+      '## Where the secrets live',
+      '## Minting a token in a workflow',
+      '## Recording the installation',
+      '## Rotating the private key',
+      '## Kill switch',
+      '## Widening a permission',
+      '## Acceptance drill',
+    ])
+      expect(githubApp).toContain(heading)
+    // No HTML comment: a source marker on a path the skill-scan baseline does not
+    // already suppress would raise a new finding needing the operator's word.
+    expect(githubApp).not.toContain('<!--')
+  })
+
+  test('the App reference names no private key material and no token value', () => {
+    expect(githubApp).not.toContain('BEGIN RSA PRIVATE KEY')
+    expect(githubApp).not.toContain('BEGIN PRIVATE KEY')
+    expect(githubApp).toContain('Never on a workstation')
+  })
+
+  test('the App reference is packaged, and no workflow in this repo mints an App token yet', () => {
+    const packaging = JSON.parse(readFileSync(resolve(skillRoot, '../../../packages/cli/packaging.json'), 'utf8'))
+    expect(packaging['dev-setup']).toContain('references/github-app.md')
+    const workflowsDir = resolve(skillRoot, '../../../.github/workflows')
+    for (const file of readdirSync(workflowsDir)) {
+      expect(readFileSync(join(workflowsDir, file), 'utf8')).not.toContain('create-github-app-token')
+    }
   })
 
   // TODO: if this skill ships scripts/, add unit tests for every deterministic

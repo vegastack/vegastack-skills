@@ -90,6 +90,7 @@
     "agents/openai.yaml",
     "references/conventions.md",
     "references/harness-facts.md",
+    "references/github-app.md",
     "references/ask-route.md",
     "references/stack-playbooks.md",
     "scripts/questions.mjs",
