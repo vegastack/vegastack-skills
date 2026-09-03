@@ -60,6 +60,7 @@ Ask with your harness's question tool — AskUserQuestion in Claude Code, `reque
 - Decision-capture hook → offer the Stop-hook from [harness-facts](references/harness-facts.md) for the harnesses in use, written on the user's explicit yes and merging into existing hook config, because an overwritten hook is a silent regression
 - AGENTS.md already has content → append the marked section (default) or show a merge proposal first
 - CLAUDE.md already has content → add the `@AGENTS.md` import as its first line (default) or move its content into AGENTS.md and leave only the import
+- Gitignored files a fresh checkout needs (`.env`) or a setup command detected → confirm `worktree-include:`, `commands: setup` and `worktree-retention:` (default 14d), replayed into every new worktree; nothing detected → `worktree-include: none`
 - Different label names, `gates: 1` under branch protection (it blocks direct pushes — surface the conflict), or a different decision-register path, when the situation or the user brings it up
 
 Everything else — merge style, branch naming, the stop-and-ask list, the `architect:` owner (the detected username), `chronicle-style: plain`, and `emoji: none` — takes its documented default straight into dev.md, because the profile is plain text the user can edit anytime.
@@ -73,6 +74,7 @@ Everything else — merge style, branch naming, the stop-and-ask list, the `arch
 | `CLAUDE.md` | ensure its first line is `@AGENTS.md` — Claude Code does not read AGENTS.md natively and needs this import ([harness-facts](references/harness-facts.md)); create the file when absent |
 | labels | `gh label create <name> --color <hex> --description "<text>"` for the names the `labels:` knob records, skipping ones that exist; creation colors ([conventions](references/conventions.md) holds meanings): state `needs-operator` FBCA04 · `needs-plan` E36209 · `ready` 0E8A16 · `working` 1D76DB · `for-operator` 5319E7; modifiers `risky` B60205 · scope `research` C5DEF5 · `quick-build` 76C7C0 · `full-plan` 2A9D8F · `epic` 24292E (only when the org has no native Epic issue type) |
 | decision register | create the file the `decisions:` knob names (default `.vegastack/decisions.md`) when missing, with a two-line header stating conventions' register-line format (username via `gh api user -q .login`, fallback `git config user.name`); an existing register is kept and the knob points there |
+| project `.gitignore` | add `.vegastack/.worktrees/` when absent — every branch is checked out there ([conventions](references/conventions.md)), never as untracked files in the main checkout |
 | guard workflows / hook files | only the ones the user said yes to in Round C |
 
 ## Step 4 — Report

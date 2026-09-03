@@ -4,7 +4,7 @@ This file is the project's handbook and its only process document: short directi
 
 repo: {{owner/repo}} · default branch {{branch}}
 stack: {{one line; the `## Architecture` section below carries the architecture facts}}
-commands: test `{{test}}` · build `{{build}}` · dev `{{dev}}`
+commands: test `{{test}}` · build `{{build}}` · dev `{{dev}}` · setup `{{setup}}`
 authority: {{ordered — e.g. "CONTRIBUTING.md → this file → skill defaults"; delete the line when this file is the only process doc}}
 
 ## Knobs
@@ -18,6 +18,8 @@ skill-scan: none            # one line only — directory holding the agent skil
 skillspector-update: auto   # off | notify | auto — how the SkillSpector CLI itself is kept current. auto installs it when absent and upgrades it before each scan, falling back to the installed copy on any failure; notify only reports what upstream has published; off never touches the network. one line only, same as above
 merge: squash
 branch: <type>/<issue>-<slug>   # type: feat | fix | docs | chore | refactor — the only place this list lives
+worktree-include: {{files}}   # space-separated gitignored files a fresh checkout needs (.env .dev.vars) | none — copied into every new worktree
+worktree-retention: 14d     # how long a parked worktree survives with no session, measured from the later of its last commit and its last ledger edit; prune pushes first and never removes uncommitted or unpushed work
 labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents only where the org has no native Epic issue type
 changelog: {{changesets | keep-a-changelog | pubspec+changelog | none (reason)}}
 decisions: .vegastack/decisions.md

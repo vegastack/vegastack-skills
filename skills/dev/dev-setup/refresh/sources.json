@@ -307,6 +307,28 @@
       ],
       "checksum": "5cd1a492ced78a899a2ba6110dde0fd9e411070488e5f7aa75131c2cd614cbd8",
       "retrievedAt": "2026-09-02T21:08:00.185Z"
+    },
+    {
+      "id": "CODEX-CONFIG",
+      "service": "Codex config.toml project trust ([projects.\"<path>\"] trust_level)",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://learn.chatgpt.com/docs/config-file/config-basic"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "codex-config"
+      ],
+      "affected": [
+        "references/harness-facts.md"
+      ],
+      "checksum": "63f78a58c0c11958ed1d458a512ef3ff7a2f1282587e4b637ea20b659957f308",
+      "retrievedAt": "2026-09-03T04:12:30.616Z"
     }
   ]
 }
