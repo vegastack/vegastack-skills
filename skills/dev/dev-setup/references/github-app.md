@@ -102,10 +102,13 @@ no record at all.
 
 ### The rate limit
 
-An abuse brake, not a quota you can budget against: Cloudflare's rate-limit binding counts per
-Cloudflare location rather than globally, and its period is 10 or 60 seconds. It is sized in
-requests per minute per repository, so a legitimate burst degrades to a 429 and a retry. It is never
-an authorization decision — the OIDC claims and the installation lookup are.
+An abuse brake, not a quota you can budget against. The number, written down: **30 token requests
+per minute per repository, per Cloudflare location** — Cloudflare's rate-limit binding counts per
+location rather than globally, and its period accepts only 10 or 60 seconds. A legitimate burst
+degrades to a 429 and a retry; a runaway workflow is stopped. It is never an authorization
+decision — the OIDC claims and the installation lookup are — and it is keyed by
+`<owner>/<repository>` from the verified claims, so one organisation's traffic cannot spend
+another's allowance.
 
 ### Rotating the private key
 

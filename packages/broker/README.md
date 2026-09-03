@@ -44,7 +44,8 @@ Two, and no storage binding of any kind:
   in one place. The key must be PKCS#8; the Worker refuses a PKCS#1 PEM with the conversion command.
 - `TOKEN_LIMITER` — the GA rate-limit binding (`ratelimits`), `await env.TOKEN_LIMITER.limit({key})`.
   Its count is per Cloudflare location and `simple.period` accepts only 10 or 60 seconds, so it is
-  an abuse brake, never an authorization decision.
+  an abuse brake, never an authorization decision. Sized at 30 requests per minute per repository
+  in both environments (`wrangler.jsonc`), keyed `<owner>/<repository>` from the verified claims.
 
 GitHub's public signing keys sit in a module-scope memo and the Cloudflare edge cache
 (`cf: { cacheTtl: 3600, cacheEverything: true }` on the JWKS subrequest), which is why no KV

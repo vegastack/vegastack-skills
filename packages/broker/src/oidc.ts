@@ -68,7 +68,12 @@ function decodeJson(segment: string, what: string): Record<string, unknown> {
 
 // Structural parse only: three segments, RS256, a kid. The handler runs this before it fetches
 // anything, so a malformed or unusable bearer token is a 401 that costs no subrequest.
-export function parseJwtHeader(token: string): { kid: string } {
+export function parseJwtHeader(token: string): {
+  kid: string
+  headerSegment: string
+  payloadSegment: string
+  signatureSegment: string
+} {
   const parts = token.split('.')
   if (parts.length !== 3) throw new TokenRejected('malformed', 'a JWT has three segments')
   const [headerSegment, payloadSegment, signatureSegment] = parts as [string, string, string]
@@ -77,7 +82,7 @@ export function parseJwtHeader(token: string): { kid: string } {
   if (header.alg !== 'RS256') throw new TokenRejected('alg', 'only RS256 is accepted')
   const kid = header.kid
   if (typeof kid !== 'string' || kid.length === 0) throw new TokenRejected('kid', 'the header carries no kid')
-  return { kid }
+  return { kid, headerSegment, payloadSegment, signatureSegment }
 }
 
 export async function verifyOidcToken(
@@ -85,15 +90,7 @@ export async function verifyOidcToken(
   options: { jwks: Jwks; audience: string; nowSeconds: number; skewSeconds?: number },
 ): Promise<OidcClaims> {
   const skew = options.skewSeconds ?? DEFAULT_SKEW_SECONDS
-  const parts = token.split('.')
-  if (parts.length !== 3) throw new TokenRejected('malformed', 'a JWT has three segments')
-  const [headerSegment, payloadSegment, signatureSegment] = parts as [string, string, string]
-  if (!headerSegment || !payloadSegment || !signatureSegment) throw new TokenRejected('malformed', 'an empty segment')
-
-  const header = decodeJson(headerSegment, 'the header')
-  if (header.alg !== 'RS256') throw new TokenRejected('alg', 'only RS256 is accepted')
-  const kid = header.kid
-  if (typeof kid !== 'string' || kid.length === 0) throw new TokenRejected('kid', 'the header carries no kid')
+  const { kid, headerSegment, payloadSegment, signatureSegment } = parseJwtHeader(token)
 
   const jwk = options.jwks.keys.find((key) => (key as { kid?: unknown }).kid === kid)
   if (!jwk) throw new TokenRejected('kid', 'no signing key matches the kid')
