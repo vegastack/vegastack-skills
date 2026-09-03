@@ -455,10 +455,7 @@ describe('selecting a family', () => {
     expect(bare.stderr.toString()).toContain('vegafactory skills add')
   })
 
-  test('reserved top-level verbs are named in usage and refuse until they land', () => {
-    const result = run(temporary, ['dashboard'])
-    expect(result.exitCode).not.toBe(0)
-    expect(result.stderr.toString()).toContain('dashboard is not available yet')
+  test('every top-level verb is named in usage, and none is reserved any more', () => {
     const help = run(temporary, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory skills <add|verify|remove>')
     for (const verb of ['dispatch', 'service', 'status', 'stats', 'dashboard']) expect(help).toContain(verb)

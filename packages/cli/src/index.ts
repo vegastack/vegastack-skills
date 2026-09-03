@@ -9,6 +9,7 @@ import { createInterface } from 'node:readline/promises'
 import { factoryConfigPath, parseSyncMaxAge, readFactoryConfig, serializeFactoryConfig } from './control-room.ts'
 import { selectSkills, type SkillEntry } from './selection.ts'
 import { resolveTarget, syncControlRoom } from './sync.ts'
+import { dashboardUsage, runDashboard } from './dashboard.ts'
 import { dispatchUsage, runDispatchCli } from './dispatch.ts'
 import { runServiceCli, serviceUsage } from './service.ts'
 import { runStatsCli } from './stats/cli.ts'
@@ -18,9 +19,9 @@ import { runWorktree, worktreeUsage } from './worktree.ts'
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch' | 'service' | 'status' | 'stats'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch' | 'service' | 'status' | 'stats' | 'dashboard'
 // Top-level verbs the factory reserves; they are named in usage and refuse until they land.
-const reservedTopLevel: readonly string[] = ['dashboard'] as const
+const reservedTopLevel: readonly string[] = [] as const
 const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
 interface Options {
   command: Command
@@ -104,6 +105,11 @@ Statistics (where agent time and money went — counts and identifiers only, nev
   push is a dry run until --commit. Recording is org policy (stats: in org.md),
   not a machine setting. Run "vegafactory stats help" for the whole surface.
 
+The dashboard (a local, read-only web view over the control room and the live board):
+  vegafactory dashboard [--port N] [--open] [--dir PATH] [--dry-run] [--json]
+  Fetches @vegastack/vegafactory-dashboard at this CLI's version on first use and
+  serves it on 127.0.0.1. Run "vegafactory dashboard --help" for the whole surface.
+
 Reserved (not yet available): dashboard
 
 Run "vegafactory skills list" to see the bundled skills.
@@ -127,7 +133,7 @@ function parse(argv: string[]): Options {
       if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
       command = verb as Command
     }
-    else if (head === 'worktree' || head === 'dispatch' || head === 'service' || head === 'status' || head === 'stats') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
+    else if (head === 'worktree' || head === 'dispatch' || head === 'service' || head === 'status' || head === 'stats' || head === 'dashboard') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
     else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
     else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
     else if (head === 'sync' || head === 'help' || head === 'version') command = head
@@ -768,6 +774,12 @@ async function main() {
   if (options.command === 'stats') {
     const rest = options.rest ?? []
     process.exitCode = await runStatsCli(rest, homedir())
+    return
+  }
+  if (options.command === 'dashboard') {
+    const rest = options.rest ?? []
+    if (rest[0] === 'help') return console.log(dashboardUsage())
+    process.exitCode = await runDashboard({ rest, home: homedir(), version: packageVersion })
     return
   }
   if (options.command === 'status') {

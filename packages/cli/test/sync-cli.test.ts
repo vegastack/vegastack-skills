@@ -87,9 +87,10 @@ describe('vegafactory sync', () => {
     expect(result.stderr.toString() + result.stdout.toString()).toContain('factory.json')
   })
 
-  test('sync is no longer refused as reserved, and dashboard still is', () => {
+  test('sync and dashboard have both landed, so neither is refused as reserved', () => {
     const help = run(root, root, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory sync')
-    expect(run(root, root, ['dashboard']).stderr.toString()).toContain('dashboard is not available yet')
+    expect(help).toContain('vegafactory dashboard')
+    expect(run(root, root, ['dashboard', 'help']).stdout.toString()).toContain('--dry-run')
   })
 })
