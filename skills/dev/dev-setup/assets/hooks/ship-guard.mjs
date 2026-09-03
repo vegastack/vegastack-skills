@@ -10,6 +10,10 @@
 // (Claude) / block (Codex), never allow. A payload carrying no shell command is in no
 // guarded family and resolves to allow.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
 // Substring matches. These ask whatever the knobs say — they are destructive or they
 // deliberately skip a check, and neither is ever the agent's call to make unattended.
 export const ALWAYS_ASK = [
@@ -130,3 +134,89 @@ export function classifyCommand(command, policy) {
   }
   return ALLOW
 }
+
+// --- harness I/O ---------------------------------------------------------------------
+
+const UNREADABLE = {
+  decision: 'ask',
+  reason: 'the ship guard could not read the hook payload — run the command by hand',
+  rule: 'unreadable-payload',
+}
+
+// Claude puts the shell command at tool_input.command; Codex may send the argv array or the
+// string itself. Every other shape is a tool that runs no shell command.
+export function extractCommand(payload) {
+  const input = payload && typeof payload === 'object' ? payload.tool_input : null
+  if (typeof input === 'string') return input
+  if (!input || typeof input !== 'object') return null
+  const command = input.command
+  if (typeof command === 'string') return command
+  if (Array.isArray(command) && command.every((part) => typeof part === 'string')) return command.join(' ')
+  return null
+}
+
+export function renderDecision(result, harness) {
+  if (harness !== 'claude' && harness !== 'codex') {
+    return JSON.stringify({
+      decision: 'block',
+      reason: 'the ship guard is wired without --harness claude|codex — fix the hook command',
+    })
+  }
+  if (!result || result.decision !== 'ask') return ''
+  if (harness === 'claude') {
+    return JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'ask',
+        permissionDecisionReason: result.reason,
+      },
+    })
+  }
+  return JSON.stringify({ decision: 'block', reason: result.reason })
+}
+
+function flag(argv, name) {
+  const index = argv.indexOf(name)
+  if (index === -1 || index === argv.length - 1) return null
+  return argv[index + 1]
+}
+
+function loadPolicy(path) {
+  try {
+    return readPolicy(readFileSync(path, 'utf8'))
+  } catch {
+    return readPolicy('')
+  }
+}
+
+function main(argv) {
+  const devMd = flag(argv, '--dev-md') || join(process.cwd(), '.vegastack/dev.md')
+  const policy = loadPolicy(devMd)
+
+  if (argv.includes('--check')) {
+    const command = flag(argv, '--command') || ''
+    const result = classifyCommand(command, policy)
+    if (argv.includes('--json')) process.stdout.write(`${JSON.stringify(result)}\n`)
+    else if (result.reason) process.stdout.write(`${result.reason}\n`)
+    process.exit(result.decision === 'ask' ? 2 : 0)
+  }
+
+  const harness = flag(argv, '--harness')
+  let payload = null
+  try {
+    payload = JSON.parse(readFileSync(0, 'utf8'))
+  } catch {
+    process.stdout.write(renderDecision(UNREADABLE, harness))
+    process.exit(0)
+  }
+  const command = extractCommand(payload)
+  if (command === null) {
+    // Not a shell tool call at all — nothing for this guard to say.
+    if (harness !== 'claude' && harness !== 'codex') process.stdout.write(renderDecision(UNREADABLE, harness))
+    process.exit(0)
+  }
+  process.stdout.write(renderDecision(classifyCommand(command, policy), harness))
+  process.exit(0)
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2))

@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { classifyCommand, readPolicy, splitSegments } from '../assets/hooks/ship-guard.mjs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { classifyCommand, extractCommand, readPolicy, renderDecision, splitSegments } from '../assets/hooks/ship-guard.mjs'
 
 const DEV_MD = [
   'repo: vegastack/vegafactory · default branch main',
@@ -70,5 +73,57 @@ describe('ship-guard policy', () => {
     const gates1 = readPolicy(DEV_MD.replace('gates: 3', 'gates: 1'))
     expect(classifyCommand('gh pr merge 12', gates1).rule).toBe('default-branch-ship')
     expect(classifyCommand('git push origin main', gates1).rule).toBe('default-branch-ship')
+  })
+})
+
+describe('ship-guard harness I/O', () => {
+  test('reads the command from each harness payload shape', () => {
+    expect(extractCommand({ tool_name: 'Bash', tool_input: { command: 'gh pr merge 12' } }, 'claude')).toBe('gh pr merge 12')
+    expect(extractCommand({ tool_input: { command: ['bash', '-lc', 'npm publish'] } }, 'codex')).toBe('bash -lc npm publish')
+    expect(extractCommand({ tool_input: 'git tag v1' }, 'codex')).toBe('git tag v1')
+  })
+
+  test('a payload with no shell command is not in any guarded family', () => {
+    expect(extractCommand({ tool_name: 'Read', tool_input: { file_path: '/x' } }, 'claude')).toBe(null)
+  })
+
+  test('Claude gets permissionDecision ask, Codex gets a block with the run-it-by-hand reason', () => {
+    const asked = { decision: 'ask', reason: "gh pr merge needs the operator's word — run it by hand" }
+    const claude = JSON.parse(renderDecision(asked, 'claude'))
+    expect(claude.hookSpecificOutput.hookEventName).toBe('PreToolUse')
+    expect(claude.hookSpecificOutput.permissionDecision).toBe('ask')
+    expect(claude.hookSpecificOutput.permissionDecisionReason).toContain("needs the operator's word")
+    const codex = JSON.parse(renderDecision(asked, 'codex'))
+    expect(codex).toEqual({ decision: 'block', reason: "gh pr merge needs the operator's word — run it by hand" })
+  })
+
+  test('an allow prints nothing on either harness', () => {
+    expect(renderDecision({ decision: 'allow', reason: null }, 'claude')).toBe('')
+    expect(renderDecision({ decision: 'allow', reason: null }, 'codex')).toBe('')
+  })
+
+  test('an unknown or missing harness is a fault the guard refuses to pass', () => {
+    const out = JSON.parse(renderDecision({ decision: 'allow', reason: null }, 'unset'))
+    expect(out.decision).toBe('block')
+    expect(out.reason).toContain('--harness')
+  })
+
+  test('--check exits 0 on an allowed command and 2 on one needing the word', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-shipguard-'))
+    const devMd = join(dir, 'dev.md')
+    writeFileSync(devMd, DEV_MD)
+    const script = join(import.meta.dir, '..', 'assets/hooks/ship-guard.mjs')
+    const ok = Bun.spawnSync(['node', script, '--check', '--command', 'bun run check', '--dev-md', devMd, '--json'])
+    expect(ok.exitCode).toBe(0)
+    const blocked = Bun.spawnSync(['node', script, '--check', '--command', 'gh pr merge 12', '--dev-md', devMd, '--json'])
+    expect(blocked.exitCode).toBe(2)
+    expect(JSON.parse(blocked.stdout.toString()).decision).toBe('ask')
+  })
+
+  test('unparseable stdin resolves to ask, never allow', () => {
+    const script = join(import.meta.dir, '..', 'assets/hooks/ship-guard.mjs')
+    const run = Bun.spawnSync(['node', script, '--harness', 'claude'], { stdin: new TextEncoder().encode('not json') })
+    expect(run.exitCode).toBe(0)
+    expect(JSON.parse(run.stdout.toString()).hookSpecificOutput.permissionDecision).toBe('ask')
   })
 })
