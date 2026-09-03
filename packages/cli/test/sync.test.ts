@@ -21,6 +21,7 @@ const configFor = (home: string): FactoryConfig => ({
   controlRooms: {
     vegastack: { repo: 'vegastack/vegafactory-control-room', path: join(home, 'clone'), branch: 'main', remote: origin, lastSyncedAt: null, sha: null },
   },
+  settings: {},
 })
 const DEV_MD = 'control-room: vegastack/vegafactory-control-room#dev\n'
 

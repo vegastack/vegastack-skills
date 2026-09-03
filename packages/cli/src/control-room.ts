@@ -27,6 +27,11 @@ export interface ControlRoomEntry {
 export interface FactoryConfig {
   schemaVersion: 1
   controlRooms: Record<string, ControlRoomEntry>
+  // Everything else the document carries — the dispatcher's `repos`, `interval`, `maxRuns` and
+  // `subagents` live in this same file and are hand-written by the operator. Sync reads none of
+  // them and must give all of them back untouched: a rewrite that keeps only what it understands
+  // would silently delete the dispatcher's configuration on the next refresh.
+  settings: Record<string, unknown>
 }
 
 const DEFAULT_MAX_AGE_MINUTES = 30
@@ -67,7 +72,7 @@ export function factoryConfigPath(home: string): string {
 // A missing state file is an empty config — the first sync writes it. An unreadable one throws:
 // silently resetting it would drop every other org's clone record and re-clone the world.
 export function readFactoryConfig(text: string | null): FactoryConfig {
-  if (text === null || text === undefined || text.trim() === '') return { schemaVersion: 1, controlRooms: {} }
+  if (text === null || text === undefined || text.trim() === '') return { schemaVersion: 1, controlRooms: {}, settings: {} }
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
@@ -81,11 +86,23 @@ export function readFactoryConfig(text: string | null): FactoryConfig {
       if (entry && typeof entry === 'object' && !Array.isArray(entry)) controlRooms[org] = entry as ControlRoomEntry
     }
   }
-  return { schemaVersion: 1, controlRooms }
+  const settings: Record<string, unknown> = {}
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (key !== 'schemaVersion' && key !== 'controlRooms') settings[key] = value
+    }
+  }
+  return { schemaVersion: 1, controlRooms, settings }
 }
 
 export function withSyncResult(config: FactoryConfig, org: string, entry: ControlRoomEntry): FactoryConfig {
-  return { schemaVersion: 1, controlRooms: { ...config.controlRooms, [org]: entry } }
+  return { schemaVersion: 1, controlRooms: { ...config.controlRooms, [org]: entry }, settings: config.settings }
+}
+
+// What actually lands on disk: the settings this file understood nothing about come back as
+// top-level keys, exactly where the operator wrote them.
+export function serializeFactoryConfig(config: FactoryConfig): Record<string, unknown> {
+  return { schemaVersion: 1, ...config.settings, controlRooms: config.controlRooms }
 }
 
 // Age is measured from the last successful fetch, never from the clone directory's mtime: a fetch

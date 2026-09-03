@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   ageMinutes, defaultClonePath, factoryConfigPath, isStale,
-  parseControlRoomKnob, parseSyncMaxAge, readFactoryConfig, withSyncResult,
+  parseControlRoomKnob, parseSyncMaxAge, readFactoryConfig, serializeFactoryConfig, withSyncResult,
 } from '../src/control-room.ts'
 
 const DEV_MD = [
@@ -44,7 +44,7 @@ describe('control-room knob and machine state', () => {
   })
 
   test('a missing state file is an empty config; an unreadable one is a refusal, never a silent reset', () => {
-    expect(readFactoryConfig(null)).toEqual({ schemaVersion: 1, controlRooms: {} })
+    expect(readFactoryConfig(null)).toEqual({ schemaVersion: 1, controlRooms: {}, settings: {} })
     expect(() => readFactoryConfig('{ not json')).toThrow(/not valid JSON/)
   })
 
@@ -70,5 +70,23 @@ describe('control-room knob and machine state', () => {
     expect(Object.keys(after.controlRooms).sort()).toEqual(['acme', 'vegastack'])
     expect(after.controlRooms.vegastack!.sha).toBe('a1b2c3d')
     expect(before.controlRooms.vegastack).toBeUndefined()
+  })
+
+  test('the dispatcher settings sharing this file survive a sync write, never clobbered', () => {
+    const before = readFactoryConfig(JSON.stringify({
+      schemaVersion: 1,
+      repos: [{ path: '~/code/app', repo: 'acme/app', org: 'acme' }],
+      interval: 300,
+      controlRooms: {},
+    }))
+    const after = withSyncResult(before, 'acme', {
+      repo: 'acme/cr', path: '/x', branch: 'main', lastSyncedAt: '2026-09-03T12:00:00Z', sha: 'a1b2c3d',
+    })
+    expect(after.settings).toEqual({ repos: [{ path: '~/code/app', repo: 'acme/app', org: 'acme' }], interval: 300 })
+    expect(after.controlRooms.acme!.sha).toBe('a1b2c3d')
+    const written = serializeFactoryConfig(after)
+    expect(written.interval).toBe(300)
+    expect(written.repos).toEqual([{ path: '~/code/app', repo: 'acme/app', org: 'acme' }])
+    expect(Object.keys(written)).not.toContain('settings')
   })
 })
