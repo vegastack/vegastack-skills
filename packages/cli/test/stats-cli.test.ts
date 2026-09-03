@@ -15,7 +15,7 @@ const deps = async (): Promise<{ lines: string[]; deps: StatsDeps }> => {
       home: await mkdtemp(join(tmpdir(), 'vsk-cli-')), cloneRoot: await mkdtemp(join(tmpdir(), 'vsk-cli-clone-')),
       hostname: 'mini', ghUser: 'kmanojkumar', login: 'kmanojkumar', isLead: false, policy,
       repo: 'vegastack/vegafactory',
-      git: async () => ({ code: 0, stdout: '', stderr: '' }), readStdin: async () => '{}',
+      git: async () => ({ code: 0, stdout: '', stderr: '' }), gh: async () => ({}), readStdin: async () => '{}',
       readTranscript: async () => [],
       now: () => new Date('2026-09-03T10:00:00.000Z'), log: (line: string) => { lines.push(line) },
     },
@@ -163,4 +163,47 @@ test('the committed summaries never carry a per-person block: the clone is reada
   expect(repo.people).toBeNull()
   expect(org.people).toBeNull()
   expect(repo.runs).toBe(2)
+})
+
+// --- lead and cycle time at rollup ----------------------------------------------------------
+
+const apiTimeline = [
+  { event: 'labeled', label: { name: 'ready' }, created_at: '2026-09-01T00:00:00.000Z' },
+  { event: 'unlabeled', label: { name: 'ready' }, created_at: '2026-09-01T12:00:00.000Z' },
+  { event: 'closed', created_at: '2026-09-03T00:00:00.000Z' },
+]
+
+test('rollup fetches the issue timelines through gh, writes them beside the summary, and reports lead time from them', async () => {
+  const { lines, deps: base } = await deps()
+  await seed(base.cloneRoot, 'SEP-2026', [row({}), row({ issue: 121, stage: 'review' })])
+  const calls: string[][] = []
+  const gh = async (args: string[]): Promise<unknown> => {
+    calls.push(args)
+    return args[1]!.endsWith('/timeline') ? apiTimeline : { created_at: '2026-09-01T00:00:00.000Z' }
+  }
+  expect(await runStats(parseStatsArgs(['rollup', '--since', 'SEP-2026', '--json']), { ...base, gh })).toBe(0)
+  expect(calls).toHaveLength(2)
+  const timeline = JSON.parse(await readFile(join(base.cloneRoot, 'stats/vegastack__vegafactory/SEP-2026.timeline.json'), 'utf8'))
+  expect(timeline).toHaveLength(4)
+  const summary = JSON.parse(await readFile(join(base.cloneRoot, 'stats/vegastack__vegafactory/SEP-2026.summary.json'), 'utf8'))
+  expect(summary.lead_time_h.p50).toBe(48)
+  expect(summary.cycle_time_h.ready.p50).toBe(12)
+  expect(summary.throughput.issues_closed).toBe(1)
+  expect(JSON.parse(lines.join(''))).toMatchObject({ guard: 'stats-rollup', timelines: ['vegastack/vegafactory'] })
+  // `show` reads what rollup wrote: the same clone, no further gh call.
+  lines.length = 0
+  expect(await runStats(parseStatsArgs(['--repo', '--since', 'SEP-2026', '--json']), { ...base, gh: async () => { throw new Error('offline') } })).toBe(0)
+  expect(JSON.parse(lines.join('')).lead_time_h.p50).toBe(48)
+})
+
+test('a rollup that cannot reach gh still writes the summaries, keeps an older timeline, and exits 1 naming the gap', async () => {
+  const { lines, deps: base } = await deps()
+  await seed(base.cloneRoot, 'SEP-2026', [row({})])
+  const stale = join(base.cloneRoot, 'stats/vegastack__vegafactory/SEP-2026.timeline.json')
+  await writeFile(stale, JSON.stringify([{ issue: 121, event: 'created', label: null, created_at: '2026-09-01T00:00:00.000Z' }, { issue: 121, event: 'closed', label: null, created_at: '2026-09-02T00:00:00.000Z' }]))
+  expect(await runStats(parseStatsArgs(['rollup', '--since', 'SEP-2026']), { ...base, gh: async () => { throw new Error('HTTP 403: forbidden') } })).toBe(1)
+  expect(await readFile(stale, 'utf8')).toContain('"closed"')
+  const summary = JSON.parse(await readFile(join(base.cloneRoot, 'stats/vegastack__vegafactory/SEP-2026.summary.json'), 'utf8'))
+  expect(summary.lead_time_h.p50).toBe(24)
+  expect(lines.join('\n')).toContain('HTTP 403')
 })

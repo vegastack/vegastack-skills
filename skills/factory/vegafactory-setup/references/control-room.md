@@ -19,6 +19,7 @@ onboarding/new-teammate.md   gh auth, harness install, skills install, control-r
 templates/                   hook wiring snippets, board workflow, dev.md section overrides
 stats/<owner>__<name>/<MON-YYYY>/<hostname>.jsonl   one record per run or session, written by automation
 stats/<owner>__<name>/<MON-YYYY>.summary.json       regenerated per repo per month
+stats/<owner>__<name>/<MON-YYYY>.timeline.json      regenerated: the month's issue label timelines, read through gh at rollup
 stats/org/<MON-YYYY>.summary.json                   regenerated across every repo
 stats/org/<MON-YYYY>.skills.json                    regenerated: invocations per skill
 ```

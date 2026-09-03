@@ -16,6 +16,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { hostname, userInfo } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { parseControlRoomKnob } from '../control-room.ts'
+import { ghJson } from '../gh.ts'
 import { GIT_CREDENTIAL_ARGS } from '../sync.ts'
 import {
   fromClaudeSessionEnd, fromCodexSessionEnd, fromSkillHook,
@@ -28,6 +29,7 @@ import {
   rollupOrg, rollupRepo, rollupSkills, stableStringify,
   type OrgSummary, type RepoSummary, type SkillsSummary, type TimelineEvent,
 } from './rollup.ts'
+import { fetchTimelines, type GhJson } from './timeline.ts'
 
 export type StatsSource = 'claude-session-end' | 'codex-session-end' | 'claude-post-tool' | 'claude-prompt-expansion' | 'codex-prompt'
 
@@ -92,6 +94,8 @@ export interface StatsDeps {
   repo: string | null
   cloneRoot: string
   git: GitRunner
+  // The one GitHub API seam: issue timelines, read by `rollup` and by nothing else.
+  gh: GhJson
   readStdin: () => Promise<string>
   readTranscript: (path: string) => Promise<string[]>
   now: () => Date
@@ -332,15 +336,32 @@ async function runRollup(args: StatsArgs, deps: StatsDeps): Promise<number> {
   const written: string[] = []
   const summaries: RepoSummary[] = []
   const allRecords: StatsRecord[] = []
+  const timelines: string[] = []
+  const unreachable: string[] = []
   for (const dir of await repoDirs(deps.cloneRoot)) {
     const records = await readMonth(deps.cloneRoot, dir, month)
     if (records.length === 0) continue
     allRecords.push(...records)
+    const repo = records[0]?.repo ?? dir
+    // Lead and cycle time come from the issues' label timelines, fetched here for every issue the
+    // month's records touch and written beside the summary. A fetch that fails keeps the timeline
+    // file the clone already has, so a rate limit degrades to last rollup's answer, never to a
+    // summary that quietly reports no lead time at all.
+    const fetched = await fetchTimelines(repo, records.map(record => record.issue).filter((issue): issue is number => issue !== null), deps.gh)
+    const timelineFile = join(deps.cloneRoot, 'stats', dir, `${month}.timeline.json`)
+    if (fetched.ok) {
+      await mkdir(dirname(timelineFile), { recursive: true })
+      await writeFile(timelineFile, `${stableStringify(fetched.events)}\n`)
+      written.push(timelineFile)
+      timelines.push(repo)
+    } else {
+      unreachable.push(`${repo}: ${fetched.reason}`)
+    }
     // Never a per-person block in a committed summary: the control room is readable by everyone
     // the org onboards, and people-level statistics are for the person or a lead — which `show`
     // checks per caller and a file in a shared clone cannot.
     const summary = rollupRepo(records, await readTimelines(deps.cloneRoot, dir, month), {
-      repo: records[0]?.repo ?? dir,
+      repo,
       month,
       people: false,
     })
@@ -357,8 +378,13 @@ async function runRollup(args: StatsArgs, deps: StatsDeps): Promise<number> {
   const skillsSummary = join(deps.cloneRoot, 'stats', 'org', `${month}.skills.json`)
   await writeFile(skillsSummary, `${stableStringify(rollupSkills(allRecords, { month }))}\n`)
   written.push(skillsSummary)
-  deps.log(args.json ? JSON.stringify({ guard: 'stats-rollup', month, written }) : `stats rollup ${month}: ${written.length} summaries regenerated`)
-  return 0
+  deps.log(args.json
+    ? JSON.stringify({ guard: 'stats-rollup', month, written, timelines, unreachable })
+    : `stats rollup ${month}: ${written.length} files regenerated`)
+  for (const line of unreachable) {
+    deps.log(`stats rollup: issue timelines for ${line} — lead and cycle time come from the last timeline file this clone holds, if any`)
+  }
+  return unreachable.length > 0 ? 1 : 0
 }
 
 async function runShow(args: StatsArgs, deps: StatsDeps): Promise<number> {
@@ -426,7 +452,7 @@ export async function runStats(args: StatsArgs, deps: StatsDeps): Promise<number
 export function statsUsage(): string {
   return `Usage: vegafactory stats [--repo|--me|--org|skills] [--since MON-YYYY] [--json]
        vegafactory stats push [--commit] [--json]
-       vegafactory stats rollup [--since MON-YYYY] [--json]
+       vegafactory stats rollup [--since MON-YYYY] [--json]   (reads issue timelines through gh)
        vegafactory stats record --source <kind>      (called by the harness hooks)
 
 Where agent time and money went, from the org's own control room. Records are counts and
@@ -536,6 +562,7 @@ export async function buildStatsDeps(home: string, cwd: string, log: (line: stri
     repo: repoFromDevMd(devMd),
     cloneRoot: statsClonePath(home, knob?.org ?? 'org'),
     git: defaultGit(),
+    gh: args => ghJson(args),
     readStdin: async () => {
       const chunks: Buffer[] = []
       for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk))

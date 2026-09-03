@@ -208,7 +208,7 @@ vegafactory stats --me                  # your own rows
 vegafactory stats skills                # invocations per skill, by trigger and harness
 vegafactory stats push                  # dry run: prints the plan and the commit it would make
 vegafactory stats push --commit         # copies the outbox in, commits, pushes, rebases on rejection
-vegafactory stats rollup --since SEP-2026   # regenerate the three summary files
+vegafactory stats rollup --since SEP-2026   # regenerate the summaries; reads each touched issue's timeline through gh
 vegafactory stats record --source <kind>    # called by the capture hooks, reads the payload on stdin
 ```
 
@@ -217,6 +217,8 @@ vegafactory stats record --source <kind>    # called by the capture hooks, reads
 **Whether anything is recorded at all is the org's call, not the machine's.** `stats: on|off` and `stats-people: on|off` live in the control room's `org.md` (or a department's `group.md`); a repo may opt itself out with `stats: off` in its `.vegastack/dev.md` only while `org.md` says `stats-override: allowed`. Under `stats-override: locked` the repo's line is read, reported back, and ignored. There is deliberately no machine-level knob. Per-person views are for the person they describe or a `lead` in `people.csv`; org and repo totals are for everyone, and the committed summary files carry no per-person block, because the control-room clone is readable by everyone the org onboards.
 
 `push` is a dry run until `--commit`, because it writes to a repository other people read.
+
+`rollup` is the one statistics verb that reads the GitHub API: lead and cycle time come from each touched issue's label timeline, fetched through `gh` and written beside the summary as `<MON-YYYY>.timeline.json`. When `gh` cannot answer, the summaries are still regenerated from the timeline file the clone already holds, the reason is printed, and the exit code is 1.
 
 ## Dashboard
 
@@ -299,7 +301,7 @@ The tool makes three kinds of network call, all to somewhere you already own:
 
 - `doctor`'s single version check against registry.npmjs.org;
 - `sync`'s shallow git fetch of the control room named by the project's `control-room:` knob;
-- `stats push`'s git push of your statistics records into that same control room;
+- `stats push`'s git push of your statistics records into that same control room, and `stats rollup`'s reads of the touched issues' timelines from the GitHub API;
 - `dashboard`'s first-use fetch of `@vegastack/vegafactory-dashboard` from registry.npmjs.org, and that server's own reads of the GitHub API for the live board.
 
 All of them but the two registry calls use your existing `gh` credential, and the control-room calls reach only your organization's own repository. `add`, `verify`, and `remove` are fully offline. Statistics are recorded only while the org's `stats:` policy says so, and a record carries counts and identifiers only — never transcript text (see [Statistics](#statistics)).
