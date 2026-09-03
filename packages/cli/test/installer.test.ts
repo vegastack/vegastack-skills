@@ -456,7 +456,7 @@ describe('selecting a family', () => {
   })
 
   test('reserved top-level verbs are named in usage and refuse until they land', () => {
-    for (const verb of ['dispatch', 'service', 'status', 'stats', 'dashboard']) {
+    for (const verb of ['service', 'status', 'stats', 'dashboard']) {
       const result = run(temporary, [verb])
       expect(result.exitCode).not.toBe(0)
       expect(result.stderr.toString()).toContain(`${verb} is not available yet`)
@@ -464,6 +464,14 @@ describe('selecting a family', () => {
     const help = run(temporary, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory skills <add|verify|remove>')
     for (const verb of ['dispatch', 'service', 'status', 'stats', 'dashboard']) expect(help).toContain(verb)
+  })
+
+  test('dispatch has landed: it parses its own flags and refuses without a config', () => {
+    const bare = run(temporary, ['dispatch', '--once', '--watch'])
+    expect(bare.exitCode).toBe(2)
+    expect(bare.stderr.toString()).toContain('--once')
+    const help = run(temporary, ['dispatch', '--help']).stdout.toString()
+    expect(help).toContain('vegafactory dispatch')
   })
 
   test('worktree has landed: it is no longer reserved and prints its own verbs', () => {
