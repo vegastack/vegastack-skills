@@ -1,0 +1,124 @@
+import { monthToken } from './month'
+
+// The run record #121 writes, re-declared here rather than imported: the dashboard is fetched
+// as its own tarball onto machines that have no CLI source tree. Every field but `ts`, `repo`
+// and the derived `month` is nullable, and an unrecognised key is passed over — a record shape
+// #121 widens later still parses, it just carries no column for the new key.
+export interface SkillHit {
+  name: string
+  trigger: string | null
+  harness: string | null
+}
+
+export interface StatsRecord {
+  ts: string
+  month: string
+  repo: string
+  issue: number | null
+  parent: number | null
+  stage: string | null
+  harness: string | null
+  model: string | null
+  effort: string | null
+  mode: string | null
+  human: string | null
+  sessionId: string | null
+  worktree: string | null
+  durationS: number | null
+  turns: number | null
+  toolCalls: number | null
+  subagents: number | null
+  tokensIn: number | null
+  tokensOut: number | null
+  cacheRead: number | null
+  cacheWrite: number | null
+  costUsd: number | null
+  outcome: string | null
+  reviewRounds: number | null
+  fixRounds: number | null
+  handbacks: number | null
+  skills: SkillHit[]
+}
+
+const asString = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : null)
+const asNumber = (value: unknown): number | null => (typeof value === 'number' && Number.isFinite(value) ? value : null)
+
+function asSkills(value: unknown): SkillHit[] {
+  if (!Array.isArray(value)) return []
+  const hits: SkillHit[] = []
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue
+    const row = entry as Record<string, unknown>
+    const name = asString(row.name)
+    if (!name) continue
+    hits.push({ name, trigger: asString(row.trigger), harness: asString(row.harness) })
+  }
+  return hits
+}
+
+// A line is only a record when it carries a parseable timestamp and an `owner/name` repo — the
+// two fields every query groups by. Anything else is counted as skipped rather than guessed at,
+// so a half-written line at the tail of a JSONL file costs one row and never a whole file.
+export function parseRecordLine(line: string): StatsRecord | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(line)
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+  const row = parsed as Record<string, unknown>
+
+  const ts = asString(row.ts)
+  const repo = asString(row.repo)
+  if (!ts || !repo || !/^[^/\s]+\/[^/\s]+$/.test(repo)) return null
+  const at = new Date(ts)
+  if (Number.isNaN(at.getTime())) return null
+
+  const tokens = (row.tokens && typeof row.tokens === 'object' ? row.tokens : {}) as Record<string, unknown>
+
+  return {
+    ts,
+    month: monthToken(at),
+    repo,
+    issue: asNumber(row.issue),
+    parent: asNumber(row.parent),
+    stage: asString(row.stage),
+    harness: asString(row.harness),
+    model: asString(row.model),
+    effort: asString(row.effort),
+    mode: asString(row.mode),
+    human: asString(row.human),
+    sessionId: asString(row.session_id),
+    worktree: asString(row.worktree),
+    durationS: asNumber(row.duration_s),
+    turns: asNumber(row.turns),
+    toolCalls: asNumber(row.tool_calls),
+    subagents: asNumber(row.subagents),
+    tokensIn: asNumber(tokens.in),
+    tokensOut: asNumber(tokens.out),
+    cacheRead: asNumber(tokens.cache_read),
+    cacheWrite: asNumber(tokens.cache_write),
+    costUsd: asNumber(row.cost_usd),
+    outcome: asString(row.outcome),
+    reviewRounds: asNumber(row.review_rounds),
+    fixRounds: asNumber(row.fix_rounds),
+    handbacks: asNumber(row.handbacks),
+    skills: asSkills(row.skills),
+  }
+}
+
+// `source` is the control-room-relative path of the file these lines came from; it is carried
+// so a caller can name the file in a skipped-line count, and stored on the cache's `runs.source`
+// column by the ingest in Task 3.
+export function readRecords(body: string, source: string): { records: StatsRecord[]; skipped: number; source: string } {
+  const records: StatsRecord[] = []
+  let skipped = 0
+  for (const line of body.split('\n')) {
+    if (line.trim() === '') continue
+    const record = parseRecordLine(line)
+    if (record) records.push(record)
+    else skipped += 1
+  }
+  return { records, skipped, source }
+}
