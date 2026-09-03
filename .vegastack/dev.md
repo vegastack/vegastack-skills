@@ -25,6 +25,7 @@ decisions: .vegastack/decisions.md
 release: on-request         # only when the operator says "release" — covers everything merged since the last one (switched from per-merge for the v3 epic, operator 28-08-2026)
 chronicle: on               # story entry per behavior-changing branch in .vegastack/chronicle.md
 architect: kmanojkumar      # the architecture owner dev-architect speaks to — gh api user -q .login at setup, one edit to change
+operators: kmanojkumar      # csv of the humans who own issues here; every state flip assigns per conventions' Labels table
 chronicle-style: plain      # plain | story | witty — the voice of chronicle entries (dev-chronicle's references/styles.md)
 emoji: none                 # none | sparing
 
