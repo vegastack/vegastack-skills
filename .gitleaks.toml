@@ -1,4 +1,4 @@
-# Gitleaks configuration for vegastack-skills.
+# Gitleaks configuration for vegafactory.
 #
 # The skill's test fixtures deliberately contain fake credentials so the
 # deterministic checks have something to detect, e.g.:

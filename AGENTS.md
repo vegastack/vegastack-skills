@@ -1,4 +1,4 @@
-# vegastack-skills — agent guide
+# vegafactory — agent guide
 
 <!-- vsk-dev:start -->
 ## Dev workflow

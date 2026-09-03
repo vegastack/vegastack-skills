@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 dev-setup's harness facts are current as of 02-09-2026 and now cover three harnesses and the GitHub CLI.

@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 Every dev skill body now reads to the current Anthropic guidance: one stance sentence, positive rules with their reason, at most two emphasised non-negotiables per skill, no caps-emphasis, no instructions the model already follows, and a length line for every document a skill writes.

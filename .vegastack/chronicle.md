@@ -1,4 +1,4 @@
-# Chronicle — vegastack-skills
+# Chronicle — vegafactory
 
 The project's story, newest first: what got built, why, and how it went — for the operator's future recall. Format home: the dev-chronicle skill.
 

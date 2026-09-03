@@ -1,9 +1,9 @@
-# Dev profile — vegastack/vegastack-skills
+# Dev profile — vegastack/vegafactory
 
 This file is the project's handbook and its only process document: short directional bullets, not prose. Skills read the section they need. When reality disagrees with a line, fix the line; when a gotcha or repeated instruction surfaces, fold ONE line into the right section — never append a log. A section left as TODO because its machinery didn't exist yet: re-run dev-setup detection when the machinery appears.
 
-repo: vegastack/vegastack-skills · default branch main
-stack: Bun monorepo — authored skills under skills/<name>/ or skills/<group>/<name>/ (one level, GROUP.md per group; the packaged bundle stays flat), @vegastack/skills installer under packages/cli (Node >= 24)
+repo: vegastack/vegafactory · default branch main
+stack: Bun monorepo — authored skills under skills/<name>/ or skills/<group>/<name>/ (one level, GROUP.md per group; the packaged bundle stays flat), @vegastack/vegafactory installer under packages/cli (Node >= 24)
 commands: test `bun test` · check `bun run check` · build `bun run build`
 authority: CONTRIBUTING.md → this file → skill-maintainer's release-ops.md (expanded release/rename detail) → skill defaults
 
@@ -30,12 +30,12 @@ emoji: none                 # none | sparing
 
 Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) · `guard:` (deterministic check run locally at this position; its release.yml copy is the backstop).
 
-- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/skills <version>` on a `chore/release-<version>` branch → open its PR — the install is there to carry dependency changes; main is branch-protected with no admin exemption, so the bump lands by merge and never by direct push
+- auto: `bunx changeset version && bun install` → commit `chore: release @vegastack/vegafactory <version>` on a `chore/release-<version>` branch → open its PR — the install is there to carry dependency changes; main is branch-protected with no admin exemption, so the bump lands by merge and never by direct push
 - ask: merge the release PR — the version bump is the last reviewable moment before the tag publishes, so it takes the operator's word of its own, not the release word
 - guard: changelog entry exists for the new version — `V=$(node -p "require('./packages/cli/package.json').version"); awk -v ver="$V" '$0=="## "ver{f=1;next} f&&/^## /{exit} f{print}' packages/cli/CHANGELOG.md | grep -q '[^[:space:]]'`
 - guard: the published bundle carries no unsuppressed HIGH/CRITICAL skill finding — `bun run build && node skills/dev/dev-review/scripts/skill-scan.mjs --json` — runs here because the tag push below is what publishes, and the bundle is what the world installs; a failure stops the sequence and goes to the operator
 - auto: pull main, then tag and push exactly `v$(node -p "require('./packages/cli/package.json').version")` on the merged bump commit — covered by the operator's release word (release: on-request); tags are not branch-protected, so this push still works; deriving the tag from the manifest is the local tag↔version guard; the push triggers the pipeline (tag↔version guard → check → changelog guard → npm trusted publishing → SBOM → GitHub release whose notes lead with the changelog entry); watch it to green
-- auto: confirm `npm view @vegastack/skills version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/skills@latest list` shows the bundled skills; report old → new
+- auto: confirm `npm view @vegastack/vegafactory version` matches (registry propagation can lag — retry briefly) and `npx @vegastack/vegafactory@latest skills list` shows the bundled skills; report old → new
 - Publishing is tag-triggered trusted publishing (OIDC, token-free). **Provenance is currently OFF**: `release.yml` runs on `[self-hosted, vsk-runners-mac]` and passes `--no-provenance`, because npm refuses a provenance bundle built anywhere but a GitHub-hosted runner and those are billing-locked (#57) — 0.13.0, 0.16.0, 0.16.1 and 0.17.0 shipped without an attestation. Restore both together: drop the flag when `runs-on` returns to `ubuntu-latest`, never one without the other, and never pass `--provenance` explicitly (it conflicts with trusted-publishing config)
 - Rollback is roll-forward: revert the offending commits through a PR (main is protected — there is no direct revert push, and a rollback is exactly when that discipline matters most), release previous-good as a new patch, `npm deprecate` the bad version ("Broken — use <new>"); unpublish only for leaked secrets within 72h, in addition to roll-forward, never instead
 - Content semver: new references/sections/recorded decisions/skill renames = minor · factual refreshes, wording, test-only = patch · removing a skill, weakening a normative rule, breaking the per-project profile format = major, and major is otherwise the operator's explicit call (pre-1.0 with zero deployed profile consumers, a profile-format break may ship minor — recorded decision 28-08-2026); installer changes follow ordinary semver on the same version, a release takes the higher bump — detail in skill-maintainer's release-ops.md
@@ -50,7 +50,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 - npm registry via tag-triggered trusted publishing — no local npm credentials exist or are needed
 - GitHub Actions runs CI, release, and the weekly refresh (refresh/** branches are CI-restricted to refresh metadata)
 - A brief whose acceptance needs a live `claude -p` or `codex exec` proof checks both CLIs are authenticated first (`claude -p 'say ok'`, `codex exec --sandbox read-only -a never 'say ok'`) — an expired session turns that acceptance into a parked finding, as it did on #94
-- main is branch-protected: a PR is required, force-pushes and deletion are blocked, linear history and conversation resolution are enforced, and admins are NOT exempt — so every path to main, agent or human, goes through a PR. **`check (node 24)` is a required status check** (strict: a branch must be up to date with main before merging), enabled 02-09-2026 once `ci.yml` moved to `[self-hosted, vsk-runners-mac]` and started passing again (#87). The runners are the dependency now: if both are offline, nothing merges — check `gh api repos/vegastack/vegastack-skills/actions/runners` before assuming a stuck PR is a code problem
+- main is branch-protected: a PR is required, force-pushes and deletion are blocked, linear history and conversation resolution are enforced, and admins are NOT exempt — so every path to main, agent or human, goes through a PR. **`check (node 24)` is a required status check** (strict: a branch must be up to date with main before merging), enabled 02-09-2026 once `ci.yml` moved to `[self-hosted, vsk-runners-mac]` and started passing again (#87). The runners are the dependency now: if both are offline, nothing merges — check `gh api repos/vegastack/vegafactory/actions/runners` before assuming a stuck PR is a code problem
 
 ## Decisions
 

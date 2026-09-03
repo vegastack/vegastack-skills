@@ -1,19 +1,19 @@
-# Release: publish @vegastack/skills to npm and attach an SBOM to the GitHub release.
+# Release: publish @vegastack/vegafactory to npm and attach an SBOM to the GitHub release.
 #
 # ONE-TIME BOOTSTRAP (read before the first release):
 #
 #   Trusted publishing cannot be configured for a package that does not exist on
-#   the registry yet. The FIRST-EVER publish of @vegastack/skills must be done
+#   the registry yet. The FIRST-EVER publish of @vegastack/vegafactory must be done
 #   manually with a short-lived granular access token:
 #
 #     1. On npmjs.com create a granular token scoped to the @vegastack org,
 #        packages: read/write, short expiry.
 #     2. Locally: cd packages/cli && npm publish --access public
 #        (prepack builds via Bun; make sure `bun run check` passes first).
-#     3. On npmjs.com, open the package settings for @vegastack/skills and
+#     3. On npmjs.com, open the package settings for @vegastack/vegafactory and
 #        configure a Trusted Publisher:
 #          - provider:  GitHub Actions
-#          - repository: vegastack/vegastack-skills
+#          - repository: vegastack/vegafactory
 #          - workflow:  release.yml
 #     4. Revoke the bootstrap token.
 #
@@ -112,8 +112,8 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./package.json').version")
-          if npm view "@vegastack/skills@$VERSION" version >/dev/null 2>&1; then
-            echo "@vegastack/skills@$VERSION is already on the registry; skipping publish."
+          if npm view "@vegastack/vegafactory@$VERSION" version >/dev/null 2>&1; then
+            echo "@vegastack/vegafactory@$VERSION is already on the registry; skipping publish."
           else
             # TEMPORARY (0.16.1), revert with the runs-on change above. npm refuses a
             # provenance bundle built anywhere but a GitHub-hosted runner, and hosted runners

@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 Skill README file tables are generated from `packages/cli/packaging.json`, and the structure check enforces them.

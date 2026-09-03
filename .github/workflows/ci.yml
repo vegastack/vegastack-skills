@@ -52,7 +52,7 @@ jobs:
       - name: Packed-tarball smoke test
         run: |
           set -euo pipefail
-          TARBALL=$(ls "$RUNNER_TEMP"/vegastack-skills-*.tgz)
+          TARBALL=$(ls "$RUNNER_TEMP"/vegastack-vegafactory-*.tgz)
           # SMOKE_DIR is only npm's working directory and is never symlink-checked,
           # so mktemp is fine for it. TARGET_DIR is passed to `add --dir`, and the
           # CLI's assertNoSymlink (packages/cli/src/index.ts) refuses ANY symlinked
@@ -67,6 +67,6 @@ jobs:
           cd "$SMOKE_DIR"
           npm init -y > /dev/null
           npm install "$TARBALL"
-          ./node_modules/.bin/vegastack-skills --version
-          ./node_modules/.bin/vegastack-skills add dev-architect \
+          ./node_modules/.bin/vegafactory --version
+          ./node_modules/.bin/vegafactory skills add dev-architect \
             --dry-run --non-interactive --agent both --dir "$TARGET_DIR"

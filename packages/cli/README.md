@@ -1,11 +1,11 @@
-# @vegastack/skills
+# @vegastack/vegafactory
 
 Installer for VegaStack Agent Skills — a family of self-contained skills for Claude Code, Codex, and Hermes, shipped in one integrity-checked package.
 
 Install the whole dev workflow, once per machine:
 
 ```sh
-npx @vegastack/skills add --group dev --global
+npx @vegastack/vegafactory skills add --group dev --global
 ```
 
 `--global` is the recommended install: the skills land in your home directory and are available in every project you open. Drop it for a project-local install when a repository should carry its own copy.
@@ -13,7 +13,7 @@ npx @vegastack/skills add --group dev --global
 See what else is bundled:
 
 ```sh
-npx @vegastack/skills list
+npx @vegastack/vegafactory skills list
 ```
 
 ## Skills in this package
@@ -37,7 +37,7 @@ Install the family with `add --group dev --global`.
 
 ### `repo-tooling` — repo-only
 
-These operate on the vegastack-skills repository itself and do nothing useful in another project, so **`--all` skips them**. Install one by name if you are contributing to that repo.
+These operate on the vegafactory repository itself and do nothing useful in another project, so **`--all` skips them**. Install one by name if you are contributing to that repo.
 
 | Skill | What it does |
 |---|---|
@@ -69,25 +69,25 @@ A `--group` or `--all` install is **one transaction**: every skill is checked an
 The ten dev-workflow skills:
 
 ```sh
-npx @vegastack/skills add --group dev --global
+npx @vegastack/vegafactory skills add --group dev --global
 ```
 
 Everything worth installing outside this repo:
 
 ```sh
-npx @vegastack/skills add --all --global
+npx @vegastack/vegafactory skills add --all --global
 ```
 
 Check the family against the manifest:
 
 ```sh
-npx @vegastack/skills verify --group dev --global
+npx @vegastack/vegafactory skills verify --group dev --global
 ```
 
 Uninstall it again:
 
 ```sh
-npx @vegastack/skills remove --group dev --global
+npx @vegastack/vegafactory skills remove --group dev --global
 ```
 
 ## Upgrading and health checks
@@ -95,13 +95,13 @@ npx @vegastack/skills remove --group dev --global
 Upgrade to the latest release. `--force` is required because `add` refuses to overwrite an installed copy that differs from the bundle rather than silently discarding local edits:
 
 ```sh
-npx @vegastack/skills@latest add --group dev --global --force
+npx @vegastack/vegafactory@latest skills add --group dev --global --force
 ```
 
 Diagnose an install — integrity across all skills, plus installed-vs-latest version:
 
 ```sh
-npx @vegastack/skills doctor --global
+npx @vegastack/vegafactory skills doctor --global
 ```
 
 Run `doctor` without `--global` from inside a project to additionally check that project's `.vegastack/dev.md` profile; the global run skips that check, since the profile is per-project by design.
@@ -154,6 +154,6 @@ Zero telemetry. The only network call in the tool is `doctor`'s single version c
 
 ## Docs
 
-Skill content, freshness model, and policies: [github.com/vegastack/vegastack-skills](https://github.com/vegastack/vegastack-skills)
+Skill content, freshness model, and policies: [github.com/vegastack/vegafactory](https://github.com/vegastack/vegafactory)
 
 MIT license.

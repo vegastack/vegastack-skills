@@ -14,12 +14,12 @@ labels: bug
 
 ```sh
 # exact command(s), e.g.
-npx @vegastack/skills add dev-architect --agent both --dir .
+npx @vegastack/vegafactory skills add dev-architect --agent both --dir .
 ```
 
 ## Environment
 
-- `@vegastack/skills` version:
+- `@vegastack/vegafactory` version:
 - Node version (`node --version`):
 - OS:
 - Agent runtime (Claude Code / Codex / Hermes / both):
