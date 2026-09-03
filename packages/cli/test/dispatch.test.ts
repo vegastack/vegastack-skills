@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import {
   evaluateGuards, executeRun, failureComment, holdLock, logPath, parseDispatchArgs, readLock,
-  releaseLock, stopList, worktreeFor, planLabelRuns, planRocketRuns, planTick, readState,
+  outcomeOf, releaseLock, stopList, worktreeFor, planLabelRuns, planRocketRuns, planTick, readState,
   recordHandled, redact, searchQueries, shipGuardWired, tailLines, writeState,
   type BoardIssue, type DispatchState, type GuardState, type Rocket,
 } from '../src/dispatch.ts'
@@ -395,5 +395,27 @@ describe('parseDispatchArgs', () => {
   test('--once with --watch is a usage error, and --config needs a value', () => {
     expect(() => parseDispatchArgs(['--once', '--watch'])).toThrow(/--once/)
     expect(() => parseDispatchArgs(['--config'])).toThrow(/--config/)
+  })
+})
+
+describe('review round 1 — the fixes', () => {
+  test('a wiring file that only mentions the guard in a comment is unwired', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vsk-guard-'))
+    mkdirSync(join(root, '.vegastack/hooks'), { recursive: true })
+    mkdirSync(join(root, '.claude'), { recursive: true })
+    writeFileSync(join(root, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+    writeFileSync(join(root, '.claude/settings.json'), JSON.stringify({ note: 'we should wire .vegastack/hooks/ship-guard.mjs one day', hooks: {} }))
+    expect((await shipGuardWired(root, 'claude')).wired).toBe(false)
+  })
+
+  test('outcomeOf reads the brief Outcome paragraph, and falls back to nothing it invented', () => {
+    const body = '<!-- vsk:v1 type=brief -->\n**Scope:** full-plan\n\n## Outcome\n\nThe dispatcher runs on the mini.\n\nMore detail here.\n\n## Out of scope\n\n- nothing\n'
+    expect(outcomeOf(body)).toBe('The dispatcher runs on the mini.')
+    expect(outcomeOf('no sections at all')).toBe('')
+  })
+
+  test('a stop-and-ask section written as prose still reaches the run', () => {
+    const devMd = '## Stop and ask\n\nPause only for a destructive action, a scope change, or spending money.\n\n## Project rules\n\n- not this\n'
+    expect(stopList(devMd)).toEqual(['Pause only for a destructive action, a scope change, or spending money.'])
   })
 })

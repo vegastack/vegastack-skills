@@ -226,8 +226,9 @@ export async function runStatusCli(argv: string[], home: string, deps?: Partial<
 async function defaultWorktrees(repoPath: string): Promise<WorktreeRow[]> {
   const { spawnSync } = await import('node:child_process')
   const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
   const script = process.env.VSK_WORKTREE_SCRIPT
-    || join(dirname(dirname(new URL(import.meta.url).pathname)), 'skill', 'dev-implement', 'scripts', 'worktree.mjs')
+    || join(dirname(dirname(fileURLToPath(import.meta.url))), 'skill', 'dev-implement', 'scripts', 'worktree.mjs')
   const result = spawnSync(process.execPath, [script, 'list', '--json'], { cwd: repoPath, encoding: 'utf8' })
   const parsed = JSON.parse(result.stdout || '{}') as { entries?: { name: string; branch: string | null; state: string }[] }
   return (parsed.entries ?? []).map(entry => ({

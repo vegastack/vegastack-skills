@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs'
 import { parseControlRoomKnob } from './control-room.ts'
 import { appendFile, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { loadFactoryConfig, mergeRepoPolicy, stagePolicy, type FactoryConfig, type Harness, type RepoEntry, type RepoPolicy, type Stage } from './config.ts'
 import { buildLaunchPlan, type LaunchPlan } from './launch.ts'
 import { GhUnavailable, ghText } from './gh.ts'
@@ -251,6 +252,19 @@ export function evaluateGuards(input: { repo: string; policy: RepoPolicy; guards
   return refusals
 }
 
+// A `command` string somewhere in the hook config that actually invokes the guard — not the guard's
+// name appearing anywhere in the file, which a comment or an unrelated key would satisfy.
+function callsShipGuard(node: unknown): boolean {
+  if (Array.isArray(node)) return node.some(callsShipGuard)
+  if (node && typeof node === 'object') {
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (key === 'command' && typeof value === 'string' && value.includes('ship-guard.mjs')) return true
+      if (callsShipGuard(value)) return true
+    }
+  }
+  return false
+}
+
 // Wired means two files agree: the guard script exists, and this harness's hook config actually
 // calls it. Either one missing or unreadable is unwired — the whole point of the check is that a
 // repo whose guard state cannot be established never starts an unattended run.
@@ -271,13 +285,14 @@ export async function shipGuardWired(repoPath: string, harness: Harness): Promis
   } catch {
     return { wired: false, detail: `${relative} is missing — the guard script is there but nothing calls it` }
   }
+  let parsed: unknown
   try {
-    JSON.parse(text)
+    parsed = JSON.parse(text)
   } catch {
     return { wired: false, detail: `${relative} is not valid JSON — the wiring cannot be read, so it counts as unwired` }
   }
-  if (!text.includes('ship-guard.mjs')) {
-    return { wired: false, detail: `${relative} does not call ship-guard.mjs` }
+  if (!callsShipGuard(parsed)) {
+    return { wired: false, detail: `${relative} has no hook command calling ship-guard.mjs` }
   }
   return { wired: true, detail: `.vegastack/hooks/ship-guard.mjs wired for ${harness} in ${relative}` }
 }
@@ -430,10 +445,16 @@ export async function executeRun(
   await refuseSymlink(file)
   const lines: string[] = []
   const record = (row: Record<string, unknown>): void => { lines.push(JSON.stringify(row)) }
-  const flush = async (): Promise<void> => {
-    if (lines.length === 0) return
-    await appendFile(file, `${lines.join('\n')}\n`)
-    lines.length = 0
+  // One append at a time, chained: two concurrent appends can land out of order, and a log whose
+  // lines are shuffled is worse than one that lags.
+  let writing: Promise<void> = Promise.resolve()
+  const flush = (): Promise<void> => {
+    writing = writing.then(async () => {
+      if (lines.length === 0) return
+      const pending = lines.splice(0, lines.length)
+      await appendFile(file, `${pending.join('\n')}\n`)
+    })
+    return writing
   }
   record({ at: startedAt.toISOString(), event: 'start', repo: run.repo, issue: run.issue, stage: run.stage, command: plan.command, args: plan.args, cwd: plan.cwd })
   await flush()
@@ -538,6 +559,7 @@ function toBoardIssue(row: SearchIssue): BoardIssue {
 }
 
 export interface TickDeps {
+  issueBody: (repo: string, issue: number) => Promise<string>
   gh: (args: string[], options?: { cwd?: string; input?: string }) => Promise<string>
   now: () => Date
   shipGuard: (repoPath: string, harness: Harness) => Promise<{ wired: boolean; detail: string }>
@@ -650,7 +672,7 @@ export async function releaseLock(path: string): Promise<void> {
 export function defaultEnsureWorktree(repoPath: string, issue: number, title: string): Promise<WorktreeTarget> {
   const target = worktreeFor(repoPath, issue, title)
   const script = process.env.VSK_WORKTREE_SCRIPT
-    || join(dirname(dirname(new URL(import.meta.url).pathname)), 'skill', 'dev-implement', 'scripts', 'worktree.mjs')
+    || join(dirname(dirname(fileURLToPath(import.meta.url))), 'skill', 'dev-implement', 'scripts', 'worktree.mjs')
   const verb = existsSync(target.path) ? 'restore' : 'create'
   const result = spawnSync(process.execPath, [script, verb, '--json', '--issue', String(issue), '--slug', target.slug, '--type', target.type, '--write'], {
     cwd: repoPath,
@@ -708,6 +730,10 @@ export async function runTick(
   const shipGuard = deps?.shipGuard ?? shipGuardWired
   const ensure = deps?.ensureWorktree ?? defaultEnsureWorktree
   const execute = deps?.execute ?? ((run, plan, cfg, opts) => executeRun(run, plan, cfg, opts))
+  const issueBody = deps?.issueBody ?? (async (repo: string, issue: number) => {
+    const raw = await gh(['issue', 'view', String(issue), '--repo', repo, '--json', 'body'])
+    return (JSON.parse(raw) as { body?: string }).body ?? ''
+  })
 
   let state = await readState(config.stateFile)
   const runs: RunReport[] = []
@@ -766,7 +792,7 @@ export async function runTick(
         worktree: target.path,
         issue: { number: run.issue, title: run.title },
         operator: policy.operators[0] ?? 'the operator',
-        outcome: run.title,
+        outcome: (await issueBody(entry.repo, run.issue).then(outcomeOf).catch(() => '')) || run.title,
         stopList: stopList(devMd),
         resume: run.stage === 'corrections',
         skillPath: null,
@@ -793,7 +819,9 @@ export async function runTick(
       } finally {
         await releaseLock(lockPath)
       }
-      state = recordHandled(state, run)
+      // Only reactions need dedupe: a label run moves the label, and the board itself is then the
+      // record. Recording label runs here would grow the state file forever for no gain.
+      if (run.reactionId !== null) state = recordHandled(state, run)
       runs.push(report)
     }
     state = withLastTick(state, entry.repo, now().toISOString())
@@ -803,17 +831,26 @@ export async function runTick(
   return { ok: runs.length > 0, dryRun: options.dryRun, runs, refusals }
 }
 
+// The brief's own Outcome paragraph is what the operator actually needs; the title is only its
+// label. A brief with no Outcome section falls back to the title rather than to silence.
+export function outcomeOf(body: string): string {
+  const section = body.split(/^## Outcome\s*$/m)[1]
+  if (!section) return ''
+  const text = (section.split(/^## /m)[0] ?? '').trim()
+  return text === '' ? '' : text.split('\n\n')[0]!.trim()
+}
+
 // The profile's own stop-list, handed to every run verbatim: the operator wrote those lines, and a
 // dispatcher that paraphrased them would be editing policy.
 export function stopList(devMd: string): string[] {
   const section = devMd.split(/^## Stop and ask.*$/m)[1]
   if (!section) return []
   const body = section.split(/^## /m)[0] ?? ''
-  return body
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.startsWith('- '))
-    .map(line => line.slice(2).trim())
+  const lines = body.split('\n').map(line => line.trim()).filter(line => line !== '')
+  const bullets = lines.filter(line => line.startsWith('- ')).map(line => line.slice(2).trim())
+  // Most profiles write the section as prose, not a list — taking only bullets would hand a run an
+  // empty stop-list on exactly the repos that wrote theirs most carefully.
+  return bullets.length > 0 ? bullets : lines
 }
 
 // One dispatcher per machine, and it never exits on its own: a tick that throws is logged through
