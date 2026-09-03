@@ -2,7 +2,7 @@
 // dev-status data gatherer: everything the board report needs, deterministically,
 // read-only, markers-only. The skill renders; this script never invents state.
 //
-// Usage: node status.mjs [--repo o/r] [--orphan-hours 6] [--dev-md <path>] --json
+// Usage: node status.mjs [--repo o/r] [--orphan-hours 6] [--dev-md <path>] [--viewer <login>] [--me | --all] --json
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -21,6 +21,8 @@ export function readKnobs(devMdText) {
     risky: labels[5],
     scopes: labels.slice(6, 9),
     register: /^decisions:\s*(\S+)/m.exec(devMdText ?? '')?.[1] ?? '.vegastack/decisions.md',
+    operators: (/^operators:\s*([^\n#]+)/m.exec(devMdText ?? '')?.[1] ?? '')
+      .split(',').map((t) => t.trim()).filter(Boolean),
   };
 }
 
@@ -64,6 +66,27 @@ export function parseMarker(body) {
     if (eq > 0) keys[pair.slice(0, eq)] = pair.slice(eq + 1);
   }
   return { keys };
+}
+
+// The approval-marker comment's author — the first tier of the operator rule.
+// Last approval wins: a plan approval supersedes the brief's.
+export function approvalAuthor(comments) {
+  let author = null;
+  for (const c of comments ?? []) {
+    if (parseMarker(c.body)?.keys?.type === 'approval') author = c.user?.login ?? null;
+  }
+  return author;
+}
+
+// conventions' operator rule, deterministic: approval-marker author if listed,
+// else the issue author if listed, else the first listed. An empty operators
+// list has no operator — the project never filled the knob, and inventing one
+// would assign work to a human who never agreed to it.
+export function resolveOperator({ approvalAuthor: approver = null, issueAuthor = null, operators = [] } = {}) {
+  if (operators.length === 0) return null;
+  if (approver && operators.includes(approver)) return approver;
+  if (issueAuthor && operators.includes(issueAuthor)) return issueAuthor;
+  return operators[0];
 }
 
 // Count plan-comment checkboxes: [done, total]. No plan comment → null.
@@ -119,18 +142,23 @@ export function checksState(rollup) {
   return rollup.every(ok) ? 'green' : 'pending-or-red';
 }
 
-export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/dev.md', chroniclePath = '.vegastack/chronicle.md', now = Date.now() } = {}) {
+export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/dev.md', chroniclePath = '.vegastack/chronicle.md', me, view = 'me', now = Date.now() } = {}) {
   const resolvedRepo = repo || gh(['repo', 'view', '--json', 'nameWithOwner']).nameWithOwner;
+  // One caller lookup for the whole run; a gh failure propagates to the CLI's exit 2.
+  const viewer = me || gh(['api', 'user']).login;
   const devMdText = existsSync(devMdPath) ? readFileSync(devMdPath, 'utf8') : '';
   const knobs = readKnobs(devMdText);
   const board = {};
   for (const label of knobs.states) {
     board[label] = gh(['issue', 'list', '-R', resolvedRepo, '--label', label, '--state', 'open',
-      '--json', 'number,title,url,updatedAt,labels,assignees']).map((i) => ({
+      '--json', 'number,title,url,updatedAt,labels,assignees,author']).map((i) => ({
       number: i.number, title: i.title, url: i.url,
       ageDays: ageDays(i.updatedAt, now),
       scope: (i.labels ?? []).map((l) => l.name).find((n) => knobs.scopes.includes(n)) ?? null,
       risky: (i.labels ?? []).some((l) => l.name === knobs.risky),
+      assignees: (i.assignees ?? []).map((a) => a.login),
+      author: i.author?.login ?? null,
+      operator: resolveOperator({ issueAuthor: i.author?.login ?? null, operators: knobs.operators }),
     }));
   }
 
@@ -141,6 +169,7 @@ export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/de
     for (const issue of board[bucket]) {
       const comments = gh(['api', `repos/${resolvedRepo}/issues/${issue.number}/comments`, '--paginate']);
       issue.tasks = taskProgress(comments);
+      issue.operator = resolveOperator({ approvalAuthor: approvalAuthor(comments), issueAuthor: issue.author, operators: knobs.operators });
       const moved = ledgerMovedAt(comments);
       issue.ledgerAgeHours = moved ? ageHours(moved, now) : null;
       // possiblyOrphaned: a working issue whose ledger has been silent past the
@@ -164,7 +193,15 @@ export function gatherStatus({ repo, orphanHours = 6, devMdPath = '.vegastack/de
     if (m) lastChronicle = { date: m[1], title: m[2], titlePlain: stripLinks(m[2]) };
   }
 
-  return { repo: resolvedRepo, orphanHours, board, prs, pendingDecisions: decisions, lastChronicle };
+  // "Whose move is it" is the question this script exists to answer, so the
+  // filter is data, not the skill's judgment. Human states only: `ready` and
+  // `working` belong to agents, and an unassigned `ready` issue is correct.
+  const humanStates = [knobs.states[0], knobs.states[4]];
+  const human = humanStates.flatMap((s) => board[s].map((i) => ({ ...i, state: s })));
+  const needsYou = human.filter((i) => view === 'all' || i.assignees.includes(viewer));
+  const unowned = human.filter((i) => i.assignees.length === 0);
+
+  return { repo: resolvedRepo, orphanHours, viewer, view, operators: knobs.operators, board, needsYou, unowned, prs, pendingDecisions: decisions, lastChronicle };
 }
 
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -173,7 +210,7 @@ if (invokedDirectly) {
   const get = (f) => { const i = argv.indexOf(f); return i === -1 ? undefined : argv[i + 1]; };
   try {
     const orphanRaw = Number(get('--orphan-hours'));
-    const data = gatherStatus({ repo: get('--repo'), orphanHours: Number.isFinite(orphanRaw) && orphanRaw >= 1 ? orphanRaw : 6, devMdPath: get('--dev-md') });
+    const data = gatherStatus({ repo: get('--repo'), orphanHours: Number.isFinite(orphanRaw) && orphanRaw >= 1 ? orphanRaw : 6, devMdPath: get('--dev-md'), me: get('--viewer'), view: argv.includes('--all') ? 'all' : 'me' });
     console.log(JSON.stringify(data, null, argv.includes('--json') ? 2 : 0));
   } catch (error) {
     console.error(`status: cannot verify — ${error.message}`);

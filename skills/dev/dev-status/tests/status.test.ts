@@ -54,13 +54,35 @@ describe('status helpers', () => {
     expect(stripLinks('no links here')).toBe('no links here')
     expect(stripLinks(null)).toBe('')
   })
+  test('readKnobs parses the operators csv; an absent line is an empty list', () => {
+    expect(readKnobs('operators: kmanojkumar, ada\n').operators).toEqual(['kmanojkumar', 'ada'])
+    expect(readKnobs('operators: kmanojkumar   # just me\n').operators).toEqual(['kmanojkumar'])
+    expect(readKnobs('labels: a b c\n').operators).toEqual([])
+  })
+  test('resolveOperator: approval author wins, then the issue author, then the first listed', () => {
+    const operators = ['kmanojkumar', 'ada']
+    expect(resolveOperator({ approvalAuthor: 'ada', issueAuthor: 'kmanojkumar', operators })).toBe('ada')
+    expect(resolveOperator({ approvalAuthor: 'outsider', issueAuthor: 'ada', operators })).toBe('ada')
+    expect(resolveOperator({ approvalAuthor: 'outsider', issueAuthor: 'outsider', operators })).toBe('kmanojkumar')
+    expect(resolveOperator({ issueAuthor: 'ada', operators: [] })).toBeNull()
+  })
+  test('approvalAuthor: the last approval comment wins, null when none carries the marker', () => {
+    const comments = [
+      { body: '<!-- vsk:v1 type=approval scope=brief -->', user: { login: 'kmanojkumar' } },
+      { body: '<!-- vsk:v1 type=approval scope=plan -->', user: { login: 'ada' } },
+      { body: '<!-- vsk:v1 type=ledger branch=x -->', user: { login: 'bot' } },
+    ]
+    expect(approvalAuthor(comments)).toBe('ada')
+    expect(approvalAuthor([{ body: 'approved!', user: { login: 'ada' } }])).toBeNull()
+    expect(approvalAuthor([])).toBeNull()
+  })
   test('parseMarker matches the shared contract', () => {
     expect(parseMarker('<!-- vsk:v1 type=ledger branch=feat/x -->')?.keys.type).toBe('ledger')
     expect(parseMarker('## Ledger only')).toBeNull()
   })
 })
 
-import { checksState, gatherStatus, readKnobs } from '../scripts/status.mjs'
+import { approvalAuthor, checksState, gatherStatus, readKnobs, resolveOperator } from '../scripts/status.mjs'
 import { join, resolve } from 'node:path'
 
 describe('gatherStatus over the gh stub', () => {
@@ -125,6 +147,25 @@ describe('gatherStatus over the gh stub', () => {
     })
     expect(r.status).toBe(2)
     expect(r.stderr).toContain('cannot verify')
+  })
+  test('me is the default view: Needs you is mine, Unowned is the human-state issues with no assignee, --all keeps every one', () => {
+    const dir = join(skillRoot, 'tests/fixtures/scenarios/assignment')
+    process.env.VSK_GH = join(skillRoot, 'tests/fixtures/gh-stub.mjs')
+    process.env.GH_STUB_DIR = dir
+    try {
+      const mine = gatherStatus({ devMdPath: join(dir, 'dev.md'), chroniclePath: '/nonexistent.md', now: Date.parse('2026-09-03T12:00:00Z') })
+      expect(mine.viewer).toBe('kmanojkumar')
+      expect(mine.view).toBe('me')
+      expect(mine.operators).toEqual(['kmanojkumar', 'ada'])
+      expect(mine.needsYou.map((i: any) => i.number)).toEqual([11, 14])
+      expect(mine.unowned.map((i: any) => i.number)).toEqual([13])
+      expect(mine.board['needs-operator'][0].assignees).toEqual(['kmanojkumar'])
+      expect(mine.board['for-operator'][0].operator).toBe('ada')
+      expect(mine.board['needs-operator'][1].operator).toBe('ada')
+      const all = gatherStatus({ view: 'all', devMdPath: join(dir, 'dev.md'), chroniclePath: '/nonexistent.md', now: Date.parse('2026-09-03T12:00:00Z') })
+      expect(all.view).toBe('all')
+      expect(all.needsYou.map((i: any) => i.number)).toEqual([11, 12, 13, 14])
+    } finally { delete process.env.VSK_GH; delete process.env.GH_STUB_DIR }
   })
   test('readKnobs: renamed labels and custom register parse; short lists fall back', () => {
     const knobs = readKnobs('labels: waiting planning go doing done hot q s l parent\ndecisions: docs/register.md\n')

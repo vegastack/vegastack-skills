@@ -11,6 +11,7 @@ if (argv[0] === 'issue' && argv[1] === 'list') {
   serve(`issues-${label}.json`);
 }
 if (argv[0] === 'pr' && argv[1] === 'list') serve('prs.json');
+if (argv[0] === 'api' && argv[1] === 'user') serve('user.json');
 if (argv[0] === 'api') {
   const m = /issues\/(\d+)\/comments/.exec(argv[1]);
   if (m) serve(`comments-${m[1]}.json`);
