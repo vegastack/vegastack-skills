@@ -78,20 +78,23 @@ export function parseFilters(
 // The WHERE fragment and its bound values, shared by every aggregate. The repo scope is the
 // resolved list parseFilters computed; a chosen group holding no repo in the cache yields a
 // clause no row satisfies, which is the honest answer rather than a silently unfiltered page.
-export function whereClause(filters: Filters): { sql: string; values: unknown[] } {
-  const clauses = ['month = ?']
+// Every column is the runs table's, and a query that joins another table passes that table's
+// alias so `harness` — which skill_invocations also carries — can never be ambiguous.
+export function whereClause(filters: Filters, alias = ''): { sql: string; values: unknown[] } {
+  const column = (name: string): string => (alias ? `${alias}.${name}` : name)
+  const clauses = [`${column('month')} = ?`]
   const values: unknown[] = [filters.month]
   if (filters.group && filters.repos.length === 0) clauses.push('1 = 0')
   else if (filters.repos.length > 0) {
-    clauses.push(`repo in (${filters.repos.map(() => '?').join(', ')})`)
+    clauses.push(`${column('repo')} in (${filters.repos.map(() => '?').join(', ')})`)
     values.push(...filters.repos)
   }
   if (filters.harness) {
-    clauses.push('harness = ?')
+    clauses.push(`${column('harness')} = ?`)
     values.push(filters.harness)
   }
   if (filters.model) {
-    clauses.push('model = ?')
+    clauses.push(`${column('model')} = ?`)
     values.push(filters.model)
   }
   return { sql: clauses.join(' and '), values }

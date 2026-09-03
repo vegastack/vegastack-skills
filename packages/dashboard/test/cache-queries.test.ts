@@ -26,3 +26,9 @@ test('the month, group and harness filters narrow every aggregate the views read
   expect(skills[0]).toMatchObject({ name: 'dev-plan', invocations: 1 })
   expect(skills[0]!.costPerInvocation).toBeCloseTo(0.4, 6)
 })
+
+test('the harness filter reaches the skills join without an ambiguous column', () => {
+  expect(perSkill(db, f({ month: 'SEP-2026', harness: 'claude' })).map((r) => r.name)).toEqual(['dev-plan'])
+  expect(perSkill(db, f({ month: 'SEP-2026', harness: 'codex' }))).toEqual([])
+  expect(perSkill(db, f({ month: 'SEP-2026', model: 'fable-5-1' }))).toHaveLength(1)
+})

@@ -80,7 +80,8 @@ export interface SkillRow {
 // is the reading the view wants — "what does this skill cost when it runs" — and the org total
 // stays the one place a spend figure is authoritative.
 export function perSkill(db: Db, filters: Filters): SkillRow[] {
-  const { sql, values } = whereClause(filters)
+  // The filter is the run's: the harness that executed the run, as every other aggregate reads it.
+  const { sql, values } = whereClause(filters, 'r')
   const rows = db.query<{ name: string; trigger: string | null; outcome: string | null; costUsd: number }>(
     `select s.name as name, s.trigger as trigger, r.outcome as outcome, coalesce(r.cost_usd, 0) as costUsd
      from skill_invocations s join runs r on r.id = s.run_id
