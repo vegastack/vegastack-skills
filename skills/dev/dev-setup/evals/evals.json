@@ -15,7 +15,7 @@
     },
     {
       "id": 2,
-      "prompt": "bootstrap this for agents — it's an empty folder called `acme-portal`, nothing in it yet, not even git. we'll be doing bun + hono, deploying to fly",
+      "prompt": "bootstrap this for agents \u2014 it's an empty folder called `acme-portal`, nothing in it yet, not even git. we'll be doing bun + hono, deploying to fly",
       "expected_output": "The greenfield path: the stack interview fills what an empty directory cannot, `git init` and `gh repo create` are each offered as their own yes/no question, and dev.md is rendered from the Bun playbook with placeholder lines where the machinery (CI, changelog, release) does not exist yet.",
       "files": [],
       "assertions": [
@@ -45,6 +45,18 @@
         "The rendered dev.md carries one issue-types: line and one issue-fields: line",
         "An org with no Epic type keeps the epic label rather than inventing the type",
         "A repo with no org behind it writes both knobs as none and says so in one plain sentence"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Set up the dev workflow here. This machine has Claude Code installed and nothing else \u2014 no Codex, no Hermes.",
+      "expected_output": "Detection records the single harness, the drafted `review:` knob is `subagent` with cross-agent off, `harnesses:` records the two absent harnesses, and `## Environments` names what the absence costs.",
+      "files": [],
+      "assertions": [
+        "The recommended `review:` knob value is `review: subagent`, not cross-agent-risky, and cross-agent is said to be off until a second harness exists",
+        "The `harnesses:` knob line lists the detected Claude Code version and records `codex absent` and `hermes absent`",
+        "The `harness-policy:` line is still drafted with all six stages (intake, plan, implement, review, status, chronicle)",
+        "`## Environments` carries a bullet naming the absent harness and the capability its absence gates"
       ]
     }
   ]

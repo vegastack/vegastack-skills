@@ -131,6 +131,27 @@ describe('dev-setup contract', () => {
     expect(policy).toContain('xhigh')
   })
 
+  test('SKILL.md ties the review recommendation and the Environments gap note to detected harnesses', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const roundB = skill.split('**Round B')[1].split('**Round C')[0]
+    expect(roundB).toContain('harness-policy:')
+    expect(roundB).toMatch(/only one harness[^.]*subagent/i)
+    const step1 = skill.split('## Step 1')[1].split('## Step 2')[0]
+    expect(step1).toContain('harnesses:')
+    expect(step1).not.toContain('Codex absent →')
+    expect(step1).toMatch(/absent →[^|]*## Environments/)
+    const roundC = skill.split('**Round C')[1].split('\n## Step 3')[0]
+    expect(roundC).toContain('harness-policy:')
+    expect(roundC).toContain('references/harness-facts.md')
+  })
+
+  test('the eval file covers the single-harness recommendation', () => {
+    const evals = JSON.parse(readFileSync(join(skillRoot, 'evals/evals.json'), 'utf8'))
+    const single = evals.evals.find((entry: { prompt: string }) => /nothing else/i.test(entry.prompt))
+    expect(single).toBeDefined()
+    expect(single.assertions.join(' ')).toContain('review: subagent')
+  })
+
   test('Step 1 detection reads the org issue fields and drafts both knobs', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     expect(skill).toContain('gh api orgs/<org>/issue-types')
