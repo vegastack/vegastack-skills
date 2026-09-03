@@ -46,6 +46,7 @@
     "scripts/children.mjs",
     "assets/workflows/implement-children.js",
     "references/ledger-and-resume.md",
+    "references/parallel-children.md",
     "references/worktrees.md",
     "references/changelog-and-chronicle.md",
     "refresh/REFRESH.md",
