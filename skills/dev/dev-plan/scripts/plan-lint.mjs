@@ -24,6 +24,58 @@ export const bannedPlaceholders = [
   /similar to task \d+/i,
 ];
 
+// Independent groups: the optional block that declares which work may run at the
+// same time, and the disjoint file set that bounds each group. The grammar's
+// single home is here — dev-implement reads `--groups` JSON rather than the
+// markdown, so exactly one parser exists in the family.
+const GROUPS_HEADING = '**Independent groups:**';
+const GROUP_LINE = /^- `([^`]+)` — (.*)$/;
+
+export function normalizeGroupPath(path) {
+  return String(path).replace(/^\.\//, '').replace(/\/{2,}/g, '/');
+}
+
+export function parseIndependentGroups(text) {
+  const lines = String(text).split('\n');
+  const start = lines.findIndex((line) => line.trim().startsWith(GROUPS_HEADING));
+  if (start === -1) return [];
+  const groups = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (!line.startsWith('- ')) break;
+    const match = GROUP_LINE.exec(line);
+    if (!match) {
+      groups.push({ id: null, members: [], files: [], line });
+      continue;
+    }
+    const rest = match[2];
+    const cut = rest.indexOf(' · Files:');
+    const membersPart = cut === -1 ? rest : rest.slice(0, cut);
+    const filesPart = cut === -1 ? '' : rest.slice(cut + ' · Files:'.length);
+    const members = membersPart.split(',').map((m) => m.trim()).filter(Boolean);
+    const files = (filesPart.match(/`[^`]+`/g) || []).map((f) => normalizeGroupPath(f.slice(1, -1).trim()));
+    groups.push({ id: match[1].trim(), members, files, line });
+  }
+  return groups;
+}
+
+export function groupOverlaps(groups) {
+  const found = [];
+  const named = groups.filter((g) => g.id);
+  for (let i = 0; i < named.length; i += 1) {
+    for (let j = i + 1; j < named.length; j += 1) {
+      for (const a of named[i].files) {
+        for (const b of named[j].files) {
+          if (a === b) found.push({ a: named[i].id, b: named[j].id, path: a });
+          else if (a.endsWith('/') && b.startsWith(a)) found.push({ a: named[i].id, b: named[j].id, path: a });
+          else if (b.endsWith('/') && a.startsWith(b)) found.push({ a: named[i].id, b: named[j].id, path: b });
+        }
+      }
+    }
+  }
+  return found;
+}
+
 export function lintPlan(text) {
   const blocks = [];
 
@@ -56,6 +108,27 @@ export function lintPlan(text) {
       blocks.push(`task ${n}: a failing-test step must carry the actual test code in a fenced block`);
     }
   });
+
+  const groups = parseIndependentGroups(text);
+  const seenIds = new Set();
+  const seenMembers = new Map();
+  for (const group of groups) {
+    if (!group.id) {
+      blocks.push(`independent group line not in the "- \`id\` — members · Files: \`path\`" shape: "${group.line}"`);
+      continue;
+    }
+    if (seenIds.has(group.id)) blocks.push(`independent group id "${group.id}" appears twice`);
+    seenIds.add(group.id);
+    if (group.files.length === 0) blocks.push(`independent group "${group.id}": no file set declared`);
+    for (const member of group.members) {
+      if (seenMembers.has(member) && seenMembers.get(member) !== group.id) {
+        blocks.push(`independent group member "${member}" appears in more than one group`);
+      } else seenMembers.set(member, group.id);
+    }
+  }
+  for (const clash of groupOverlaps(groups)) {
+    blocks.push(`independent groups "${clash.a}" and "${clash.b}" overlap on ${clash.path}`);
+  }
 
   return { blocks, warns: [] };
 }

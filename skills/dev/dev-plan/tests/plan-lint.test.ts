@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { bannedPlaceholders, lintPlan } from '../scripts/plan-lint.mjs'
+import { bannedPlaceholders, lintPlan, parseIndependentGroups } from '../scripts/plan-lint.mjs'
 
 const goodPlan = `<!-- vsk:v1 type=plan rev=1 -->
 ## Plan (v1)
@@ -67,5 +67,44 @@ describe('plan-lint', () => {
   })
   test('ticked checkboxes still count as tasks', () => {
     expect(lintPlan(goodPlan.replace('- [ ]', '- [x]')).blocks).toEqual([])
+  })
+})
+
+const groupPlan = goodPlan.replace('### Tasks', `**Independent groups:**
+- \`api\` — #131 · Files: \`packages/cli/src/dispatch.ts\`, \`packages/cli/test/dispatch.test.ts\`
+- \`docs\` — #132 · Files: \`README.md\`
+
+### Tasks`)
+
+describe('independent groups', () => {
+  test('disjoint groups pass and parse into ids, members and files', () => {
+    expect(lintPlan(groupPlan).blocks).toEqual([])
+    const groups = parseIndependentGroups(groupPlan)
+    expect(groups.map((g) => g.id)).toEqual(['api', 'docs'])
+    expect(groups[0].members).toEqual(['#131'])
+    expect(groups[0].files).toEqual(['packages/cli/src/dispatch.ts', 'packages/cli/test/dispatch.test.ts'])
+    expect(groups[1].files).toEqual(['README.md'])
+  })
+  test('a plan with no groups block passes and parses to nothing', () => {
+    expect(lintPlan(goodPlan).blocks).toEqual([])
+    expect(parseIndependentGroups(goodPlan)).toEqual([])
+  })
+  test('a group without a file set blocks', () => {
+    const r = lintPlan(groupPlan.replace(' · Files: `README.md`', ''))
+    expect(r.blocks.some((b) => b.includes('no file set'))).toBe(true)
+  })
+  test('exact and directory-prefix overlaps block, naming both groups and the path', () => {
+    const exact = lintPlan(groupPlan.replace('`README.md`', '`packages/cli/src/dispatch.ts`'))
+    expect(exact.blocks.some((b) => b.includes('overlap') && b.includes('api') && b.includes('docs'))).toBe(true)
+    const prefix = lintPlan(groupPlan.replace('`README.md`', '`packages/cli/`'))
+    expect(prefix.blocks.some((b) => b.includes('overlap') && b.includes('packages/cli/'))).toBe(true)
+  })
+  test('a repeated id and a member in two groups each block', () => {
+    expect(lintPlan(groupPlan.replace('- `docs` — #132', '- `api` — #132')).blocks.some((b) => b.includes('appears twice'))).toBe(true)
+    expect(lintPlan(groupPlan.replace('- `docs` — #132', '- `docs` — #131')).blocks.some((b) => b.includes('#131') && b.includes('more than one'))).toBe(true)
+  })
+  test('a malformed group line is reported, never silently skipped', () => {
+    const r = lintPlan(groupPlan.replace('- `docs` — #132 · Files: `README.md`', '- docs: whatever'))
+    expect(r.blocks.some((b) => b.includes('independent group line'))).toBe(true)
   })
 })
