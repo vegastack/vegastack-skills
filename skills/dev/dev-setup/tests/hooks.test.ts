@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { beforeEach, describe, expect, test } from 'bun:test'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { classifyCommand, extractCommand, readPolicy, renderDecision, splitSegments } from '../assets/hooks/ship-guard.mjs'
@@ -315,6 +315,87 @@ describe('this repo runs the hooks package it ships', () => {
     }
     for (const command of ['bun run check', 'bun run build', 'git push origin feat/104-factory-runtime']) {
       expect(Bun.spawnSync(['node', script, '--check', '--command', command, '--dev-md', devMd, '--json']).exitCode).toBe(0)
+    }
+  })
+})
+
+// --- statistics capture hooks ------------------------------------------------------------
+
+describe('statistics capture hooks', () => {
+  const hooks = join(import.meta.dir, '../assets/hooks')
+  let stub: string
+  let calls: string
+
+  beforeEach(() => {
+    stub = mkdtempSync(join(tmpdir(), 'vsk-hook-bin-'))
+    calls = join(stub, 'calls.txt')
+    const shim = join(stub, 'vegafactory')
+    writeFileSync(shim, `#!/bin/sh\nprintf '%s\\n' "$*" >> ${calls}\ncat >> ${calls}\nprintf '\\n' >> ${calls}\n`)
+    chmodSync(shim, 0o755)
+  })
+
+  const run = (hook: string, stdin: string, env: Record<string, string> = {}) => {
+    const result = Bun.spawnSync(['node', join(hooks, hook)], {
+      env: { PATH: `${stub}:${process.env.PATH ?? ''}`, TMPDIR: stub, VSK_VEGAFACTORY: join(stub, 'vegafactory'), ...env },
+      stdin: new TextEncoder().encode(stdin),
+    })
+    return { code: result.exitCode, calls: existsSync(calls) ? readFileSync(calls, 'utf8') : '' }
+  }
+
+  // The push is spawned detached so a session never waits on the network; the test waits for it.
+  const settle = async (needle: string) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const text = existsSync(calls) ? readFileSync(calls, 'utf8') : ''
+      if (text.includes(needle)) return text
+      await Bun.sleep(20)
+    }
+    return existsSync(calls) ? readFileSync(calls, 'utf8') : ''
+  }
+
+  test('session-end.mjs picks its source from the harness and forwards the payload', () => {
+    const claude = run('session-end.mjs', '{"session_id":"s1"}', { CLAUDE_PROJECT_DIR: '/repo' })
+    expect(claude.code).toBe(0)
+    expect(claude.calls).toContain('stats record --source claude-session-end')
+    expect(claude.calls).toContain('"session_id":"s1"')
+    const codex = run('session-end.mjs', '{"session_id":"s2"}')
+    expect(codex.calls).toContain('stats record --source codex-session-end')
+  })
+
+  test('session-end.mjs pushes at most once per five minutes per machine', async () => {
+    run('session-end.mjs', '{"session_id":"s1"}')
+    const first = (await settle('stats push')).split('stats push').length - 1
+    run('session-end.mjs', '{"session_id":"s2"}')
+    const second = (await settle('stats push')).split('stats push').length - 1
+    expect(first).toBe(1)
+    expect(second).toBe(1)
+  })
+
+  test('skill-activated.mjs distinguishes a model call from a typed command', () => {
+    const model = run('skill-activated.mjs', '{"session_id":"s","tool_name":"Skill","tool_input":{"skill":"dev-plan"}}')
+    expect(model.calls).toContain('stats record --source claude-post-tool')
+    const typed = run('skill-activated.mjs', '{"session_id":"s","command_name":"dev-plan"}')
+    expect(typed.calls).toContain('stats record --source claude-prompt-expansion')
+  })
+
+  test('an unrecognised skill payload forwards nothing rather than guessing', () => {
+    const other = run('skill-activated.mjs', '{"session_id":"s","tool_name":"Bash"}')
+    expect(other.code).toBe(0)
+    expect(other.calls).toBe('')
+  })
+
+  test('prompt-skill-mention.mjs forwards the Codex prompt payload', () => {
+    const { code, calls: text } = run('prompt-skill-mention.mjs', '{"session_id":"s","prompt":"use $dev-review"}')
+    expect(code).toBe(0)
+    expect(text).toContain('stats record --source codex-prompt')
+  })
+
+  test('every hook exits 0 when vegafactory is not on PATH', () => {
+    for (const hook of ['session-end.mjs', 'skill-activated.mjs', 'prompt-skill-mention.mjs']) {
+      const result = Bun.spawnSync(['node', join(hooks, hook)], {
+        env: { PATH: process.env.PATH ?? '', TMPDIR: stub, VSK_VEGAFACTORY: join(stub, 'nothing-here') },
+        stdin: new TextEncoder().encode('{"session_id":"s","tool_name":"Skill","tool_input":{"skill":"x"}}'),
+      })
+      expect(result.exitCode, hook).toBe(0)
     }
   })
 })

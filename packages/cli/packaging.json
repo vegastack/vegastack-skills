@@ -101,6 +101,9 @@
     "assets/hooks/session-start.mjs",
     "assets/hooks/stop-heartbeat.mjs",
     "assets/hooks/decision-nudge.mjs",
+    "assets/hooks/session-end.mjs",
+    "assets/hooks/skill-activated.mjs",
+    "assets/hooks/prompt-skill-mention.mjs",
     "assets/workflows/implement-children.js@dev-implement",
     "refresh/REFRESH.md",
     "refresh/sources.json"
