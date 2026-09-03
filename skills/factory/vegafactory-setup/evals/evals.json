@@ -3,10 +3,48 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "TODO: a realistic prompt a user would type — file paths, backstory, the hardest documented case",
-      "expected_output": "TODO: what success looks like, one human-readable sentence",
+      "prompt": "Set up the control room for our org. Org is `vegastack`. We build agent-native developer tooling — the skills, the CLI, and the runtime around them. Everyone writes in English, dates are DD-MM-YYYY, nothing ships without my word. Statistics on, per-person fields off, a repo may opt out. My GitHub username is kmanojkumar.",
+      "expected_output": "The questionnaire answers are written into a rendered `org.md`, every file in the control-room layout is rendered from its template into a directory the operator can read, and the run stops before creating the repository — naming the exact `gh repo create` command instead of running it.",
       "files": [],
-      "assertions": []
+      "assertions": [
+        "Every file in the layout is rendered: `org.md`, `people.csv`, `decisions.md`, `groups/dev/group.md`, `groups/dev/people.csv`, `groups/dev/decisions.md`, `repos.md`, `boards.md`, `rules/`, `onboarding/new-repo.md`, `onboarding/new-teammate.md`, `templates/`",
+        "`org.md` carries `stats: on`, `stats-people: off`, `stats-override: allowed` and no department knob (`review:`, `gates:`, `merge:`, `harness:`)",
+        "The org repository is NOT created; the exact `gh repo create vegastack/vegafactory-control-room --private --add-readme` command is handed to the operator",
+        "No file carries a secret value — secret names only"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Register vegastack/billing in the control room. It's a dev-group repo. The control room already has groups/dev/group.md filled in from our first repo.",
+      "expected_output": "dev-setup runs in the repo reading the control room first, so every knob the group file answers is stated as inherited rather than asked; the run asks zero knob questions and appends the repo's row to `repos.md`.",
+      "files": [],
+      "assertions": [
+        "No question is asked about `review`, `gates`, `merge`, `branch`, `labels`, `tests`, `changelog`, `release`, or the harness policy — each is stated as inherited from `groups/dev/group.md`",
+        "A row for `vegastack/billing` is appended to `repos.md` with its group and owner",
+        "The repo's `.vegastack/dev.md` gains a `control-room:` knob naming the control room and the group"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Onboard priya into the org — she's joining the dev group, Slack @priya, in IST.",
+      "expected_output": "The new-teammate checklist is walked as the person's own actions, and a `people.csv` row is added — with `role` left for the operator to state rather than invented.",
+      "files": [],
+      "assertions": [
+        "A `people.csv` row is proposed with the header's columns `login,name,role,slack,timezone,groups`",
+        "`role` is not invented or inferred from org membership; it is asked for, and the reason given is that `lead` gates the people-level statistics views",
+        "The checklist steps (gh auth, harness install, `vegafactory skills add --group dev --global`, control-room access, Slack) are the person's own actions, and no credential is requested or read"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Set up the dev workflow in this repo.",
+      "expected_output": "The request is one repo's profile, so it routes to dev-setup; this skill does not act on it.",
+      "files": [],
+      "assertions": [
+        "The answer routes to `dev-setup` and names the axis: dev-setup owns one repo's profile, vegafactory-setup owns the org defaults that profile layers on",
+        "No control-room file is created or edited",
+        "No org questionnaire is started"
+      ]
     }
   ]
 }

@@ -41,3 +41,8 @@ Three procedures, one file layout.
 Guardrails: nothing secret goes in any control-room file — names of secrets only; department knobs never go in `org.md`; a declined step is written into `org.md`'s `## Unconfirmed` section so the next run asks again; and a control room that does not exist yet degrades to `dev-setup` asking the questions itself.
 
 Precedence, in one line: hand edits in a repo's `.vegastack/dev.md` beat `groups/<g>/*`, which beat `org.md`, which beat the skill defaults — except the decision registers, which concatenate.
+
+## Known gaps
+
+- The behavioral eval in `evals/` has not been executed. The four cases are written and reviewed by hand, but `claude plugin eval` answers `plugin eval is currently in early access` on this account, and this harness offers no subagent to run the with-skill/baseline procedure instead. The cases stand as the skill's quality bar the moment a runner is available; nothing here has been scored.
+
