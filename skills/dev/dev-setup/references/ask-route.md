@@ -56,7 +56,7 @@ An explicit line always beats `all recommended`. Bulleted lines, a `.` instead o
 
 ## Re-asks
 
-Parse before asking anything. What comes back is answered questions, still-open questions, and malformed lines. If nothing is open, continue — never re-ask an answered question. If something is open, post a second comment at `rev=<n+1>` carrying only the open questions **at their original numbers**, so `**Q3.**` stays Q3. Earlier `questions` comments are left in place as record. A reply with no answer line at all is malformed, not empty: it gets one re-ask naming the expected shape.
+Parse before asking anything. A later session has no `round.json` on disk, so it reads the round back out of the posted comment — that is what the `<questions>` wrapper is for, and `--round <comment.md>` takes it in place of `--spec`. What comes back is answered questions, still-open questions, and malformed lines. If nothing is open, continue — never re-ask an answered question. If something is open, post a second comment at `rev=<n+1>` carrying only the open questions **at their original numbers**, so `**Q3.**` stays Q3. Earlier `questions` comments are left in place as record. A reply with no answer line at all is malformed, not empty: it gets one re-ask naming the expected shape.
 
 ## What it is not
 
@@ -70,11 +70,11 @@ Save the reply comment to `.vegastack/.tmp/<issue>-<slug>/reply.md` first; the p
 
 ```sh
 node <path-to-this-skill>/scripts/questions.mjs render --spec round.json --rev 1 --json
-node <path-to-this-skill>/scripts/questions.mjs parse  --comment reply.md --spec round.json --json
-node <path-to-this-skill>/scripts/questions.mjs re-ask --spec round.json --comment reply.md --rev 2 --json
+node <path-to-this-skill>/scripts/questions.mjs parse  --comment reply.md --round asked.md --json
+node <path-to-this-skill>/scripts/questions.mjs re-ask --round asked.md --comment reply.md --rev 2 --json
 node <path-to-this-skill>/scripts/questions.mjs route  --tool none --asker <login> --operator <login> --json
 ```
 
-`round.json` is `{ "questions": [ { "text": "…", "options": [ { "letter": "a", "text": "…" }, { "letter": "b", "text": "…", "recommended": true, "reason": "…" } ] } ] }`.
+`asked.md` is the posted `questions` comment; `--spec round.json` takes the same round as JSON instead, where the rendering session still has it. A spec is `{ "questions": [ { "text": "…", "options": [ { "letter": "a", "text": "…" }, { "letter": "b", "text": "…", "recommended": true, "reason": "…" } ] } ] }`.
 
 Exit codes: 0 pass · 1 answers still open or malformed, and for `re-ask` nothing left to ask · 2 refusal or usage error.

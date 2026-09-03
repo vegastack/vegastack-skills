@@ -8,8 +8,8 @@
 // dev-setup's references/ask-route.md; this file is the method behind them.
 //
 //   node questions.mjs render  --spec <file.json> [--rev <n>] [--json]
-//   node questions.mjs parse   --comment <file> --spec <file.json> [--json]
-//   node questions.mjs re-ask  --spec <file.json> --comment <file> --rev <n> [--json]
+//   node questions.mjs parse   --comment <file> (--spec <file.json> | --round <file.md>) [--json]
+//   node questions.mjs re-ask  (--spec <file.json> | --round <file.md>) --comment <file> --rev <n> [--json]
 //   node questions.mjs route   --tool <name|none> --asker <login> --operator <login> [--json]
 //
 // Exit codes: 0 pass · 1 answers still open or malformed (nothing to re-ask, for
@@ -185,6 +185,49 @@ export function openQuestions(spec, parsed) {
   return { ...spec, questions: kept }
 }
 
+// The inverse of `renderQuestions`: a posted `questions` comment read back into
+// the spec it was rendered from. This is what makes the wrapper earn its place —
+// the run that reads the reply is a different, later session with no round.json
+// on disk, so the comment itself has to be the record of what was asked.
+const ROUND_MARKER = /<!--\s*vsk:v1\s+type=questions\s+rev=(\d+)\s*-->/
+const ROUND_QUESTION = /^\*\*Q(\d+)\.\*\*\s+(.+)$/
+const ROUND_OPTION = /^-\s+([a-z])\)\s+(.+)$/
+const ROUND_RECOMMENDED = /^(.*?)\s+\(recommended — (.+)\)$/
+
+export function parseRound(commentText) {
+  const text = String(commentText)
+  const opened = text.indexOf('<questions>')
+  const closed = text.indexOf('</questions>', opened + 1)
+  if (opened === -1 || closed === -1) throw new Error('no <questions> block in this comment')
+  const marker = ROUND_MARKER.exec(text)
+  const rev = marker ? Number(marker[1]) : 1
+  const questions = []
+  for (const line of text.slice(opened + '<questions>'.length, closed).split('\n')) {
+    const asked = ROUND_QUESTION.exec(line)
+    if (asked) {
+      questions.push({ n: Number(asked[1]), text: asked[2].trim(), options: [] })
+      continue
+    }
+    const offered = ROUND_OPTION.exec(line)
+    if (!offered) continue
+    if (questions.length === 0) throw new Error('an option appears before any question')
+    const recommended = ROUND_RECOMMENDED.exec(offered[2].trim())
+    if (recommended) {
+      questions[questions.length - 1].options.push({
+        letter: offered[1],
+        text: recommended[1].trim(),
+        recommended: true,
+        reason: recommended[2].trim(),
+      })
+    } else {
+      questions[questions.length - 1].options.push({ letter: offered[1], text: offered[2].trim() })
+    }
+  }
+  const round = { rev, questions }
+  checkSpec(round)
+  return round
+}
+
 // Which surface the round goes to, in one precedence a caller cannot reorder:
 // the environment the dispatcher sets, then whether this harness and run have a
 // question tool at all, then whether the person being asked is the person who
@@ -213,13 +256,22 @@ export function decideRoute(input) {
 const USAGE = [
   'usage:',
   '  questions.mjs render --spec <file.json> [--rev <n>] [--json]',
-  '  questions.mjs parse  --comment <file> --spec <file.json> [--json]',
-  '  questions.mjs re-ask --spec <file.json> --comment <file> --rev <n> [--json]',
+  '  questions.mjs parse  --comment <file> (--spec <file.json> | --round <file.md>) [--json]',
+  '  questions.mjs re-ask (--spec <file.json> | --round <file.md>) --comment <file> --rev <n> [--json]',
   '  questions.mjs route  --tool <name|none> --asker <login> --operator <login> [--json]',
 ].join('\n')
 
+// A caller supplies the round it is answering either as the JSON it rendered from
+// (--spec) or as the posted comment itself (--round), which is what a later,
+// fresh session actually has.
 function readSpec(path) {
   return JSON.parse(readTextFile(path))
+}
+
+function loadRound(specPath, roundPath) {
+  if (specPath && roundPath) throw new Error('pass --spec or --round, not both')
+  if (specPath) return readSpec(specPath)
+  return parseRound(readTextFile(roundPath))
 }
 
 function report(json, payload, exitCode, humanLines) {
@@ -248,10 +300,11 @@ if (invokedDirectly) {
     }
   } else if (command === 'parse') {
     const specPath = get('--spec')
+    const roundPath = get('--round')
     const commentPath = get('--comment')
-    if (!specPath || !commentPath) refuse(USAGE)
+    if ((!specPath && !roundPath) || !commentPath) refuse(USAGE)
     try {
-      const parsed = parseAnswers(readTextFile(commentPath), readSpec(specPath))
+      const parsed = parseAnswers(readTextFile(commentPath), loadRound(specPath, roundPath))
       const open = parsed.missing.length > 0 || parsed.malformed.length > 0
       const human = ['questions: ' + Object.keys(parsed.answers).length + ' answered']
       if (parsed.missing.length) human.push('  open: ' + parsed.missing.join(', '))
@@ -262,11 +315,12 @@ if (invokedDirectly) {
     }
   } else if (command === 're-ask') {
     const specPath = get('--spec')
+    const roundPath = get('--round')
     const commentPath = get('--comment')
     const revRaw = get('--rev')
-    if (!specPath || !commentPath || !revRaw) refuse(USAGE)
+    if ((!specPath && !roundPath) || !commentPath || !revRaw) refuse(USAGE)
     try {
-      const spec = readSpec(specPath)
+      const spec = loadRound(specPath, roundPath)
       const parsed = parseAnswers(readTextFile(commentPath), spec)
       const open = openQuestions(spec, parsed)
       if (open.questions.length === 0) {

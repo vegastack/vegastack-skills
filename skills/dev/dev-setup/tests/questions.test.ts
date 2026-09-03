@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { decideRoute, openQuestions, parseAnswers, renderQuestions } from '../scripts/questions.mjs'
+import { decideRoute, openQuestions, parseAnswers, parseRound, renderQuestions } from '../scripts/questions.mjs'
 
 const spec = {
   questions: [
@@ -213,5 +213,45 @@ describe('decideRoute', () => {
     const r = decideRoute({ env: {}, tool: 'AskUserQuestion', asker: 'kmanojkumar', operator: '' })
     expect(r.route).toBe('issue')
     expect(r.reason).toContain('operator')
+  })
+})
+
+describe('parseRound', () => {
+  test('a rendered round parses back to a spec that re-renders identically', () => {
+    const markdown = renderQuestions(twoQ, { rev: 3 })
+    const round = parseRound(markdown)
+    expect(round.rev).toBe(3)
+    expect(renderQuestions(round, { rev: 3 })).toBe(markdown)
+  })
+
+  test('the recommendation and its reason survive the round trip', () => {
+    const round = parseRound(renderQuestions(spec, { rev: 1 }))
+    expect(round.questions[0].options[1]).toEqual({
+      letter: 'b',
+      text: 'A Redis list',
+      recommended: true,
+      reason: 'Redis is already a dependency',
+    })
+    expect(round.questions[0].options[0]).toEqual({ letter: 'a', text: 'A Postgres table' })
+  })
+
+  test('a re-ask keeps its original numbers through the round trip', () => {
+    const open = openQuestions(threeQ, parseAnswers('2: a', threeQ))
+    const round = parseRound(renderQuestions(open, { rev: 2 }))
+    expect(round.questions.map((q) => q.n)).toEqual([1, 3])
+  })
+
+  test('prose around the block is ignored', () => {
+    const markdown = 'Some lead-in.\n\n' + renderQuestions(twoQ, { rev: 1 }) + '\nA trailing note.\n'
+    expect(parseRound(markdown).questions.length).toBe(2)
+  })
+
+  test('a comment with no questions block is refused rather than guessed at', () => {
+    expect(() => parseRound('just a comment')).toThrow('no <questions> block')
+  })
+
+  test('a round-trip feeds parseAnswers with no spec file in sight', () => {
+    const round = parseRound(renderQuestions(twoQ, { rev: 1 }))
+    expect(parseAnswers('all recommended', round).answers[1].option).toBe('b')
   })
 })
