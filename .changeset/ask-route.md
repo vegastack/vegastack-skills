@@ -8,4 +8,5 @@ dev-intake, dev-plan and dev-implement now ask their questions in the issue when
 - Reply in an ordinary comment — `1: b`, `2: a — because …`, `3: other — …`, or `all recommended`; anyone on the issue may answer, and an answer is never an approval.
 - A partly answered round is re-asked at the next `rev` carrying only the open questions, at their original numbers.
 - The route is decided programmatically: `VSK_ASK_ROUTE` first, then whether the run has a question tool, then whether the asker is the issue's operator.
+- A later session with no local copy of the round reads it back out of the posted comment (`--round`), and text that could forge a marker or close the block is refused in both directions.
 - dev-setup ships the shared `scripts/questions.mjs` and `references/ask-route.md` into all three skills.

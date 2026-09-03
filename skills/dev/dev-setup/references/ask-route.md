@@ -41,7 +41,7 @@ Reply with `1: a` per question, or `all recommended`.
 </questions>
 ```
 
-Every question carries at least two options and exactly one recommendation, and every recommendation carries its one-line reason — a round that cannot say which way it leans is a round that has not been thought through, and the renderer refuses it. Options run `a` through `h`. After posting, the label moves to `needs-operator` and the session ends.
+No question, option or reason may contain `<!--`, `-->`, `<questions>` or `</questions>`: a round can be read back out of a comment anyone may have written, so text that could close the block or forge a marker is refused in both directions. Every question carries at least two options and exactly one recommendation, and every recommendation carries its one-line reason — a round that cannot say which way it leans is a round that has not been thought through, and the renderer refuses it. Options run `a` through `h`. After posting, the label moves to `needs-operator` and the session ends.
 
 ## Replying
 

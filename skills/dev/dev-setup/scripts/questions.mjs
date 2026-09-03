@@ -43,6 +43,19 @@ function numberOf(question, index) {
   return typeof question.n === 'number' ? question.n : index + 1
 }
 
+// Text that would break out of the round it is rendered into. A round can be read
+// back out of a comment anyone may have written, so this is checked on the way in
+// as well as on the way out — rendered text is never allowed to carry a marker or
+// close the block it sits in.
+const UNSAFE_TEXT = ['<!--', '-->', '<questions>', '</questions>']
+
+function checkText(label, value) {
+  if (typeof value !== 'string' || value.trim() === '') throw new Error(label + ' is empty')
+  for (const fragment of UNSAFE_TEXT) {
+    if (value.includes(fragment)) throw new Error(label + ' carries markup that would break the round: ' + fragment)
+  }
+}
+
 // A spec that cannot render is a bug in the caller, not a question for the user,
 // so every check throws with the question's own number in the message.
 export function checkSpec(spec) {
@@ -52,19 +65,22 @@ export function checkSpec(spec) {
   questions.forEach((question, index) => {
     const n = numberOf(question, index)
     const label = 'question ' + n
-    if (typeof question.text !== 'string' || question.text.trim() === '') throw new Error(label + ' has no text')
+    checkText(label, question.text)
     const options = Array.isArray(question.options) ? question.options : []
     if (options.length < 2) throw new Error(label + ' has fewer than two options')
     const seen = new Set()
     for (const option of options) {
-      if (typeof option.text !== 'string' || option.text.trim() === '') throw new Error(label + ' has an option with no text')
+      checkText(label, option.text)
       if (!LETTERS.includes(option.letter)) {
         throw new Error(label + ' uses the letter "' + option.letter + '" — options run a through h')
       }
       if (seen.has(option.letter)) throw new Error(label + ' repeats the letter "' + option.letter + '"')
       seen.add(option.letter)
-      if (option.recommended && (typeof option.reason !== 'string' || option.reason.trim() === '')) {
-        throw new Error(label + ' recommends "' + option.letter + '" without a reason')
+      if (option.recommended) {
+        if (typeof option.reason !== 'string' || option.reason.trim() === '') {
+          throw new Error(label + ' recommends "' + option.letter + '" without a reason')
+        }
+        checkText(label, option.reason)
       }
     }
     const recommended = options.filter((option) => option.recommended)
