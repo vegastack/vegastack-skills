@@ -39,7 +39,7 @@ Not a git repo, or no origin remote → a greenfield run, not an error: follow t
 
 ## Step 2 — The interview
 
-Ask with your harness's question tool — AskUserQuestion in Claude Code, `request_user_input` in Codex where the mode allows it, `clarify` in Hermes ([harness-facts](references/harness-facts.md)). When none is available (headless run, gated mode), write the defaults, mark every unconfirmed knob `# TODO confirm`, and say so, because a wrong invented preference costs more than a TODO.
+Ask with your harness's question tool — AskUserQuestion in Claude Code, `request_user_input` in Codex where the mode allows it, `clarify` in Hermes ([harness-facts](references/harness-facts.md)). When none is available (headless run, gated mode), write the defaults, mark every unconfirmed knob `# TODO confirm`, and say so, because a wrong invented preference costs more than a TODO. The route the other dev skills take when no tool is available is [ask-route](references/ask-route.md); dev-setup can run before any issue exists, so its own fallback stays the documented defaults above.
 
 **Round A — confirm the detected facts** in one compact summary (repo, stack, commands, web app or not, matched playbook, detected architecture facts). Ask only about what detection could not fill.
 

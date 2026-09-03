@@ -83,6 +83,7 @@
     "agents/openai.yaml",
     "references/conventions.md",
     "references/harness-facts.md",
+    "references/ask-route.md",
     "references/stack-playbooks.md",
     "scripts/questions.mjs",
     "assets/dev-profile.md.template",
