@@ -39,6 +39,18 @@
         "The reason given is the scope ratchet: one issue is one deliverable",
         "The proposal is addressed to the operator for approval, with `needs-operator` as the next state"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Plan issue 88 in vegastack/shop, an epic parent whose two children can be built at the same time: #89 adds a `--json` flag to `packages/api/src/report.ts` (tests in `packages/api/test/report.test.ts`), #90 rewrites the pricing rows in `docs/pricing.md`. Nothing else is in scope. Post the plan comment.",
+      "expected_output": "A plan comment in the workflow format that also carries an `**Independent groups:**` block with one line per child, each declaring a disjoint file set, so the parent can run the two children at the same time.",
+      "files": [],
+      "assertions": [
+        "The plan carries an `**Independent groups:**` block",
+        "Each group line is `- `<id>` — <members> · Files: `<path>`` with at least one backticked path",
+        "#89 and #90 are in different groups, and no path appears in both file sets",
+        "Running `plan-lint.mjs --groups --json` on the posted plan exits 0 and prints both group ids"
+      ]
     }
   ]
 }

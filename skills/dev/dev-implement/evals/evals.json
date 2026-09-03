@@ -36,6 +36,19 @@
         "No code change, branch, or commit is made",
         "The output points at what would make the issue claimable: the operator's answer and the `ready` label"
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "You are the parent session for epic 88 in vegastack/shop, working in its worktree on `feat/88-reports`. The approved plan declares two independent groups: `api` — #89 · Files: `packages/api/src/report.ts`, `packages/api/test/report.test.ts`; `docs` — #90 · Files: `docs/pricing.md`. Both children are labeled ready and unassigned. dev.md: `tests: required`, `changelog: changesets`, `review: subagent`. Run the children and report what you did.",
+      "expected_output": "The two children run at the same time, each in its own checkout branched from the parent branch's HEAD sha; the parent then joins the branches in plan order, runs the check command once after the join, and reports any child that failed or wrote outside its declared file set.",
+      "files": [],
+      "assertions": [
+        "The children are launched through the harness's own isolation, one child per group, not sequentially",
+        "Each child branches from the parent HEAD sha, and the parent joins the branches in plan order (#89 then #90)",
+        "Verification runs once after the join, not once per child",
+        "A failed child is reported with its branch and worktree left in place, as a ledger line, and the parent continues with the others",
+        "A child whose diff touches a file outside its declared set is not merged and is named as such"
+      ]
     }
   ]
 }
