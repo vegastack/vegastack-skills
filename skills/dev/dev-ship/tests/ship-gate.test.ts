@@ -1,4 +1,8 @@
 import { describe, expect, test } from 'bun:test'
+import { execFileSync } from 'node:child_process'
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { chronicleEntryAdded, evaluateShipGate, gatherFacts, parseMarker, resolveWorktree, reviewAdjudicated } from '../scripts/ship-gate.mjs'
 
 const evidenceBody = (sha = 'abc1234') => `<!-- vsk:v1 type=evidence rev=1 branch=feat/12-x sha=${sha} -->
@@ -139,25 +143,68 @@ describe('worktree resolution', () => {
     expect(resolveWorktree('feat/106-x', porcelain)).toBe('/r/.vegastack/.worktrees/106-x')
     expect(resolveWorktree('feat/107-y', porcelain)).toBeNull()
   })
-  test('a resolved worktree clears the checkout-mismatch block', () => {
-    const facts = {
-      evidence: { body: '<!-- vsk:v1 type=evidence rev=1 branch=feat/106-x sha=abc1234 -->\n**Review:** clean' },
-      reviewVerdict: 'clean', adjudicated: false, headSha: 'abc1234',
-      diffText: 'diff --git a/.changeset/x.md b/.changeset/x.md\n+content',
-      changelogTouched: true, chronicleOn: false, chronicleTouched: false,
-      allowNoChangelog: undefined, checkExit: 0, checkMissing: false, checkoutMismatch: null,
-    }
-    expect(evaluateShipGate(facts).blocks).toEqual([])
+})
+
+// gatherFacts against a real repository: the branch under review lives in a
+// second worktree, and only there does the check command pass, dev.md say
+// `changelog: none`, and HEAD equal the branch — so every assertion below holds
+// only if the resolved worktree is threaded through the git calls, the dev.md
+// read and the fresh check.
+describe('gatherFacts runs in the branch worktree', () => {
+  const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' })
+  function repoWithWorktree() {
+    const root = mkdtempSync(join(tmpdir(), 'vf-gate-'))
+    git(root, 'init', '-q', '-b', 'main')
+    git(root, 'config', 'user.email', 'a@b.c')
+    git(root, 'config', 'user.name', 'a')
+    mkdirSync(join(root, '.vegastack'))
+    writeFileSync(join(root, '.vegastack', 'dev.md'), 'commands: check `test -f marker`\nchangelog: changesets\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-qm', 'init')
+    const wt = join(root, '.vegastack', '.worktrees', '106-x')
+    git(root, 'worktree', 'add', '-q', '-b', 'feat/106-x', wt, 'main')
+    writeFileSync(join(wt, 'marker'), '')
+    writeFileSync(join(wt, '.vegastack', 'dev.md'), 'commands: check `test -f marker`\nchangelog: none\n')
+    git(wt, 'add', '.')
+    git(wt, 'commit', '-qm', 'feat: marker')
+    git(root, 'branch', '-q', 'feat/107-y', 'feat/106-x')
+    const gh = join(root, 'gh')
+    writeFileSync(gh, '#!/bin/sh\necho "[]"\n')
+    chmodSync(gh, 0o755)
+    return { root, wt, gh }
+  }
+  const inRepo = (root: string, gh: string, fn: () => void) => {
+    const cwd = process.cwd()
+    process.env.VSK_GH = gh
+    process.chdir(root)
+    try { fn() } finally { process.chdir(cwd); delete process.env.VSK_GH }
+  }
+
+  test('the resolved worktree carries the git calls, the dev.md read and the fresh check', () => {
+    const { root, gh } = repoWithWorktree()
+    inRepo(root, gh, () => {
+      const facts = gatherFacts({ issue: '106', branch: 'feat/106-x', repo: 'o/r', base: 'main' })
+      expect(facts.checkoutMismatch).toBeNull()
+      expect(facts.checkExit).toBe(0)
+      expect(facts.changelogTouched).toBe(true)
+      expect(facts.headSha).toBe(git(root, 'rev-parse', '--short=7', 'feat/106-x').trim())
+    })
   })
-  test('a branch with no worktree and a mismatched checkout still blocks', () => {
-    const facts = {
-      evidence: { body: '<!-- vsk:v1 type=evidence rev=1 branch=feat/107-y sha=abc1234 -->\n**Review:** clean' },
-      reviewVerdict: 'clean', adjudicated: false, headSha: 'abc1234',
-      diffText: 'diff --git a/.changeset/x.md b/.changeset/x.md\n+content',
-      changelogTouched: true, chronicleOn: false, chronicleTouched: false,
-      allowNoChangelog: undefined, checkExit: 0, checkMissing: false,
-      checkoutMismatch: 'the current checkout (1111111) is not the branch under review (feat/107-y @ 2222222) and no worktree holds it — run ship-gate from that branch or pass --worktree <path>',
-    }
-    expect(evaluateShipGate(facts).blocks.some((b: string) => b.includes('no worktree holds it'))).toBe(true)
+  test('--worktree overrides the resolution', () => {
+    const { root, wt, gh } = repoWithWorktree()
+    inRepo(root, gh, () => {
+      const facts = gatherFacts({ issue: '106', branch: 'feat/106-x', repo: 'o/r', base: 'main', worktree: wt })
+      expect(facts.checkoutMismatch).toBeNull()
+      expect(facts.checkExit).toBe(0)
+    })
+  })
+  test('a branch no worktree holds runs in the main checkout, and its mismatch blocks with the fact', () => {
+    const { root, gh } = repoWithWorktree()
+    inRepo(root, gh, () => {
+      const facts = gatherFacts({ issue: '107', branch: 'feat/107-y', repo: 'o/r', base: 'main' })
+      expect(facts.checkoutMismatch).toContain('no worktree holds it')
+      expect(facts.checkExit).not.toBe(0)
+      expect(evaluateShipGate({ ...cleanFacts(), checkoutMismatch: facts.checkoutMismatch }).blocks.some((b) => b.includes('no worktree holds it'))).toBe(true)
+    })
   })
 })
