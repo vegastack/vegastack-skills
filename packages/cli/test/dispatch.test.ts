@@ -18,14 +18,14 @@ const issue = (number: number, labels: string[], assignees: string[] = []): Boar
 
 describe('searchQueries', () => {
   test('one query per state, scoped to the repo, ready excluding assignees', () => {
-    const q = searchQueries('acme/app', '2026-09-03T09:00:00Z')
+    const q = searchQueries('acme/app')
     expect(q.needsPlan).toBe('repo:acme/app is:issue is:open label:needs-plan')
     expect(q.ready).toBe('repo:acme/app is:issue is:open label:ready no:assignee')
-    expect(q.corrections).toBe('repo:acme/app is:issue is:open label:for-operator updated:>=2026-09-03T09:00:00Z')
+    expect(q.corrections).toBe('repo:acme/app is:issue is:open label:for-operator')
   })
 
-  test('a first tick with no recorded time asks for every for-operator issue', () => {
-    expect(searchQueries('acme/app', null).corrections).toBe('repo:acme/app is:issue is:open label:for-operator')
+  test('every tick asks for every for-operator issue — a reaction never moves updated_at, so no window could find it', () => {
+    expect(searchQueries('acme/app').corrections).not.toContain('updated:')
   })
 })
 

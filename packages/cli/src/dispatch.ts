@@ -96,12 +96,17 @@ const STATE_LABELS = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-o
 
 // `no:assignee` is in the query and checked again here: search indexes lag, and a stale index is
 // exactly how two runs start on one issue.
-export function searchQueries(repo: string, since: string | null): { needsPlan: string; ready: string; corrections: string } {
+//
+// The corrections query carries no `updated:>=` window on purpose. A reaction does not move an
+// issue's `updated_at`, so a 🚀 on an existing hand-back comment would never re-enter a window; and
+// a comment posted while a run was in flight lands before the next window opens. Every
+// for-operator issue is read on every tick, and the handled list is what stops the repeats.
+export function searchQueries(repo: string): { needsPlan: string; ready: string; corrections: string } {
   const scope = `repo:${repo} is:issue is:open`
   return {
     needsPlan: `${scope} label:needs-plan`,
     ready: `${scope} label:ready no:assignee`,
-    corrections: since ? `${scope} label:for-operator updated:>=${since}` : `${scope} label:for-operator`,
+    corrections: `${scope} label:for-operator`,
   }
 }
 
@@ -832,12 +837,12 @@ async function ghJsonVia<T>(gh: TickDeps['gh'], args: string[]): Promise<T> {
   }
 }
 
-export async function fetchBoard(gh: TickDeps['gh'], repo: string, since: string | null): Promise<{
+export async function fetchBoard(gh: TickDeps['gh'], repo: string): Promise<{
   needsPlan: BoardIssue[]
   ready: BoardIssue[]
   corrections: BoardIssue[]
 }> {
-  const queries = searchQueries(repo, since)
+  const queries = searchQueries(repo)
   const search = async (q: string): Promise<BoardIssue[]> => {
     const result = await ghJsonVia<{ items?: SearchIssue[] }>(gh, ['api', '-X', 'GET', 'search/issues', '-f', `q=${q}`, '--cache', '0'])
     return (result.items ?? []).map(toBoardIssue)
@@ -849,17 +854,24 @@ export async function fetchBoard(gh: TickDeps['gh'], repo: string, since: string
   }
 }
 
-// Reactions cost one call per comment, so they are read only for issues whose `updated_at` moved
-// since the last tick — that filter is already in the corrections query — and only comments that
-// actually carry a rocket are followed up.
-export async function fetchRockets(gh: TickDeps['gh'], repo: string, corrections: BoardIssue[]): Promise<Rocket[]> {
+// Reactions cost one call per comment, so only comments that actually carry a rocket are followed
+// up, and a comment whose rocket count is already covered by the handled list is not read again:
+// the count in the comment row is what says whether a reaction this tick has not seen exists.
+export async function fetchRockets(gh: TickDeps['gh'], repo: string, corrections: BoardIssue[], handled: HandledRun[] = []): Promise<Rocket[]> {
   const rockets: Rocket[] = []
+  const handledByComment = new Map<string, number>()
+  for (const entry of handled) {
+    if (entry.repo !== repo || entry.commentId === null || entry.reactionId === null) continue
+    const key = `${entry.issue}#${entry.commentId}`
+    handledByComment.set(key, (handledByComment.get(key) ?? 0) + 1)
+  }
   for (const issue of corrections) {
     const comments = await ghJsonVia<{ id: number; reactions?: { rocket?: number } }[]>(
       gh, ['api', `repos/${repo}/issues/${issue.number}/comments`, '--paginate'],
     )
     for (const comment of comments) {
       if (!comment.reactions?.rocket) continue
+      if ((handledByComment.get(`${issue.number}#${comment.id}`) ?? 0) >= comment.reactions.rocket) continue
       const reactions = await ghJsonVia<{ id: number; content: string; user?: { login: string } }[]>(
         gh, ['api', `repos/${repo}/issues/comments/${comment.id}/reactions`, '--paginate'],
       )
@@ -1113,12 +1125,14 @@ export async function runTick(
       continue
     }
 
-    const since = state.lastTick[entry.repo] ?? null
+    // The tick's time is the moment the board is read, stamped before any run: a run can take hours,
+    // and a stamp taken after it would say the dispatcher went quiet for exactly that long.
+    const readAt = now().toISOString().replace(/\.\d+Z$/, 'Z')
     let board: Awaited<ReturnType<typeof fetchBoard>>
     let rockets: Rocket[]
     try {
-      board = await fetchBoard(gh, entry.repo, since)
-      rockets = await fetchRockets(gh, entry.repo, board.corrections)
+      board = await fetchBoard(gh, entry.repo)
+      rockets = await fetchRockets(gh, entry.repo, board.corrections, state.handled)
     } catch (error) {
       refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: the board could not be read — ${(error as Error).message}` })
       continue
@@ -1227,7 +1241,7 @@ export async function runTick(
         git: defaultStatsGit,
       })
     }
-    state = withLastTick(state, entry.repo, now().toISOString())
+    state = withLastTick(state, entry.repo, readAt)
   }
 
   if (!options.dryRun) await writeState(config.stateFile, state)
