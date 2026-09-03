@@ -20,7 +20,7 @@ import { lstatSync, readFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { childWorktreePlan } from './worktree.mjs';
+import { childWorktreePlan, removeWorktree } from './worktree.mjs';
 import { ghJson, parseFlags, renderResult } from './lib/gh.mjs';
 
 // Located strings are concatenated, never assigned as template literals:
@@ -232,4 +232,256 @@ export function evaluateJoin({ children, results, changed }) {
     ledger.push('- Join: ' + label + ' merged ' + String(result.head ?? '').slice(0, 7));
   }
   return { merge, stop, blocks, warns, ledger };
+}
+
+// --- the command line -----------------------------------------------------
+
+const USAGE = 'usage: children.mjs plan|launch|join|remove --parent <n> --groups <file.json|-> '
+  + '[--harness claude|codex] [--repo <o/r>] [--model <m>] [--effort <e>] [--results <file.json|->] [--json] [--write]';
+
+const gitRun = (cwd, args) => {
+  try {
+    return { ok: true, out: execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() };
+  } catch (error) {
+    return { ok: false, out: (error.stderr?.toString() || error.message).trim() };
+  }
+};
+
+// A guard never writes, or reads a report, through a symlink: the path a caller
+// named must be the path that is used.
+function symlinkRefusal(path) {
+  try {
+    if (lstatSync(path).isSymbolicLink()) return at(path, 'refusing to read a symlink');
+  } catch {
+    return null; // absent is the caller's problem, reported where it is read
+  }
+  return null;
+}
+
+function loadGroups(source) {
+  if (source === '-') return readGroupsReport(JSON.parse(readFileSync(0, 'utf8')));
+  const refusal = symlinkRefusal(source);
+  if (refusal) throw new Error(refusal);
+  let text;
+  try {
+    text = readFileSync(source, 'utf8');
+  } catch (error) {
+    throw new Error(at(source, 'cannot read the groups report: ' + error.message));
+  }
+  try {
+    return readGroupsReport(JSON.parse(text));
+  } catch (error) {
+    throw new Error(at(source, 'groups report unusable: ' + error.message));
+  }
+}
+
+// Child titles and types decide branch names, so a launch or a join reads them
+// from GitHub — a guessed title is a branch the child never created. `--repo`
+// is what turns that lookup on; without it `plan` previews from the numbers
+// alone and the write verbs refuse, rather than acting on a guess.
+function resolveIssues(numbers, { repo, warns }) {
+  const issues = {};
+  for (const number of numbers) {
+    issues[number] = { number, title: 'issue-' + number, type: 'feat' };
+  }
+  if (!repo) return issues;
+  for (const number of numbers) {
+    try {
+      const view = ghJson(['issue', 'view', String(number), '--repo', repo, '--json', 'number,title']);
+      const title = String(view.title ?? '');
+      const prefix = /^([a-z]+):/.exec(title);
+      issues[number] = {
+        number,
+        title: title.replace(/^[a-z]+:\s*/, ''),
+        type: prefix ? prefix[1] : 'feat',
+      };
+    } catch (error) {
+      warns.push(at('#' + number, 'could not read the issue from ' + repo + ', using the number alone: ' + error.message));
+    }
+  }
+  return issues;
+}
+
+function parentFacts(repoRoot) {
+  const branch = gitRun(repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  const head = gitRun(repoRoot, ['rev-parse', 'HEAD']);
+  return { branch: branch.ok ? branch.out : '', head: head.ok ? head.out.slice(0, 40) : '' };
+}
+
+function runVerb(verb, flags) {
+  const blocks = [];
+  const warns = [];
+  if (!['plan', 'launch', 'join', 'remove'].includes(verb)) {
+    return { blocks: [at(verb || '(none)', 'unknown verb — ' + USAGE)], warns };
+  }
+  if (!flags.groups) return { blocks: [at('--groups', 'a plan-lint --groups report is required — ' + USAGE)], warns };
+  const parentIssue = flags.parent === undefined ? null : Number(flags.parent);
+  if (parentIssue !== null && (!Number.isInteger(parentIssue) || parentIssue <= 0)) {
+    return { blocks: [at('--parent', 'expected a positive issue number, got ' + flags.parent)], warns };
+  }
+  const write = Boolean(flags.write);
+  const repoRoot = flags['repo-root'] || process.cwd();
+  const harness = flags.harness || 'claude';
+  if (!['claude', 'codex'].includes(harness)) {
+    return { blocks: [at('--harness', 'expected claude or codex, got ' + harness)], warns };
+  }
+  if (verb !== 'plan' && !flags.repo) {
+    return { blocks: [at('--repo', 'a ' + verb + ' needs the real child titles to name their branches — pass --repo <owner/name>')], warns };
+  }
+
+  let groups;
+  try {
+    groups = loadGroups(flags.groups);
+  } catch (error) {
+    return { blocks: [error.message], warns };
+  }
+
+  const numbers = [];
+  for (const group of groups) {
+    for (const member of group.members) {
+      const match = /^#(\d+)$/.exec(String(member).trim());
+      if (match) numbers.push(Number(match[1]));
+    }
+  }
+  const issues = resolveIssues(numbers, { repo: flags.repo, warns });
+  const parent = parentFacts(repoRoot);
+  const parentHead = flags['parent-head'] || parent.head;
+  if (!parentHead) return { blocks: [at(repoRoot, 'cannot read the parent HEAD sha — is this a git checkout?')], warns };
+
+  let run;
+  try {
+    run = planParallelRun({
+      groups,
+      issues,
+      parentBranch: flags['parent-branch'] || parent.branch,
+      parentHead,
+      repoRoot,
+      parentIssue,
+    });
+  } catch (error) {
+    return { blocks: [at('children', error.message)], warns };
+  }
+  const concurrency = effectiveConcurrency({
+    configured: flags.concurrency === undefined ? null : Number(flags.concurrency),
+    cpus: cpus().length,
+  });
+  const plan = { mode: run.mode, reason: run.reason, ledger: run.ledger, children: run.children, concurrency };
+
+  if (verb === 'plan') return { blocks, warns, plan, wrote: false };
+
+  if (verb === 'launch') {
+    if (run.mode !== 'parallel') {
+      warns.push('not launching in parallel — ' + run.reason + '; run the children in plan order instead');
+      return { blocks, warns, plan, wrote: false };
+    }
+    const launch = harness === 'claude'
+      ? { harness, workflow: claudeWorkflowCall(run, { concurrency, parentIssue }) }
+      : {
+          harness,
+          runs: run.children.map((child) => codexChildLaunch(child, {
+            model: flags.model || 'gpt-5.6',
+            effort: flags.effort || 'high',
+            parentIssue,
+            parentBranch: run.parentBranch,
+          })),
+        };
+    const actions = [];
+    // The Claude path gets its worktrees from the harness (isolation: worktree);
+    // the Codex path has no such mechanism, so the parent creates them.
+    if (harness === 'codex') {
+      for (const child of run.children) {
+        actions.push(at(child.path, 'git worktree add -b ' + child.branch + ' from ' + child.baseSha));
+        if (write) {
+          const added = gitRun(repoRoot, ['worktree', 'add', '-b', child.branch, child.path, child.baseSha]);
+          if (!added.ok) blocks.push(at(child.path, 'git worktree add failed: ' + added.out));
+        }
+      }
+    }
+    return { blocks, warns, plan, launch, actions, wrote: write && blocks.length === 0 };
+  }
+
+  if (verb === 'join') {
+    let results = {};
+    if (flags.results) {
+      try {
+        const text = flags.results === '-' ? readFileSync(0, 'utf8') : readFileSync(flags.results, 'utf8');
+        for (const entry of JSON.parse(text)) results[entry.issue] = entry;
+      } catch (error) {
+        return { blocks: [at('--results', 'cannot read the child results: ' + error.message)], warns, plan };
+      }
+    } else {
+      // No results file: a child that produced a branch is treated as done, and
+      // one that produced nothing as failed. The scope check still decides.
+      for (const child of run.children) {
+        const head = gitRun(repoRoot, ['rev-parse', '--verify', '--quiet', 'refs/heads/' + child.branch]);
+        results[child.issue] = head.ok
+          ? { issue: child.issue, status: 'done', head: head.out.slice(0, 7) }
+          : { issue: child.issue, status: 'failed', message: 'no branch ' + child.branch };
+      }
+    }
+    const changed = {};
+    for (const child of run.children) {
+      const diff = gitRun(repoRoot, ['diff', '--name-only', child.baseSha + '..' + child.branch]);
+      changed[child.issue] = diff.ok ? diff.out.split('\n').filter(Boolean) : [];
+      if (!diff.ok && results[child.issue]?.status === 'done') {
+        blocks.push(at(child.branch, 'cannot read the child diff, so its scope cannot be proved: ' + diff.out));
+      }
+    }
+    const outcome = evaluateJoin({ children: run.children, results, changed });
+    blocks.push(...outcome.blocks);
+    warns.push(...outcome.warns);
+    const actions = [];
+    for (const merged of outcome.merge) {
+      const child = run.children.find((c) => c.issue === merged.issue);
+      actions.push(at(run.parentBranch, 'git merge --ff-only ' + merged.branch));
+      if (write && blocks.length === 0) {
+        const done = gitRun(repoRoot, mergeArgs(child));
+        if (!done.ok) blocks.push(at(merged.branch, 'merge --ff-only failed: ' + done.out));
+      }
+    }
+    return { blocks, warns, plan, join: outcome, actions, wrote: write && blocks.length === 0 };
+  }
+
+  // remove: the child checkouts only, never a branch, and never a dirty or
+  // unmerged one — deletion waits for the operator's word.
+  const actions = [];
+  for (const child of run.children) {
+    const removal = removeWorktree({
+      repoRoot,
+      name: child.path.split('/').pop(),
+      base: flags.base || run.parentBranch,
+      force: false,
+      write,
+    });
+    blocks.push(...removal.blocks);
+    warns.push(...removal.warns);
+    actions.push(...(removal.actions ?? []));
+  }
+  return { blocks, warns, plan, actions, wrote: write && blocks.length === 0 };
+}
+
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  const argv = process.argv.slice(2);
+  const verb = argv.find((arg) => !arg.startsWith('--')) ?? '';
+  const flags = parseFlags(argv, ['json', 'write']);
+  let outcome;
+  try {
+    outcome = runVerb(verb, flags);
+  } catch (error) {
+    outcome = { blocks: [at('children', error.message)], warns: [] };
+  }
+  const { exitCode, text } = renderResult('children', outcome, { json: Boolean(flags.json) });
+  if (flags.json) {
+    const payload = JSON.parse(text);
+    for (const key of ['plan', 'launch', 'join', 'actions', 'wrote']) {
+      if (outcome[key] !== undefined) payload[key] = outcome[key];
+    }
+    console.log(JSON.stringify(payload, null, 2));
+  } else {
+    console.log(text);
+    if (outcome.plan) console.log('  ' + (outcome.plan.ledger || '- Parallel: ' + outcome.plan.children.length + ' children'));
+    for (const action of outcome.actions ?? []) console.log('  action: ' + action);
+  }
+  process.exit(exitCode);
 }

@@ -113,3 +113,41 @@ describe('the join', () => {
     expect(mergeArgs(run.children[0])).toEqual(['merge', '--ff-only', 'feat/131-dispatch-parent-launches'])
   })
 })
+
+import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+describe('the children.mjs command line', () => {
+  const script = join(import.meta.dir, '../scripts/children.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'vsk-children-'))
+  const report = join(dir, 'groups.json')
+  writeFileSync(report, JSON.stringify({ guard: 'plan-lint', ok: true, groups }))
+
+  test('plan is dry-run, prints the run plan, and exits 0', () => {
+    const r = Bun.spawnSync(['node', script, 'plan', '--parent', '104', '--groups', report, '--json'])
+    expect(r.exitCode).toBe(0)
+    const out = JSON.parse(r.stdout.toString())
+    expect(out.guard).toBe('children')
+    expect(out.plan.mode).toBe('parallel')
+    expect(out.plan.children.map((c: { issue: number }) => c.issue)).toEqual([131, 132])
+    expect(out.wrote).toBe(false)
+  })
+  test('a missing groups report blocks with a reason and exits 2', () => {
+    const r = Bun.spawnSync(['node', script, 'plan', '--parent', '104', '--groups', join(dir, 'absent.json'), '--json'])
+    expect(r.exitCode).toBe(2)
+    expect(JSON.parse(r.stdout.toString()).blocks.join(' ')).toContain('groups report')
+  })
+  test('a symlinked groups report is refused', () => {
+    const link = join(dir, 'linked.json')
+    symlinkSync(report, link)
+    const r = Bun.spawnSync(['node', script, 'plan', '--parent', '104', '--groups', link, '--json'])
+    expect(r.exitCode).toBe(2)
+    expect(JSON.parse(r.stdout.toString()).blocks.join(' ')).toContain('symlink')
+  })
+  test('an unknown verb prints the usage line and exits 2', () => {
+    const r = Bun.spawnSync(['node', script, 'sprint', '--json'])
+    expect(r.exitCode).toBe(2)
+    expect(r.stdout.toString()).toContain('usage: children.mjs')
+  })
+})
