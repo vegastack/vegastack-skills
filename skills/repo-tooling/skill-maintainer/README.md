@@ -50,3 +50,14 @@ The tests eat the skill's own dog food: structural validation via the repo valid
 ## For agents: how to behave
 
 Follow [SKILL.md](SKILL.md). The short version: repo policy docs win over this skill on conflict; wiring (the packaging.json entry, root README table, changesets) travels in the same PR as the content change; never hand-edit refresh checksums; and finish nothing without the validator, the skill's tests, and the structure check passing.
+
+## KNOWN_GAPS
+
+- gap: a rename's full step order, the `agents/openai.yaml` and test-import touches, and how an installed copy of the old name is handled live only in release-ops.md and are summarised in one sentence here
+  evidence: colleague test, 03-09-2026, prompt "rename dev-status to dev-board and cut the release"
+  why unresolved: the body is at its budget; the route table sends renames to release-ops
+  next: a five-line rename checklist in release-ops.md's rename section, cited by line
+- gap: "per-project profile" and the pre-1.0 semver exception are used before they are defined; the release sequence is split between dev.md's Ship runbook (steps) and release-ops.md (commentary) without saying which holds what
+  evidence: colleague test, 03-09-2026
+  why unresolved: the authority order (dev.md wins) is stated at the top, but not the division of content
+  next: one sentence in the release workflow naming dev.md as the step list and release-ops as the mechanics
