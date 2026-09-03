@@ -84,7 +84,7 @@ Pause for the operator only when the work genuinely requires them: a destructive
 
 ## Project rules
 
-- Every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet in Ship); contributors never bump versions, and every changeset names both `@vegastack/vegafactory` and `@vegastack/vegafactory-dashboard` so the two stay on one version and the first-use fetch always resolves
+- Every behavior-changing PR carries its changeset, written directly as `.changeset/<slug>.md` (bump per the content-semver bullet in Ship); contributors never bump versions; a changeset names `@vegastack/vegafactory` (and `@vegastack/vegafactory-dashboard` when the dashboard itself changed), and `.changeset/config.json`'s `fixed` group moves both packages to the same version on every release, so the first-use fetch always resolves by construction rather than by every author remembering the second name
 - The single version lives in `packages/cli/package.json` (changesets-managed); the workspace root package.json is pinned at `0.0.0` — a placeholder `npm sbom` requires (purls need a version), never bumped, never a release identity; neither is the version `bun.lock` records for the workspace, which does not follow a version bump and is never hand-edited (mechanics: skill-maintainer's release-ops.md)
 - Every skill change goes through skillify's contract (8-item checklist, eval before tests)
 - A repo-wide prose or format sweep must include `assets/*.template`: dev-setup's profile template and dev-review's known-patterns template carry normative format strings that a `--include="*.md"` grep silently misses
