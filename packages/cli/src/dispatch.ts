@@ -813,7 +813,7 @@ export async function flushStats(deps: {
   try {
     return await pushOutbox({ ...deps, commit: true })
   } catch {
-    return { ok: false, pushed: 0, retries: 0, deferred: [], refusals: [] }
+    return { ok: false, pushed: 0, retries: 0, deferred: [], refusals: [], locked: false }
   }
 }
 

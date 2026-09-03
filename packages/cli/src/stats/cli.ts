@@ -273,6 +273,8 @@ async function runPush(args: StatsArgs, deps: StatsDeps): Promise<number> {
     deps.log(lines === 0
       ? 'stats push (dry run): the outbox is empty — nothing to push'
       : `stats push (dry run — pass --commit to write): ${lines} record(s) into ${plan.copies.length} file(s)\n  ${plan.copies.map(copy => `${copy.from} → ${copy.to} (+${copy.lines})`).join('\n  ')}\n  commit: ${plan.subject}`)
+  } else if (result.locked) {
+    deps.log(`stats push: another push is running on this machine — ${result.deferred.length} file(s) deferred to the next attempt`)
   } else {
     deps.log(`stats push: ${result.pushed} records, ${result.retries} rebase retries, ${result.deferred.length} deferred`)
   }
