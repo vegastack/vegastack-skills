@@ -456,7 +456,7 @@ describe('selecting a family', () => {
   })
 
   test('reserved top-level verbs are named in usage and refuse until they land', () => {
-    for (const verb of ['status', 'stats', 'dashboard']) {
+    for (const verb of ['stats', 'dashboard']) {
       const result = run(temporary, [verb])
       expect(result.exitCode).not.toBe(0)
       expect(result.stderr.toString()).toContain(`${verb} is not available yet`)
@@ -471,6 +471,12 @@ describe('selecting a family', () => {
     expect(bare.stdout.toString()).toContain('install|uninstall|status')
     const bad = run(temporary, ['service', 'start'])
     expect(bad.exitCode).toBe(2)
+  })
+
+  test('status has landed: it refuses a config it cannot read rather than printing an empty board', () => {
+    const result = run(temporary, ['status', '--config', '/nowhere/factory.json'])
+    expect(result.exitCode).toBe(2)
+    expect(result.stderr.toString()).toContain('factory.json')
   })
 
   test('dispatch has landed: it parses its own flags and refuses without a config', () => {

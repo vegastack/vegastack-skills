@@ -90,7 +90,7 @@ describe('vegafactory sync', () => {
   test('sync is no longer refused as reserved, and the other verbs still are', () => {
     const help = run(root, root, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory sync')
-    for (const verb of ['status', 'stats', 'dashboard']) {
+    for (const verb of ['stats', 'dashboard']) {
       expect(run(root, root, [verb]).stderr.toString()).toContain(`${verb} is not available yet`)
     }
   })

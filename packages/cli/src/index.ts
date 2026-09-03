@@ -11,14 +11,15 @@ import { selectSkills, type SkillEntry } from './selection.ts'
 import { resolveTarget, syncControlRoom } from './sync.ts'
 import { dispatchUsage, runDispatchCli } from './dispatch.ts'
 import { runServiceCli, serviceUsage } from './service.ts'
+import { runStatusCli, statusUsage } from './status.ts'
 import { runWorktree, worktreeUsage } from './worktree.ts'
 
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch' | 'service'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch' | 'service' | 'status'
 // Top-level verbs the factory reserves; they are named in usage and refuse until they land.
-const reservedTopLevel: readonly string[] = ['status', 'stats', 'dashboard'] as const
+const reservedTopLevel: readonly string[] = ['stats', 'dashboard'] as const
 const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
 interface Options {
   command: Command
@@ -91,7 +92,11 @@ The dispatcher (headless runs in feature worktrees, on the operator's own machin
   Installs that dispatcher as a launchd LaunchAgent (macOS) or a systemd user unit
   (Linux), running as you with your own gh and harness auth. Dry run until --write.
 
-Reserved (not yet available): status, stats, dashboard
+  vegafactory status [--json] [--config PATH]
+  The board, the worktrees, the last tick, the runs in flight, and whether the
+  dispatcher is alive at all.
+
+Reserved (not yet available): stats, dashboard
 
 Run "vegafactory skills list" to see the bundled skills.
 `
@@ -114,7 +119,7 @@ function parse(argv: string[]): Options {
       if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
       command = verb as Command
     }
-    else if (head === 'worktree' || head === 'dispatch' || head === 'service') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
+    else if (head === 'worktree' || head === 'dispatch' || head === 'service' || head === 'status') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
     else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
     else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
     else if (head === 'sync' || head === 'help' || head === 'version') command = head
@@ -750,6 +755,12 @@ async function main() {
     const rest = options.rest ?? []
     if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(serviceUsage())
     process.exitCode = await runServiceCli(rest, homedir())
+    return
+  }
+  if (options.command === 'status') {
+    const rest = options.rest ?? []
+    if (rest[0] === 'help') return console.log(statusUsage())
+    process.exitCode = await runStatusCli(rest, homedir())
     return
   }
   if (options.command === 'sync') return sync(options)
