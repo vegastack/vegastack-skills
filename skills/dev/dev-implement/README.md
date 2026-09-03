@@ -25,6 +25,8 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [SKILL.md](SKILL.md) | Agent entry point: preflight, claim, dark-mode bounds, verify, review modes, evidence contract, corrections loop |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
+| scripts/questions.mjs (installed copy) | The ask round renderer, parser and route decision, duplicated in from dev-setup |
+| references/ask-route.md (installed copy) | The ask route: tool or issue, the questions comment format, the reply grammar |
 | [scripts/lib/gh.mjs](scripts/lib/gh.mjs) | Shared guard plumbing: gh invocation, marker parsing, result contract |
 | [scripts/preflight.mjs](scripts/preflight.mjs) | Deterministic preflight guard (exit 2 blocks) |
 | [scripts/evidence-check.mjs](scripts/evidence-check.mjs) | Evidence-comment shape guard; with `--issue`, also blocks when plan checkboxes lag the ledger's completed tasks |

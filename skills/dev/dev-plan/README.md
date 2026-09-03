@@ -23,6 +23,8 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [SKILL.md](SKILL.md) | Agent entry point |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
+| scripts/questions.mjs (installed copy) | The ask round renderer, parser and route decision, duplicated in from dev-setup |
+| references/ask-route.md (installed copy) | The ask route: tool or issue, the questions comment format, the reply grammar |
 | [scripts/plan-lint.mjs](scripts/plan-lint.mjs) | Plan structure + banned-placeholder guard (blocks) |
 | [references/plan-format.md](references/plan-format.md) | The plan comment template, banned placeholders, self-review, worked example |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract (evergreen waiver) |

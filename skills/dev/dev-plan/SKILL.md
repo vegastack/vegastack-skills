@@ -26,7 +26,7 @@ Numbered rounds over the full frontier (every open question whose prerequisites 
 3. **Risk** — blast radius, what a rollback looks like, what should stop a dark run beyond the standing stop-list.
 4. **Brief challenge** — anything planning revealed the brief missed or got wrong goes back to the operator as a question, because a brief gap absorbed into the plan is a decision the operator did not make.
 
-A vague or self-contradicting answer gets pushback with concrete options — simple words, a mermaid or ASCII sketch in the issue when a picture beats prose (conventions' collaboration rule).
+Rounds go out by the ask route (`references/ask-route.md`); an issue-routed round stops the session at `needs-operator` and the next run parses the reply before re-asking anything. A vague or self-contradicting answer gets pushback with concrete options — simple words, a mermaid or ASCII sketch in the issue when a picture beats prose (conventions' collaboration rule).
 
 ## The plan
 

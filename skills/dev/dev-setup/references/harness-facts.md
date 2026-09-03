@@ -120,6 +120,6 @@ The prose instruction in the AGENTS.md dev section is the portable base on both 
 ## What this means for the dev skills
 
 - AGENTS.md is the shared instruction file; the one-line CLAUDE.md import makes it reach Claude Code. Keep the marked section small — it counts against Codex's 32 KiB budget along with everything else in AGENTS.md.
-- Any skill that wants to ask the user must degrade cleanly: no question tool available → use documented defaults, mark them `# TODO confirm`, and say so.
+- Any skill that wants to ask the user degrades by `references/ask-route.md`: intake, plan and implement put the round in the issue and stop at `needs-operator`; dev-setup, which can run before any issue exists, writes documented defaults marked `# TODO confirm` instead and says so.
 - Observed 02-09-2026: the `claude_code` preset already carries the current model guidance on autonomy, delivering work, readability and parallel tool calls; Codex and Hermes get none of it. That is why the AGENTS.md conduct paragraph exists and why skill bodies never restate harness behaviour — a restated instruction competes with the harness's own wording.
 - Every target harness spawns subagents (Claude Code's Task tool, Codex agents, Hermes `delegate_task`), so dev.md's `review:` knob means the same thing on each; only a headless run that cannot spawn falls back to a labeled self-review.

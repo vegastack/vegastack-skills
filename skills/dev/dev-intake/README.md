@@ -25,6 +25,8 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [SKILL.md](SKILL.md) | Agent entry point: read-first rule, interview protocol, slicing, labels and approval recording |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | references/conventions.md (installed copy) | The workflow artifact spec, duplicated into every dev-family install |
+| scripts/questions.mjs (installed copy) | The ask round renderer, parser and route decision, duplicated in from dev-setup |
+| references/ask-route.md (installed copy) | The ask route: tool or issue, the questions comment format, the reply grammar |
 | [scripts/brief-lint.mjs](scripts/brief-lint.mjs) | Brief structure guard (blocks) with vague-wording warnings |
 | [references/brief-template.md](references/brief-template.md) | The issue-body template every `ready` issue follows, with writing rules |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Evergreen waiver: this skill makes no volatile claims |
