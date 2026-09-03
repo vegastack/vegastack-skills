@@ -110,3 +110,13 @@ export function perIssue(db: Db, filters: Filters): Array<{ issue: number; repo:
   ).all(...values)
   return rows.map(withTouchpoints)
 }
+
+// The person page's stage breakdown. It is its own query rather than a Filters field because
+// `human` is not a filter the bar offers — it is the subject of one page, gated by canViewPerson.
+export function perStageForPerson(db: Db, filters: Filters, human: string): Array<{ stage: string } & Totals> {
+  const { sql, values } = whereClause(filters)
+  const rows = db.query<{ stage: string } & Omit<Totals, 'humanTouchpoints'>>(
+    `select stage, ${TOTAL_SQL} from runs where ${sql} and human = ? and stage is not null group by stage order by stage`,
+  ).all(...values, human)
+  return rows.map(withTouchpoints)
+}
