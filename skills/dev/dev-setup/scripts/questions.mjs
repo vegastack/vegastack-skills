@@ -18,6 +18,11 @@ import { lstatSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// The comment marker, written once: the renderer emits it and the round reader
+// finds it by the same string, so the two can never drift apart.
+const MARKER_OPEN = '<!-- vsk:v1 type=questions rev='
+const MARKER_CLOSE = ' -->'
+
 // Options run a through h: eight is already more than a person will weigh, and a
 // bounded set is what makes the reply grammar a single character.
 const LETTERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -76,7 +81,7 @@ export function renderQuestions(spec, options) {
   if (!Number.isInteger(rev) || rev < 1) throw new Error('rev must be a positive integer')
   const questions = checkSpec(spec)
   const lines = []
-  lines.push('<!-- vsk:v1 type=questions rev=' + rev + ' -->')
+  lines.push(MARKER_OPEN + rev + MARKER_CLOSE)
   lines.push('## Questions (v' + rev + ')')
   lines.push('')
   lines.push('<questions>')
@@ -189,7 +194,6 @@ export function openQuestions(spec, parsed) {
 // the spec it was rendered from. This is what makes the wrapper earn its place —
 // the run that reads the reply is a different, later session with no round.json
 // on disk, so the comment itself has to be the record of what was asked.
-const ROUND_MARKER = /<!--\s*vsk:v1\s+type=questions\s+rev=(\d+)\s*-->/
 const ROUND_QUESTION = /^\*\*Q(\d+)\.\*\*\s+(.+)$/
 const ROUND_OPTION = /^-\s+([a-z])\)\s+(.+)$/
 const ROUND_RECOMMENDED = /^(.*?)\s+\(recommended — (.+)\)$/
@@ -199,8 +203,9 @@ export function parseRound(commentText) {
   const opened = text.indexOf('<questions>')
   const closed = text.indexOf('</questions>', opened + 1)
   if (opened === -1 || closed === -1) throw new Error('no <questions> block in this comment')
-  const marker = ROUND_MARKER.exec(text)
-  const rev = marker ? Number(marker[1]) : 1
+  const markerAt = text.indexOf(MARKER_OPEN)
+  const revDigits = markerAt === -1 ? null : /^(\d+)/.exec(text.slice(markerAt + MARKER_OPEN.length))
+  const rev = revDigits ? Number(revDigits[1]) : 1
   const questions = []
   for (const line of text.slice(opened + '<questions>'.length, closed).split('\n')) {
     const asked = ROUND_QUESTION.exec(line)
