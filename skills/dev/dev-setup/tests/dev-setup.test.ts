@@ -296,6 +296,13 @@ describe('dev-setup contract', () => {
     }
   })
 
+  test('dev-setup routes workflow identity to the App reference, not a personal token', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('[github-app](references/github-app.md)')
+    expect(skill).toContain('gh api orgs/<org>/installations')
+    expect(skill).toContain('rather than a personal access token')
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.

@@ -70,6 +70,18 @@
         "Existing entries in `.claude/settings.json` and `.codex/hooks.json` are merged into, never replaced",
         "The Codex offer states that project-local hooks need the repo's `.codex/` layer to be trusted"
       ]
+    },
+    {
+      "id": 7,
+      "prompt": "Set up the dev workflow in vegastack/example-service. We have an Actions job that labels issues with a PAT stored as GH_PAT.",
+      "expected_output": "Detection reports whether the org has a VegaFactory App installation, then the run names the App-token recipe in references/github-app.md as the replacement for the PAT, and stops short of every step that needs the operator's own GitHub account.",
+      "files": [],
+      "assertions": [
+        "Detection reports whether an org App installation exists, and says plainly when the installations endpoint answered 403",
+        "The PAT job is named with the App-token recipe as its replacement, citing references/github-app.md",
+        "No App is created, no secret is set, and no token is minted by the agent",
+        "The report states that creating the App and storing its key are the operator's own account actions"
+      ]
     }
   ]
 }
