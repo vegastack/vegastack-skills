@@ -63,6 +63,7 @@ Options:
   --dir PATH
   --dry-run
   --force
+  --json                                 machine-readable output (sync)
   --non-interactive
   --version
 

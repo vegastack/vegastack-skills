@@ -53,6 +53,7 @@ These operate on the vegafactory repository itself and do nothing useful in anot
 | `verify [selection]` | Check installed copies against the bundled checksum manifest (all bundled skills when nothing is selected) |
 | `doctor` | Diagnose an install: integrity across all skills, dev profile (`.vegastack/dev.md`) presence, installed-vs-latest version |
 | `remove <selection>` | Uninstall skills from the selected agent directories |
+| `sync` | Refresh this machine's shallow control-room clone from the repo's `control-room:` knob |
 
 ### Selecting what to act on
 
@@ -106,6 +107,33 @@ npx @vegastack/vegafactory skills doctor --global
 
 Run `doctor` without `--global` from inside a project to additionally check that project's `.vegastack/dev.md` profile; the global run skips that check, since the profile is per-project by design.
 
+## Control-room sync
+
+An organisation can keep its shared defaults — org policy, per-group knobs, people, decisions — in a **control room** repository. Every machine reads a shallow clone of it rather than the network, so a GitHub outage degrades to "last synced <time>" instead of failing.
+
+```sh
+vegafactory sync            # refresh if the last fetch is older than sync-max-age
+vegafactory sync --force    # refresh regardless
+vegafactory sync --json     # the machine-readable report (what hooks and the dispatcher read)
+vegafactory sync --dry-run  # print the plan, write nothing
+```
+
+- The project's `.vegastack/dev.md` names the control room: `control-room: <org>/<repo>#<group>@<sha7>`, where the trailing sha is the clone commit the profile was drafted from. `control-room: none`, or no line at all, means the skill defaults apply and `sync` exits 0 doing nothing.
+- The clone lives at `~/.vegastack/control-room/<org>/` — one per org.
+- The machine-local state document `~/.vegastack/factory.json` records, per org, the clone `path`, its `remote` and `branch`, and the timestamp of the **last successful fetch**. Freshness is measured from that timestamp, never from the directory's mtime. Editing `path`, `remote` or `branch` there points a repo at a different control room; nothing in the repository has to change.
+- `sync-max-age: 30m` in `.vegastack/dev.md` (`<n>m` or `<n>h`) is how stale the clone may be before a session refreshes it. The SessionStart hook runs `sync` in the background past that age.
+- Authentication is your existing `gh` credential over HTTPS, injected per invocation — no token reaches argv, the remote URL, or the clone's config, and no second credential is set up.
+- `sync` never commits and never pushes: the clone is read-only to this verb.
+
+Exit codes: **0** synced, already fresh, or the repo names no control room · **1** the fetch failed and the existing clone stands (the report says when it last synced) · **2** a refusal.
+
+Two refusals are deliberate and fail closed:
+
+- a clone with local modifications is never reset — `sync` refuses and names the path, because nobody should hand-edit the clone;
+- a symlink on the clone path or its parent is refused before any git call.
+
+An unreadable `~/.vegastack/factory.json` is also a refusal, never a silent reset: resetting it would drop every other org's clone record.
+
 ## Flags
 
 | Flag | Meaning |
@@ -116,7 +144,8 @@ Run `doctor` without `--global` from inside a project to additionally check that
 | `--agent codex\|claude\|hermes\|both\|all` | Target agent runtime(s); `both` = codex+claude |
 | `--dir PATH` | Operate on a different project directory; not valid with `--global` |
 | `--dry-run` | Show what would change without writing |
-| `--force` | Overwrite a modified installed copy |
+| `--force` | Overwrite a modified installed copy; for `sync`, refresh regardless of `sync-max-age` |
+| `--json` | Machine-readable output (`sync`) |
 | `--non-interactive` | Skip prompts and use defaults: `--agent both`, project-local (for automation) |
 | `--version` / `-v` | Print the installer version |
 | `--help` / `-h` | Print usage |
@@ -145,7 +174,7 @@ The package ships a checksum manifest that is verified at install and by `verify
 
 ## Network and telemetry
 
-Zero telemetry. The only network call in the tool is `doctor`'s single version check against registry.npmjs.org (installed-vs-latest); `add`, `verify`, and `remove` are fully offline.
+Zero telemetry. The tool makes two kinds of network call: `doctor`'s single version check against registry.npmjs.org, and `sync`'s shallow git fetch of the control room named by the project's `control-room:` knob, authenticated with your existing `gh` credential. `add`, `verify`, and `remove` are fully offline.
 
 ## Requirements
 
