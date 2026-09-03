@@ -56,6 +56,14 @@ describe('factory-board template — triggers and permissions', () => {
 })
 
 describe('factory-board template — resolve step', () => {
+  test('a profile the checkout did not bring in is a logged skip, not a red run', () => {
+    const r = runBlock(resolve(), { PROFILE: join(mkdtempSync(join(tmpdir(), 'vsk-noprofile-')), 'dev.md'), APP_ID: '1', LABELS: 'ready', STATE_LABELS: STATES })
+    expect(r.code).toBe(0)
+    expect(r.outputs).toContain('decision=skip')
+    expect(r.stdout).toContain('no such file')
+    expect(r.ghLog).toBe('')
+  })
+
   test('no board number in the profile is a logged skip', () => {
     const r = runBlock(resolve(), { PROFILE: profile('', 'board: none'), APP_ID: '1', LABELS: 'ready', STATE_LABELS: STATES })
     expect(r.code).toBe(0)
