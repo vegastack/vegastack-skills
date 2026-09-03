@@ -36,8 +36,19 @@ export function freshnessFrom(input: {
   const at = Date.parse(syncedAt)
   if (Number.isNaN(at)) return never
 
+  return freshnessAt({ syncedAt, now: input.now, liveOk: input.liveOk })
+}
+
+// Recomputes the label against a later `now` and a live result the page only learned after the
+// context was built. A view that discovered GitHub was down must be able to say so without
+// re-reading the state file it has no path to.
+export function freshnessAt(input: { syncedAt: string | null; now: number; liveOk: boolean }): Freshness {
+  const offline = !input.liveOk
+  if (!input.syncedAt) return { syncedAt: null, ageMinutes: null, label: 'never synced', offline }
+  const at = Date.parse(input.syncedAt)
+  if (Number.isNaN(at)) return { syncedAt: null, ageMinutes: null, label: 'never synced', offline }
   const ageMinutes = Math.max(0, Math.round((input.now - at) / 60000))
-  return { syncedAt, ageMinutes, label: labelFor(ageMinutes), offline }
+  return { syncedAt: input.syncedAt, ageMinutes, label: labelFor(ageMinutes), offline }
 }
 
 function labelFor(ageMinutes: number): string {
