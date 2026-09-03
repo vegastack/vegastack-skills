@@ -47,11 +47,11 @@ Set at intake, applied as a label, announced with its reason (operator overrides
 - **`quick-build`** — small change whose flow already exists in the repo to read. Brief and plan are drafted in the same conversation; **one approval covers both**; then straight to `ready`.
 - **`full-plan`** — big or new ground. Brief approval → `needs-plan` → a separate, fresh-grounded planning session posts the plan → `needs-operator` → "plan approved" → `ready`. Multi-deliverable work becomes an epic, each sub-issue classified independently.
 
-The one-way ratchet revisiting a scope call lives in `dev-plan`.
+The scope ratchet lives in `dev-plan`.
 
 ## Labels
 
-State — exactly one per issue, and every flip sets the assignee column (creation colors: dev-setup's labels row):
+State — exactly one per issue; every flip sets the assignee column (creation colors: dev-setup's labels row):
 
 | label | meaning | assignee |
 |---|---|---|
@@ -61,7 +61,7 @@ State — exactly one per issue, and every flip sets the assignee column (creati
 | `working` | claimed; the ledger shows live progress | whoever started the run |
 | `for-operator` | done — evidence posted, awaiting operator review | the operator |
 
-Modifiers (may coexist with the state label): `risky` · scope `research` / `quick-build` / `full-plan` · `epic` (map parents, absent a native Epic issue type).
+Modifiers (may coexist with the state label): `risky` · scope `research` / `quick-build` / `full-plan` · `epic` (map parents, absent a native Epic type). Boards mirror state labels one way.
 
 ## Titles, types, hierarchy
 
