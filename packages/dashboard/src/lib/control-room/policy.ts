@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import { readOrEmpty } from '../read'
 
 export interface Policy {
   stats: 'on' | 'off'
@@ -10,14 +11,6 @@ const knob = (text: string, name: string): 'on' | 'off' | null => {
   const match = new RegExp(`^${name}:\\s*([^\\s#]+)`, 'm').exec(text)
   if (!match) return null
   return match[1] === 'on' ? 'on' : match[1] === 'off' ? 'off' : null
-}
-
-const readOrEmpty = async (path: string): Promise<string> => {
-  try {
-    return await readFile(path, 'utf8')
-  } catch {
-    return ''
-  }
 }
 
 // org.md sets the policy, groups/<g>/group.md may override it. Every unreadable, absent or

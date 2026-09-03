@@ -264,9 +264,14 @@ export async function runDashboard(options: DashboardOptions): Promise<number> {
 
   const home = options.home ?? homedir()
   const paths = dashboardPaths({ home, version: options.version, override: flags.dir })
-  if (await symlinked(paths.root)) {
-    console.error(`error: ${paths.root} is a symlink; the dashboard refuses to install or launch through one`)
-    return 2
+  // Both the install root and the entry, because they are two different attacks: a linked root
+  // redirects an `npm install --prefix` into a tree the operator did not choose, and a linked
+  // entry redirects what `bun` executes even when the root is honest.
+  for (const path of [paths.root, paths.entry]) {
+    if (await symlinked(path)) {
+      console.error(`error: ${path} is a symlink; the dashboard refuses to install or launch through one`)
+      return 2
+    }
   }
 
   const plan = planDashboard({ entryExists: await exists(paths.entry), source: paths.source, dryRun: flags.dryRun })

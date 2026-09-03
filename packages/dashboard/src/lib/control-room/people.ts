@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import { readOrEmpty } from '../read'
 
 export interface Person {
   login: string
@@ -43,14 +44,6 @@ export function mergePeople(org: Person[], group: Person[]): Person[] {
   const merged = new Map(org.map((person) => [person.login, person]))
   for (const person of group) merged.set(person.login, person)
   return [...merged.values()]
-}
-
-const readOrEmpty = async (path: string): Promise<string> => {
-  try {
-    return await readFile(path, 'utf8')
-  } catch {
-    return ''
-  }
 }
 
 export async function readPeople(controlRoom: string, group: string | null): Promise<Person[]> {

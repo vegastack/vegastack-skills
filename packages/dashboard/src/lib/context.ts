@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises'
-
 import { openCache, refreshCache, type Db } from './cache/build'
 import { filterOptions, parseFilters, type FilterOptions, type Filters } from './cache/filters'
 import { readPeople, type Person } from './control-room/people'
@@ -7,6 +5,7 @@ import { readPolicy, type Policy } from './control-room/policy'
 import { readRepoGroups } from './control-room/repos'
 import { readEnv, type ServerEnv } from './env'
 import { freshnessFrom, type Freshness } from './freshness'
+import { readOrNull } from './read'
 
 export interface PageContext {
   env: ServerEnv
@@ -25,19 +24,10 @@ export interface PageContext {
 let handle: Promise<Db> | null = null
 const cache = (file: string): Promise<Db> => (handle ??= openCache(file))
 
-const readOrNull = async (path: string): Promise<string | null> => {
-  try {
-    return await readFile(path, 'utf8')
-  } catch {
-    return null
-  }
-}
-
 // The only place a page reads the environment. A page that wants data calls this and renders what
 // comes back; a page that reached for process.env itself would be a second, undocumented contract.
 export async function loadContext(
   searchParams: Record<string, string | string[] | undefined>,
-  liveOk = true,
 ): Promise<PageContext> {
   const result = readEnv(process.env as Record<string, string | undefined>)
   if (!result.ok) {
@@ -64,11 +54,13 @@ export async function loadContext(
     repoGroups,
     people: await readPeople(env.controlRoom, group),
     policy: await readPolicy(env.controlRoom, group),
+    // liveOk is true here because loading the context touched nothing live. A page that then
+    // reads GitHub or the dispatcher recomputes this with `freshnessAt` once it knows the answer.
     freshness: freshnessFrom({
       factoryJson: await readOrNull(env.stateFile),
       org: env.org,
       now: Date.now(),
-      liveOk,
+      liveOk: true,
     }),
   }
 }

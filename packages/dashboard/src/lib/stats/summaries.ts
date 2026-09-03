@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import { readOrNull } from '../read'
 
 export interface StageTiming {
   stage: string
@@ -73,14 +74,6 @@ export function parseSummary(scope: string, month: string, text: string): Summar
     costUsd: field(document, 'cost_usd', 'cost_usd', missing),
     runs: field(document, 'runs', 'runs', missing),
     missing,
-  }
-}
-
-const readOrNull = async (path: string): Promise<string | null> => {
-  try {
-    return await readFile(path, 'utf8')
-  } catch {
-    return null
   }
 }
 

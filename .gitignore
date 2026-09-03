@@ -6,6 +6,7 @@ dist/
 packages/dashboard/.next/
 packages/dashboard/dist-standalone/
 packages/dashboard/next-env.d.ts
+packages/dashboard/tsconfig.tsbuildinfo
 packages/cli/skill/
 packages/cli/skill-integrity.json
 

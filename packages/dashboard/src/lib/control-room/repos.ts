@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import { readOrNull } from '../read'
 
 // repos.md's `| repo | group | board | owner |` table, read as repo → group. The separator row
 // and any row whose first cell is not an `owner/name` are passed over, so prose around the table
@@ -19,9 +20,6 @@ export function parseRepoGroups(reposMd: string): Record<string, string> {
 }
 
 export async function readRepoGroups(controlRoom: string): Promise<Record<string, string>> {
-  try {
-    return parseRepoGroups(await readFile(join(controlRoom, 'repos.md'), 'utf8'))
-  } catch {
-    return {}
-  }
+  const text = await readOrNull(join(controlRoom, 'repos.md'))
+  return text === null ? {} : parseRepoGroups(text)
 }
