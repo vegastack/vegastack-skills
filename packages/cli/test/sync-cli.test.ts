@@ -52,6 +52,19 @@ describe('vegafactory sync', () => {
     expect(JSON.parse(result.stdout.toString())).toMatchObject({ command: 'sync', ok: true, action: 'none' })
   })
 
+  test('a repo with no control-room knob yet syncs from --org — the first dev-setup run', async () => {
+    const { home, repo } = await project('bootstrap', '## Knobs\nreview: subagent\n')
+    const result = run(home, repo, ['sync', '--org', 'vegastack', '--json'])
+    expect(result.exitCode).toBe(0)
+    const payload = JSON.parse(result.stdout.toString())
+    expect(payload).toMatchObject({ ok: true, action: 'clone', org: 'vegastack', path: join(home, '.vegastack/control-room/vegastack') })
+    expect(await readFile(join(home, '.vegastack/control-room/vegastack/groups/dev/group.md'), 'utf8')).toContain('review: cross-agent-risky')
+    // A profile naming another org refuses the flag; a missing value is a usage error.
+    const mismatch = await project('bootstrap-mismatch', 'control-room: vegastack/vegafactory-control-room#dev\n')
+    expect(run(mismatch.home, mismatch.repo, ['sync', '--org', 'acme', '--json']).exitCode).toBe(2)
+    expect(run(home, repo, ['sync', '--org']).exitCode).not.toBe(0)
+  })
+
   test('a first sync clones, records state, and prints the sha', async () => {
     const { home, repo } = await project('first', 'control-room: vegastack/vegafactory-control-room#dev\nsync-max-age: 30m\n')
     const result = run(home, repo, ['sync', '--json'])

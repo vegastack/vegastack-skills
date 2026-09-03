@@ -32,6 +32,7 @@ interface Options {
   agent?: AgentChoice
   mode?: Mode
   dir?: string
+  org?: string
   dryRun: boolean
   force: boolean
   nonInteractive: boolean
@@ -80,9 +81,11 @@ Worktrees (one feature, one worktree — the main checkout never leaves the defa
   remove and prune are dry-run until --write, and never touch a branch or anything uncommitted.
 
 Control room (skills read the local clone, never the network):
-  vegafactory sync [--dry-run] [--force] [--json] [--dir PATH]
+  vegafactory sync [--org ORG] [--dry-run] [--force] [--json] [--dir PATH]
   Refreshes this machine's shallow clone of the control room named by the project's
-  control-room: knob. Exit 0 synced, already fresh, or no control room · 1 the fetch
+  control-room: knob. --org ORG is the bootstrap path for a repo whose profile has no
+  knob yet (the first dev-setup run): the room is <org>/vegafactory-control-room by
+  convention. Exit 0 synced, already fresh, or no control room · 1 the fetch
   failed and the existing clone stands · 2 a refusal (dirty clone, symlink, bad state file).
 
 The dispatcher (headless runs in feature worktrees, on the operator's own machine):
@@ -162,6 +165,11 @@ function parse(argv: string[]): Options {
     else if (flag === '--project') options.mode = 'project'
     else if (flag === '--global') options.mode = 'global'
     else if (flag === '--dir') options.dir = argv.shift()
+    else if (flag === '--org') {
+      const value = argv.shift()
+      if (value === undefined || value === '' || value.startsWith('-')) throw new Error('--org requires a value')
+      options.org = value
+    }
     else if (flag === '--dry-run') options.dryRun = true
     else if (flag === '--force') options.force = true
     else if (flag === '--non-interactive' || flag === '--yes') options.nonInteractive = true
@@ -707,7 +715,12 @@ async function sync(options: Options) {
     return report(options, { command: 'sync', ok: false, action: 'refused', org: null, path: statePath, sha: null, lastSyncedAt: null, ageMinutes: null, message: (error as Error).message }, 2)
   }
 
-  const target = resolveTarget({ devMdText, config, home })
+  let target
+  try {
+    target = resolveTarget({ devMdText, config, home, org: options.org })
+  } catch (error) {
+    return report(options, { command: 'sync', ok: false, action: 'refused', org: options.org ?? null, path: null, sha: null, lastSyncedAt: null, ageMinutes: null, message: (error as Error).message }, 2)
+  }
   if (!target) {
     return report(options, { command: 'sync', ok: true, action: 'none', org: null, path: null, sha: null, lastSyncedAt: null, ageMinutes: null, message: 'this repo names no control room — skill defaults apply' }, 0)
   }

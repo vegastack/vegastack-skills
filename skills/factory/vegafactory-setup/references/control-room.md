@@ -45,15 +45,9 @@ The rule has one home in dev-setup's `references/conventions.md` (the precedence
 
 ## The read path
 
-Once `vegafactory sync` exists (issue #120), every read comes from the local shallow clone at `~/.vegastack/control-room/<org>/`, refreshed by `vegafactory sync`, the dispatcher tick, and SessionStart when it is older than 30 minutes.
+Every read comes from the local shallow clone at `~/.vegastack/control-room/<org>/`, refreshed by `vegafactory sync`, the dispatcher tick, and SessionStart when it is older than the profile's `sync-max-age:`. A repo whose profile has no `control-room:` knob yet — the first dev-setup run — syncs with `vegafactory sync --org <org>`, which resolves the room by the fixed name `<org>/vegafactory-control-room`; the knob is written afterwards from the sha that run reports.
 
-Until then, read a single file over the API:
-
-```sh
-gh api repos/<org>/vegafactory-control-room/contents/<path> -q '.content' | base64 -d
-```
-
-A control room that does not exist, or that the caller cannot read, is not an error: the run degrades to asking the questions itself and says which answers it could not inherit.
+A control room that does not exist, or that the caller cannot read, is not an error: `sync` reports the refusal, the run degrades to asking the questions itself and says which answers it could not inherit.
 
 ## `people.csv`
 

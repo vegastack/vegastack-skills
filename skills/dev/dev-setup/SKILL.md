@@ -18,7 +18,7 @@ Gather these silently and present them as findings — "here's what I found — 
 | What | How |
 |---|---|
 | repo, default branch | `git remote get-url origin` · `gh repo view --json nameWithOwner,defaultBranchRef` |
-| org defaults (control room) | `vegafactory sync --json` first, then read the local clone it names — skills read the clone, never the network, so an outage degrades to "last synced <time>" instead of failing; a control room that answers a knob removes that question from Round B; layout and precedence are the `vegafactory-setup` skill's |
+| org defaults (control room) | `vegafactory sync --json` first — on a repo with no `control-room:` knob yet, the first run here, `vegafactory sync --org <org> --json` with the org from the repo lookup above, because `sync` otherwise reads the knob this skill has not written — then read the local clone it names: skills read the clone, never the network, so an outage degrades to "last synced <time>" instead of failing; a control room that answers a knob removes that question from Round B; a room that does not exist or cannot be read is a plain finding, and Round B asks; layout and precedence are the `vegafactory-setup` skill's |
 | gh authenticated | `gh auth status` |
 | operator username (the `architect:` knob) | `gh api user -q .login`, fallback `git config user.name` — written as the knob's value with no question, because the architecture owner defaults to whoever runs setup; the decision-register header uses the same lookup |
 | the operator list (the `operators:` knob) | the same `gh api user -q .login` lookup, written as a one-name csv without asking — assignment needs a default owner from run one, and the operator edits the line to add colleagues |

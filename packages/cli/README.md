@@ -179,11 +179,12 @@ vegafactory sync            # refresh if the last fetch is older than sync-max-a
 vegafactory sync --force    # refresh regardless
 vegafactory sync --json     # the machine-readable report (what hooks and the dispatcher read)
 vegafactory sync --dry-run  # print the plan, write nothing
+vegafactory sync --org acme # bootstrap: a repo whose profile has no control-room: knob yet
 ```
 
-- The project's `.vegastack/dev.md` names the control room: `control-room: <org>/<repo>#<group>@<sha7>`, where the trailing sha is the clone commit the profile was drafted from. `control-room: none`, or no line at all, means the skill defaults apply and `sync` exits 0 doing nothing.
+- The project's `.vegastack/dev.md` names the control room: `control-room: <org>/<repo>#<group>@<sha7>`, where the trailing sha is the clone commit the profile was drafted from. `control-room: none`, or no line at all, means the skill defaults apply and `sync` exits 0 doing nothing — unless `--org <org>` is passed, the bootstrap path dev-setup uses before the profile exists: the room is then `<org>/vegafactory-control-room` by convention, and an `--org` that disagrees with an existing knob is refused (exit 2).
 - The clone lives at `~/.vegastack/control-room/<org>/` — one per org.
-- The machine-local state document `~/.vegastack/factory.json` records, per org, the clone `path`, its `remote` and `branch`, and the timestamp of the **last successful fetch**. Freshness is measured from that timestamp, never from the directory's mtime. Editing `path`, `remote` or `branch` there points a repo at a different control room; nothing in the repository has to change.
+- The machine-local state document `~/.vegastack/factory.json` records, per org, the clone `path`, its `remote` and `branch`, and the timestamp of the **last successful fetch**. Freshness is measured from that timestamp, never from the directory's mtime. Editing `path`, `remote` or `branch` there points a repo at a different control room; nothing in the repository has to change — every refresh re-points the clone's `origin` at the configured `remote` and resets to what it fetched from the configured `branch`, so an edit takes effect on the next refresh (or `--force`) rather than only on a fresh clone.
 - `sync-max-age: 30m` in `.vegastack/dev.md` (`<n>m` or `<n>h`) is how stale the clone may be before a session refreshes it. The SessionStart hook runs `sync` in the background past that age.
 - Authentication is your existing `gh` credential over HTTPS, injected per invocation — no token reaches argv, the remote URL, or the clone's config, and no second credential is set up.
 - `sync` never commits and never pushes: the clone is read-only to this verb.

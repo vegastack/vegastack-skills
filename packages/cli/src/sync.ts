@@ -69,8 +69,16 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export function resolveTarget(input: { devMdText: string; config: FactoryConfig; home: string }): SyncTarget | null {
-  const knob = parseControlRoomKnob(input.devMdText)
+// The profile names the room; `org` is the bootstrap path for a repo whose profile does not yet —
+// the first dev-setup run — and resolves the room by the fixed convention the profile template
+// hardcodes, `<org>/vegafactory-control-room`. A profile that names a different org wins, loudly.
+export function resolveTarget(input: { devMdText: string; config: FactoryConfig; home: string; org?: string }): SyncTarget | null {
+  const fromProfile = parseControlRoomKnob(input.devMdText)
+  const org = input.org?.trim()
+  if (fromProfile && org && fromProfile.org !== org) {
+    throw new Error(`--org ${org} disagrees with the profile's control-room: ${fromProfile.repo} — edit the knob rather than passing another org`)
+  }
+  const knob = fromProfile ?? (org ? { org, repo: `${org}/vegafactory-control-room`, group: null, sha: null } : null)
   if (!knob) return null
   const entry = input.config.controlRooms[knob.org]
   return {
@@ -152,8 +160,14 @@ export async function syncControlRoom(input: {
           message: `refusing to reset ${target.clonePath}: it has local modifications — nobody should hand-edit the clone`,
         }
       }
+      // The remote and branch come from the machine config on every refresh, not from what the
+      // clone was created with: editing `remote` or `branch` in factory.json is the documented way
+      // to point a machine at a different control room, and a fetch of the baked-in `origin` would
+      // report success while still reading the old room. FETCH_HEAD is what the fetch just wrote,
+      // whichever branch it was — a `--depth 1 --branch` clone tracks only its original branch.
+      await git(['-C', target.clonePath, 'remote', 'set-url', 'origin', target.remote])
       await git([...GIT_CREDENTIAL_ARGS, '-C', target.clonePath, 'fetch', '--depth', '1', 'origin', target.branch])
-      await git(['-C', target.clonePath, 'reset', '--hard', `origin/${target.branch}`])
+      await git(['-C', target.clonePath, 'reset', '--hard', 'FETCH_HEAD'])
     }
   } catch (error) {
     const reason = (error as Error).message.split('\n')[0] ?? 'git failed'
@@ -171,7 +185,7 @@ export async function syncControlRoom(input: {
     repo: target.repo,
     path: target.clonePath,
     branch: target.branch,
-    ...(previous?.remote ? { remote: previous.remote } : {}),
+    ...(previous?.remote ? { remote: target.remote } : {}),
     lastSyncedAt: syncedAt,
     sha,
   }

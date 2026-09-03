@@ -42,6 +42,17 @@ describe('control-room sync', () => {
     expect(resolveTarget({ devMdText: '## Knobs\nreview: subagent\n', config: configFor(root), home: root })).toBeNull()
   })
 
+  test('a profile with no knob resolves from an org name to the conventional control-room repo — the bootstrap case', () => {
+    const target = resolveTarget({ devMdText: '## Knobs\nreview: subagent\n', config: configFor(root), home: root, org: 'vegastack' })
+    expect(target).toMatchObject({ org: 'vegastack', repo: 'vegastack/vegafactory-control-room', group: null, recordedSha: null, remote: origin, clonePath: join(root, 'clone') })
+    // An org the machine has never synced falls back to the GitHub URL by convention.
+    const fresh = resolveTarget({ devMdText: '', config: { schemaVersion: 1, controlRooms: {}, settings: {} }, home: root, org: 'acme' })
+    expect(fresh).toMatchObject({ org: 'acme', repo: 'acme/vegafactory-control-room', remote: 'https://github.com/acme/vegafactory-control-room.git', clonePath: join(root, '.vegastack/control-room/acme') })
+    // The profile's own knob wins over a matching --org, and a different --org is refused rather than guessed.
+    expect(resolveTarget({ devMdText: DEV_MD, config: configFor(root), home: root, org: 'vegastack' })).toMatchObject({ group: 'dev' })
+    expect(() => resolveTarget({ devMdText: DEV_MD, config: configFor(root), home: root, org: 'acme' })).toThrow(/acme/)
+  })
+
   test('a target takes its path and remote from the machine config, its group from the profile', () => {
     const target = resolveTarget({ devMdText: DEV_MD, config: configFor(root), home: root })
     expect(target).toMatchObject({ org: 'vegastack', group: 'dev', branch: 'main', clonePath: join(root, 'clone'), remote: origin })
@@ -91,6 +102,38 @@ describe('control-room sync', () => {
     expect(await readFile(join(home, 'clone/groups/dev/group.md'), 'utf8')).toContain('review: cross-agent')
   })
 
+  test('editing remote in the machine config repoints the next refresh, and editing branch follows a different branch', async () => {
+    const home = join(root, 'repoint')
+    await mkdir(home, { recursive: true })
+    const other = join(root, 'origin-other')
+    await mkdir(join(other, 'groups/dev'), { recursive: true })
+    await writeFile(join(other, 'org.md'), 'stats: off\n')
+    await writeFile(join(other, 'groups/dev/group.md'), 'review: subagent\n')
+    git(['init', '--initial-branch=main'], other)
+    git(['add', '-A'], other)
+    git(['commit', '-m', 'seed other'], other)
+    git(['checkout', '-b', 'edge'], other)
+    await writeFile(join(other, 'org.md'), 'stats: edge\n')
+    git(['add', '-A'], other)
+    git(['commit', '-m', 'edge'], other)
+    git(['checkout', 'main'], other)
+
+    const target = resolveTarget({ devMdText: DEV_MD, config: configFor(home), home })!
+    const first = await syncControlRoom({ target, config: configFor(home), now: NOW })
+    expect(await readFile(join(home, 'clone/org.md'), 'utf8')).toContain('stats: on')
+
+    const repointed = await syncControlRoom({ target: { ...target, remote: other }, config: first.config, now: NOW + 60 * 60_000, force: true })
+    expect(repointed.ok).toBe(true)
+    expect(repointed.action).toBe('refresh')
+    expect(await readFile(join(home, 'clone/org.md'), 'utf8')).toContain('stats: off')
+    expect(repointed.config.controlRooms.vegastack!.remote).toBe(other)
+
+    const branched = await syncControlRoom({ target: { ...target, remote: other, branch: 'edge' }, config: repointed.config, now: NOW + 2 * 60 * 60_000, force: true })
+    expect(branched.ok).toBe(true)
+    expect(await readFile(join(home, 'clone/org.md'), 'utf8')).toContain('stats: edge')
+    expect(branched.config.controlRooms.vegastack!.branch).toBe('edge')
+  })
+
   test('a clone with local modifications is refused by name and never reset', async () => {
     const home = join(root, 'dirty')
     await mkdir(home, { recursive: true })
@@ -120,8 +163,7 @@ describe('control-room sync', () => {
     await mkdir(home, { recursive: true })
     const target = resolveTarget({ devMdText: DEV_MD, config: configFor(home), home })!
     const first = await syncControlRoom({ target, config: configFor(home), now: NOW })
-    git(['remote', 'set-url', 'origin', join(root, 'gone')], join(home, 'clone'))
-    const result = await syncControlRoom({ target, config: first.config, now: NOW + 2 * 60 * 60_000, force: true })
+    const result = await syncControlRoom({ target: { ...target, remote: join(root, 'gone') }, config: first.config, now: NOW + 2 * 60 * 60_000, force: true })
     expect(result.ok).toBe(false)
     expect(result.action).toBe('stale')
     expect(result.lastSyncedAt).toBe(first.lastSyncedAt)
