@@ -23,7 +23,7 @@ When the operator asks in chat for a change, their words are the approval — bu
 
 ## Claim
 
-One session owns one issue — one claim at a time, because dev-status reads each ledger as one session's heartbeat. Assign yourself, swap `ready` → `working`, and cut the branch and its worktree with `node <path-to-this-skill>/scripts/worktree.mjs create --issue <n> --slug <slug> --type <type> --write --json` (epic child: add `--parent <parent-branch>`; the full matrix is [worktrees](references/worktrees.md)). Then create the ledger comment as your first write, recording the worktree path, because its edit time is the claim's only liveness signal and a claim whose session dies before writing it is invisible. Record each task's base sha before starting it.
+One session owns one issue — one claim at a time, because dev-status reads each ledger as one session's heartbeat. Assign yourself and remove any other assignee, swap `ready` → `working`, and cut the branch and its worktree with `node <path-to-this-skill>/scripts/worktree.mjs create --issue <n> --slug <slug> --type <type> --write --json` (epic child: add `--parent <parent-branch>`; the full matrix is [worktrees](references/worktrees.md)). Then create the ledger comment as your first write, recording the worktree path, because its edit time is the claim's only liveness signal and a claim whose session dies before writing it is invisible. Record each task's base sha before starting it. Every label flip this skill makes carries the assignee conventions' Labels table names — a hand-back to `for-operator` assigns the issue's operator and drops the runner, so the operator's notification is GitHub's own and needs no extra tooling.
 
 ## Build — dark, test-first, checkpointed
 
@@ -70,7 +70,7 @@ Run `dev-review` per dev.md's `review:` knob — fresh subagent axes by default,
 Branch: <name> @ <sha7>
 ```
 
-The tail's sha stays bare, because GitHub auto-links it once the branch is pushed while a hand-written `/commit/` link 404s until then. The `**Review:**` line is the one home of surfaced rulings: every ledger `Ruling:` appears there, in the order made. Run `node <path-to-this-skill>/scripts/evidence-check.mjs --file <draft> --issue <n> --json` before posting — it checks the draft's shape and, with `--issue`, that the plan comment's `[x]` boxes reflect the ledger's completed tasks; exit 2 means fix, don't post. The evidence comment is the operator's whole read: one line per field, the Not done / limits list complete, and the closing recap repeats it in under 150 words. Post it, swap `working` → `for-operator`, and stop; the recap repeats the evidence content rather than replacing it.
+The tail's sha stays bare, because GitHub auto-links it once the branch is pushed while a hand-written `/commit/` link 404s until then. The `**Review:**` line is the one home of surfaced rulings: every ledger `Ruling:` appears there, in the order made. Run `node <path-to-this-skill>/scripts/evidence-check.mjs --file <draft> --issue <n> --json` before posting — it checks the draft's shape and, with `--issue`, that the plan comment's `[x]` boxes reflect the ledger's completed tasks; exit 2 means fix, don't post. The evidence comment is the operator's whole read: one line per field, the Not done / limits list complete, and the closing recap repeats it in under 150 words. Post it, swap `working` → `for-operator` with the assignee moved to the operator, and stop; the recap repeats the evidence content rather than replacing it.
 
 ## Corrections loop — code and docs move together
 

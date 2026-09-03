@@ -55,10 +55,10 @@ Before posting any brief, run `node <path-to-this-skill>/scripts/brief-lint.mjs 
 
 ## Labels and approval
 
-- A new issue starts at `needs-operator` plus its scope label, and `risky` when it touches security, money, user data, or production (names from dev.md's `labels:` knob).
+- A new issue starts at `needs-operator` plus its scope label, and `risky` when it touches security, money, user data, or production (names from dev.md's `labels:` knob); create it with `--assignee <operator>`, the login conventions' Labels table resolves from dev.md's `operators:` list, so GitHub's own notification reaches the human whose move it is. An `--assignee` GitHub rejects is reported and the issue stands unassigned, because guessing another login hands the work to the wrong person.
 - Approval is the operator's explicit words tied to the issue, because labels, silence and time say nothing about consent.
 - Record it as one approval marker comment per conventions — `scope=brief`, or `scope=brief+plan` when the inline plan was posted with it — quoting the operator's words in the (username) format; preflight verifies that comment.
-- Then flip the state: `research` and `quick-build` → `ready`; `full-plan` → `needs-plan`.
+- Then flip the state, carrying the assignee the Labels table names: `research` and `quick-build` → `ready` (unassigned); `full-plan` → `needs-plan` (the operator).
 - An issue leaves `needs-operator` only once every Assumptions entry is resolved (confirmed, corrected, or moved to a spike) and the section deleted.
 - A directional decision this work settles (dev.md's Decisions test) is proposed as one register line on the operator's yes; `dev-ship` records at merge.
 - The operator edits a draft → apply it and summarize what changed since they last read it.

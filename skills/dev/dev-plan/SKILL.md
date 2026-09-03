@@ -39,11 +39,11 @@ Checkboxes belong to the implement session and post empty, because dev-status re
 
 ## Labels and approval
 
-Post the plan → flip to `needs-operator`. On the operator's "plan approved": record the approval marker comment per conventions with `scope=plan`, quoting their words in its operator-identity format, flip to `ready`, stop — building is dev-implement's.
+Post the plan → flip to `needs-operator`, assigned to the issue's operator (conventions' Labels table). On the operator's "plan approved": record the approval marker comment per conventions with `scope=plan`, quoting their words in its operator-identity format, flip to `ready` and unassign — an unassigned `ready` issue is what tells the next agent it is free — stop; building is dev-implement's.
 
 ## The ratchet — one home, this file
 
-- **Upgrade (any time, no permission needed to propose):** planning reveals the work is bigger than its scope label — a quick-build that needs real design, an issue that is actually several deliverables. Stop, post one `handback` comment proposing the reclassification or the epic split (parent map + sub-issues, each classified fresh), `needs-operator`. A plan runs about one screen per task — Files, Interfaces, Steps — and a plan approaching GitHub's ~65,536-character comment cap is the slicing telling you it wants to be an epic.
+- **Upgrade (any time, no permission needed to propose):** planning reveals the work is bigger than its scope label — a quick-build that needs real design, an issue that is actually several deliverables. Stop, post one `handback` comment proposing the reclassification or the epic split (parent map + sub-issues, each classified fresh), `needs-operator`, assigned to the operator. A plan runs about one screen per task — Files, Interfaces, Steps — and a plan approaching GitHub's ~65,536-character comment cap is the slicing telling you it wants to be an epic.
 - **Downgrade (operator's yes only):** planning reveals the work is trivial — propose skipping to `ready` with the brief's inline approach, and wait for the yes.
 
 ## Quick-build inline mode
