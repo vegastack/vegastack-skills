@@ -138,3 +138,21 @@ describe('factory-board template — token and mirror steps', () => {
     expect(calls[1]).toContain('item-add')
   })
 })
+
+describe("this repo's own factory-board workflow", () => {
+  test('is the template rendered, with nothing hand-edited into it', () => {
+    const live = readFileSync(join(skillRoot, '../../../.github/workflows/factory-board.yml'), 'utf8')
+    const marker = template.indexOf('\n# ---\n')
+    const rendered = template
+      .slice(marker + '\n# ---\n'.length)
+      .replaceAll('{{runs-on}}', '[self-hosted, vsk-runners-mac]')
+      .replaceAll('{{profile}}', '.vegastack/dev.md')
+      .replaceAll('{{state-labels}}', 'needs-operator,needs-plan,ready,working,for-operator')
+    expect(live).toBe(rendered)
+  })
+
+  test("this repo's profile carries the board knob", () => {
+    const profileText = readFileSync(join(skillRoot, '../../../.vegastack/dev.md'), 'utf8')
+    expect(profileText).toMatch(/^board: none\b/m)
+  })
+})

@@ -304,13 +304,19 @@ describe('dev-setup contract', () => {
     expect(githubApp).toContain('Never on a workstation')
   })
 
-  test('the App reference is packaged, and no workflow in this repo mints an App token yet', () => {
+  test('the App reference is packaged, and the board mirror is the only workflow minting an App token', () => {
     const packaging = JSON.parse(readFileSync(resolve(skillRoot, '../../../packages/cli/packaging.json'), 'utf8'))
     expect(packaging['dev-setup']).toContain('references/github-app.md')
     const workflowsDir = resolve(skillRoot, '../../../.github/workflows')
-    for (const file of readdirSync(workflowsDir)) {
-      expect(readFileSync(join(workflowsDir, file), 'utf8')).not.toContain('create-github-app-token')
-    }
+    const minting = readdirSync(workflowsDir).filter((file) =>
+      readFileSync(join(workflowsDir, file), 'utf8').includes('create-github-app-token'),
+    )
+    expect(minting).toEqual(['factory-board.yml'])
+    // And it never reaches that step here: the token is gated on the resolve decision,
+    // which this repo's `board: none` turns into a skip before any credential is minted.
+    const mirror = readFileSync(join(workflowsDir, 'factory-board.yml'), 'utf8')
+    expect(mirror).toContain("if: steps.resolve.outputs.decision == 'sync'")
+    expect(readFileSync(resolve(skillRoot, '../../../.vegastack/dev.md'), 'utf8')).toMatch(/^board: none\b/m)
   })
 
   test('dev-setup routes workflow identity to the App reference, not a personal token', () => {

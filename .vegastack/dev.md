@@ -22,6 +22,7 @@ branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the
 worktree-include: none      # nothing gitignored is needed by a fresh checkout here; `bun install` (the setup command) rebuilds node_modules
 worktree-retention: 14d     # a parked worktree survives this long with no session, measured from the later of its last commit and its last ledger edit
 labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents (org has no native Epic issue type)
+board: none                 # no project board yet; the operator's project commands are in vegafactory-setup's references/control-room.md
 issue-types: Feature=feat · Bug=fix · Task=docs,chore,refactor,research   # no Epic type in this org — the epic label marks map parents
 issue-fields: Priority=Urgent,High,Medium,Low default Medium · Effort=High,Medium,Low default quick-build→Low, full-plan→Medium   # detected 03-09-2026, options in .priority order
 changelog: changesets
