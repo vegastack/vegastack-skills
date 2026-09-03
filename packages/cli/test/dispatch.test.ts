@@ -7,8 +7,10 @@ import {
   evaluateGuards, executeRun, failureComment, holdLock, logPath, parseDispatchArgs, readLock,
   outcomeOf, releaseLock, stopList, worktreeFor, planLabelRuns, planRocketRuns, planTick, readState,
   recordHandled, redact, searchQueries, shipGuardWired, tailLines, writeState,
+  parentParallelLaunch, parentParallelLaunchPlan,
   type BoardIssue, type DispatchState, type GuardState, type Rocket,
 } from '../src/dispatch.ts'
+import { buildLaunchPlan } from '../src/launch.ts'
 import { parseFactoryConfig, parseRepoPolicy } from '../src/config.ts'
 
 const issue = (number: number, labels: string[], assignees: string[] = []): BoardIssue =>
@@ -417,5 +419,78 @@ describe('review round 1 — the fixes', () => {
   test('a stop-and-ask section written as prose still reaches the run', () => {
     const devMd = '## Stop and ask\n\nPause only for a destructive action, a scope change, or spending money.\n\n## Project rules\n\n- not this\n'
     expect(stopList(devMd)).toEqual(['Pause only for a destructive action, a scope change, or spending money.'])
+  })
+})
+
+describe('parentParallelLaunch', () => {
+  const parent = { issue: 104, branch: 'feat/104-factory-runtime', head: 'abc1234', worktree: '/r/.vegastack/.worktrees/104-factory-runtime' }
+  const groups = [
+    { id: 'api', members: ['#131'], files: ['packages/cli/src/dispatch.ts'] },
+    { id: 'docs', members: ['#132'], files: ['README.md'] },
+  ]
+  const ready = [
+    { number: 131, parent: 104, assignee: null, labels: ['ready'] },
+    { number: 132, parent: 104, assignee: null, labels: ['ready'] },
+  ]
+
+  test('two ready children in disjoint groups become one parent run', () => {
+    const launch = parentParallelLaunch(ready, groups, parent)
+    expect(launch?.kind).toBe('parent-parallel')
+    expect(launch?.parent).toBe(104)
+    expect(launch?.children).toEqual([131, 132])
+  })
+  test('one ready child, an assigned child, or a child outside the groups keeps the ordinary path', () => {
+    expect(parentParallelLaunch([ready[0]!], groups, parent)).toBeNull()
+    expect(parentParallelLaunch([ready[0]!, { ...ready[1]!, assignee: 'kmanojkumar' }], groups, parent)).toBeNull()
+    expect(parentParallelLaunch(ready, [groups[0]!], parent)).toBeNull()
+  })
+  test('the launch asks for the workflow in plain words and allows the Workflow tool', () => {
+    const plan = parentParallelLaunchPlan(parentParallelLaunch(ready, groups, parent)!, parent, {
+      model: 'fable-5-1', effort: 'high', operator: 'kmanojkumar', subagents: { spawnDepth: 2, concurrent: 4 },
+    })
+    expect(plan.args).toContain('--permission-mode')
+    expect(plan.args).toContain('bypassPermissions')
+    expect(plan.args.join(' ')).toContain('--allowed-tools Workflow')
+    expect(plan.prompt).toContain('implement-children')
+  })
+  test('the parent launch reuses the launch table, adding only the Workflow allowance', () => {
+    const base = buildLaunchPlan({
+      harness: 'claude', model: 'fable-5-1', effort: 'high', stage: 'implement', worktree: parent.worktree,
+      issue: { number: 104, title: 'parent' }, operator: 'kmanojkumar', outcome: 'x', stopList: [],
+      resume: false, skillPath: null, subagents: { spawnDepth: 2, concurrent: 4 },
+    })
+    const plan = parentParallelLaunchPlan(parentParallelLaunch(ready, groups, parent)!, parent, {
+      model: 'fable-5-1', effort: 'high', operator: 'kmanojkumar', subagents: { spawnDepth: 2, concurrent: 4 },
+    })
+    expect(plan.args.filter(a => a !== plan.prompt)).toEqual([...base.args.filter(a => a !== base.prompt), '--allowed-tools', 'Workflow'])
+    expect(plan.env).toEqual(base.env)
+  })
+  test('a parent-parallel run replaces its children in the tick', () => {
+    const board = { needsPlan: [], ready: [issue(131, ['ready']), issue(132, ['ready'])], corrections: [] }
+    const state: DispatchState = { handled: [], lastTick: {} }
+    const guards: GuardState = { shipGuard: { wired: true, detail: 'ok' }, lock: { held: false, pid: null }, activeRuns: 0 }
+    const policy = parseRepoPolicy('repo: acme/app · main\noperators: kmanojkumar\ndispatch: local\n')
+    const plan = planTick({
+      repo: 'acme/app', policy, board, rockets: [], state, guards, maxRuns: 4,
+      parents: [{ parent, groups, children: ready }],
+    })
+    expect(plan.runs.map(r => r.issue)).toEqual([104])
+    expect(plan.runs[0]?.parallel).toEqual([131, 132])
+  })
+})
+
+describe('the Codex child launch and the launch table cannot drift', () => {
+  test('one child argv is the table argv with -C pointed at the child worktree', async () => {
+    const { codexChildLaunch } = await import('../../../skills/dev/dev-implement/scripts/children.mjs')
+    const child = { path: '/r/.vegastack/.worktrees/131-x', branch: 'feat/131-x', baseSha: 'abc1234', issue: 131, title: 'x', files: ['a.ts'] }
+    const launch = codexChildLaunch(child, { model: 'gpt-5.6', effort: 'high', parentIssue: 104, parentBranch: 'feat/104-p' })
+    const table = buildLaunchPlan({
+      harness: 'codex', model: 'gpt-5.6', effort: 'high', stage: 'implement', worktree: child.path,
+      issue: { number: 131, title: 'x' }, operator: 'kmanojkumar', outcome: 'x', stopList: [],
+      resume: false, skillPath: null, subagents: { spawnDepth: 2, concurrent: 4 },
+    })
+    expect(launch.command).toBe(table.command)
+    expect(launch.args.map(a => (a === launch.prompt ? '<prompt>' : a)))
+      .toEqual(table.args.map(a => (a === table.prompt ? '<prompt>' : a)))
   })
 })

@@ -6,12 +6,13 @@
 // Refusals are first-class output, never silence: a repo that is skipped says why, in the JSON and
 // in the log, because "nothing happened" and "the ship guard is unwired" look identical otherwise.
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { parseControlRoomKnob } from './control-room.ts'
 import { appendFile, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loadFactoryConfig, mergeRepoPolicy, stagePolicy, type FactoryConfig, type Harness, type RepoEntry, type RepoPolicy, type Stage } from './config.ts'
+import { loadFactoryConfig, mergeRepoPolicy, stagePolicy, type FactoryConfig, type Harness, type RepoEntry, type RepoPolicy, type Stage, type Subagents } from './config.ts'
 import { buildLaunchPlan, type LaunchPlan } from './launch.ts'
 import { GhUnavailable, ghText } from './gh.ts'
 
@@ -30,6 +31,46 @@ export interface PlannedRun {
   stage: Stage
   commentId: number | null
   reactionId: number | null
+  // Set only on a parent-parallel run: the children this one run covers, in plan order. The
+  // ordinary path leaves it undefined, and every existing caller keeps its behaviour.
+  parallel?: number[]
+}
+
+// A ready child as the parallel decision sees it: which parent it hangs off, and whether anybody
+// has claimed it. Deliberately narrower than BoardIssue — this decision needs nothing else.
+export interface ReadyChild {
+  number: number
+  parent: number | null
+  assignee: string | null
+  labels: string[]
+}
+
+// One validated `plan-lint --groups` entry. The grammar is parsed in exactly one place (dev-plan's
+// plan-lint); this type is the shape that arrives here, never a second parser.
+export interface IndependentGroup {
+  id: string
+  members: string[]
+  files: string[]
+}
+
+export interface ParentContext {
+  issue: number
+  branch: string
+  head: string
+  worktree: string
+}
+
+export interface ParentParallelRun {
+  kind: 'parent-parallel'
+  parent: number
+  children: number[]
+}
+
+// One parent's parallel candidacy, as the tick receives it.
+export interface ParentCandidate {
+  parent: ParentContext
+  groups: IndependentGroup[]
+  children: ReadyChild[]
 }
 
 export interface Refusal {
@@ -300,6 +341,66 @@ export async function shipGuardWired(repoPath: string, harness: Harness): Promis
 // Guards first, then the board, then the reactions, then the budget. Truncation is loud: every run
 // the budget drops is named, because a silently dropped correction looks to the operator exactly
 // like a dispatcher that ignored them.
+// Two or more ready, unassigned children of the same parent, each in a group of its own, become one
+// parent run instead of one run per child. Anything less keeps the ordinary one-issue-at-a-time
+// path: a child nobody declared a file set for has no contract to be checked against afterwards,
+// and a claimed child may already be mid-run somewhere.
+export function parentParallelLaunch(
+  ready: ReadyChild[],
+  groups: IndependentGroup[],
+  parent: ParentContext,
+): ParentParallelRun | null {
+  const eligible = ready.filter(child => child.parent === parent.issue && !child.assignee && child.labels.includes('ready'))
+  if (eligible.length < 2) return null
+  const claimed = new Map<number, string>()
+  for (const child of eligible) {
+    const owner = groups.find(group => group.members.includes(`#${child.number}`))
+    if (!owner) return null
+    if (claimed.has(child.number)) return null
+    claimed.set(child.number, owner.id)
+  }
+  if (new Set(claimed.values()).size !== claimed.size) return null
+  return { kind: 'parent-parallel', parent: parent.issue, children: eligible.map(child => child.number) }
+}
+
+// The parent's whole first turn. The `ultracode` keyword is ignored in a `-p` prompt, so the
+// workflow is asked for in plain words; `--allowed-tools Workflow` sits beside bypass because
+// whether bypass alone reaches the tool is the one fact this design has not observed on the box.
+export function parentParallelPrompt(run: ParentParallelRun, parent: ParentContext): string {
+  return [
+    `Run the saved workflow implement-children for the independent children of #${run.parent}: ${run.children.map(n => `#${n}`).join(', ')}.`,
+    `You are in ${parent.worktree} on ${parent.branch}. Build the workflow's arguments with children.mjs — plan, then launch, then join — and never merge a child by hand.`,
+    'Each child runs in its own worktree branched from this branch\'s HEAD sha and may touch only the files its group declared. After the join, run the project\'s check command once and hand back.',
+  ].join('\n\n')
+}
+
+export function parentParallelLaunchPlan(
+  run: ParentParallelRun,
+  parent: ParentContext,
+  options: { model: string; effort: string; operator: string; subagents: Subagents; stopList?: string[] },
+): LaunchPlan {
+  const prompt = parentParallelPrompt(run, parent)
+  // The launch table stays the one home of the argv: this reuses it and appends only the
+  // allowance, so the two can never drift.
+  const base = buildLaunchPlan({
+    harness: 'claude',
+    model: options.model,
+    effort: options.effort,
+    stage: 'implement',
+    worktree: parent.worktree,
+    issue: { number: run.parent, title: `parallel children of #${run.parent}` },
+    operator: options.operator,
+    outcome: `the independent children of #${run.parent}, built at the same time and joined in plan order`,
+    stopList: options.stopList ?? [],
+    resume: false,
+    skillPath: null,
+    subagents: options.subagents,
+  })
+  const args = base.args.map(arg => (arg === base.prompt ? prompt : arg))
+  args.push('--allowed-tools', 'Workflow')
+  return { ...base, args, prompt }
+}
+
 export function planTick(input: {
   repo: string
   policy: RepoPolicy
@@ -308,6 +409,7 @@ export function planTick(input: {
   state: DispatchState
   guards: GuardState
   maxRuns: number
+  parents?: ParentCandidate[]
 }): TickPlan {
   const guardRefusals = evaluateGuards({ repo: input.repo, policy: input.policy, guards: input.guards, maxRuns: input.maxRuns })
   if (guardRefusals.length > 0) return { runs: [], refusals: guardRefusals }
@@ -320,7 +422,26 @@ export function planTick(input: {
     operators: input.policy.operators,
     state: input.state,
   })
-  const candidates = [...labels.runs, ...rockets.runs]
+  // A parent whose children can run at the same time replaces those children in the candidate
+  // list: one run, one join, one verify — instead of one run per child and no join at all.
+  const parallelRuns: PlannedRun[] = []
+  const covered = new Set<number>()
+  for (const candidate of input.parents ?? []) {
+    const parallel = parentParallelLaunch(candidate.children, candidate.groups, candidate.parent)
+    if (!parallel) continue
+    if (parallel.children.some(child => covered.has(child))) continue
+    for (const child of parallel.children) covered.add(child)
+    parallelRuns.push({
+      repo: input.repo,
+      issue: parallel.parent,
+      title: `parallel children of #${parallel.parent}`,
+      stage: 'implement',
+      commentId: null,
+      reactionId: null,
+      parallel: parallel.children,
+    })
+  }
+  const candidates = [...parallelRuns, ...labels.runs.filter(run => !covered.has(run.issue)), ...rockets.runs]
   const budget = Math.max(0, input.maxRuns - input.guards.activeRuns)
   const runs = candidates.slice(0, budget)
   const dropped = candidates.slice(budget).map(run => ({
@@ -565,6 +686,10 @@ export interface TickDeps {
   shipGuard: (repoPath: string, harness: Harness) => Promise<{ wired: boolean; detail: string }>
   ensureWorktree: (repoPath: string, issue: number, title: string) => Promise<WorktreeTarget>
   execute: (run: PlannedRun, plan: LaunchPlan, config: FactoryConfig, options: { operator: string | null }) => Promise<RunOutcome>
+  // Which parents could run their children at the same time. Reading a plan's independent groups
+  // means running dev-plan's plan-lint, the one parser of that grammar, so it lives behind this
+  // dependency rather than in a second copy here.
+  parentCandidates: (repo: string, repoPath: string, ready: BoardIssue[]) => Promise<ParentCandidate[]>
 }
 
 async function ghJsonVia<T>(gh: TickDeps['gh'], args: string[]): Promise<T> {
@@ -684,6 +809,72 @@ export function defaultEnsureWorktree(repoPath: string, issue: number, title: st
   return Promise.resolve(target)
 }
 
+// Read the independent groups of every ready issue's parent, by running the packaged plan-lint —
+// exactly as the worktree helpers run the packaged worktree.mjs. A parent whose plan declares no
+// groups, or whose plan is blocked, simply yields nothing and the tick keeps its ordinary path.
+export async function defaultParentCandidates(
+  gh: TickDeps['gh'],
+  repo: string,
+  repoPath: string,
+  ready: BoardIssue[],
+): Promise<ParentCandidate[]> {
+  if (ready.length < 2) return []
+  const script = process.env.VSK_PLAN_LINT_SCRIPT
+    || join(dirname(dirname(fileURLToPath(import.meta.url))), 'skill', 'dev-plan', 'scripts', 'plan-lint.mjs')
+  if (!existsSync(script)) return []
+  const byParent = new Map<number, ReadyChild[]>()
+  for (const child of ready) {
+    let parent: number | null = null
+    try {
+      const view = JSON.parse(await gh(['issue', 'view', String(child.number), '--repo', repo, '--json', 'parent'])) as { parent?: { number?: number } }
+      parent = view.parent?.number ?? null
+    } catch {
+      parent = null
+    }
+    if (parent === null) continue
+    const list = byParent.get(parent) ?? []
+    list.push({ number: child.number, parent, assignee: child.assignees[0] ?? null, labels: child.labels })
+    byParent.set(parent, list)
+  }
+  const candidates: ParentCandidate[] = []
+  for (const [parent, children] of byParent) {
+    if (children.length < 2) continue
+    let comments: Array<{ body: string }>
+    try {
+      comments = JSON.parse(await gh(['api', `repos/${repo}/issues/${parent}/comments`, '--paginate'])) as Array<{ body: string }>
+    } catch {
+      continue
+    }
+    const planComment = comments.filter(comment => /<!--\s*vsk:v1\s+type=plan\b/.test(comment.body)).pop()
+    if (!planComment) continue
+    const file = join(tmpdir(), `vf-plan-${parent}-${process.pid}.md`)
+    let groups: IndependentGroup[] = []
+    try {
+      writeFileSync(file, planComment.body)
+      const result = spawnSync(process.execPath, [script, '--file', file, '--groups', '--json'], { encoding: 'utf8' })
+      if ((result.status ?? 2) !== 0) continue
+      groups = (JSON.parse(result.stdout) as { groups?: IndependentGroup[] }).groups ?? []
+    } catch {
+      continue
+    } finally {
+      try {
+        rmSync(file, { force: true })
+      } catch {
+        // A leftover temp plan is harmless; failing the tick over it is not.
+      }
+    }
+    if (groups.length < 2) continue
+    const target = worktreeFor(repoPath, parent, `parent ${parent}`)
+    const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: target.path, encoding: 'utf8' })
+    candidates.push({
+      parent: { issue: parent, branch: target.branch, head: (head.stdout ?? '').trim(), worktree: target.path },
+      groups,
+      children,
+    })
+  }
+  return candidates
+}
+
 export interface RunReport {
   repo: string
   issue: number
@@ -730,6 +921,8 @@ export async function runTick(
   const shipGuard = deps?.shipGuard ?? shipGuardWired
   const ensure = deps?.ensureWorktree ?? defaultEnsureWorktree
   const execute = deps?.execute ?? ((run, plan, cfg, opts) => executeRun(run, plan, cfg, opts))
+  const parentCandidates = deps?.parentCandidates
+    ?? ((repo: string, repoPath: string, ready: BoardIssue[]) => defaultParentCandidates(gh, repo, repoPath, ready))
   const issueBody = deps?.issueBody ?? (async (repo: string, issue: number) => {
     const raw = await gh(['issue', 'view', String(issue), '--repo', repo, '--json', 'body'])
     return (JSON.parse(raw) as { body?: string }).body ?? ''
@@ -776,7 +969,13 @@ export async function runTick(
       continue
     }
 
-    const plan = planTick({ repo: entry.repo, policy, board, rockets, state, guards, maxRuns: config.maxRuns })
+    let parents: ParentCandidate[] = []
+    try {
+      parents = await parentCandidates(entry.repo, entry.path, board.ready)
+    } catch (error) {
+      refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: the parents' independent groups could not be read, so the children run one at a time — ${(error as Error).message}` })
+    }
+    const plan = planTick({ repo: entry.repo, policy, board, rockets, state, guards, maxRuns: config.maxRuns, parents })
     refusals.push(...plan.refusals)
 
     for (const run of plan.runs) {
@@ -784,20 +983,33 @@ export async function runTick(
       const target = options.dryRun
         ? worktreeFor(entry.path, run.issue, run.title)
         : await ensure(entry.path, run.issue, run.title)
-      const launch = buildLaunchPlan({
-        harness: stage.harness,
-        model: stage.model,
-        effort: stage.effort,
-        stage: run.stage,
-        worktree: target.path,
-        issue: { number: run.issue, title: run.title },
-        operator: policy.operators[0] ?? 'the operator',
-        outcome: (await issueBody(entry.repo, run.issue).then(outcomeOf).catch(() => '')) || run.title,
-        stopList: stopList(devMd),
-        resume: run.stage === 'corrections',
-        skillPath: null,
-        subagents: config.subagents,
-      })
+      const launch = run.parallel
+        ? parentParallelLaunchPlan(
+            { kind: 'parent-parallel', parent: run.issue, children: run.parallel },
+            parents.find(candidate => candidate.parent.issue === run.issue)?.parent
+              ?? { issue: run.issue, branch: target.branch, head: '', worktree: target.path },
+            {
+              model: stage.model,
+              effort: stage.effort,
+              operator: policy.operators[0] ?? 'the operator',
+              subagents: config.subagents,
+              stopList: stopList(devMd),
+            },
+          )
+        : buildLaunchPlan({
+            harness: stage.harness,
+            model: stage.model,
+            effort: stage.effort,
+            stage: run.stage,
+            worktree: target.path,
+            issue: { number: run.issue, title: run.title },
+            operator: policy.operators[0] ?? 'the operator',
+            outcome: (await issueBody(entry.repo, run.issue).then(outcomeOf).catch(() => '')) || run.title,
+            stopList: stopList(devMd),
+            resume: run.stage === 'corrections',
+            skillPath: null,
+            subagents: config.subagents,
+          })
       const report: RunReport = {
         repo: entry.repo,
         issue: run.issue,
