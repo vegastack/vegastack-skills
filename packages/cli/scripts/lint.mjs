@@ -1,20 +1,20 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-// Lints both the CLI package and the shipped runtime scripts under skills/ (at either legal
+// Lints every workspace package and the shipped runtime scripts under skills/ (at either legal
 // depth - the walk is recursive, so grouping changes nothing here).
-const packageRoot = resolve(import.meta.dirname, '..')
-const skillsRoot = resolve(packageRoot, '../../skills')
+const packagesRoot = resolve(import.meta.dirname, '../..')
+const skillsRoot = resolve(packagesRoot, '../skills')
 const checked = []
 async function walk(path) {
   for (const entry of await readdir(path, { withFileTypes: true })) {
-    if (['dist', 'skill', 'node_modules', 'fixtures'].includes(entry.name)) continue
+    if (['dist', 'dist-standalone', '.next', 'skill', 'node_modules', 'fixtures'].includes(entry.name)) continue
     const target = join(path, entry.name)
     if (entry.isDirectory()) await walk(target)
-    else if (/\.(ts|mjs)$/.test(entry.name)) checked.push(target)
+    else if (/\.(ts|tsx|mjs)$/.test(entry.name)) checked.push(target)
   }
 }
-await walk(packageRoot)
+await walk(packagesRoot)
 await walk(skillsRoot)
 for (const path of checked) {
   const body = await readFile(path, 'utf8')
