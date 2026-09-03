@@ -89,6 +89,14 @@ bullet says otherwise; Better Auth and EVE re-verified 2026-08-29.
   discriminated `method: "otp" | "totp"` (default totp) — pass `method: "otp"` for OTP
   enrollment.
 
+## Claude API (verified 03-09-2026)
+
+- **Thinking blocks bind to their conversation prefix on Claude Fable 5.1**: replaying one after
+  the system prompt, tools, or an earlier message changed returns a 400 for accounts created on
+  or after 31-08-2026 (future models: everyone); keep product agent loops append-only.
+  **Assistant prefill on the last turn is a 400 from Claude 4.6 onward** — use structured outputs.
+  [platform.claude.com/docs/en/build-with-claude/prompt-engineering]
+
 ## Agents & jobs
 
 - **EVE (`eve` on npm, github.com/vercel/eve) is Vercel's durable-agent framework — v0.47.3

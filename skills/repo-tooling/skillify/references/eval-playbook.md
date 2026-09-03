@@ -1,6 +1,6 @@
 # Behavioral eval playbook
 
-How to prove a skill improves agent behavior before tests cement it. The tooling is `claude plugin eval` and your own subagents (Claude Code's Task tool, Codex's `.codex/agents` spawns, Hermes `delegate_task`); write cases, never harnesses, viewers or graders of your own — one format is what lets results compare across skills and releases.
+How to prove a skill improves agent behavior before tests cement it. The tooling is your own subagents (Claude Code's Task tool, Codex's `.codex/agents` spawns, Hermes `delegate_task`) and, once its early-access gate lifts and it reads this case format, `claude plugin eval` (status in Model guidance); write cases, never harnesses, viewers or graders of your own — one format is what lets results compare across skills and releases.
 
 ## Why eval before tests
 
@@ -8,7 +8,7 @@ Tests lock in behavior; if the behavior is mediocre, tests lock in mediocrity. T
 
 ## The case file — evals/evals.json
 
-Every skill carries its cases at `<skill>/evals/evals.json` in the agentskills.io format — the single source both runners below read; never packaged (like `tests/`), and `structure.mjs check` warns when it is missing or malformed.
+Every skill carries its cases at `<skill>/evals/evals.json` in the agentskills.io format — the format this playbook's procedure reads and the one `claude plugin eval` is expected to read once verified; never packaged (like `tests/`), and `structure.mjs check` warns when it is missing or malformed.
 
 ```json
 {

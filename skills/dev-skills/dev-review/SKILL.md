@@ -15,7 +15,7 @@ Nearest neighbors: `dev-implement` invokes this per dev.md's `review:` knob and 
 
 Build the review package first — `git log --oneline <base>..<head>` + `git diff --stat` + `git diff -U10` — at `.vegastack/.tmp/<issue>-<slug>/review-<base7>..<head7>.diff`. Reviewers get paths — the brief (issue body), the plan comment, the package file, the project's `.vegastack/review-known-patterns.md` — plus the binding constraints copied verbatim, ordered data first and ask last, as the dispatch prompts show. **Read the file before judging it** — the full files where the diff needs context, because a diff-only read misses invariants. Reviewers write full reports to `.tmp` files and return short status, so a dead reviewer's findings survive on disk.
 
-The guard provisions its own scanner; the README says how.
+The guard provisions its own scanner: dev.md's `skillspector-update:` knob (`auto | notify | off`) and `--no-provision` govern it, and `skill-scan.mjs --help` says the rest.
 
 When dev.md names a `skill-scan:` root, the security dispatch also gets the scan report: `node <path-to-this-skill>/scripts/skill-scan.mjs --json > .vegastack/.tmp/<issue>-<slug>/skill-scan.json` (add `--llm` for the semantic pass — advisory, because it is non-deterministic and a degraded run inflates scores). The same guard ran at `dev-implement`'s Verify gate; the axis triages what sits below the blocking bar and judges whether anything above it was suppressed rather than fixed.
 
