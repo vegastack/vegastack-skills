@@ -42,3 +42,57 @@ describe('classifyWorktree', () => {
     expect(classifyWorktree(base)).toBe('parked')
   })
 })
+
+import { evaluateRemoval, isPastRetention, parseDuration, parseIncludeKnob, parseRetentionKnob, parseSetupCommand } from '../scripts/worktree.mjs'
+
+const devMd = [
+  'commands: test `bun test` · check `bun run check` · build `bun run build` · setup `bun install --frozen-lockfile`',
+  'worktree-include: .env .dev.vars',
+  'worktree-retention: 7d',
+].join('\n')
+const clean = { state: 'merged', dirty: false, unpushed: false, remoteMissing: false, mergedIntoDefault: true, locked: false, force: false }
+
+describe('evaluateRemoval', () => {
+  test('a clean merged worktree is removable', () => {
+    expect(evaluateRemoval(clean)).toEqual({ blocks: [], warns: [] })
+  })
+  test('each failure reason blocks on its own and names itself', () => {
+    expect(evaluateRemoval({ ...clean, dirty: true }).blocks[0]).toContain('uncommitted changes')
+    expect(evaluateRemoval({ ...clean, unpushed: true }).blocks[0]).toContain('commits not on the remote')
+    expect(evaluateRemoval({ ...clean, remoteMissing: true }).blocks[0]).toContain('commits not on the remote')
+    expect(evaluateRemoval({ ...clean, mergedIntoDefault: false }).blocks[0]).toContain('not merged into')
+    expect(evaluateRemoval({ ...clean, locked: true }).blocks[0]).toContain('locked')
+  })
+  test('--force lifts only the not-merged block', () => {
+    expect(evaluateRemoval({ ...clean, mergedIntoDefault: false, force: true }).blocks).toEqual([])
+    expect(evaluateRemoval({ ...clean, dirty: true, force: true }).blocks.length).toBe(1)
+    expect(evaluateRemoval({ ...clean, unpushed: true, force: true }).blocks.length).toBe(1)
+    expect(evaluateRemoval({ ...clean, locked: true, force: true }).blocks.length).toBe(1)
+  })
+})
+
+describe('knobs and retention', () => {
+  test('durations and the retention knob', () => {
+    expect(parseDuration('14d')).toBe(14 * 86_400_000)
+    expect(parseDuration('48h')).toBe(48 * 3_600_000)
+    expect(parseDuration('soon')).toBeNull()
+    expect(parseRetentionKnob(devMd)).toBe(7 * 86_400_000)
+    expect(parseRetentionKnob('repo: o/r')).toBe(14 * 86_400_000)
+  })
+  test('include list and setup command come off dev.md', () => {
+    expect(parseIncludeKnob(devMd)).toEqual(['.env', '.dev.vars'])
+    expect(parseIncludeKnob('worktree-include: none   # nothing to copy')).toEqual([])
+    expect(parseSetupCommand(devMd)).toBe('bun install --frozen-lockfile')
+    expect(parseSetupCommand('commands: test `bun test`')).toBeNull()
+  })
+  test('retention is measured from the later of last commit and last ledger edit', () => {
+    const now = Date.parse('2026-09-20T00:00:00Z')
+    const retentionMs = 14 * 86_400_000
+    const old = '2026-09-01T00:00:00Z'
+    const fresh = '2026-09-18T00:00:00Z'
+    expect(isPastRetention({ lastCommitAt: old, ledgerUpdatedAt: old, now, retentionMs })).toBe(true)
+    expect(isPastRetention({ lastCommitAt: old, ledgerUpdatedAt: fresh, now, retentionMs })).toBe(false)
+    expect(isPastRetention({ lastCommitAt: fresh, ledgerUpdatedAt: old, now, retentionMs })).toBe(false)
+    expect(isPastRetention({ lastCommitAt: null, ledgerUpdatedAt: null, now, retentionMs })).toBe(false)
+  })
+})

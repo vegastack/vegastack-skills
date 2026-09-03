@@ -121,3 +121,82 @@ export function symlinkBlock(path) {
   }
   return null;
 }
+
+// --- the safe-to-remove test ----------------------------------------------
+
+const DAY_MS = 86_400_000;
+const DEFAULT_RETENTION_MS = 14 * DAY_MS;
+
+// All of these must hold before a worktree directory is removed. Each failure
+// gets its own sentence so the caller can print exactly why the work is being
+// kept. `force` is the operator's word and lifts ONE thing — the not-merged
+// block. Uncommitted, unpushed and locked are never lifted: those are the
+// three ways real work disappears.
+export function evaluateRemoval({ state, dirty, unpushed, remoteMissing, mergedIntoDefault, locked, force = false }) {
+  const blocks = [];
+  const warns = [];
+  const branchGone = state === 'orphan-dir';
+  if (dirty) blocks.push('uncommitted changes in the worktree — commit or discard them first');
+  if (!branchGone && (unpushed || remoteMissing)) {
+    blocks.push('commits not on the remote — push the branch first, then re-check');
+  }
+  if (!branchGone && !mergedIntoDefault && !force) {
+    blocks.push('not merged into the default branch — merge it, or pass --force with the operator\'s word');
+  }
+  if (locked) blocks.push('the worktree is locked — a session is holding it; unlock it first');
+  if (state === 'abandoned') warns.push('the issue is closed and the branch never merged — removing this discards the only checkout of that work');
+  return { blocks, warns };
+}
+
+// --- retention and the dev.md knobs ---------------------------------------
+
+// "14d" / "48h" / "90m" → milliseconds. Anything else is null, and every
+// caller treats null as "use the default" rather than guessing.
+export function parseDuration(text) {
+  const match = /^(\d+)\s*([dhm])$/.exec(String(text ?? '').trim());
+  if (!match) return null;
+  const units = { d: DAY_MS, h: 3_600_000, m: 60_000 };
+  return Number(match[1]) * units[match[2]];
+}
+
+const knobLine = (devMd, knob) => {
+  const match = new RegExp('^' + knob + ':[ \\t]*(.*)$', 'm').exec(String(devMd ?? ''));
+  if (!match) return null;
+  return match[1].split('#')[0].trim();
+};
+
+// worktree-retention: how long a parked worktree survives with no session.
+// Absent or unparseable falls back to 14 days — a guard never invents a
+// shorter window than the documented default.
+export function parseRetentionKnob(devMd) {
+  return parseDuration(knobLine(devMd, 'worktree-retention')) ?? DEFAULT_RETENTION_MS;
+}
+
+// worktree-include: gitignored files a fresh checkout lacks (.env, .dev.vars).
+// `none` is the explicit empty list, so a missing knob and "nothing to copy"
+// are not confused.
+export function parseIncludeKnob(devMd) {
+  const value = knobLine(devMd, 'worktree-include');
+  if (!value || value === 'none') return [];
+  return value.split(/\s+/).filter(Boolean);
+}
+
+// The `setup \`...\`` field of dev.md's `commands:` line — what a fresh
+// checkout has to run before it can build (bun install, and friends).
+export function parseSetupCommand(devMd) {
+  const line = knobLine(devMd, 'commands');
+  if (!line) return null;
+  const match = /\bsetup\s+`([^`]+)`/.exec(line);
+  return match ? match[1].trim() : null;
+}
+
+// Age is measured from the LATER of the last commit and the last ledger edit:
+// a branch that has not moved may still be an issue someone is actively
+// working, and the ledger is where that shows.
+export function isPastRetention({ lastCommitAt, ledgerUpdatedAt, now, retentionMs }) {
+  const stamps = [lastCommitAt, ledgerUpdatedAt]
+    .map((value) => (value ? Date.parse(value) : Number.NaN))
+    .filter((value) => Number.isFinite(value));
+  if (stamps.length === 0) return false;
+  return now - Math.max(...stamps) >= retentionMs;
+}
