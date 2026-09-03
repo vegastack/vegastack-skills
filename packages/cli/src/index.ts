@@ -6,15 +6,17 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
+import { factoryConfigPath, parseSyncMaxAge, readFactoryConfig } from './control-room.ts'
 import { selectSkills, type SkillEntry } from './selection.ts'
+import { resolveTarget, syncControlRoom } from './sync.ts'
 import { runWorktree, worktreeUsage } from './worktree.ts'
 
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync'
 // Top-level verbs the factory reserves; they are named in usage and refuse until they land.
-const reservedTopLevel: readonly string[] = ['dispatch', 'service', 'status', 'sync', 'stats', 'dashboard'] as const
+const reservedTopLevel: readonly string[] = ['dispatch', 'service', 'status', 'stats', 'dashboard'] as const
 const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
 interface Options {
   command: Command
@@ -27,6 +29,7 @@ interface Options {
   dryRun: boolean
   force: boolean
   nonInteractive: boolean
+  json: boolean
   rest?: string[]
 }
 interface SkillIntegrity { files: Record<string, string>; group?: string | null; repoOnly?: boolean }
@@ -69,7 +72,13 @@ Worktrees (one feature, one worktree — the main checkout never leaves the defa
   remove <issue> [--force] [--write] · prune [--older-than 14d] [--write]
   remove and prune are dry-run until --write, and never touch a branch or anything uncommitted.
 
-Reserved (not yet available): dispatch, service, status, sync, stats, dashboard
+Control room (skills read the local clone, never the network):
+  vegafactory sync [--dry-run] [--force] [--json] [--dir PATH]
+  Refreshes this machine's shallow clone of the control room named by the project's
+  control-room: knob. Exit 0 synced, already fresh, or no control room · 1 the fetch
+  failed and the existing clone stands · 2 a refusal (dirty clone, symlink, bad state file).
+
+Reserved (not yet available): dispatch, service, status, stats, dashboard
 
 Run "vegafactory skills list" to see the bundled skills.
 `
@@ -92,13 +101,13 @@ function parse(argv: string[]): Options {
       if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
       command = verb as Command
     }
-    else if (head === 'worktree') return { command: 'worktree', all: false, dryRun: false, force: false, nonInteractive: false, rest: argv.splice(0) }
+    else if (head === 'worktree') return { command: 'worktree', all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
     else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
     else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
-    else if (head === 'help' || head === 'version') command = head
+    else if (head === 'sync' || head === 'help' || head === 'version') command = head
     else throw new Error(`Unknown command: ${head}`)
   }
-  const options: Options = { command, all: false, dryRun: false, force: false, nonInteractive: false }
+  const options: Options = { command, all: false, dryRun: false, force: false, nonInteractive: false, json: false }
   if (argv[0] && !argv[0].startsWith('-')) options.skill = argv.shift()!
   while (argv.length) {
     const flag = argv.shift()!
@@ -117,6 +126,7 @@ function parse(argv: string[]): Options {
     else if (flag === '--dry-run') options.dryRun = true
     else if (flag === '--force') options.force = true
     else if (flag === '--non-interactive' || flag === '--yes') options.nonInteractive = true
+    else if (flag === '--json') options.json = true
     else if (flag === '--help' || flag === '-h') options.command = 'help'
     else if (flag === '--version' || flag === '-v') options.command = 'version'
     else throw new Error(`Unknown option: ${flag}`)
@@ -640,6 +650,75 @@ async function doctor(options: Options) {
   if (failed) process.exitCode = 1
 }
 
+// `sync` is the one verb that reaches the network on purpose: one shallow fetch of the control
+// room this project names, into a machine-local clone every skill then reads instead of GitHub.
+// It refreshes by default — a hook or a dispatcher tick calling a dry-run-by-default verb would be
+// a silent no-op — and writes nothing outside the clone path and ~/.vegastack/factory.json.
+async function sync(options: Options) {
+  const base = baseFor('project', options.dir)
+  const devMdPath = join(base, '.vegastack', 'dev.md')
+  const devMdText = await exists(devMdPath) ? await readFile(devMdPath, 'utf8') : ''
+  const home = homedir()
+  const statePath = factoryConfigPath(home)
+
+  let config
+  try {
+    config = readFactoryConfig(await exists(statePath) ? await readFile(statePath, 'utf8') : null)
+  } catch (error) {
+    return report(options, { command: 'sync', ok: false, action: 'refused', org: null, path: statePath, sha: null, lastSyncedAt: null, ageMinutes: null, message: (error as Error).message }, 2)
+  }
+
+  const target = resolveTarget({ devMdText, config, home })
+  if (!target) {
+    return report(options, { command: 'sync', ok: true, action: 'none', org: null, path: null, sha: null, lastSyncedAt: null, ageMinutes: null, message: 'this repo names no control room — skill defaults apply' }, 0)
+  }
+
+  const result = await syncControlRoom({
+    target,
+    config,
+    now: Date.now(),
+    maxAgeMinutes: parseSyncMaxAge(devMdText),
+    force: options.force,
+    dryRun: options.dryRun,
+  })
+  if (result.ok && !options.dryRun && result.config !== config) await durableJson(statePath, result.config)
+
+  const code = result.ok ? 0 : result.action === 'refused' ? 2 : 1
+  return report(options, {
+    command: 'sync',
+    ok: result.ok,
+    action: result.action,
+    org: result.org,
+    path: result.path,
+    sha: result.sha,
+    lastSyncedAt: result.lastSyncedAt,
+    ageMinutes: result.ageMinutes,
+    message: result.message,
+  }, code)
+}
+
+interface SyncReport {
+  command: 'sync'
+  ok: boolean
+  action: string
+  org: string | null
+  path: string | null
+  sha: string | null
+  lastSyncedAt: string | null
+  ageMinutes: number | null
+  message: string
+}
+
+function report(options: Options, payload: SyncReport, code: number) {
+  if (options.json) console.log(JSON.stringify(payload, null, 2))
+  else if (payload.ok) console.log(payload.message)
+  else {
+    const when = payload.lastSyncedAt ? ` last synced ${payload.lastSyncedAt}${payload.ageMinutes === null ? '' : ` (${payload.ageMinutes}m ago)`} —` : ''
+    console.error(`control room ${payload.org ?? '?'}:${when} ${payload.message}`)
+  }
+  process.exitCode = code
+}
+
 async function main() {
   const options = parse(process.argv.slice(2))
   if (options.command === 'worktree') {
@@ -648,6 +727,7 @@ async function main() {
     process.exitCode = await runWorktree(rest)
     return
   }
+  if (options.command === 'sync') return sync(options)
   if (options.command === 'help') return console.log(usage())
   if (options.command === 'version') return console.log(packageVersion)
   if (options.command === 'list') return list()

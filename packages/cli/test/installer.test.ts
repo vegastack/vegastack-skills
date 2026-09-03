@@ -456,14 +456,14 @@ describe('selecting a family', () => {
   })
 
   test('reserved top-level verbs are named in usage and refuse until they land', () => {
-    for (const verb of ['dispatch', 'service', 'status', 'sync', 'stats', 'dashboard']) {
+    for (const verb of ['dispatch', 'service', 'status', 'stats', 'dashboard']) {
       const result = run(temporary, [verb])
       expect(result.exitCode).not.toBe(0)
       expect(result.stderr.toString()).toContain(`${verb} is not available yet`)
     }
     const help = run(temporary, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory skills <add|verify|remove>')
-    for (const verb of ['dispatch', 'service', 'status', 'sync', 'stats', 'dashboard']) expect(help).toContain(verb)
+    for (const verb of ['dispatch', 'service', 'status', 'stats', 'dashboard']) expect(help).toContain(verb)
   })
 
   test('worktree has landed: it is no longer reserved and prints its own verbs', () => {
