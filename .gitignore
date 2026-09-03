@@ -34,3 +34,6 @@ work/
 # OS noise
 .DS_Store
 docs/research/
+
+# Local Worker secrets (the broker reads the App key from a Secrets Store binding in production)
+.dev.vars
