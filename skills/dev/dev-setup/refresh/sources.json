@@ -34,7 +34,7 @@
         "SKILL.md"
       ],
       "checksum": "2c23688672796b989538e10431acb8db803776c03c54a8a3a6fe13e47fab3fe5",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CC-SKILLS",
@@ -56,7 +56,7 @@
         "references/harness-facts.md"
       ],
       "checksum": "38487567830df7ae08021b7b74573fa70d235e40462debc44911a99c77bc3604",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CC-TOOLS",
@@ -79,7 +79,7 @@
         "SKILL.md"
       ],
       "checksum": "f90f7f9f3966740b1d9d33bdfd065470e933c52d8ef1d4ee079f55006433b775",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CODEX-AGENTS",
@@ -101,7 +101,7 @@
         "references/harness-facts.md"
       ],
       "checksum": "9eacb3d812b87be4acc1213af58ded35e8f387bcf1589c203bbb452ead0c4774",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CODEX-SKILLS",
@@ -124,7 +124,7 @@
         "SKILL.md"
       ],
       "checksum": "44aa6d490f4567c0b1fb064deab642bfac590f0e721228e0c53fe738db191026",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CC-HOOKS",
@@ -147,7 +147,7 @@
         "SKILL.md"
       ],
       "checksum": "bd1c792fd89373ffd403193a6a108e7f3c19319ae4afdc70f411f854905fbf3b",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CODEX-HOOKS",
@@ -170,7 +170,7 @@
         "SKILL.md"
       ],
       "checksum": "3bf9362173613a652a038fb74424b22c48fc1b698f76282ba75d25bb8bc0abaa",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CODEX-EXEC",
@@ -192,7 +192,7 @@
         "references/harness-facts.md"
       ],
       "checksum": "df82c4bbf3b5bffca926a244549222c1235154cfba973b9a0bb1d7a0abd28d66",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CC-SDK-PRESET",
@@ -215,7 +215,7 @@
         "SKILL.md"
       ],
       "checksum": "2e25fe08f5c213094b569bc89783fb1a4628930abb7c6d78d8d6775b8b6cca43",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CODEX-AGENTS-MULTI",
@@ -237,7 +237,7 @@
         "references/harness-facts.md"
       ],
       "checksum": "69ab2442ada59e81afcd8c133249f086a63340c0413ae8e3f360114d0bf36a57",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "HERMES-HOOKS",
@@ -259,7 +259,7 @@
         "references/harness-facts.md"
       ],
       "checksum": "53ac2271e3330eaffa1795f98e70b46e355df4a3062ffc1300bd4e75de9ba749",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "HERMES-TOOLS",
@@ -282,7 +282,7 @@
         "SKILL.md"
       ],
       "checksum": "c36a5d7fd224b4859f82e252e12b19717e8585baedb502579732dcb1673e4550",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "GH-CLI",
@@ -306,7 +306,7 @@
         "SKILL.md"
       ],
       "checksum": "5cd1a492ced78a899a2ba6110dde0fd9e411070488e5f7aa75131c2cd614cbd8",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CODEX-CONFIG",
@@ -329,7 +329,7 @@
         "SKILL.md"
       ],
       "checksum": "63f78a58c0c11958ed1d458a512ef3ff7a2f1282587e4b637ea20b659957f308",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CC-CLI",
@@ -353,7 +353,7 @@
         "SKILL.md"
       ],
       "checksum": "89b09b6951fb39303d6d765ce5d7c60f2f6fad83ba5103e4a0b8285f2c64f570",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     },
     {
       "id": "CC-SUBAGENT-ENV",
@@ -375,7 +375,73 @@
         "references/harness-facts.md"
       ],
       "checksum": "6dbb7c109bbfced8fa652143807eae143e318d928c1000b438d2a8ead81cb099",
-      "retrievedAt": "2026-09-03T05:08:15.122Z"
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
+    },
+    {
+      "id": "GH-APP-PERMS",
+      "service": "GitHub App permission names and the endpoints each one unlocks",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://docs.github.com/en/rest/authentication/permissions-required-for-github-apps?apiVersion=2022-11-28"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "github-apps"
+      ],
+      "affected": [
+        "references/github-app.md"
+      ],
+      "checksum": "17135426887fd90762660b90b983af284839e1b4dcd052f1cf3d71c4aba2652c",
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
+    },
+    {
+      "id": "GH-APP-TOKEN",
+      "service": "actions/create-github-app-token — major version, inputs, outputs, token lifetime",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://github.com/actions/create-github-app-token"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "github-app-token-action"
+      ],
+      "affected": [
+        "references/github-app.md"
+      ],
+      "checksum": "d63614af681afbc9432860a369dae13f1f03a11f6ef39c1b6f8c461a721b5426",
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
+    },
+    {
+      "id": "GH-APP-INSTALLS",
+      "service": "GET /orgs/{org}/installations — listing an organization's App installations",
+      "kind": "official-docs",
+      "stability": "vendor-docs",
+      "thresholdDays": 14,
+      "critical": false,
+      "urls": {
+        "primary": "https://docs.github.com/en/rest/orgs/orgs?apiVersion=2022-11-28"
+      },
+      "versionDetection": {
+        "type": "manual-review"
+      },
+      "topics": [
+        "github-apps"
+      ],
+      "affected": [
+        "references/github-app.md"
+      ],
+      "checksum": "d6c0b8c21655fc731862be64e1dedad471fa41b5b41c91a078e161574b989539",
+      "retrievedAt": "2026-09-03T08:31:48.541Z"
     }
   ]
 }

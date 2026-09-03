@@ -50,10 +50,12 @@ describe('dev-setup contract', () => {
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
-  const REGISTRY_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CC-CLI', 'CC-SUBAGENT-ENV', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'CODEX-CONFIG', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
+  const HARNESS_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CC-CLI', 'CC-SUBAGENT-ENV', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'CODEX-CONFIG', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
+  const APP_IDS = ['GH-APP-PERMS', 'GH-APP-TOKEN', 'GH-APP-INSTALLS']
+  const REGISTRY_IDS = [...HARNESS_IDS, ...APP_IDS]
   const harnessFacts = readFileSync(join(skillRoot, 'references/harness-facts.md'), 'utf8')
 
-  test('refresh registry carries exactly the harness-facts sources, each manual-review on a 14-day clock', () => {
+  test('refresh registry carries every tracked source, each manual-review on a 14-day clock, pinned to the file it feeds', () => {
     const registry = JSON.parse(readFileSync(join(skillRoot, 'refresh/sources.json'), 'utf8'))
     expect(registry.schemaVersion).toBe(1)
     const ids = registry.sources.map((source: { id: string }) => source.id).sort()
@@ -62,17 +64,18 @@ describe('dev-setup contract', () => {
       expect(source.thresholdDays).toBe(14)
       expect(source.versionDetection.type).toBe('manual-review')
       expect(typeof source.urls.primary).toBe('string')
-      expect(source.affected).toContain('references/harness-facts.md')
+      const tracked = APP_IDS.includes(source.id) ? 'references/github-app.md' : 'references/harness-facts.md'
+      expect(source.affected, `${source.id} must name ${tracked}`).toContain(tracked)
     }
   })
 
-  test('every source marker in harness-facts.md maps to a registry ID, and every registry ID is cited', () => {
+  test('every source marker in harness-facts.md maps to a harness registry ID, and every harness ID is cited', () => {
     const cited = new Set<string>()
     for (const match of harnessFacts.matchAll(/<!--\s*source:\s*([A-Za-z0-9-]+)\s*-->/g)) {
-      expect(REGISTRY_IDS, `unknown marker ${match[1]}`).toContain(match[1])
+      expect(HARNESS_IDS, `unknown marker ${match[1]}`).toContain(match[1])
       cited.add(match[1])
     }
-    expect([...cited].sort()).toEqual([...REGISTRY_IDS].sort())
+    expect([...cited].sort()).toEqual([...HARNESS_IDS].sort())
   })
 
   test('the gh floors live in harness-facts.md under the GH-CLI marker', () => {
