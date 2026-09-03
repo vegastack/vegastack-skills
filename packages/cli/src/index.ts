@@ -12,6 +12,9 @@ type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
 type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help'
+// Top-level verbs the factory reserves; they are named in usage and refuse until they land.
+const reservedTopLevel: readonly string[] = ['dispatch', 'service', 'status', 'worktree', 'sync', 'stats', 'dashboard'] as const
+const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
 interface Options {
   command: Command
   skill?: string
@@ -38,10 +41,10 @@ const projectAgents: Agent[] = ['codex', 'claude']
 const packageVersion = (JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')) as { version: string }).version
 
 function usage() {
-  return `Usage: vegastack-skills <add|verify|remove> <skill> [options]
-       vegastack-skills <add|verify|remove> --group <group> [options]
-       vegastack-skills <add|verify|remove> --all [options]
-       vegastack-skills <list|doctor> [options]
+  return `Usage: vegafactory skills <add|verify|remove> <skill> [options]
+       vegafactory skills <add|verify|remove> --group <group> [options]
+       vegafactory skills <add|verify|remove> --all [options]
+       vegafactory skills <list|doctor> [options]
 
 Select exactly one of: a skill name, --group <group>, or --all.
 --all installs every skill except the repo-only ones; name those explicitly.
@@ -58,7 +61,9 @@ Options:
   --non-interactive
   --version
 
-Run "vegastack-skills list" to see the bundled skills.
+Reserved (not yet available): dispatch, service, status, worktree, sync, stats, dashboard
+
+Run "vegafactory skills list" to see the bundled skills.
 `
 }
 
@@ -68,8 +73,22 @@ async function bundledSkills(): Promise<string[]> {
 }
 
 function parse(argv: string[]): Options {
-  // A leading flag (e.g. `vegastack-skills --version`) is not a command.
-  const command = (argv[0] && !argv[0].startsWith('-') ? argv.shift()! : 'help') as Command
+  // Installer verbs live under the `skills` namespace; a leading flag (e.g. `vegafactory --version`)
+  // is not a command at all. The reserved verbs are named here so `vegafactory dispatch` says when
+  // it lands rather than "unknown command" — they gain behaviour in later releases.
+  let command: Command = 'help'
+  if (argv[0] && !argv[0].startsWith('-')) {
+    const head = argv.shift()!
+    if (head === 'skills') {
+      const verb = argv[0] && !argv[0].startsWith('-') ? argv.shift()! : 'help'
+      if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
+      command = verb as Command
+    }
+    else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
+    else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
+    else if (head === 'help' || head === 'version') command = head
+    else throw new Error(`Unknown command: ${head}`)
+  }
   const options: Options = { command, all: false, dryRun: false, force: false, nonInteractive: false }
   if (argv[0] && !argv[0].startsWith('-')) options.skill = argv.shift()!
   while (argv.length) {
@@ -93,7 +112,6 @@ function parse(argv: string[]): Options {
     else if (flag === '--version' || flag === '-v') options.command = 'version'
     else throw new Error(`Unknown option: ${flag}`)
   }
-  if (!['add', 'verify', 'doctor', 'remove', 'list', 'version', 'help'].includes(options.command)) throw new Error(`Unknown command: ${options.command}`)
   if (options.agent && !['codex', 'claude', 'hermes', 'both', 'all'].includes(options.agent)) throw new Error(`Invalid --agent: ${options.agent}`)
   if (options.mode === 'global' && options.dir) throw new Error('--dir cannot be combined with --global')
   return options
@@ -405,7 +423,7 @@ async function installLocked(options: Options, skillNames: string[], agents: Age
       await assertNoSymlink(dirname(operation.destination), false)
       const { source, files } = sources.get(operation.skill)!
       await cp(source, operation.stage, { recursive: true, dereference: false, errorOnExist: true })
-      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/skills', version: packageVersion, skill: operation.skill, files }, null, 2)}\n`, { flag: 'wx' })
+      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/vegafactory', version: packageVersion, skill: operation.skill, files }, null, 2)}\n`, { flag: 'wx' })
       const stagedCheck = await compare(operation.stage, files)
       if (stagedCheck.status !== 'verified') throw new Error(`Staged copy failed verification: ${stagedCheck.issues.join(', ')}`)
       staged.push(operation)
@@ -490,7 +508,7 @@ function semverLess(a: string, b: string): boolean {
 
 async function latestPublishedVersion(): Promise<string | null> {
   try {
-    const response = await fetch('https://registry.npmjs.org/@vegastack%2fskills/latest', { signal: AbortSignal.timeout(3000) })
+    const response = await fetch('https://registry.npmjs.org/@vegastack%2fvegafactory/latest', { signal: AbortSignal.timeout(3000) })
     if (!response.ok) return null
     const version = ((await response.json()) as { version?: unknown }).version
     return typeof version === 'string' && /^\d+\.\d+\.\d+/.test(version) ? version : null
@@ -558,7 +576,7 @@ async function list() {
   }
 
   for (const group of groups) {
-    console.log(`${group}  —  vegastack-skills add --group ${group}`)
+    console.log(`${group}  —  vegafactory skills add --group ${group}`)
     for (const entry of entries.filter(item => item.group === group).sort((a, b) => a.name.localeCompare(b.name))) await show(entry)
     console.log('')
   }
@@ -592,7 +610,7 @@ async function doctor(options: Options) {
   console.log(`ok runtime: Node ${process.versions.node}`)
   // The only network call the CLI ever makes: one npm version check so stale installs are visible.
   const latest = await latestPublishedVersion()
-  if (latest && semverLess(packageVersion, latest)) console.log(`update available: installed ${packageVersion}, latest ${latest} — run: npx @vegastack/skills@latest add <skill> --force`)
+  if (latest && semverLess(packageVersion, latest)) console.log(`update available: installed ${packageVersion}, latest ${latest} — run: npx @vegastack/vegafactory@latest skills add <skill> --force`)
   else if (latest && semverLess(latest, packageVersion)) console.log(`ok installer version: ${packageVersion} (ahead of registry latest ${latest})`)
   else if (latest) console.log(`ok installer version: ${packageVersion} (latest)`)
   else console.log(`skipped installer version check (npmjs.org unreachable); installed ${packageVersion}`)

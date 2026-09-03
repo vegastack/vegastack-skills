@@ -1,16 +1,16 @@
 {
-  "name": "@vegastack/skills",
+  "name": "@vegastack/vegafactory",
   "version": "0.18.0",
   "description": "Installer and verifier for VegaStack Agent Skills (Claude Code, Codex, and Hermes)",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vegastack/vegastack-skills.git",
+    "url": "git+https://github.com/vegastack/vegafactory.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/vegastack/vegastack-skills#readme",
-  "bugs": "https://github.com/vegastack/vegastack-skills/issues",
+  "homepage": "https://github.com/vegastack/vegafactory#readme",
+  "bugs": "https://github.com/vegastack/vegafactory/issues",
   "author": "VegaStack",
   "keywords": [
     "agent-skills",
@@ -22,7 +22,7 @@
     "vegastack"
   ],
   "bin": {
-    "vegastack-skills": "dist/index.js"
+    "vegafactory": "dist/index.js"
   },
   "files": [
     "dist",

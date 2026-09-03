@@ -337,7 +337,7 @@ export function createGroup({ name, repoRoot, title, blurb, write = false }) {
   const skillsRoot = join(root, 'skills')
   const skillsEntry = entryAt(skillsRoot)
   if (!skillsEntry || !skillsEntry.isDirectory()) {
-    throw new Error(`${skillsRoot} is not a real directory — point --dir at the vegastack-skills repo root`)
+    throw new Error(`${skillsRoot} is not a real directory — point --dir at the vegafactory repo root`)
   }
   const target = join(skillsRoot, name)
   const existing = entryAt(target)

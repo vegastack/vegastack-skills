@@ -19,12 +19,12 @@ beforeAll(async () => {
 })
 afterAll(async () => { await rm(temporary, { recursive: true, force: true }) })
 
-describe('@vegastack/skills installer', () => {
+describe('@vegastack/vegafactory installer', () => {
   test('installs Codex-only, Claude-only, and dual project copies', async () => {
     for (const agent of ['codex', 'claude', 'both']) {
       const project = join(temporary, `project-${agent}`)
       await mkdir(project, { recursive: true })
-      const result = run(temporary, ['add', 'dev-architect', '--agent', agent, '--project', '--dir', project, '--non-interactive'])
+      const result = run(temporary, ['skills', 'add', 'dev-architect', '--agent', agent, '--project', '--dir', project, '--non-interactive'])
       expect(result.exitCode).toBe(0)
       if (agent !== 'claude') expect(await readFile(join(project, '.agents/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
       if (agent !== 'codex') expect(await readFile(join(project, '.claude/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
@@ -34,7 +34,7 @@ describe('@vegastack/skills installer', () => {
   test('installs globally under the isolated HOME', async () => {
     const home = join(temporary, 'global-home')
     await mkdir(home, { recursive: true })
-    const result = run(home, ['add', 'dev-architect', '--agent', 'both', '--global', '--non-interactive'])
+    const result = run(home, ['skills', 'add', 'dev-architect', '--agent', 'both', '--global', '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(await readFile(join(home, '.agents/skills/dev-architect/SKILL.md'), 'utf8')).toContain('VegaStack Dev Architect')
     expect(await readFile(join(home, '.claude/skills/dev-architect/SKILL.md'), 'utf8')).toContain('VegaStack Dev Architect')
@@ -43,20 +43,20 @@ describe('@vegastack/skills installer', () => {
   test('refuses conflicts, force replaces, and verify detects drift', async () => {
     const project = join(temporary, 'conflict')
     await mkdir(project, { recursive: true })
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
     const target = join(project, '.agents/skills/dev-architect/SKILL.md')
     await writeFile(target, 'different\n')
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
-    expect(run(temporary, ['verify', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--force', '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
+    expect(run(temporary, ['skills', 'verify', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--force', '--non-interactive']).exitCode).toBe(0)
     expect(await readFile(target, 'utf8')).toContain('name: dev-architect')
-    expect(run(temporary, ['verify', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'verify', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
   })
 
   test('dry-run writes nothing', async () => {
     const project = join(temporary, 'dry-run')
     await mkdir(project, { recursive: true })
-    const result = run(temporary, ['add', skill(), '--agent', 'both', '--dir', project, '--dry-run', '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'both', '--dir', project, '--dry-run', '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('would install')
     expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(false)
@@ -68,7 +68,7 @@ describe('@vegastack/skills installer', () => {
     await mkdir(project, { recursive: true })
     await mkdir(outside, { recursive: true })
     await symlink(outside, join(project, '.agents'))
-    let result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    let result = run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('symlink')
     expect(await Bun.file(join(outside, 'skills/dev-architect/SKILL.md')).exists()).toBe(false)
@@ -77,7 +77,7 @@ describe('@vegastack/skills installer', () => {
     const alias = join(temporary, 'project-alias')
     await mkdir(real, { recursive: true })
     await symlink(real, alias)
-    result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', alias, '--non-interactive'])
+    result = run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', alias, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('symlink')
   })
@@ -86,7 +86,7 @@ describe('@vegastack/skills installer', () => {
     const project = join(temporary, 'atomic-failure')
     await mkdir(join(project, '.claude'), { recursive: true })
     await writeFile(join(project, '.claude/skills'), 'not a directory')
-    const result = run(temporary, ['add', skill(), '--agent', 'both', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'both', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(false)
   })
@@ -94,12 +94,12 @@ describe('@vegastack/skills installer', () => {
   test('restores an existing differing target when a forced dual install cannot stage', async () => {
     const project = join(temporary, 'atomic-force-rollback')
     await mkdir(project, { recursive: true })
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
     const target = join(project, '.agents/skills/dev-architect/SKILL.md')
     await writeFile(target, 'user-owned prior content\n')
     await mkdir(join(project, '.claude'), { recursive: true })
     await writeFile(join(project, '.claude/skills'), 'not a directory')
-    const result = run(temporary, ['add', skill(), '--agent', 'both', '--dir', project, '--force', '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'both', '--dir', project, '--force', '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(await readFile(target, 'utf8')).toBe('user-owned prior content\n')
   })
@@ -117,7 +117,7 @@ describe('@vegastack/skills installer', () => {
     await writeFile(join(backup, 'SKILL.md'), 'recoverable-prior\n')
     await mkdir(join(project, '.vegastack'), { recursive: true })
     await writeFile(join(project, '.vegastack/.skills-install-transaction.json'), JSON.stringify({ schemaVersion: 2, status: 'prepared', operations: [{ skill: skill(), agent: 'codex', destination, backup, stage, existed: true }] }))
-    const result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(await readFile(join(destination, 'SKILL.md'), 'utf8')).toBe('recoverable-prior\n')
     expect(await Bun.file(join(project, '.vegastack/.skills-install-transaction.json')).exists()).toBe(false)
@@ -130,7 +130,7 @@ describe('@vegastack/skills installer', () => {
     await mkdir(outside)
     await writeFile(join(outside, 'owned.txt'), 'preserve\n')
     await writeFile(join(project, '.vegastack/.skills-install-transaction.json'), JSON.stringify({ schemaVersion: 2, status: 'prepared', operations: [{ skill: skill(), agent: 'codex', destination: outside, stage: join(temporary, '.stage-attacker'), existed: false }] }))
-    const result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('Untrusted installer recovery journal')
     expect(await readFile(join(outside, 'owned.txt'), 'utf8')).toBe('preserve\n')
@@ -140,7 +140,7 @@ describe('@vegastack/skills installer', () => {
     const project = join(temporary, 'concurrent-lock')
     await mkdir(join(project, '.vegastack'), { recursive: true })
     await writeFile(join(project, '.vegastack/.skills-install.lock'), JSON.stringify({ schemaVersion: 1, pid: process.pid, startedAt: new Date().toISOString() }))
-    const result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('installation is active')
     expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(false)
@@ -150,15 +150,15 @@ describe('@vegastack/skills installer', () => {
     const project = join(temporary, 'doctor')
     await mkdir(join(project, '.vegastack'), { recursive: true })
     await writeFile(join(project, '.vegastack/dev.md'), '# Dev profile\n\n## Knobs\n\ngates: 3\n')
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
-    const result = run(temporary, ['doctor', '--dir', project, '--non-interactive'])
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    const result = run(temporary, ['skills', 'doctor', '--dir', project, '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('ok dev profile')
     expect(result.stdout.toString()).toContain('ok codex dev-architect installation')
   })
 
   test('lists bundled skills with descriptions', async () => {
-    const result = run(temporary, ['list'])
+    const result = run(temporary, ['skills', 'list'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('dev-architect')
   })
@@ -166,17 +166,17 @@ describe('@vegastack/skills installer', () => {
   test('hermes installs are global-only', async () => {
     const project = join(temporary, 'hermes-project')
     await mkdir(project, { recursive: true })
-    const rejected = run(temporary, ['add', skill(), '--agent', 'hermes', '--project', '--dir', project, '--non-interactive'])
+    const rejected = run(temporary, ['skills', 'add', skill(), '--agent', 'hermes', '--project', '--dir', project, '--non-interactive'])
     expect(rejected.exitCode).not.toBe(0)
     expect(rejected.stderr.toString()).toContain('global')
 
     const home = join(temporary, 'hermes-home')
     await mkdir(home, { recursive: true })
-    const global = run(home, ['add', skill(), '--agent', 'hermes', '--global', '--non-interactive'])
+    const global = run(home, ['skills', 'add', skill(), '--agent', 'hermes', '--global', '--non-interactive'])
     expect(global.exitCode).toBe(0)
     expect(await readFile(join(home, '.hermes/skills/dev-architect/SKILL.md'), 'utf8')).toContain('name: dev-architect')
 
-    const all = run(home, ['add', skill(), '--agent', 'all', '--global', '--non-interactive', '--force'])
+    const all = run(home, ['skills', 'add', skill(), '--agent', 'all', '--global', '--non-interactive', '--force'])
     expect(all.exitCode).toBe(0)
     expect(await Bun.file(join(home, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(true)
     expect(await Bun.file(join(home, '.claude/skills/dev-architect/SKILL.md')).exists()).toBe(true)
@@ -185,7 +185,7 @@ describe('@vegastack/skills installer', () => {
   test('project install with --agent all skips hermes with a notice', async () => {
     const project = join(temporary, 'all-project')
     await mkdir(project, { recursive: true })
-    const result = run(temporary, ['add', skill(), '--agent', 'all', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'all', '--dir', project, '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('skipping hermes')
     expect(await Bun.file(join(project, '.agents/skills/dev-architect/SKILL.md')).exists()).toBe(true)
@@ -195,15 +195,15 @@ describe('@vegastack/skills installer', () => {
   test('verify with no skill name checks all bundled skills and tolerates uninstalled ones', async () => {
     const project = join(temporary, 'verify-all')
     await mkdir(project, { recursive: true })
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
-    const result = run(temporary, ['verify', '--agent', 'codex', '--dir', project, '--non-interactive'])
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    const result = run(temporary, ['skills', 'verify', '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain(`verified codex ${skill()}`)
     expect(result.stdout.toString()).toContain('not installed codex skillify')
 
     const empty = join(temporary, 'verify-all-empty')
     await mkdir(empty, { recursive: true })
-    const none = run(temporary, ['verify', '--agent', 'codex', '--dir', empty, '--non-interactive'])
+    const none = run(temporary, ['skills', 'verify', '--agent', 'codex', '--dir', empty, '--non-interactive'])
     expect(none.exitCode).not.toBe(0)
     expect(none.stdout.toString()).toContain('no bundled skills are installed')
   })
@@ -211,16 +211,16 @@ describe('@vegastack/skills installer', () => {
   test('remove uninstalls a clean copy and refuses a drifted one without --force', async () => {
     const project = join(temporary, 'remove-flow')
     await mkdir(project, { recursive: true })
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
     const target = join(project, '.agents/skills', skill(), 'SKILL.md')
     await writeFile(target, 'locally modified\n')
-    const refused = run(temporary, ['remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    const refused = run(temporary, ['skills', 'remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(refused.exitCode).not.toBe(0)
     expect(refused.stderr.toString()).toContain('--force')
     expect(await Bun.file(target).exists()).toBe(true)
-    expect(run(temporary, ['remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive', '--force']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive', '--force']).exitCode).toBe(0)
     expect(await Bun.file(target).exists()).toBe(false)
-    const gone = run(temporary, ['remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    const gone = run(temporary, ['skills', 'remove', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(gone.exitCode).not.toBe(0)
     expect(gone.stdout.toString()).toContain('not installed')
   })
@@ -228,7 +228,7 @@ describe('@vegastack/skills installer', () => {
   test('hermes with defaulted project mode errors with global guidance', async () => {
     const project = join(temporary, 'hermes-defaulted')
     await mkdir(project, { recursive: true })
-    const result = run(temporary, ['add', skill(), '--agent', 'hermes', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'hermes', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('--global')
   })
@@ -236,9 +236,9 @@ describe('@vegastack/skills installer', () => {
   test('dry-run over a differing install reports would-replace instead of erroring', async () => {
     const project = join(temporary, 'dry-run-differing')
     await mkdir(project, { recursive: true })
-    expect(run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive']).exitCode).toBe(0)
     await writeFile(join(project, '.agents/skills', skill(), 'SKILL.md'), 'drift\n')
-    const result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--dry-run', '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--dry-run', '--non-interactive'])
     expect(result.exitCode).toBe(0)
     expect(result.stdout.toString()).toContain('would replace')
   })
@@ -247,7 +247,7 @@ describe('@vegastack/skills installer', () => {
     const project = join(temporary, 'legacy-journal')
     await mkdir(join(project, '.vegastack'), { recursive: true })
     await writeFile(join(project, '.vegastack/.skills-install-transaction.json'), JSON.stringify({ schemaVersion: 1, status: 'prepared', operations: [] }))
-    const result = run(temporary, ['add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', skill(), '--agent', 'codex', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('Unsupported installer recovery journal')
   })
@@ -259,7 +259,7 @@ describe('selecting a family', () => {
   test('add --group installs every member flat, on both surfaces', async () => {
     const project = join(temporary, 'group-install')
     await mkdir(project, { recursive: true })
-    const result = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'both', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'both', '--dir', project, '--non-interactive'])
     expect(result.exitCode).toBe(0)
     for (const name of ['dev-plan', 'dev-ship', 'dev-setup']) {
       expect(existsSync(join(project, `.claude/skills/${name}/SKILL.md`))).toBe(true)
@@ -274,7 +274,7 @@ describe('selecting a family', () => {
     // A pre-existing, differing copy of one member makes the run refuse without --force.
     await mkdir(join(project, '.claude/skills/dev-ship'), { recursive: true })
     await writeFile(join(project, '.claude/skills/dev-ship/SKILL.md'), 'not the bundled copy\n')
-    const result = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     // No other member may have been written: the whole selection refuses together.
     expect(existsSync(join(project, '.claude/skills/dev-plan'))).toBe(false)
@@ -284,20 +284,20 @@ describe('selecting a family', () => {
   test('--all installs the dev family but not the repo-only meta skills', async () => {
     const project = join(temporary, 'all-install')
     await mkdir(project, { recursive: true })
-    expect(run(temporary, ['add', '--all', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', '--all', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
     expect(existsSync(join(project, '.claude/skills/dev-plan/SKILL.md'))).toBe(true)
     expect(existsSync(join(project, '.claude/skills/skillify'))).toBe(false)
     expect(existsSync(join(project, '.claude/skills/skill-maintainer'))).toBe(false)
     // Still installable deliberately — this is how this repo sets itself up.
-    expect(run(temporary, ['add', 'skill-maintainer', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', 'skill-maintainer', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
     expect(existsSync(join(project, '.claude/skills/skill-maintainer/SKILL.md'))).toBe(true)
   })
 
   test('conflicting selectors and an unknown group are refused before any write', async () => {
     const project = join(temporary, 'selector-refusal')
     await mkdir(project, { recursive: true })
-    expect(run(temporary, ['add', 'dev-plan', '--all', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
-    const unknown = run(temporary, ['add', '--group', 'ghost', '--dir', project, '--non-interactive'])
+    expect(run(temporary, ['skills', 'add', 'dev-plan', '--all', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
+    const unknown = run(temporary, ['skills', 'add', '--group', 'ghost', '--dir', project, '--non-interactive'])
     expect(unknown.exitCode).not.toBe(0)
     expect(unknown.stderr.toString()).toMatch(/dev-skills/)
     expect(existsSync(join(project, '.claude'))).toBe(false)
@@ -306,8 +306,8 @@ describe('selecting a family', () => {
   test('re-running a group install reports unchanged and exits 0', async () => {
     const project = join(temporary, 'group-idempotent')
     await mkdir(project, { recursive: true })
-    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
-    const again = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const again = run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(again.exitCode).toBe(0)
     expect(again.stdout.toString()).toContain('unchanged')
   })
@@ -315,13 +315,13 @@ describe('selecting a family', () => {
   test('verify --group reports each member, and fails when one is missing', async () => {
     const project = join(temporary, 'group-verify')
     await mkdir(project, { recursive: true })
-    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
-    const clean = run(temporary, ['verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const clean = run(temporary, ['skills', 'verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(clean.exitCode).toBe(0)
     expect(clean.stdout.toString()).toContain('verified claude dev-plan')
 
     await rm(join(project, '.claude/skills/dev-ship'), { recursive: true, force: true })
-    const missing = run(temporary, ['verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const missing = run(temporary, ['skills', 'verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(missing.exitCode).not.toBe(0)
     expect(missing.stdout.toString()).toMatch(/dev-ship/)
   })
@@ -329,14 +329,14 @@ describe('selecting a family', () => {
   test('remove --group refuses on a drifted member before removing anything', async () => {
     const project = join(temporary, 'group-remove')
     await mkdir(project, { recursive: true })
-    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     await writeFile(join(project, '.claude/skills/dev-ship/SKILL.md'), 'locally edited\n')
-    const refused = run(temporary, ['remove', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const refused = run(temporary, ['skills', 'remove', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(refused.exitCode).not.toBe(0)
     // Nothing removed: an untouched member must still be there.
     expect(existsSync(join(project, '.claude/skills/dev-plan/SKILL.md'))).toBe(true)
 
-    const forced = run(temporary, ['remove', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive', '--force'])
+    const forced = run(temporary, ['skills', 'remove', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive', '--force'])
     expect(forced.exitCode).toBe(0)
     expect(existsSync(join(project, '.claude/skills/dev-plan'))).toBe(false)
     expect(existsSync(join(project, '.claude/skills/dev-ship'))).toBe(false)
@@ -346,13 +346,13 @@ describe('selecting a family', () => {
     const project = join(temporary, 'group-summary')
     await mkdir(project, { recursive: true })
     // One member already present and identical: a selection of ten installs nine.
-    run(temporary, ['add', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive'])
-    const mixed = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const mixed = run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(mixed.exitCode).toBe(0)
     expect(mixed.stdout.toString()).toContain('installed 9 skills from dev-skills, 1 already up to date')
 
     // And when nothing needs doing at all, say so rather than printing no summary.
-    const noop = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    const noop = run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(noop.exitCode).toBe(0)
     expect(noop.stdout.toString()).toMatch(/10 skills already installed and unchanged/)
   })
@@ -360,7 +360,7 @@ describe('selecting a family', () => {
   test('--all names the repo-only skills it skipped', async () => {
     const project = join(temporary, 'all-notice')
     await mkdir(project, { recursive: true })
-    const out = run(temporary, ['add', '--all', '--agent', 'claude', '--dir', project, '--non-interactive']).stdout.toString()
+    const out = run(temporary, ['skills', 'add', '--all', '--agent', 'claude', '--dir', project, '--non-interactive']).stdout.toString()
     expect(out).toMatch(/skipped 2 repo-only/)
     expect(out).toMatch(/skill-maintainer/)
   })
@@ -368,17 +368,17 @@ describe('selecting a family', () => {
   test('--force replaces a drifted member of a group and leaves the family verifiable', async () => {
     const project = join(temporary, 'group-force')
     await mkdir(project, { recursive: true })
-    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     await writeFile(join(project, '.claude/skills/dev-ship/SKILL.md'), 'locally edited\n')
-    expect(run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
-    expect(run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive', '--force']).exitCode).toBe(0)
-    expect(run(temporary, ['verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).not.toBe(0)
+    expect(run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive', '--force']).exitCode).toBe(0)
+    expect(run(temporary, ['skills', 'verify', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive']).exitCode).toBe(0)
   })
 
   test('remove settles a pending install journal, so removed skills stay removed', async () => {
     const project = join(temporary, 'remove-recovers')
     await mkdir(project, { recursive: true })
-    run(temporary, ['add', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive'])
     const skills = join(project, '.claude/skills')
 
     // An interrupted install leaves a backup plus a prepared journal naming it. Without settling
@@ -398,20 +398,20 @@ describe('selecting a family', () => {
       }],
     }))
 
-    run(temporary, ['remove', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive', '--force'])
+    run(temporary, ['skills', 'remove', 'dev-plan', '--agent', 'claude', '--dir', project, '--non-interactive', '--force'])
     expect(existsSync(join(skills, 'dev-plan'))).toBe(false)
     expect(existsSync(join(skills, '.dev-plan.backup-deadbeef'))).toBe(false)
 
-    run(temporary, ['add', 'dev-ship', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', 'dev-ship', '--agent', 'claude', '--dir', project, '--non-interactive'])
     expect(existsSync(join(skills, 'dev-plan'))).toBe(false)
   })
 
   test('a dry run that the real run would refuse says so and exits non-zero', async () => {
     const project = join(temporary, 'dry-refusal')
     await mkdir(project, { recursive: true })
-    run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
+    run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--non-interactive'])
     await writeFile(join(project, '.claude/skills/dev-status/SKILL.md'), 'locally edited\n')
-    const preview = run(temporary, ['add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--dry-run', '--non-interactive'])
+    const preview = run(temporary, ['skills', 'add', '--group', 'dev-skills', '--agent', 'claude', '--dir', project, '--dry-run', '--non-interactive'])
     expect(preview.stdout.toString()).toMatch(/would replace .*dev-status/)
     expect(preview.stdout.toString()).toMatch(/would install nothing/)
     // The real run aborts, so a preview that exits 0 promises an install that cannot happen.
@@ -419,29 +419,58 @@ describe('selecting a family', () => {
   })
 
   test('a repeated --group is refused rather than silently last-wins', () => {
-    const result = run(temporary, ['add', '--group', 'dev-skills', '--group', 'repo-tooling', '--dir', temporary, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', '--group', 'dev-skills', '--group', 'repo-tooling', '--dir', temporary, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('only once')
   })
 
   test('an empty --group value is refused rather than read as no selector', () => {
-    const result = run(temporary, ['add', '--group', '', '--dir', temporary, '--non-interactive'])
+    const result = run(temporary, ['skills', 'add', '--group', '', '--dir', temporary, '--non-interactive'])
     expect(result.exitCode).not.toBe(0)
     expect(result.stderr.toString()).toContain('--group requires a value')
   })
 
   test('the no-selector error names the command you actually ran', () => {
-    expect(run(temporary, ['remove', '--dir', temporary, '--non-interactive']).stderr.toString()).toContain('Specify what to remove')
-    expect(run(temporary, ['add', '--dir', temporary, '--non-interactive']).stderr.toString()).toContain('Specify what to install')
+    expect(run(temporary, ['skills', 'remove', '--dir', temporary, '--non-interactive']).stderr.toString()).toContain('Specify what to remove')
+    expect(run(temporary, ['skills', 'add', '--dir', temporary, '--non-interactive']).stderr.toString()).toContain('Specify what to install')
   })
 
   test('list groups its output and teaches the group flag', () => {
-    const out = run(temporary, ['list']).stdout.toString()
+    const out = run(temporary, ['skills', 'list']).stdout.toString()
     expect(out).toMatch(/dev-skills/)
     expect(out).toMatch(/add --group dev-skills/)
     expect(out.indexOf('dev-plan')).toBeGreaterThan(out.indexOf('dev-skills'))
     // Repo-only skills are visible, and marked so the reason is legible without docs.
     expect(out).toMatch(/skillify/)
     expect(out).toMatch(/repo-only/i)
+  })
+
+  test('installer verbs live under the skills namespace; the bare verb is a usage error', async () => {
+    const project = join(temporary, 'namespace')
+    await mkdir(project, { recursive: true })
+    const ok = run(temporary, ['skills', 'add', 'dev-architect', '--agent', 'claude', '--dir', project, '--dry-run', '--non-interactive'])
+    expect(ok.exitCode).toBe(0)
+    const bare = run(temporary, ['add', 'dev-architect', '--dir', project, '--dry-run', '--non-interactive'])
+    expect(bare.exitCode).not.toBe(0)
+    expect(bare.stderr.toString()).toContain('vegafactory skills add')
+  })
+
+  test('reserved top-level verbs are named in usage and refuse until they land', () => {
+    for (const verb of ['dispatch', 'service', 'status', 'worktree', 'sync', 'stats', 'dashboard']) {
+      const result = run(temporary, [verb])
+      expect(result.exitCode).not.toBe(0)
+      expect(result.stderr.toString()).toContain(`${verb} is not available yet`)
+    }
+    const help = run(temporary, ['--help']).stdout.toString()
+    expect(help).toContain('vegafactory skills <add|verify|remove>')
+    for (const verb of ['dispatch', 'service', 'status', 'worktree', 'sync', 'stats', 'dashboard']) expect(help).toContain(verb)
+  })
+
+  test('the package manifest carries the vegafactory identity', async () => {
+    const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'))
+    expect(manifest.name).toBe('@vegastack/vegafactory')
+    expect(manifest.bin).toEqual({ vegafactory: 'dist/index.js' })
+    expect(manifest.repository.url).toContain('vegastack/vegafactory')
+    expect(manifest.homepage).toContain('vegastack/vegafactory')
   })
 })
