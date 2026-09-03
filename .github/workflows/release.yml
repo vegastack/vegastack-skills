@@ -45,10 +45,15 @@ jobs:
     # re-confirmed on a fresh run 01-09-2026). Self-hosted minutes are unmetered and do dispatch.
     #
     # Targets the repo-level macOS runners registered on the operator's machine
-    # (`vsk-runner-mac-mk-1/2`, label `vsk-runners-mac`). The org's `vsk-runners-mac-mini` and
-    # `vsk-runners-linux` groups are NOT reachable from this repository — a probe on 01-09-2026
-    # left all three org label sets queued indefinitely with `runner: null`, which is how a
-    # missing runner-group grant presents (it queues forever rather than erroring).
+    # (`vsk-runner-mac-mk-1/2`, label `vsk-runners-mac`). The always-on Mac mini is the intended
+    # host and is not registered yet (#119): its org runner group is `vsk-runners-mac-mini`, its
+    # runner account is a different macOS user from the dispatcher account, and provisioning is
+    # the control room's `onboarding/dispatcher-box.md`. Until the operator grants that group to
+    # this repository and it lists an online runner, it is not reachable from here — a probe on
+    # 01-09-2026 left all three org label sets queued indefinitely with `runner: null`, which is
+    # how a missing runner-group grant presents (it queues forever rather than erroring). The
+    # switch is the same two lines as in ci.yml, and it does NOT restore provenance: npm accepts
+    # a provenance bundle only from a GitHub-hosted runner.
     #
     # macOS means BSD userland, which the steps below were not written for. Audited before use:
     # the changelog-extraction `awk` is pure POSIX, `grep -q '[^[:space:]]'` uses a POSIX class,

@@ -17,6 +17,17 @@ jobs:
     # anything. Revert to `ubuntu-latest` together with release.yml's runner and
     # its --no-provenance flag, never one without the other, once #57 clears.
     #
+    # Target: the two repo-level laptop runners (`vsk-runner-mac-mk-1/2`, label
+    # `vsk-runners-mac`). The always-on Mac mini is the intended host and is not
+    # registered yet (#119) — its org runner group is `vsk-runners-mac-mini`, its
+    # runner account is a different macOS user from the dispatcher account so a CI
+    # job cannot read the dispatcher's tokens, and provisioning is the control
+    # room's `onboarding/dispatcher-box.md`. Switch to it — replacing the runs-on
+    # line below with `runs-on:` / `  group: vsk-runners-mac-mini` — only once the
+    # group is granted to this repository AND lists an online runner: this job is a
+    # required status check, and an ungranted or empty group queues forever with
+    # `runner: null` instead of failing, which would strand every PR.
+    #
     # macOS means BSD userland. Audited before use: no `sed -i`, `date -d`,
     # `readlink -f`, `base64 -w`, `sort -V`, `grep -P` or `stat -c` anywhere in
     # this file, and `set -euo pipefail` is valid in macOS bash 3.2. The one real
