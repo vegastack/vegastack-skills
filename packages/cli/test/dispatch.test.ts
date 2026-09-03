@@ -231,6 +231,12 @@ describe('planTick', () => {
     expect(plan.runs).toEqual([])
   })
 
+  test('an issue with a run already in flight is refused by name, and never planned twice', () => {
+    const plan = planTick({ repo: 'acme/app', policy: local, board, rockets: [], state: { lastTick: {}, handled: [] }, guards: { ...wired, activeRuns: 1 }, maxRuns: 3, inFlight: [8] })
+    expect(plan.runs.map(run => run.issue)).toEqual([7])
+    expect(plan.refusals.some(refusal => refusal.reason.includes('#8 already has a run in flight'))).toBe(true)
+  })
+
   test('corrections come after the label runs, and the budget counts every stage', () => {
     const rockets: Rocket[] = [{ issue: 12, commentId: 555, reactionId: 999, login: 'mk' }]
     const withCorrections = { ...board, corrections: [forOperator] }

@@ -436,6 +436,9 @@ export function planTick(input: {
   guards: GuardState
   maxRuns: number
   parents?: ParentCandidate[]
+  // Issues this process already has a run on. A run that has started has not necessarily moved
+  // its label yet, so the board alone would plan it a second time.
+  inFlight?: number[]
 }): TickPlan {
   const guardRefusals = evaluateGuards({ repo: input.repo, policy: input.policy, guards: input.guards, maxRuns: input.maxRuns })
   if (guardRefusals.length > 0) return { runs: [], refusals: guardRefusals }
@@ -467,7 +470,15 @@ export function planTick(input: {
       parallel: parallel.children,
     })
   }
-  const candidates = [...parallelRuns, ...labels.runs.filter(run => !covered.has(run.issue)), ...rockets.runs]
+  const inFlight = new Set(input.inFlight ?? [])
+  const busy = (run: PlannedRun): boolean => inFlight.has(run.issue) || (run.parallel ?? []).some(child => inFlight.has(child))
+  const all = [...parallelRuns, ...labels.runs.filter(run => !covered.has(run.issue)), ...rockets.runs]
+  const candidates = all.filter(run => !busy(run))
+  const running = all.filter(busy).map(run => ({
+    repo: input.repo,
+    issue: run.issue,
+    reason: `#${run.issue} already has a run in flight — the label has not moved yet, and a second run on it is how two sessions collide`,
+  }))
   const budget = Math.max(0, input.maxRuns - input.guards.activeRuns)
   const runs = candidates.slice(0, budget)
   const dropped = candidates.slice(budget).map(run => ({
@@ -475,7 +486,7 @@ export function planTick(input: {
     issue: run.issue,
     reason: `#${run.issue} (${run.stage}) waits for the next tick — maxRuns ${input.maxRuns} is already committed`,
   }))
-  return { runs, refusals: [...labels.refusals, ...rockets.refusals, ...dropped] }
+  return { runs, refusals: [...labels.refusals, ...rockets.refusals, ...running, ...dropped] }
 }
 
 // One log file per run, named so `ls` sorts by issue then time and two runs of the same issue never
@@ -815,6 +826,30 @@ function toBoardIssue(row: SearchIssue): BoardIssue {
   }
 }
 
+// The runs this process has started and not yet seen finish, keyed `<repo>#<issue>`. A tick
+// starts a run and moves on; the tracker is what the next tick reads to count a repo's active runs,
+// to keep a second run off an issue whose first has not moved the label yet, and what `--once` and
+// the watch loop wait on before they exit. It lives for the process, not the tick.
+export interface InFlightRun { repo: string; issue: number; done: Promise<void> }
+export type RunTracker = Map<string, InFlightRun>
+
+const processTracker: RunTracker = new Map()
+
+export function inFlightIssues(tracker: RunTracker, repo: string): number[] {
+  return [...tracker.values()].filter(run => run.repo === repo).map(run => run.issue)
+}
+
+// Every run started so far has finished. Runs started while waiting are waited for too.
+export async function settleRuns(tracker: RunTracker = processTracker): Promise<void> {
+  while (tracker.size > 0) {
+    await Promise.all([...tracker.values()].map(run => run.done))
+  }
+}
+
+// Stats pushes share one control-room clone, so two runs finishing together must not both run git
+// in it: pushes are chained, one after another, whatever order the runs end in.
+let statsPushChain: Promise<unknown> = Promise.resolve()
+
 export interface TickDeps {
   issueBody: (repo: string, issue: number) => Promise<string>
   gh: (args: string[], options?: { cwd?: string; input?: string }) => Promise<string>
@@ -826,6 +861,7 @@ export interface TickDeps {
   // means running dev-plan's plan-lint, the one parser of that grammar, so it lives behind this
   // dependency rather than in a second copy here.
   parentCandidates: (repo: string, repoPath: string, ready: BoardIssue[]) => Promise<ParentCandidate[]>
+  tracker: RunTracker
 }
 
 async function ghJsonVia<T>(gh: TickDeps['gh'], args: string[]): Promise<T> {
@@ -1089,6 +1125,7 @@ export async function runTick(
     const raw = await gh(['issue', 'view', String(issue), '--repo', repo, '--json', 'body'])
     return (JSON.parse(raw) as { body?: string }).body ?? ''
   })
+  const tracker = deps?.tracker ?? processTracker
 
   let state = await readState(config.stateFile)
   const runs: RunReport[] = []
@@ -1114,10 +1151,14 @@ export async function runTick(
       continue
     }
     const lockPath = repoLockPath(config, entry.repo)
+    const inFlight = inFlightIssues(tracker, entry.repo)
+    // This process holds the repo lock for as long as it has a run in flight there; its own lock is
+    // not "another run", and maxRuns against the in-flight count is what bounds it.
+    const lock = await readLock(lockPath)
     const guards: GuardState = {
       shipGuard: await shipGuard(entry.path, harness, { home: config.home, repo: entry.repo }),
-      lock: await readLock(lockPath),
-      activeRuns: 0,
+      lock: lock.held && lock.pid === process.pid ? { held: false, pid: null } : lock,
+      activeRuns: inFlight.length,
     }
     const guardRefusals = evaluateGuards({ repo: entry.repo, policy, guards, maxRuns: config.maxRuns })
     if (guardRefusals.length > 0) {
@@ -1144,9 +1185,8 @@ export async function runTick(
     } catch (error) {
       refusals.push({ repo: entry.repo, issue: null, reason: `${entry.repo}: the parents' independent groups could not be read, so the children run one at a time — ${(error as Error).message}` })
     }
-    const plan = planTick({ repo: entry.repo, policy, board, rockets, state, guards, maxRuns: config.maxRuns, parents })
+    const plan = planTick({ repo: entry.repo, policy, board, rockets, state, guards, maxRuns: config.maxRuns, parents, inFlight })
     refusals.push(...plan.refusals)
-    let recorded = 0
 
     for (const run of plan.runs) {
       const stage = stagePolicy(policy, run.stage)
@@ -1200,46 +1240,64 @@ export async function runTick(
         runs.push(report)
         continue
       }
-      await holdLock(lockPath, process.pid)
-      try {
-        const outcome = await execute(run, launch, config, { operator: policy.operators[0] ?? null })
-        report.launched = true
-        report.exitCode = outcome.exitCode
-        report.logFile = outcome.logFile
-        const written = await recordRun({
-          harness: stage.harness,
-          stdout: outcome.stdout ?? '',
-          exitCode: outcome.exitCode ?? 1,
-          startedAt: outcome.startedAt ?? now().toISOString(),
-          finishedAt: outcome.finishedAt ?? now().toISOString(),
-          repo: entry.repo,
-          issue: run.issue,
-          parent: parentOf?.parent.issue ?? null,
-          stage: run.stage,
-          model: stage.model,
-          effort: stage.effort,
-          human: policy.operators[0] ?? 'unknown',
-          worktree: target.path,
-        }, { home: config.home, hostname: hostname(), policy: statsPolicy })
-        if (written) recorded += 1
-      } finally {
-        await releaseLock(lockPath)
-      }
-      // Only reactions need dedupe: a label run moves the label, and the board itself is then the
-      // record. Recording label runs here would grow the state file forever for no gain.
+      // The run is started here and finished elsewhere: the tick moves on to the next run and the
+      // next repo, and the loop keeps its interval, however long this run takes. The repo lock is
+      // held from the first run in flight to the last one out, and the report the tick returns is
+      // completed in place when the run ends — `--once` waits for that, the watch loop does not.
+      if (inFlightIssues(tracker, entry.repo).length === 0) await holdLock(lockPath, process.pid)
+      const key = `${entry.repo}#${run.issue}`
+      const runStage = stage
+      const runTarget = target
+      const runParent = parentOf
+      const done = (async () => {
+        try {
+          const outcome = await execute(run, launch, config, { operator: policy.operators[0] ?? null })
+          report.exitCode = outcome.exitCode
+          report.logFile = outcome.logFile
+          const written = await recordRun({
+            harness: runStage.harness,
+            stdout: outcome.stdout ?? '',
+            exitCode: outcome.exitCode ?? 1,
+            startedAt: outcome.startedAt ?? now().toISOString(),
+            finishedAt: outcome.finishedAt ?? now().toISOString(),
+            repo: entry.repo,
+            issue: run.issue,
+            parent: runParent?.parent.issue ?? null,
+            stage: run.stage,
+            model: runStage.model,
+            effort: runStage.effort,
+            human: policy.operators[0] ?? 'unknown',
+            worktree: runTarget.path,
+          }, { home: config.home, hostname: hostname(), policy: statsPolicy })
+          // Never allowed to fail into the run: a control room that is unreachable costs the org a
+          // delay, not a run.
+          if (written) {
+            statsPushChain = statsPushChain.then(() => flushStats({
+              home: config.home,
+              cloneRoot: statsClonePath(config.home, entry.org),
+              ghUser: policy.operators[0] ?? 'unknown',
+              hostname: hostname(),
+              git: defaultStatsGit,
+            }))
+            await statsPushChain
+          }
+        } catch (error) {
+          // executeRun does not throw; a stub or a future edit that does must still release the
+          // lock and leave the tracker, or the repo is wedged for the life of the process.
+          report.exitCode = null
+          process.stderr.write(`run on ${key} failed outside the harness: ${(error as Error).message}\n`)
+        } finally {
+          tracker.delete(key)
+          if (inFlightIssues(tracker, entry.repo).length === 0) await releaseLock(lockPath)
+        }
+      })()
+      tracker.set(key, { repo: entry.repo, issue: run.issue, done })
+      report.launched = true
+      // Only reactions need dedupe, and they are recorded the moment the run starts: the board
+      // itself is the record for a label run once the run moves the label, and recording label
+      // runs here would grow the state file forever for no gain.
       if (run.reactionId !== null) state = recordHandled(state, run)
       runs.push(report)
-    }
-    // One push per tick, after every run in this repo has been recorded, and never allowed to
-    // fail into the tick: a control room that is unreachable costs the org a delay, not a run.
-    if (recorded > 0 && !options.dryRun) {
-      await flushStats({
-        home: config.home,
-        cloneRoot: statsClonePath(config.home, entry.org),
-        ghUser: policy.operators[0] ?? 'unknown',
-        hostname: hostname(),
-        git: defaultStatsGit,
-      })
     }
     state = withLastTick(state, entry.repo, readAt)
   }
@@ -1270,9 +1328,22 @@ export function stopList(devMd: string): string[] {
   return bullets.length > 0 ? bullets : lines
 }
 
+// `--once`: one tick, then wait for every run it started, so the process that asked for one tick
+// gets one tick's runs finished and reported before it exits.
+export async function runOnce(
+  config: FactoryConfig,
+  options: { dryRun: boolean },
+  deps?: Partial<TickDeps>,
+): Promise<TickResult> {
+  const result = await runTick(config, options, deps)
+  await settleRuns(deps?.tracker ?? processTracker)
+  return result
+}
+
 // One dispatcher per machine, and it never exits on its own: a tick that throws is logged through
 // the refusal list and the loop continues, because a service that dies on one bad repo stops
-// watching every other one.
+// watching every other one. Stopping waits for the runs in flight — a run is never orphaned by the
+// dispatcher that started it.
 export async function watch(
   config: FactoryConfig,
   options: { dryRun: boolean; onTick?: (result: TickResult) => void; ticks?: number },
@@ -1298,6 +1369,7 @@ export async function watch(
       await new Promise(resolve => setTimeout(resolve, config.interval * 1000))
     }
   } finally {
+    await settleRuns(deps?.tracker ?? processTracker)
     await releaseLock(config.dispatcherLock)
   }
 }
@@ -1307,8 +1379,9 @@ export async function watch(
 export function dispatchUsage(): string {
   return `Usage: vegafactory dispatch [--once] [--watch] [--dry-run] [--json] [--config PATH]
 
-  --once        run exactly one tick
-  --watch       tick every interval seconds until stopped (the service form)
+  --once        run exactly one tick and wait for the runs it started
+  --watch       tick every interval seconds until stopped (the service form); runs
+                finish out-of-band, and stopping waits for the ones in flight
   --dry-run     print the launch plan and launch nothing; the default when neither
                 --once nor --watch is given
   --json        machine-readable output
@@ -1383,7 +1456,7 @@ export async function runDispatchCli(argv: string[], home: string): Promise<numb
     await watch(config, { dryRun: args.dryRun, onTick: emit })
     return 0
   }
-  const result = await runTick(config, { dryRun: args.dryRun })
+  const result = await runOnce(config, { dryRun: args.dryRun })
   emit(result)
   return result.runs.length > 0 ? 0 : 1
 }

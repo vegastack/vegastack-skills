@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test'
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fetchRockets, readState, runTick, writeState, type PlannedRun, type RunOutcome, type TickDeps } from '../src/dispatch.ts'
+import { fetchRockets, readLock, readState, repoLockPath, runOnce, runTick, settleRuns, watch, writeState, type PlannedRun, type RunOutcome, type RunTracker, type TickDeps } from '../src/dispatch.ts'
 import { parseFactoryConfig } from '../src/config.ts'
 
 const CLAUDE_WIRING = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'node .vegastack/hooks/ship-guard.mjs --harness claude' }] }] } })
@@ -123,5 +123,123 @@ describe('the corrections window (F17, F18)', () => {
     await runTick(config, { dryRun: false }, { gh, now, ensureWorktree, execute, parentCandidates: async () => [] })
     const state = await readState(config.stateFile)
     expect(state.lastTick['acme/app']).toBe('2026-09-03T10:00:00Z')
+  })
+})
+
+// An execute stub whose runs finish only when the test says so.
+function deferredExecute() {
+  const pending: Array<{ run: PlannedRun; resolve: () => void }> = []
+  const execute = (run: PlannedRun): Promise<RunOutcome> => new Promise(resolve => {
+    pending.push({ run, resolve: () => resolve(finished(run)) })
+  })
+  return { execute, pending, finishAll: () => { for (const entry of pending.splice(0)) entry.resolve() } }
+}
+
+describe('runs leave the tick (F19)', () => {
+  test('a run in flight on one repo does not stop the next repo from being read the same tick', async () => {
+    const { config } = fixture({ repos: ['app', 'web'] })
+    const { gh, queries } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const result = await runTick(config, { dryRun: false }, { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker })
+    expect(pending).toHaveLength(2)
+    expect(queries.filter(q => q.includes('repo:acme/web'))).toHaveLength(3)
+    expect(result.runs.map(run => [run.repo, run.launched, run.exitCode])).toEqual([['acme/app', true, undefined], ['acme/web', true, undefined]])
+    finishAll()
+    await settleRuns(tracker)
+    expect(result.runs.map(run => run.exitCode)).toEqual([0, 0])
+  })
+
+  test('the next tick counts the run as active: at maxRuns the repo is refused, and after it ends the repo is free again', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const deps = { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker }
+    const first = await runTick(config, { dryRun: false }, deps)
+    expect(first.runs).toHaveLength(1)
+    const lock = await readLock(repoLockPath(config, 'acme/app'))
+    expect(lock).toEqual({ held: true, pid: process.pid })
+    const second = await runTick(config, { dryRun: false }, deps)
+    expect(second.runs).toEqual([])
+    expect(second.refusals[0]!.reason).toContain('maxRuns 1 with 1 in flight')
+    finishAll()
+    await settleRuns(tracker)
+    expect((await readLock(repoLockPath(config, 'acme/app'))).held).toBe(false)
+    const third = await runTick(config, { dryRun: false }, deps)
+    expect(third.runs).toHaveLength(1)
+    finishAll()
+    await settleRuns(tracker)
+  })
+
+  test('with room in maxRuns, an issue whose run is still in flight is refused by name rather than started twice', async () => {
+    const { config } = fixture({ maxRuns: 3 })
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const deps = { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker }
+    await runTick(config, { dryRun: false }, deps)
+    const second = await runTick(config, { dryRun: false }, deps)
+    expect(pending).toHaveLength(1)
+    expect(second.runs).toEqual([])
+    expect(second.refusals.map(refusal => refusal.reason).join('\n')).toContain('#8 already has a run in flight')
+    finishAll()
+    await settleRuns(tracker)
+  })
+
+  test('a reaction is recorded as handled when its run starts, so the next tick does not start it again', async () => {
+    const { config } = fixture({ maxRuns: 3 })
+    const { gh } = ghStub({ forOperator: [{ number: 12, title: 'feat: thing', labels: ['for-operator'], assignees: ['mk'] }] }, args => {
+      if (args[1] === 'repos/acme/app/issues/12/comments') return JSON.stringify([{ id: 555, reactions: { rocket: 1 } }])
+      if (args[1] === 'repos/acme/app/issues/comments/555/reactions') return JSON.stringify([{ id: 999, content: 'rocket', user: { login: 'mk' } }])
+      return null
+    })
+    const { execute, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const deps = { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker }
+    const first = await runTick(config, { dryRun: false }, deps)
+    expect(first.runs.map(run => run.stage)).toEqual(['corrections'])
+    expect((await readState(config.stateFile)).handled).toEqual([{ repo: 'acme/app', issue: 12, commentId: 555, reactionId: 999 }])
+    finishAll()
+    await settleRuns(tracker)
+    const second = await runTick(config, { dryRun: false }, deps)
+    expect(second.runs).toEqual([])
+  })
+
+  test('--once waits for the runs it started, so its report carries their exit codes', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const once = runOnce(config, { dryRun: false }, { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker })
+    let settled = false
+    void once.then(() => { settled = true })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(pending).toHaveLength(1)
+    expect(settled).toBe(false)
+    pending[0]!.resolve()
+    const result = await once
+    expect(result.runs[0]!.exitCode).toBe(0)
+  })
+
+  test('the watch loop keeps ticking while a run is in flight', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const ticks: number[] = []
+    const looped = watch({ ...config, interval: 1 }, {
+      dryRun: false,
+      ticks: 2,
+      onTick: result => { ticks.push(result.runs.length) },
+    }, { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker })
+    const secondTick = new Promise<void>(resolve => {
+      const poll = setInterval(() => { if (ticks.length === 2) { clearInterval(poll); resolve() } }, 20)
+    })
+    await secondTick
+    expect(pending).toHaveLength(1)
+    expect(ticks).toEqual([1, 0])
+    finishAll()
+    await looped
   })
 })
