@@ -15,11 +15,11 @@
 //
 // Usage: node worktree.mjs create|restore|remove|list|prune|status [flags] [--json]
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseFlags, renderResult } from './lib/gh.mjs';
+import { findMarkerComment, ghJson, parseFlags, renderResult } from './lib/gh.mjs';
 
 const WORKTREES_DIR = '.vegastack/.worktrees';
 const SLUG_MAX = 40;
@@ -229,7 +229,25 @@ export function rebaseUnderRoot(repoRoot, absPath) {
   const marker = sep + WORKTREES_DIR.split('/').join(sep) + sep;
   const index = absPath.indexOf(marker);
   if (index === -1) return absPath;
-  return worktreePath(repoRoot, absPath.slice(index + marker.length));
+  const composed = worktreePath(repoRoot, absPath.slice(index + marker.length));
+  try {
+    // Only claim the path as ours when it really is the same directory —
+    // otherwise a worktree belonging to a different checkout (or the caller
+    // pointing repoRoot at a worktree) would be rewritten into a path that
+    // does not exist.
+    return realpathSync(composed) === realpathSync(absPath) ? composed : absPath;
+  } catch {
+    return absPath;
+  }
+}
+
+// The MAIN checkout of the repository the cwd belongs to. Inside a worktree,
+// `rev-parse --show-toplevel` answers with the worktree; the common git dir is
+// what points back at the one checkout that owns .vegastack/.worktrees/.
+export function mainCheckout(cwd) {
+  const common = git(cwd, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  if (common.ok && common.out) return dirname(common.out);
+  return git(cwd, ['rev-parse', '--show-toplevel']).out;
 }
 
 const hasRemote = (repoRoot, remote) => git(repoRoot, ['remote', 'get-url', remote]).ok;
@@ -557,6 +575,145 @@ export function pruneWorktrees({ repoRoot, base, olderThan, devMd, ledgerTimes =
   return { blocks, warns, actions, candidates };
 }
 
+// --- list and status ------------------------------------------------------
+
+const SIZE_BUDGET = 50_000;
+
+// Bounded disk usage for one worktree. It never follows a symlink (a link into
+// the user's home would report their whole disk) and stops at the entry budget,
+// reporting approx: true rather than pretending to a number it did not finish.
+export function directorySize(path, { maxEntries = SIZE_BUDGET } = {}) {
+  let bytes = 0;
+  let seen = 0;
+  let approx = false;
+  const stack = [path];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries;
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (seen >= maxEntries) {
+        approx = true;
+        return { bytes, approx };
+      }
+      seen += 1;
+      if (entry.isSymbolicLink()) continue;
+      const child = join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(child);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      try {
+        bytes += statSync(child).size;
+      } catch {
+        approx = true;
+      }
+    }
+  }
+  return { bytes, approx };
+}
+
+// The inventory with each entry's lifecycle state and disk footprint attached.
+// issueStates maps a worktree name to the GitHub state of its issue; without it
+// (offline, or no gh) nothing is ever classified 'abandoned'.
+export function listWorktrees({ repoRoot, base, issueStates = {}, remote = 'origin', withSize = true }) {
+  return inventory(repoRoot).map((entry) => {
+    const facts = gatherRemovalFacts({ repoRoot, path: entry.path, branch: entry.branch, base, remote, locked: entry.locked });
+    const state = classifyWorktree({
+      dirExists: true,
+      branchExists: entry.branch !== null,
+      locked: entry.locked,
+      issueState: issueStates[entry.name] ?? null,
+      mergedIntoDefault: facts.mergedIntoDefault,
+    });
+    const size = withSize ? directorySize(entry.path) : { bytes: 0, approx: true };
+    return { name: entry.name, path: entry.path, branch: entry.branch, state, bytes: size.bytes, approx: size.approx };
+  });
+}
+
+// The issue number a worktree name carries, or null for the ones that have none
+// (a release branch, a direct chat fix).
+export function issueOfWorktree(name) {
+  const match = /^(\d+)-/.exec(String(name ?? ''));
+  return match ? Number(match[1]) : null;
+}
+
+// The pure reconciliation behind `vegafactory worktree status`: which
+// worktrees answer to an open issue, which do not, which open issues have no
+// checkout, and which directories lost their branch.
+export function reconcileWorktrees({ entries, openIssues }) {
+  const open = new Set((openIssues ?? []).filter((issue) => issue.state === 'open').map((issue) => issue.number));
+  const matched = [];
+  const worktreesWithoutOpenIssue = [];
+  const orphans = [];
+  const claimed = new Set();
+  for (const entry of entries ?? []) {
+    if (entry.state === 'orphan-dir') orphans.push(entry.name);
+    const issue = issueOfWorktree(entry.name);
+    if (issue !== null && open.has(issue) && entry.state !== 'orphan-dir') {
+      matched.push({ name: entry.name, issue });
+      claimed.add(issue);
+      continue;
+    }
+    worktreesWithoutOpenIssue.push(entry.name);
+  }
+  const openIssuesWithoutWorktree = [...open].filter((number) => !claimed.has(number)).sort((a, b) => a - b);
+  return { matched, worktreesWithoutOpenIssue, openIssuesWithoutWorktree, orphans };
+}
+
+// Open issues for the repo, and the last edit time of each issue's ledger
+// comment (what retention measures against). gh being unreachable is a WARN,
+// not a block: `list` has to work on a plane.
+export function gatherGithubFacts({ repo, names = [], warns }) {
+  const issueStates = {};
+  let openIssues = [];
+  try {
+    openIssues = ghJson(['api', 'repos/' + repo + '/issues', '--paginate', '-X', 'GET', '-f', 'state=open'])
+      .filter((issue) => !issue.pull_request)
+      .map((issue) => ({ number: issue.number, state: issue.state }));
+  } catch (error) {
+    warns.push(at('github', 'could not read open issues, reporting from git alone: ' + error.message));
+    return { openIssues, issueStates };
+  }
+  const open = new Set(openIssues.map((issue) => issue.number));
+  for (const name of names) {
+    const issue = issueOfWorktree(name);
+    if (issue === null) continue;
+    if (open.has(issue)) {
+      issueStates[name] = 'open';
+      continue;
+    }
+    try {
+      issueStates[name] = ghJson(['api', 'repos/' + repo + '/issues/' + issue]).state;
+    } catch (error) {
+      warns.push(at('github', 'could not read the state of #' + issue + ': ' + error.message));
+    }
+  }
+  return { openIssues, issueStates };
+}
+
+// Ledger edit times for the named issues, one call each. Failures warn.
+export function gatherLedgerTimes({ repo, names, warns }) {
+  const times = {};
+  for (const name of names) {
+    const issue = issueOfWorktree(name);
+    if (issue === null) continue;
+    try {
+      const comments = ghJson(['api', 'repos/' + repo + '/issues/' + issue + '/comments', '--paginate']);
+      const ledger = findMarkerComment(comments, 'ledger');
+      if (ledger) times[name] = ledger.comment.updated_at;
+    } catch (error) {
+      warns.push(at('github', 'could not read the ledger of #' + issue + ': ' + error.message));
+    }
+  }
+  return times;
+}
+
 // --- dev.md defaults ------------------------------------------------------
 
 // dev.md's `repo:` line carries the default branch after a middot. Absent or
@@ -592,7 +749,7 @@ function renderWorktree(result, { json }) {
 }
 
 function runVerb(verb, flags) {
-  const repoRoot = flags['repo-root'] || git(process.cwd(), ['rev-parse', '--show-toplevel']).out;
+  const repoRoot = flags['repo-root'] || mainCheckout(process.cwd());
   const devMdPath = flags['dev-md'] || join(repoRoot, '.vegastack', 'dev.md');
   const devMd = existsSync(devMdPath) ? readFileSync(devMdPath, 'utf8') : '';
   const base = flags.base || parseDefaultBranch(devMd);
@@ -601,12 +758,28 @@ function runVerb(verb, flags) {
   const slug = flags.slug ? slugify(flags.slug) : null;
   const shared = { repoRoot, devMd, home, base, write: Boolean(flags.write) };
 
+  const repoOf = () => flags.repo || knobLine(devMd, 'repo')?.split('·')[0].trim() || null;
+
+  if (verb === 'list' || verb === 'status') {
+    const warns = [];
+    const repo = repoOf();
+    const names = inventory(repoRoot).map((entry) => entry.name);
+    const github = repo ? gatherGithubFacts({ repo, names, warns }) : { openIssues: [], issueStates: {} };
+    const entries = listWorktrees({ repoRoot, base, issueStates: github.issueStates });
+    if (verb === 'list') return { blocks: [], warns, entries };
+    return { blocks: [], warns, entries, reconciled: reconcileWorktrees({ entries, openIssues: github.openIssues }) };
+  }
   if (verb === 'remove') {
     if (!flags.name) return { blocks: ['--name <n>-<slug> is required for remove'], warns: [] };
     return removeWorktree({ repoRoot, name: flags.name, base, force: Boolean(flags.force), push: Boolean(flags.push), write: shared.write });
   }
   if (verb === 'prune') {
-    return pruneWorktrees({ repoRoot, base, olderThan: flags['older-than'], devMd, ledgerTimes: {}, now: Date.now(), write: shared.write });
+    const warns = [];
+    const repo = flags.repo || knobLine(devMd, 'repo')?.split('·')[0].trim() || null;
+    const names = inventory(repoRoot).map((entry) => entry.name);
+    const ledgerTimes = repo ? gatherLedgerTimes({ repo, names, warns }) : {};
+    const pruned = pruneWorktrees({ repoRoot, base, olderThan: flags['older-than'], devMd, ledgerTimes, now: Date.now(), write: shared.write });
+    return { ...pruned, warns: [...warns, ...pruned.warns] };
   }
   if (verb === 'create' || verb === 'restore') {
     if (!slug) return { blocks: ['--slug is required for ' + verb], warns: [] };
