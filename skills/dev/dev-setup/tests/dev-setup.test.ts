@@ -102,6 +102,23 @@ describe('dev-setup contract', () => {
     for (const level of ['low', 'medium', 'high', 'xhigh']) expect(dated).toContain(level)
   })
 
+  test('the codex exec skill-loading drill is recorded reproducibly, dated, with its Codex version', () => {
+    const drill = harnessFacts.split('```sh').slice(1).find((block) => block.split('```')[0].includes('codex exec'))
+    expect(drill).toBeDefined()
+    expect(drill).toContain('.agents/skills/')
+    expect(drill).toContain('--skip-git-repo-check')
+    const attempt = harnessFacts.split('\n').find((line) => line.includes('codex-cli 0.149.1'))
+    expect(attempt).toBeDefined()
+    expect(attempt).toMatch(/\b\d{2}-\d{2}-\d{4}\b/)
+    expect(attempt).toContain('<!-- source: CODEX-SKILLS -->')
+    expect(attempt).toContain('<!-- source: CODEX-EXEC -->')
+  })
+
+  // Parked: the drill could not reach the model on 03-09-2026 (Codex refresh token revoked), so
+  // the verdict sentence is deliberately unwritten. Re-run the drill after `codex login`, write
+  // the line, and turn this into a real test.
+  test.todo('the codex exec skill-loading verdict sentence is recorded')
+
   test('Step 1 detection reads the org issue fields and drafts both knobs', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     expect(skill).toContain('gh api orgs/<org>/issue-types')

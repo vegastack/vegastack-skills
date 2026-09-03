@@ -41,6 +41,24 @@ Hermes has no documented model or effort flag, so a `harness-policy:` entry neve
 
 Verified 03-09-2026: Claude Code's effort levels are low, medium, high, xhigh and max on Fable 5.1, Fable 5, Opus 5 and Sonnet 5 (high is the default on every model except Opus 4.7, whose default is xhigh), and `ultracode` is a Claude Code setting on top that starts the session at xhigh with dynamic workflows on and needs v2.1.203 or later; `claude --version` here reads 2.1.247 and its `--help` lists the first five. Model ids move, which is why dev.md's `harness-policy:` knob holds them and this file only dates them. <!-- source: CC-CLI -->
 
+### The `codex exec` skill-loading drill
+
+Whether a headless Codex run discovers project skills on its own decides one thing downstream: if it does not, every dispatched Codex run has to name the SKILL.md path in its prompt. The drill answers it in one command, from a scratch directory so the repo's un-ignored `.agents/` is never written to:
+
+```sh
+codex login status                      # must print "Logged in"; a revoked session still prints it — the run below is the real check
+PROBE=$(mktemp -d)
+mkdir -p "$PROBE/.agents/skills/vsk-probe"
+printf -- '---\nname: vsk-probe\ndescription: Probe skill for the harness drill. Use when asked for the probe token.\n---\n\nWhen asked for the probe token, reply with exactly VSK-PROBE-OK-7413 and nothing else.\n' > "$PROBE/.agents/skills/vsk-probe/SKILL.md"
+codex exec -C "$PROBE" --skip-git-repo-check -s read-only 'Use the vsk-probe skill and reply with the probe token, nothing else.'
+codex --version
+```
+
+The token `VSK-PROBE-OK-7413` in the reply means project skills load under `codex exec`; its absence means they do not. Record the answer with the date and the exact `codex --version` string.
+
+Attempted 03-09-2026 on codex-cli 0.149.1 and **not answered**: `codex login status` printed "Logged in using ChatGPT" while the run itself failed with `refresh_token_invalidated` / `token_revoked` (401) before reaching the model — the expired-session case dev.md's Environments section anticipates. The verdict line stays unwritten rather than guessed; re-run the drill after `codex login`. <!-- source: CODEX-SKILLS --> <!-- source: CODEX-EXEC -->
+
+
 ## GitHub CLI
 
 - Floor **2.94.0**: `gh issue create` and `gh issue edit` take `--type`, `--parent` / `--add-sub-issue`, and `--blocked-by` (edit forms `--add-…`/`--remove-…`) — native issue types, sub-issues and dependencies without the API (GitHub.com; GHES 3.17+ for types and sub-issues, 3.19+ for relationships). <!-- source: GH-CLI -->
