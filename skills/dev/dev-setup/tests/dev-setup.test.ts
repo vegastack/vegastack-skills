@@ -49,7 +49,7 @@ describe('dev-setup contract', () => {
     for (const entry of queries) expect(typeof entry.query).toBe('string')
   })
 
-  const REGISTRY_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
+  const REGISTRY_IDS = ['CC-MEMORY', 'CC-SKILLS', 'CC-TOOLS', 'CC-HOOKS', 'CC-SDK-PRESET', 'CODEX-AGENTS', 'CODEX-SKILLS', 'CODEX-EXEC', 'CODEX-HOOKS', 'CODEX-AGENTS-MULTI', 'CODEX-CONFIG', 'HERMES-HOOKS', 'HERMES-TOOLS', 'GH-CLI']
   const harnessFacts = readFileSync(join(skillRoot, 'references/harness-facts.md'), 'utf8')
 
   test('refresh registry carries exactly the harness-facts sources, each manual-review on a 14-day clock', () => {
