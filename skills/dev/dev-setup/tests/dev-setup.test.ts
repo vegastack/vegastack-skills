@@ -20,6 +20,20 @@ describe('dev-setup contract', () => {
     expect(template).toMatch(/^emoji: none\s+# none \| sparing/m)
   })
 
+  test('profile template carries the board knob defaulting to none, with the one-way rule in its comment', () => {
+    const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
+    expect(template).toMatch(/^board: none\s+#.*one way/m)
+    expect(template).toMatch(/^board: none\s+#.*factory-board\.yml/m)
+  })
+
+  test('Round C offers the board mirror and names the template and its placeholders', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    const roundC = skill.split('**Round C')[1].split('\n## ')[0]
+    expect(roundC).toContain('assets/factory-board.yml.template')
+    expect(roundC).toContain('{{state-labels}}')
+    expect(roundC).toContain('cosmetic until the next label change')
+  })
+
   test('the stop-and-ask section opens with the pause-only sentence and keeps the concrete list', () => {
     const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
     const section = template.split('## Stop and ask')[1].split('\n## ')[0]

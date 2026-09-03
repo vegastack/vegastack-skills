@@ -82,6 +82,18 @@
         "No App is created, no secret is set, and no token is minted by the agent",
         "The report states that creating the App and storing its key are the operator's own account actions"
       ]
+    },
+    {
+      "id": 8,
+      "prompt": "Set up the workflow here and put the issues on our org project board 12.",
+      "expected_output": "Round C offers .github/workflows/factory-board.yml from the factory-board template, records board: 12 in dev.md, and states that the mirror is one way — labels drive the Status field and a card dragged on the board is cosmetic until the next label change.",
+      "files": [],
+      "assertions": [
+        "board: 12 is written into .vegastack/dev.md's Knobs section",
+        ".github/workflows/factory-board.yml is written only after an explicit yes, with {{runs-on}}, {{profile}} and {{state-labels}} bound and the authoring notes above the # --- marker dropped",
+        "The reply states the mirror is one way: no reverse sync from the board back to labels",
+        "The reply names the factory App and the gh 2.97.0 runner floor as the workflow's requirements"
+      ]
     }
   ]
 }
