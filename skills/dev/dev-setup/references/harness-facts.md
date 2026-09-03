@@ -65,17 +65,57 @@ Attempted 03-09-2026 on codex-cli 0.149.1 and **not answered**: `codex login sta
 - Floor **2.97.0**: `gh project item-edit --field <name> --value <text>` and `gh project item-list --field <name>` address project fields and single-select options by name; below it, fields need their IDs. <!-- source: GH-CLI -->
 - Below a floor, dev-setup names the missing feature in its report and dev-intake uses the `epic` label and the REST API instead; the floors live here and nowhere else because they move with every gh release.
 
-## Decision-capture Stop hook (optional, offered in Round C)
+## The hooks package (optional, offered in Round C)
 
-Because both Stop contracts match, one shared script serves both harnesses. Write it to `.vegastack/hooks/decision-nudge.mjs` and wire it as `node .vegastack/hooks/decision-nudge.mjs --harness <claude|codex>`. Only on the user's explicit yes, and only the `Stop` event. The wiring shape is doubly nested — matcher groups each holding their own `hooks` array — identical in Claude Code's `.claude/settings.json` and Codex's `<repo>/.codex/hooks.json` (merge into existing hook config, never overwrite): <!-- source: CC-HOOKS --> <!-- source: CODEX-HOOKS -->
+Four hooks, one Node file each, written to `.vegastack/hooks/` and wired only on the operator's explicit yes, merged into existing hook config rather than replacing it.
+
+| Event | File | What it does | Harnesses |
+|---|---|---|---|
+| `PreToolUse` | `ship-guard.mjs` | Asks before a command the profile says needs the operator's word — a merge, a tag, a publish, a production deploy. | Claude Code · Codex · Hermes |
+| `SessionStart` | `session-start.mjs` | Opens the session with the operator's queue and the worktree claim this checkout holds. | Claude Code · Codex |
+| `Stop` | `stop-heartbeat.mjs` | Asks a session holding a `working` claim to checkpoint its ledger before it stops. | Claude Code · Codex |
+| `Stop` | `decision-nudge.mjs` | Asks whether this session settled a directional choice worth a register line. | Claude Code · Codex |
+
+The four files ship as packaged assets — `assets/hooks/ship-guard.mjs`, `assets/hooks/session-start.mjs`, `assets/hooks/stop-heartbeat.mjs`, `assets/hooks/decision-nudge.mjs` — and are copied verbatim into `.vegastack/hooks/`. Because both Stop contracts match, one script per event serves both harnesses; the `--harness` flag selects the output shape. Each hook uses Node rather than `jq`, which is not guaranteed on an operator's machine, and every marker file lives under the OS temp dir, never inside the repo. The wiring shape is doubly nested — matcher groups each holding their own `hooks` array — in Claude Code's `.claude/settings.json` and Codex's `<repo>/.codex/hooks.json` alike (merge into existing hook config, never overwrite): <!-- source: CC-HOOKS --> <!-- source: CODEX-HOOKS -->
 
 ```json
-{ "hooks": { "Stop": [ { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/decision-nudge.mjs --harness claude" } ] } ] } }
+{ "hooks": {
+  "PreToolUse": [ { "matcher": "Bash", "hooks": [ { "type": "command", "command": "node .vegastack/hooks/ship-guard.mjs --harness claude" } ] } ],
+  "SessionStart": [ { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/session-start.mjs --harness claude" } ] } ],
+  "Stop": [ { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/stop-heartbeat.mjs --harness claude" }, { "type": "command", "command": "node .vegastack/hooks/decision-nudge.mjs --harness claude" } ] } ]
+} }
 ```
 
-The script itself is a packaged asset — `assets/hooks/decision-nudge.mjs` — written to `.vegastack/hooks/decision-nudge.mjs` and wired as `node .vegastack/hooks/decision-nudge.mjs --harness <claude|codex>`; it uses Node rather than `jq`, which is not guaranteed on an operator's machine, and its marker lives under the OS temp dir, never inside the repo.
+The Codex block is the same file, `--harness codex`, written to `<repo>/.codex/hooks.json`:
 
-The prose instruction in the AGENTS.md dev section is the portable base on both harnesses; this hook is a deterministic nudge on top, not a replacement.
+```json
+{ "hooks": {
+  "PreToolUse": [ { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/ship-guard.mjs --harness codex" } ] } ],
+  "SessionStart": [ { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/session-start.mjs --harness codex" } ] } ],
+  "Stop": [ { "hooks": [ { "type": "command", "command": "node .vegastack/hooks/stop-heartbeat.mjs --harness codex" }, { "type": "command", "command": "node .vegastack/hooks/decision-nudge.mjs --harness codex" } ] } ]
+} }
+```
+
+Codex's `PreToolUse` entry carries **no matcher**: the name of Codex's shell tool is **unverified** — `codex --help` on 0.149.1 names no tool, and the hooks documentation does not enumerate matcher values — so guessing one would silently disable the guard. Unmatched is both safe and correct here, because the ship guard resolves any payload carrying no shell command to allow and only ever speaks about commands it can read. Replace it with the real matcher once the tool name is verified.
+
+Codex parses `permissionDecision: "ask"` but does not support it, so the ship guard sends Codex `{"decision":"block","reason":"<command> needs the operator's word — run it by hand"}` instead; a Codex operator answers by running the command themselves. <!-- source: CODEX-HOOKS -->
+
+Project-local Codex hooks load only once the repo's `.codex/` layer is trusted, and a worktree is a separate path that needs its own trust — dev-setup says so before it offers the wiring. <!-- source: CODEX-CONFIG -->
+
+Hermes takes only the ship guard, as a `pre_tool_call` entry in `~/.hermes/config.yaml`:
+
+```yaml
+hooks:
+  pre_tool_call:
+    - command: node .vegastack/hooks/ship-guard.mjs --harness codex
+      fail_closed: true
+```
+
+Hermes has no Stop-style turn hook and no SessionStart event, so only the ship guard wires there; it reuses the Codex block shape because Hermes reads the same `{"decision":"block"}` contract. <!-- source: HERMES-HOOKS -->
+
+The ship guard's only source of policy is `.vegastack/dev.md` — the `## Environments` policy lines, the `gates:` knob and the `## Ship` runbook's `ask:` lines — so a project changes its guard by editing one file and never by editing the script. A command inside the shipping family that no line classifies resolves to ask, never allow.
+
+The prose instruction in the AGENTS.md dev section is the portable base on both harnesses; these hooks are deterministic nudges on top, not a replacement.
 
 ## What this means for the dev skills
 

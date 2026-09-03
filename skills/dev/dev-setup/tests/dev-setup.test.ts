@@ -152,6 +152,14 @@ describe('dev-setup contract', () => {
     expect(single.assertions.join(' ')).toContain('review: subagent')
   })
 
+  test('harness-facts documents the hooks package wiring for every harness that has the event', () => {
+    expect(harnessFacts).toContain('node .vegastack/hooks/ship-guard.mjs --harness claude')
+    expect(harnessFacts).toContain('node .vegastack/hooks/ship-guard.mjs --harness codex')
+    expect(harnessFacts).toContain('fail_closed: true')
+    expect(harnessFacts).toContain("needs the operator's word — run it by hand")
+    expect(harnessFacts).toMatch(/\.codex\/` layer is trusted/)
+  })
+
   test('Step 1 detection reads the org issue fields and drafts both knobs', () => {
     const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
     expect(skill).toContain('gh api orgs/<org>/issue-types')
