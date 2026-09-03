@@ -65,6 +65,7 @@ These operate on the vegafactory repository itself and do nothing useful in anot
 | `dispatch` | Turn labels and 🚀 reactions on the watched repos into headless runs in feature worktrees |
 | `service <install\|uninstall\|status>` | Install that dispatcher as a launchd LaunchAgent (macOS) or a systemd user unit (Linux) |
 | `status` | The board, the worktrees, the last tick, the runs in flight, and the dispatcher's own health |
+| `stats` | Where agent time and money went — record, push, roll up, and print the org's own numbers |
 
 ### Selecting what to act on
 
@@ -194,6 +195,27 @@ Two refusals are deliberate and fail closed:
 
 An unreadable `~/.vegastack/factory.json` is also a refusal, never a silent reset: resetting it would drop every other org's clone record.
 
+### Statistics
+
+One JSONL record per headless run and per interactive session, spooled to a machine-local outbox and pushed into the org's control room at `stats/<owner>__<name>/<MON-YYYY>/<hostname>.jsonl`. One file per repo, per month, per machine, so two machines never conflict — a concurrent push is a non-fast-forward, which `pull --rebase` and a retry settles without a human.
+
+```sh
+vegafactory stats                       # this repo, this month
+vegafactory stats --org --since SEP-2026
+vegafactory stats --me                  # your own rows
+vegafactory stats skills                # invocations per skill, by trigger and harness
+vegafactory stats push                  # dry run: prints the plan and the commit it would make
+vegafactory stats push --commit         # copies the outbox in, commits, pushes, rebases on rejection
+vegafactory stats rollup --since SEP-2026   # regenerate the three summary files
+vegafactory stats record --source <kind>    # called by the capture hooks, reads the payload on stdin
+```
+
+**A record is counts and identifiers only.** When the run happened, which repo, issue and stage, which harness, model and effort, how long it took, turns, tool calls, the four token counters, cost, how it ended, rework rounds, and which skills it used. Never prompt text, assistant text, tool arguments, or file contents — the harness transcripts are read for usage totals and tool-call counts and nothing else. A field the capture could not fill is `null`, never a guess and never a zero.
+
+**Whether anything is recorded at all is the org's call, not the machine's.** `stats: on|off` and `stats-people: on|off` live in the control room's `org.md` (or a department's `group.md`); a repo may opt itself out with `stats: off` in its `.vegastack/dev.md` only while `org.md` says `stats-override: allowed`. Under `stats-override: locked` the repo's line is read, reported back, and ignored. There is deliberately no machine-level knob. Per-person views are for the person they describe or a `lead` in `people.csv`; org and repo totals are for everyone.
+
+`push` is a dry run until `--commit`, because it writes to a repository other people read.
+
 ## Flags
 
 | Flag | Meaning |
@@ -234,7 +256,15 @@ The package ships a checksum manifest that is verified at install and by `verify
 
 ## Network and telemetry
 
-Zero telemetry. The tool makes two kinds of network call: `doctor`'s single version check against registry.npmjs.org, and `sync`'s shallow git fetch of the control room named by the project's `control-room:` knob, authenticated with your existing `gh` credential. `add`, `verify`, and `remove` are fully offline.
+Zero telemetry, in the sense that matters: **nothing is ever sent to VegaStack or to any third party.**
+
+The tool makes three kinds of network call, all to somewhere you already own:
+
+- `doctor`'s single version check against registry.npmjs.org;
+- `sync`'s shallow git fetch of the control room named by the project's `control-room:` knob;
+- `stats push`'s git push of your statistics records into that same control room.
+
+All three use your existing `gh` credential, and the last two reach only your organization's own repository. `add`, `verify`, and `remove` are fully offline. Statistics are recorded only while the org's `stats:` policy says so, and a record carries counts and identifiers only — never transcript text (see [Statistics](#statistics)).
 
 ## Requirements
 
