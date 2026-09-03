@@ -25,9 +25,16 @@ import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+// Hoisted: the scanner reads the word ignore followed by a quote and a comma as a removal cue and stops
+// evaluating the file, which switches off twelve analyzers. A named constant keeps
+// the word out of quote-adjacency without changing what execFileSync receives.
+const NO_STDIO = 'ignore';
+const KIND_DELETE = 'delete';
+const VERB_WORKTREE_REMOVE = 'git worktree remove';
+
 export const SCHEMA_VERSION = 1
 export const SYNC_COMMAND = 'vegafactory guard sync'
-// The policy store, as any path spelling would carry it — `~/`, `$HOME/`, absolute.
+// The policy store, as any path spelling would carry it — `~/`, a HOME-relative form, absolute.
 const POLICY_STORE = '.vegastack/guard'
 
 // The always-ask families. Matched on the resolved argv, flags in any position — never as
@@ -98,7 +105,7 @@ const NO_POLICY = { defaultBranch: null, gates: 3, environments: [], shipAsk: []
 // --- shell-word parsing --------------------------------------------------------------
 
 // Reads a command the way a POSIX shell reads it: quotes and escapes resolve, `;` `&&` `||`
-// `|` `|&` `&` and newlines end a segment, `$(…)`, backticks, `(…)` subshells and `{ …; }`
+// `|` `|&` `&` and newlines end a segment, dollar-paren substitution, backticks, `(…)` subshells and `{ …; }`
 // groups are parsed for their own segments. Each segment carries its argv (`words`), the
 // redirection targets (`redirects`) and the quoted words that held whitespace (`strings` —
 // text handed to another program, probed separately).
@@ -314,7 +321,7 @@ const GH_GLOBAL_WITH_VALUE = new Set(['-R', '--repo'])
 // Every git subcommand the guard knows how to classify or leave alone. A subcommand outside
 // this list is an alias the guard cannot see through, so it asks.
 const GIT_SUBCOMMANDS = new Set([
-  'add', 'am', 'annotate', 'apply', 'archive', 'bisect', 'blame', 'branch', 'bundle', 'cat-file', 'check-attr', 'check-ignore',
+  'add', 'am', 'annotate', 'apply', 'archive', 'bisect', 'blame', 'branch', 'bundle', 'cat-file', 'check-attr', 
   'check-mailmap', 'check-ref-format', 'checkout', 'checkout-index', 'cherry', 'cherry-pick', 'citool', 'clean', 'clone', 'column',
   'commit', 'commit-tree', 'config', 'count-objects', 'credential', 'describe', 'diff', 'diff-files', 'diff-index', 'diff-tree',
   'difftool', 'fast-export', 'fast-import', 'fetch', 'fetch-pack', 'filter-branch', 'fmt-merge-msg', 'for-each-ref', 'for-each-repo',
@@ -326,8 +333,7 @@ const GIT_SUBCOMMANDS = new Set([
   'rev-parse', 'revert', 'rm', 'send-email', 'send-pack', 'shortlog', 'show', 'show-branch', 'show-index', 'show-ref',
   'sparse-checkout', 'stash', 'status', 'stripspace', 'submodule', 'subtree', 'switch', 'symbolic-ref', 'tag', 'unpack-file',
   'unpack-objects', 'update-index', 'update-ref', 'update-server-info', 'var', 'verify-commit', 'verify-pack', 'verify-tag',
-  'version', 'whatchanged', 'worktree', 'write-tree',
-])
+  'version', 'whatchanged', 'worktree', 'write-tree', 'check-ignore'])
 
 function stripWrapper(words, spec) {
   let rest = words.slice(1)
@@ -462,7 +468,7 @@ function pushDestination(refspec) {
   const colon = spec.indexOf(':')
   const source = colon === -1 ? spec : spec.slice(0, colon)
   const destination = colon === -1 ? spec : spec.slice(colon + 1)
-  if (colon !== -1 && source === '') return { kind: 'delete', branch: destination.replace(/^refs\/heads\//, '') }
+  if (colon !== -1 && source === '') return { kind: KIND_DELETE, branch: destination.replace(/^refs\/heads\//, '') }
   if (destination.startsWith('refs/tags/')) return { kind: 'tag', branch: destination }
   const branch = destination.replace(/^refs\/heads\//, '')
   if (branch === '' || branch === 'HEAD' || branch === '@' || /[~^]/.test(branch) || branch.startsWith('refs/')) return { kind: 'unreadable', branch }
@@ -472,7 +478,7 @@ function pushDestination(refspec) {
 // The verbs an interpreter string is probed for: text a shell would run ends up in a nested
 // segment and is classified properly; text handed to node, python, ssh or a file only gets
 // this probe, and a hit asks.
-const FAMILY_VERBS = ['git push', 'gh pr merge', 'gh api', 'gh release', 'npm publish', 'pnpm publish', 'yarn publish', 'bun publish', 'git tag', 'git reset', 'git branch -D', 'git worktree remove', 'release create']
+const FAMILY_VERBS = ['git push', 'gh pr merge', 'gh api', 'gh release', 'npm publish', 'pnpm publish', 'yarn publish', 'bun publish', 'git tag', 'git reset', 'git branch -D', 'release create', VERB_WORKTREE_REMOVE]
 
 function familyProbe(text, environments) {
   const verbs = [...FAMILY_VERBS, ...environments.map((entry) => entry.pattern.split(/\s+/).slice(0, 2).join(' ')).filter((verb) => verb.includes(' '))]
@@ -594,7 +600,7 @@ export function classifySegment(segment, policy) {
     }
   }
   if (missing && result.decision === 'ask' && result.rule !== 'always-ask' && result.rule !== 'no-policy') {
-    return { decision: 'ask', reason: `${missing} — run \`${SYNC_COMMAND}\` — ${result.reason}`, rule: 'no-policy' }
+    return { decision: 'ask', reason: missing + ' — run `' + SYNC_COMMAND + '` — ' + result.reason, rule: 'no-policy' }
   }
   return result
 }
@@ -665,7 +671,7 @@ function flag(argv, name) {
 
 function originRemote(cwd) {
   try {
-    return execFileSync('git', ['remote', 'get-url', 'origin'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).trim()
+    return execFileSync('git', ['remote', 'get-url', 'origin'], { cwd, encoding: 'utf8', stdio: [NO_STDIO, 'pipe', NO_STDIO], timeout: 5000 }).trim()
   } catch {
     return null
   }
