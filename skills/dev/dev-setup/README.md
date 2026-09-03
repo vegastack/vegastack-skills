@@ -1,6 +1,6 @@
 # dev-setup
 
-The bootstrap for the issue-driven dev workflow: one re-runnable skill that gives a project — existing or brand-new — its profile (`.vegastack/dev.md`, the project's single canonical process doc), a thin marked section in AGENTS.md that both Claude Code and Codex read (with the one-line CLAUDE.md import Claude needs), the workflow labels on the GitHub repo, and the decision register. It detects the stack against per-stack playbooks and drafts the native release runbook, changelog convention, guards, and the `## Architecture` section dev-architect reads (migrating any legacy `.vegastack/arch.md`); it also detects agent skills in the repo and drafts the `skill-scan:` knob that dev-review's scan guard reads (`none` when the project authors none). On the user's yes it scaffolds guard workflow steps, the shared evidence repo, and the decision-capture Stop hook. `dev-intake`, `dev-implement`, and `dev-ship` invoke it automatically when the profile is missing.
+The bootstrap for the issue-driven dev workflow: one re-runnable skill that gives a project — existing or brand-new — its profile (`.vegastack/dev.md`, the project's single canonical process doc), a thin marked section in AGENTS.md that both Claude Code and Codex read (with the one-line CLAUDE.md import Claude needs), the workflow labels on the GitHub repo, and the decision register. It detects the stack against per-stack playbooks and drafts the native release runbook, changelog convention, guards, and the `## Architecture` section dev-architect reads (migrating any legacy `.vegastack/arch.md`); it also detects agent skills in the repo and drafts the `skill-scan:` knob that dev-review's scan guard reads (`none` when the project authors none). On the user's yes it scaffolds guard workflow steps, the shared evidence repo, and the four-hook package (ship guard, SessionStart context, Stop heartbeat, decision nudge). `dev-intake`, `dev-implement`, and `dev-ship` invoke it automatically when the profile is missing.
 
 The agent entry point is [SKILL.md](SKILL.md); everything else loads progressively from there.
 
@@ -25,10 +25,14 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [SKILL.md](SKILL.md) | Agent entry point: detect-first discipline, the interview rounds, write targets, re-run rules |
 | [agents/openai.yaml](agents/openai.yaml) | Codex interface metadata |
 | [references/conventions.md](references/conventions.md) | The workflow artifact spec — authored here, duplicated into every dev-family install |
-| [references/harness-facts.md](references/harness-facts.md) | Verified, refresh-tracked Claude Code, Codex and Hermes mechanics (AGENTS.md handling, skill discovery, question tools, hooks, subagents), the GitHub CLI floors, the per-harness model/effort/concurrency controls, and the shared decision-capture Stop-hook recipe |
+| [references/harness-facts.md](references/harness-facts.md) | Verified, refresh-tracked Claude Code, Codex and Hermes mechanics (AGENTS.md handling, skill discovery, question tools, hooks, subagents), the GitHub CLI floors, the per-harness model/effort/concurrency controls, and the four-hook package wiring for all three harnesses |
 | [references/stack-playbooks.md](references/stack-playbooks.md) | Per-stack detection → draft mapping (npm/changesets, Node app, Flutter, Python, Go, generic), the guard library, and the greenfield playbook |
 | [assets/dev-profile.md.template](assets/dev-profile.md.template) | The `.vegastack/dev.md` starting point |
 | [assets/agents-section.md.template](assets/agents-section.md.template) | The marked AGENTS.md block this skill owns |
+| [assets/hooks/ship-guard.mjs](assets/hooks/ship-guard.mjs) | Environment-aware PreToolUse ship guard: reads dev.md's Environments lines, gates knob and Ship ask: lines, asks on anything else in the shipping family |
+| [assets/hooks/session-start.mjs](assets/hooks/session-start.mjs) | SessionStart context: the operator's queue and the worktree claim this checkout holds |
+| [assets/hooks/stop-heartbeat.mjs](assets/hooks/stop-heartbeat.mjs) | Stop heartbeat: one nudge to checkpoint the ledger when a working claim's ledger is older than the session |
+| [assets/hooks/decision-nudge.mjs](assets/hooks/decision-nudge.mjs) | Stop decision nudge: asks whether this session settled a directional choice |
 | [refresh/REFRESH.md](refresh/REFRESH.md) | Freshness contract tracking the official harness-doc sources |
 | [refresh/sources.json](refresh/sources.json) | Source registry: the official Claude Code, Codex, Hermes and GitHub CLI pages harness-facts.md is pinned to |
 | `tests/` | Bun tests and the trigger-query fixture (never packaged) |

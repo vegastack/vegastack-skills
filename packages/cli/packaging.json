@@ -86,6 +86,10 @@
     "references/stack-playbooks.md",
     "assets/dev-profile.md.template",
     "assets/agents-section.md.template",
+    "assets/hooks/ship-guard.mjs",
+    "assets/hooks/session-start.mjs",
+    "assets/hooks/stop-heartbeat.mjs",
+    "assets/hooks/decision-nudge.mjs",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ],

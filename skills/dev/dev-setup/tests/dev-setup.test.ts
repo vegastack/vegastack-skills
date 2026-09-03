@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+import { TODO_PURPOSE } from '../../../../packages/cli/scripts/readme-sync.mjs'
 
 const skillRoot = resolve(import.meta.dir, '..')
 
@@ -169,6 +170,24 @@ describe('dev-setup contract', () => {
     const step3 = skill.split('## Step 3 — Write')[1].split('## Step 4')[0]
     expect(step3).toContain('.vegastack/hooks/')
     expect(step3).toContain('<repo>/.codex/hooks.json')
+  })
+
+  test('the four hook assets are packaged and their README rows are generated', () => {
+    const packaging = JSON.parse(readFileSync(resolve(skillRoot, '../../../packages/cli/packaging.json'), 'utf8'))
+    const readme = readFileSync(join(skillRoot, 'README.md'), 'utf8')
+    for (const file of ['ship-guard.mjs', 'session-start.mjs', 'stop-heartbeat.mjs', 'decision-nudge.mjs']) {
+      expect(packaging['dev-setup']).toContain(`assets/hooks/${file}`)
+      expect(readme).toContain(`assets/hooks/${file}`)
+    }
+    expect(readme).not.toContain(TODO_PURPOSE)
+  })
+
+  test('the eval file covers wiring the hooks package on a wrangler project', () => {
+    const evals = JSON.parse(readFileSync(join(skillRoot, 'evals/evals.json'), 'utf8'))
+    const hooks = evals.evals.find((entry: { prompt: string }) => /wire the hooks/i.test(entry.prompt))
+    expect(hooks).toBeDefined()
+    expect(hooks.assertions.join(' ')).toContain('offered separately')
+    expect(hooks.assertions.join(' ')).toContain('merged into, never replaced')
   })
 
   test('Step 1 detection reads the org issue fields and drafts both knobs', () => {
