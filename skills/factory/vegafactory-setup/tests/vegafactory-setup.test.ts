@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { validateSkill } from '../../../../packages/cli/scripts/validate-skill.mjs'
+import { mergeRepoPolicy, parseRepoPolicy, stagePolicy } from '../../../../packages/cli/src/config.ts'
 
 const skillRoot = resolve(import.meta.dir, '..')
 
@@ -52,13 +53,30 @@ describe('vegafactory-setup contract', () => {
     expect(csv.split('\n')[0]).toBe('login,name,role,slack,timezone,groups')
   })
 
-  test('group.md template carries a default for every knob a repo dev.md can hold', () => {
+  test('group.md template carries a default for every knob a group can decide, derived from the profile template', () => {
     const group = readFileSync(join(assets, 'group.md.template'), 'utf8')
-    for (const knob of [
-      'review:', 'gates:', 'merge:', 'branch:', 'labels:', 'tests:', 'changelog:', 'release:',
-      'chronicle:', 'chronicle-style:', 'emoji:', 'evidence-repo:', 'architect:', 'operators:',
-      'harness:', 'dispatcher:', 'ship-environments:', 'design-system:', 'secrets:', 'gh-floor:', 'stats:',
-    ]) expect(group).toContain(knob)
+    const profile = readFileSync(resolve(skillRoot, '../../dev/dev-setup/assets/dev-profile.md.template'), 'utf8')
+    // Header lines, detected-per-repo facts, per-repo paths, and the `## Architecture` facts
+    // have no group default; everything else the profile template holds must be answered here.
+    const perRepo = new Set([
+      'repo', 'stack', 'commands', 'authority',
+      'harnesses', 'skill-scan', 'worktree-include', 'board', 'issue-types', 'issue-fields', 'decisions', 'control-room', 'dispatch',
+      'hosting', 'database', 'auth', 'storage', 'jobs', 'agents', 'stage', 'kind', 'mobile',
+    ])
+    const knobs = [...profile.matchAll(/^([a-z][a-z0-9-]*):/gm)].map((m) => m[1]!).filter((k) => !perRepo.has(k))
+    expect(knobs).toContain('ui-evidence')
+    expect(knobs).toContain('harness-policy')
+    for (const knob of knobs) expect(group).toMatch(new RegExp(`^${knob}:`, 'm'))
+    for (const knob of ['dispatcher:', 'ship-environments:', 'design-system:', 'secrets:', 'gh-floor:', 'stats:']) expect(group).toContain(knob)
+    expect(group).not.toMatch(/^harness:/m)
+  })
+
+  test('the group harness policy is the line shape the dispatcher parses, and it merges into a repo that names none', () => {
+    const group = readFileSync(join(assets, 'group.md.template'), 'utf8')
+    expect(Object.keys(parseRepoPolicy(group).stages).sort()).toEqual(['chronicle', 'implement', 'intake', 'plan', 'review', 'status'])
+    const merged = mergeRepoPolicy(group, '## Knobs\n\ndispatch: local\noperators: mk\n')
+    expect(stagePolicy(merged, 'implement')).toEqual({ harness: 'claude', model: 'fable', effort: 'high' })
+    expect(stagePolicy(merged, 'corrections').harness).toBe('claude')
   })
 
   test('org.md template holds the global policy only, never a department knob', () => {

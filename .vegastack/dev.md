@@ -11,7 +11,7 @@ authority: CONTRIBUTING.md → this file → skill-maintainer's release-ops.md (
 
 review: cross-agent-risky   # subagent | cross-agent-risky | cross-agent — codex-cli 0.149.1 present (verified 29-08-2026)
 harnesses: claude 2.1.247 · codex 0.149.1 · hermes absent   # detected 03-09-2026; a dev-setup re-run refreshes it
-harness-policy: intake claude fable-5-1 high · plan claude fable-5-1 high · implement claude fable-5-1 high · review codex gpt-5.6 xhigh · status claude sonnet-5 medium · chronicle claude sonnet-5 medium   # `<stage> <agent> <model> <effort>`; raise planning to xhigh for a risky full-plan issue. Model ids move — edit this line, never a skill; the flags each value becomes are in dev-setup's references/harness-facts.md
+harness-policy: intake claude fable high · plan claude fable high · implement claude fable high · review codex gpt-5.6 xhigh · status claude sonnet medium · chronicle claude sonnet medium   # `<stage> <agent> <model> <effort>`; raise planning to xhigh for a risky full-plan issue. Model ids move — edit this line, never a skill; the flags each value becomes are in dev-setup's references/harness-facts.md
 ui-evidence: none           # no UI in this repo
 gates: 3                    # 3 = approve/PR/merge · 2 = approve + one "ship it" · 1 = direct-to-main, which main's branch protection makes unavailable here
 tests: required             # scripts' deterministic branches; prose quality bar is the behavioral eval

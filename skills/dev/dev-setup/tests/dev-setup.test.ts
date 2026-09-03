@@ -92,6 +92,26 @@ describe('dev-setup contract', () => {
     expect([...cited].sort()).toEqual([...HARNESS_IDS].sort())
   })
 
+  test('every Claude model id the shipped defaults name is a form Claude Code accepts: an alias, or a claude- full name', () => {
+    // `claude --model` takes an alias (fable, sonnet, opus, haiku …) or a full name like
+    // claude-sonnet-5; a bare `fable-5-1` is refused as unrecognized, and the dispatcher passes
+    // the knob value straight through. The alias list is the one harness-facts.md documents.
+    const aliases = ['fable', 'sonnet', 'opus', 'haiku', 'best', 'default', 'opusplan', 'sonnet[1m]', 'opus[1m]']
+    const policies = [
+      /^harness-policy:\s*([^#\n]+)/m.exec(readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8'))![1]!,
+      /^harness-policy:\s*([^#\n]+)/m.exec(readFileSync(join(skillRoot, '../../../.vegastack/dev.md'), 'utf8'))![1]!,
+    ]
+    const group = readFileSync(join(skillRoot, '../../../skills/factory/vegafactory-setup/assets/control-room/group.md.template'), 'utf8')
+    policies.push(/^harness-policy:\s*([^#\n]+)/m.exec(group)![1]!)
+    const entries = policies.flatMap((line) => line.split('·')).map((entry) => entry.trim().split(/\s+/))
+    expect(entries.length).toBeGreaterThanOrEqual(18)
+    for (const [stage, agent, model] of entries) {
+      expect(stage).toBeTruthy()
+      if (agent !== 'claude') continue
+      expect(aliases.includes(model!) || model!.startsWith('claude-')).toBe(true)
+    }
+  })
+
   test('the gh floors live in harness-facts.md under the GH-CLI marker', () => {
     const floors = harnessFacts.split('\n').filter((line) => /2\.9[47]\.0/.test(line))
     expect(floors.length).toBeGreaterThanOrEqual(2)

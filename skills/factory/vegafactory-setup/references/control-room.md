@@ -8,7 +8,7 @@ The org's `vegafactory-control-room` repository: what each file holds, which fil
 org.md                       global only: org name, goals, what applies to everyone (questionnaire)
 people.csv                   login,name,role,slack,timezone,groups
 decisions.md                 org-level register (same line format as repos)
-groups/<g>/group.md          department defaults: one line per knob a repo dev.md can hold
+groups/<g>/group.md          department defaults: one line per knob a group can decide for a repo dev.md
 groups/<g>/people.csv        group-level people (adds to / overrides org)
 groups/<g>/decisions.md      group-level register
 repos.md                     registry: repo, group, board, owner (maintained by this skill)
@@ -38,7 +38,7 @@ The rule has one home in dev-setup's `references/conventions.md` (the precedence
 
 - `org.md` holds global policy only: the org name, the goals in one paragraph, and what applies to everyone — language, the date format, the "nothing ships without the operator's instruction" stance, and the statistics policy lines `stats:`, `stats-people:`, `stats-override:`. **A department knob never appears in `org.md`** — `review:`, `gates:`, `merge:`, and the harness policy belong to `groups/<g>/group.md`, because two departments reading one org file would each need the other's answer to be wrong.
 - `org.md`'s `## Automation identity` block records the org's GitHub App by name, five lines and no more: `app:` the App name, `app-slug:` the slug the actor string and the install URL both follow, `app-install:` the installation id from `gh api orgs/<org>/installations`, `app-secrets:` the two secret **names**, and `app-permissions:` the granted set. The permission table, the mint recipe, rotation and the kill switch live in dev-setup's `references/github-app.md` and are never restated here.
-- `groups/<g>/group.md` carries one default for every knob a `.vegastack/dev.md` can hold, so a repo that answers nothing still gets a complete profile.
+- `groups/<g>/group.md` carries one default for every knob a group can decide for a `.vegastack/dev.md`, in the same line shape dev.md uses (`harness-policy:` is one line, never six `harness:` lines — the dispatcher reads both files with one parser), so a repo that answers nothing else still gets a complete profile; per-repo facts (`repo:`, `skill-scan:`, `board:`, `control-room:`, detected types and fields) have no group default.
 - `repos.md` and `boards.md` are registries, written when a repo is registered or a board is linked, never hand-curated in parallel with them.
 - **Nothing secret goes in any file — names of secrets only.** A control room is readable by everyone the org onboards, and a name (`NPM_TOKEN`, `CLOUDFLARE_API_TOKEN`) is all a runbook needs; the value lives in the secret store the name points at.
 - A step the operator declines is recorded in `org.md` as an unconfirmed line, in the same form `dev-setup` writes for a knob it could not confirm — so the next run asks again instead of assuming.

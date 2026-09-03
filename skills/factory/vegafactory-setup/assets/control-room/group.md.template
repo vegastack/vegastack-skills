@@ -1,6 +1,6 @@
 # {{group}} — group defaults
 
-One default for every knob a repo's `.vegastack/dev.md` can hold, so a repo that answers nothing still gets a complete profile. A hand edit in a repo's dev.md beats every line here; this file beats `org.md`; `org.md` beats the skill defaults. Precedence and the read path: the vegafactory-setup skill's `references/control-room.md`.
+One default for every knob a group can decide for a repo's `.vegastack/dev.md` — the per-repo facts (`repo:`, `skill-scan:`, `board:`, `control-room:`, the detected org types and fields) stay in the repo — so a repo that answers nothing else still gets a complete profile. A hand edit in a repo's dev.md beats every line here; this file beats `org.md`; `org.md` beats the skill defaults. Precedence and the read path: the vegafactory-setup skill's `references/control-room.md`.
 
 ## Knobs
 
@@ -10,6 +10,10 @@ merge: rebase               # rebase | squash | merge
 branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor
 labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic
 tests: required             # required | best-effort | none
+ui-evidence: playwright     # playwright | none
+worktree-retention: 14d     # how long a parked worktree survives with no session
+skillspector-update: auto   # off | notify | auto
+sync-max-age: 30m           # how stale the local control-room clone may be before a session refreshes it — <n>m or <n>h
 changelog: changesets       # changesets | keep-a-changelog | pubspec+changelog | none
 release: on-request         # on-request | per-merge
 chronicle: on               # on | off
@@ -19,14 +23,9 @@ evidence-repo: {{org}}/{{evidence-repo}}   # where UI screenshots and run eviden
 architect: {{architect}}    # the architecture owner dev-architect speaks to
 operators: {{operators}}    # csv of logins from people.csv who own issues in this group
 
-## Harness policy — one line per stage, `<stage> <agent> <model> <effort>`
+## Harness policy
 
-harness: intake claude fable-5-1 high
-harness: plan claude fable-5-1 high        # xhigh when the issue is `risky` and `full-plan`
-harness: implement claude fable-5-1 high
-harness: review codex gpt-5.6 xhigh        # under cross-agent / cross-agent-risky; else claude fable-5-1 high
-harness: status claude sonnet-5 medium
-harness: chronicle claude sonnet-5 medium
+harness-policy: intake claude fable high · plan claude fable high · implement claude fable high · review codex gpt-5.6 xhigh · status claude sonnet medium · chronicle claude sonnet medium   # one `<stage> <agent> <model> <effort>` entry per stage — the same line a repo's dev.md carries, so the two layer key by key; xhigh for planning a `risky` `full-plan` issue; review runs on codex only under cross-agent / cross-agent-risky, else claude fable high
 
 ## Runtime
 
