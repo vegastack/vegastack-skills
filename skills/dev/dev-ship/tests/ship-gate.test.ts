@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { chronicleEntryAdded, evaluateShipGate, gatherFacts, parseMarker, reviewAdjudicated } from '../scripts/ship-gate.mjs'
+import { chronicleEntryAdded, evaluateShipGate, gatherFacts, parseMarker, resolveWorktree, reviewAdjudicated } from '../scripts/ship-gate.mjs'
 
 const evidenceBody = (sha = 'abc1234') => `<!-- vsk:v1 type=evidence rev=1 branch=feat/12-x sha=${sha} -->
 ## Result (v1)
@@ -126,5 +126,38 @@ describe('ship-gate', () => {
   })
   test('parseMarker exported for the skill wiring', () => {
     expect(parseMarker(evidenceBody())?.keys.type).toBe('evidence')
+  })
+})
+
+describe('worktree resolution', () => {
+  const porcelain = [
+    'worktree /r', 'HEAD aaaa111', 'branch refs/heads/main', '',
+    'worktree /r/.vegastack/.worktrees/106-x', 'HEAD bbbb222', 'branch refs/heads/feat/106-x', '',
+  ].join('\n')
+
+  test('the branch under review resolves to its worktree path', () => {
+    expect(resolveWorktree('feat/106-x', porcelain)).toBe('/r/.vegastack/.worktrees/106-x')
+    expect(resolveWorktree('feat/107-y', porcelain)).toBeNull()
+  })
+  test('a resolved worktree clears the checkout-mismatch block', () => {
+    const facts = {
+      evidence: { body: '<!-- vsk:v1 type=evidence rev=1 branch=feat/106-x sha=abc1234 -->\n**Review:** clean' },
+      reviewVerdict: 'clean', adjudicated: false, headSha: 'abc1234',
+      diffText: 'diff --git a/.changeset/x.md b/.changeset/x.md\n+content',
+      changelogTouched: true, chronicleOn: false, chronicleTouched: false,
+      allowNoChangelog: undefined, checkExit: 0, checkMissing: false, checkoutMismatch: null,
+    }
+    expect(evaluateShipGate(facts).blocks).toEqual([])
+  })
+  test('a branch with no worktree and a mismatched checkout still blocks', () => {
+    const facts = {
+      evidence: { body: '<!-- vsk:v1 type=evidence rev=1 branch=feat/107-y sha=abc1234 -->\n**Review:** clean' },
+      reviewVerdict: 'clean', adjudicated: false, headSha: 'abc1234',
+      diffText: 'diff --git a/.changeset/x.md b/.changeset/x.md\n+content',
+      changelogTouched: true, chronicleOn: false, chronicleTouched: false,
+      allowNoChangelog: undefined, checkExit: 0, checkMissing: false,
+      checkoutMismatch: 'the current checkout (1111111) is not the branch under review (feat/107-y @ 2222222) and no worktree holds it — run ship-gate from that branch or pass --worktree <path>',
+    }
+    expect(evaluateShipGate(facts).blocks.some((b: string) => b.includes('no worktree holds it'))).toBe(true)
   })
 })

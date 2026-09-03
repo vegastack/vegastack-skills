@@ -6,10 +6,16 @@
 //
 // Exit codes: 0 pass · 1 pass-with-warnings · 2 blocked (reasons printed).
 // Usage: node ship-gate.mjs --issue <n> --branch <name> [--repo o/r] [--dev-md <path>]
-//        [--base main] [--allow-no-changelog "<reason>"] --json
+//        [--base main] [--worktree <path>] [--allow-no-changelog "<reason>"] --json
+//
+// One feature, one worktree: the branch under review is normally checked out at
+// .vegastack/.worktrees/<n>-<slug>/, not in the main checkout. The gate resolves
+// that path itself (--worktree overrides) and runs every git call and the fresh
+// check command there, so its checkout test passes by construction rather than
+// forcing the operator to switch branches in the main checkout.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RATIONALIZATIONS = [
@@ -19,10 +25,24 @@ const RATIONALIZATIONS = [
   /(tests?|coverage) (is|are) (failing|broken) but/i,
 ];
 
-function sh(cmd, args) {
+function sh(cmd, args, cwd) {
   // VSK_GH is a TEST SEAM (stubs gh in unit tests); git always runs real.
   const bin = cmd === 'gh' ? (process.env.VSK_GH || 'gh') : cmd;
-  return execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } }).trim();
+  return execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env }, cwd }).trim();
+}
+
+// The path of the worktree holding a branch, read from
+// `git worktree list --porcelain`. Null when no worktree holds it — which is a
+// fact the caller reports, never one it papers over.
+export function resolveWorktree(branch, porcelain) {
+  let path = null;
+  for (const raw of String(porcelain ?? '').split('\n')) {
+    const line = raw.trim();
+    if (line.startsWith('worktree ')) path = line.slice('worktree '.length);
+    else if (line === '') path = null;
+    else if (line === 'branch refs/heads/' + branch && path) return path;
+  }
+  return null;
 }
 
 // Adjudication means OPEN FINDINGS were ruled on at the loop cap. Routine
@@ -128,6 +148,15 @@ export function gatherFacts(flags) {
   const repo = flags.repo || sh('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
   const base = flags.base || 'main';
   const branch = flags.branch;
+  // An explicit --worktree wins; otherwise the branch's own worktree, if one
+  // holds it; otherwise the current directory, and the checkout test decides.
+  let listed = '';
+  try {
+    listed = sh('git', ['worktree', 'list', '--porcelain']);
+  } catch {
+    listed = '';
+  }
+  const cwd = flags.worktree || resolveWorktree(branch, listed) || undefined;
   const comments = JSON.parse(sh('gh', ['api', `repos/${repo}/issues/${flags.issue}/comments`, '--paginate']));
 
   let evidence = null;
@@ -139,17 +168,19 @@ export function gatherFacts(flags) {
   }
   const adjudicated = reviewAdjudicated(evidence?.body);
 
-  const headSha = sh('git', ['rev-parse', '--short=7', branch]);
-  const diffText = sh('git', ['diff', `${base}...${branch}`]);
+  const headSha = sh('git', ['rev-parse', '--short=7', branch], cwd);
+  const diffText = sh('git', ['diff', `${base}...${branch}`], cwd);
   // The fresh check run and dev.md read use the WORKING TREE — they prove
   // nothing unless the checkout is the branch under review.
-  const checkoutSha = sh('git', ['rev-parse', 'HEAD']);
-  const branchSha = sh('git', ['rev-parse', branch]);
+  const checkoutSha = sh('git', ['rev-parse', 'HEAD'], cwd);
+  const branchSha = sh('git', ['rev-parse', branch], cwd);
   const checkoutMismatch = checkoutSha === branchSha
     ? null
-    : `the current checkout (${checkoutSha.slice(0, 7)}) is not the branch under review (${branch} @ ${branchSha.slice(0, 7)}) — run ship-gate from that branch so the fresh check proves the right code`;
+    : `the current checkout (${checkoutSha.slice(0, 7)}) is not the branch under review (${branch} @ ${branchSha.slice(0, 7)}) and no worktree holds it — run ship-gate from that branch or pass --worktree <path>`;
 
-  const devMd = readFileSync(flags['dev-md'] || '.vegastack/dev.md', 'utf8');
+  // dev.md is read from the worktree too: the knobs that gate this branch are
+  // the ones on this branch, not whatever the main checkout happens to hold.
+  const devMd = readFileSync(flags['dev-md'] || join(cwd ?? '.', '.vegastack', 'dev.md'), 'utf8');
   const changelogKnob = (/^changelog:\s*(\S+)/m.exec(devMd) || [])[1] ?? 'none';
   // Added files/lines only — a deleted changeset or the +++ diff header must
   // not count as an entry.
@@ -157,17 +188,17 @@ export function gatherFacts(flags) {
     ? true
     : changelogKnob === 'changesets'
       ? /^\+\+\+ b\/\.changeset\/(?!config)/m.test(diffText)
-      : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md']) || '');
+      : /^\+(?!\+\+)[^\n]*\S/m.test(sh('git', ['diff', `${base}...${branch}`, '--', 'CHANGELOG.md'], cwd) || '');
 
   const chronicleOn = /^chronicle:\s*on\s*(#|$)/m.test(devMd);
-  const chronicleTouched = chronicleEntryAdded(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md']) || '');
+  const chronicleTouched = chronicleEntryAdded(sh('git', ['diff', `${base}...${branch}`, '--', '.vegastack/chronicle.md'], cwd) || '');
 
   let checkExit = null;
   const checkCmd = (/^commands:.*?check\s+`([^`]+)`/m.exec(devMd) || [])[1];
   const checkMissing = !checkCmd;
   if (checkCmd) {
     try {
-      execFileSync('sh', ['-c', checkCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+      execFileSync('sh', ['-c', checkCmd], { stdio: ['ignore', 'pipe', 'pipe'], cwd });
       checkExit = 0;
     } catch (error) {
       checkExit = error.status ?? 1;
@@ -188,7 +219,7 @@ if (invokedDirectly) {
   const get = (flag) => { const i = argv.indexOf(flag); return i === -1 ? undefined : argv[i + 1]; };
   const flags = {
     issue: get('--issue'), branch: get('--branch'), repo: get('--repo'), base: get('--base'),
-    'dev-md': get('--dev-md'), 'allow-no-changelog': get('--allow-no-changelog'), json,
+    'dev-md': get('--dev-md'), worktree: get('--worktree'), 'allow-no-changelog': get('--allow-no-changelog'), json,
   };
   let outcome;
   if (!flags.issue || !flags.branch) {
