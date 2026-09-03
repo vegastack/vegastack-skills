@@ -60,6 +60,8 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 - Harnesses on this box (03-09-2026): `claude` 2.1.247 and `codex` 0.149.1; **no `hermes`**, which costs nothing because no `harness-policy:` stage names it — install it only if a stage ever does. Beware that `codex login status` prints "Logged in" on a revoked refresh token, so it is not an auth guard; only a real run is
 - A brief whose acceptance needs a live `claude -p` or `codex exec` proof checks both CLIs are authenticated first (`claude -p 'say ok'`, `codex exec --sandbox read-only -a never 'say ok'`) — an expired session turns that acceptance into a parked finding, as it did on #94
 - main is branch-protected: a PR is required, force-pushes and deletion are blocked, linear history and conversation resolution are enforced, and admins are NOT exempt — so every path to main, agent or human, goes through a PR. **`check (node 24)` is a required status check** (strict: a branch must be up to date with main before merging), enabled 02-09-2026 once `ci.yml` moved to `[self-hosted, vsk-runners-mac]` and started passing again (#87). The runners are the dependency now: if both are offline, nothing merges — check `gh api repos/vegastack/vegafactory/actions/runners` before assuming a stuck PR is a code problem
+- production: ask — git push origin v
+- The line above is a ship-guard policy line: this repo publishes by pushing the version tag, so that push is the production action. Every other bullet in this section is prose the guard ignores.
 
 ## Decisions
 

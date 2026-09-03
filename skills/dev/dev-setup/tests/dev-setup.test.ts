@@ -164,3 +164,19 @@ describe('dev-setup contract', () => {
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
 })
+
+describe('ship-guard policy lines', () => {
+  test('the profile template documents the policy-line grammar with an auto and an ask example', () => {
+    const template = readFileSync(join(skillRoot, 'assets/dev-profile.md.template'), 'utf8')
+    const section = template.split('\n## Environments\n')[1].split('\n## ')[0]
+    expect(section).toContain('`- <target>: <auto|ask> — <command pattern>`')
+    expect(section).toContain('- preview: auto — wrangler deploy --env preview')
+    expect(section).toContain('- production: ask — wrangler deploy --env production')
+  })
+
+  test("this repo's own profile carries a parseable production policy line", () => {
+    const devMd = readFileSync(resolve(skillRoot, '../../../.vegastack/dev.md'), 'utf8')
+    const section = devMd.split('\n## Environments\n')[1].split('\n## ')[0]
+    expect(section).toMatch(/^- production: ask — git push origin v$/m)
+  })
+})
