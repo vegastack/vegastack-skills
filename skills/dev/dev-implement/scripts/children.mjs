@@ -173,3 +173,63 @@ export function codexChildLaunch(child, { codex = 'codex', model, effort, parent
     prompt,
   };
 }
+
+// --- the join -------------------------------------------------------------
+
+const normalized = (path) => String(path).replace(/^\.\//, '').replace(/\/{2,}/g, '/');
+
+// The declared file set is the contract, checked after the fact against what
+// the child's diff actually touched. A path is in scope when it equals a
+// declared path, or sits under a declared path ending in `/`.
+export function scopeViolations(changed, declared) {
+  const sets = (declared ?? []).map(normalized);
+  return (changed ?? []).map(normalized).filter((path) => {
+    for (const entry of sets) {
+      if (path === entry) return false;
+      if (entry.endsWith('/') && path.startsWith(entry)) return false;
+    }
+    return true;
+  });
+}
+
+// A child branched from the parent HEAD fast-forwards or is not a clean child:
+// anything else means its base moved, and a merge commit would hide that.
+export function mergeArgs(child) {
+  return ['merge', '--ff-only', child.branch];
+}
+
+// What the parent does with each child's result, in plan order. A failed child
+// WARNS — the parent continues with the others and hands back — while a child
+// that wrote outside its declared set BLOCKS: the contract the plan declared is
+// the only reason the parallel run was allowed at all.
+export function evaluateJoin({ children, results, changed }) {
+  const merge = [];
+  const stop = [];
+  const blocks = [];
+  const warns = [];
+  const order = children.map((child) => '#' + child.issue).join(', ');
+  const ledger = ['- Parallel: ' + children.length + ' children — join order ' + order];
+  for (const child of children) {
+    const result = (results ?? {})[child.issue] ?? {};
+    const label = '#' + child.issue;
+    if (result.status !== 'done') {
+      const why = result.message ? result.status + ' — ' + result.message : String(result.status ?? 'no result');
+      warns.push('child ' + label + ' failed and was not merged — its branch ' + child.branch
+        + ' and worktree are left in place (' + why + ')');
+      stop.push({ issue: child.issue, reason: why });
+      ledger.push('- Join: ' + label + ' not merged (' + why + ')');
+      continue;
+    }
+    const wandered = scopeViolations((changed ?? {})[child.issue], child.files);
+    if (wandered.length > 0) {
+      for (const path of wandered) blocks.push('child ' + label + ' touched ' + path + ', outside its declared set');
+      const reason = 'touched ' + wandered.join(', ') + ' outside its declared set';
+      stop.push({ issue: child.issue, reason });
+      ledger.push('- Join: ' + label + ' not merged (' + reason + ')');
+      continue;
+    }
+    merge.push({ issue: child.issue, branch: child.branch });
+    ledger.push('- Join: ' + label + ' merged ' + String(result.head ?? '').slice(0, 7));
+  }
+  return { merge, stop, blocks, warns, ledger };
+}

@@ -79,3 +79,37 @@ describe('launch shapes', () => {
     expect(prompt).toContain('outside that set')
   })
 })
+
+import { evaluateJoin, mergeArgs, scopeViolations } from '../scripts/children.mjs'
+
+describe('the join', () => {
+  const run = planParallelRun({ ...base, groups })
+  test('scope is exact paths plus declared directories', () => {
+    expect(scopeViolations(['packages/cli/src/dispatch.ts'], ['packages/cli/src/dispatch.ts'])).toEqual([])
+    expect(scopeViolations(['packages/cli/src/index.ts'], ['packages/cli/src/dispatch.ts'])).toEqual(['packages/cli/src/index.ts'])
+    expect(scopeViolations(['packages/cli/src/a.ts'], ['packages/cli/'])).toEqual([])
+  })
+  test('clean children merge in plan order; a wanderer blocks and a failure warns', () => {
+    const outcome = evaluateJoin({
+      children: run.children,
+      results: { 131: { status: 'done', head: 'aaaaaaa' }, 132: { status: 'failed', message: 'tests red' } },
+      changed: { 131: ['packages/cli/src/dispatch.ts'], 132: [] },
+    })
+    expect(outcome.merge.map((m) => m.issue)).toEqual([131])
+    expect(outcome.warns.some((w) => w.includes('#132') && w.includes('left in place'))).toBe(true)
+    expect(outcome.blocks).toEqual([])
+    expect(outcome.ledger[0]).toBe('- Parallel: 2 children — join order #131, #132')
+  })
+  test('a child outside its declared set is not merged and blocks the join', () => {
+    const outcome = evaluateJoin({
+      children: run.children,
+      results: { 131: { status: 'done', head: 'aaaaaaa' }, 132: { status: 'done', head: 'bbbbbbb' } },
+      changed: { 131: ['packages/cli/src/dispatch.ts'], 132: ['README.md', 'packages/cli/src/dispatch.ts'] },
+    })
+    expect(outcome.merge.map((m) => m.issue)).toEqual([131])
+    expect(outcome.blocks.some((b) => b.includes('#132') && b.includes('outside its declared set'))).toBe(true)
+  })
+  test('a merge is fast-forward only', () => {
+    expect(mergeArgs(run.children[0])).toEqual(['merge', '--ff-only', 'feat/131-dispatch-parent-launches'])
+  })
+})
