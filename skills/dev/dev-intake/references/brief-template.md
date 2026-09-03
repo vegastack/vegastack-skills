@@ -5,6 +5,8 @@ The issue body a workable issue must have. Write the sections that apply, delete
 ```markdown
 <!-- vsk:v1 type=brief rev=1 scope=research|quick-build|full-plan -->
 **Scope:** research | quick-build | full-plan — the announced reason for the call, one line.
+**Priority:** <one of the org's Priority options> — the answer from the interview. Delete this line where dev.md's `issue-fields:` knob is `none`.
+**Effort:** <one of the org's Effort options> — the answer from the interview. Delete this line where the knob is `none`.
 
 ## Outcome
 

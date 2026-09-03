@@ -29,6 +29,17 @@ describe('dev-intake contract', () => {
     expect(typo).toEqual({ query: 'fix the typo in README.md line 12, "recieve" should be "receive"', should_trigger: false, ambiguous_with: ['dev-implement'] })
   })
 
+  test('the brief template offers Priority and Effort under the Scope line', () => {
+    const template = readFileSync(join(skillRoot, 'references/brief-template.md'), 'utf8')
+    const scopeAt = template.indexOf('**Scope:**')
+    const priorityAt = template.indexOf('**Priority:**')
+    const effortAt = template.indexOf('**Effort:**')
+    expect(scopeAt).toBeGreaterThan(-1)
+    expect(priorityAt).toBeGreaterThan(scopeAt)
+    expect(effortAt).toBeGreaterThan(priorityAt)
+    expect(template).toContain('`issue-fields:`')
+  })
+
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.

@@ -51,4 +51,14 @@ describe('brief-lint', () => {
     expect(r.blocks).toEqual([])
     expect(r.warns.length).toBeGreaterThanOrEqual(2)
   })
+
+  test('Priority and Effort lines are optional — a brief passes with them and without', () => {
+    const withFields = quickBuildBrief.replace(
+      '**Scope:** quick-build — small, the flow exists.',
+      '**Scope:** quick-build — small, the flow exists.\n**Priority:** Medium\n**Effort:** Low',
+    )
+    expect(lintBrief(withFields, 'quick-build').blocks).toEqual([])
+    expect(lintBrief(withFields, 'quick-build').warns).toEqual([])
+    expect(lintBrief(quickBuildBrief, 'quick-build').blocks).toEqual([])
+  })
 })
