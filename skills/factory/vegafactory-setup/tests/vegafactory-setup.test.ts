@@ -125,8 +125,8 @@ describe('vegafactory-setup contract', () => {
       '## Accounts',
       '## Toolchain',
       '## Power and login',
-      '## Register the runner',
       '## Grant the group',
+      '## Register the runner',
       '## Verify',
     ])
     const accounts = template.split('## Accounts')[1].split('\n## ')[0]
@@ -138,9 +138,20 @@ describe('vegafactory-setup contract', () => {
     expect(template).toContain('gh 2.97')
     expect(template).toContain('uv tool install git+https://github.com/NVIDIA/skillspector.git')
     expect(template).toContain('--runnergroup {{runner-group}}')
-    expect(template).toContain('gh api repos/actions/runner/releases/latest -q .tag_name')
     expect(template).toContain('gh api orgs/{{org}}/actions/runner-groups')
     expect(template).toContain('gh api -X PUT orgs/{{org}}/actions/runner-groups/')
+    // The runner account holds no gh credential, so its block calls gh nowhere: the release
+    // lookup goes through the public API with curl and the registration token is minted by an
+    // org admin in their own session and pasted in.
+    const register = template.split('## Register the runner')[1].split('\n## ')[0]
+    expect(register).not.toContain('gh ')
+    expect(register).toContain('set -e')
+    expect(register).toContain('api.github.com/repos/actions/runner/releases/latest')
+    expect(register).toContain('--token "$RUNNER_TOKEN"')
+    const grant = template.split('## Grant the group')[1].split('\n## ')[0]
+    expect(grant).toContain('gh api -X POST orgs/{{org}}/actions/runners/registration-token -q .token')
+    expect(grant).toContain('-f name={{runner-group}}')
+    expect(grant).toContain('runner: null')
     const packaging = JSON.parse(
       readFileSync(resolve(skillRoot, '../../../packages/cli/packaging.json'), 'utf8'),
     ) as Record<string, string[]>
