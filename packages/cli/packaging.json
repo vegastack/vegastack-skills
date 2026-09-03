@@ -147,6 +147,8 @@
   "vegafactory-setup": [
     "SKILL.md",
     "agents/openai.yaml",
+    "references/conventions.md@dev-setup",
+    "references/control-room.md",
     "refresh/REFRESH.md",
     "refresh/sources.json"
   ]
