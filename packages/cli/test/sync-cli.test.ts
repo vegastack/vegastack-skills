@@ -87,11 +87,9 @@ describe('vegafactory sync', () => {
     expect(result.stderr.toString() + result.stdout.toString()).toContain('factory.json')
   })
 
-  test('sync is no longer refused as reserved, and the other verbs still are', () => {
+  test('sync is no longer refused as reserved, and dashboard still is', () => {
     const help = run(root, root, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory sync')
-    for (const verb of ['stats', 'dashboard']) {
-      expect(run(root, root, [verb]).stderr.toString()).toContain(`${verb} is not available yet`)
-    }
+    expect(run(root, root, ['dashboard']).stderr.toString()).toContain('dashboard is not available yet')
   })
 })

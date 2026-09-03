@@ -456,14 +456,20 @@ describe('selecting a family', () => {
   })
 
   test('reserved top-level verbs are named in usage and refuse until they land', () => {
-    for (const verb of ['stats', 'dashboard']) {
-      const result = run(temporary, [verb])
-      expect(result.exitCode).not.toBe(0)
-      expect(result.stderr.toString()).toContain(`${verb} is not available yet`)
-    }
+    const result = run(temporary, ['dashboard'])
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toContain('dashboard is not available yet')
     const help = run(temporary, ['--help']).stdout.toString()
     expect(help).toContain('vegafactory skills <add|verify|remove>')
     for (const verb of ['dispatch', 'service', 'status', 'stats', 'dashboard']) expect(help).toContain(verb)
+  })
+
+  test('stats has landed: it prints its verbs and refuses a malformed month', () => {
+    const help = run(temporary, ['stats', 'help']).stdout.toString()
+    expect(help).toContain('vegafactory stats push [--commit]')
+    const bad = run(temporary, ['stats', '--since', 'Sept-26'])
+    expect(bad.exitCode).toBe(2)
+    expect(bad.stderr.toString()).toContain('MON-YYYY')
   })
 
   test('service has landed: it prints its verbs and is dry-run by default', () => {
