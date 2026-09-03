@@ -45,6 +45,18 @@
         "No control-room file is created or edited",
         "No org questionnaire is started"
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Our org just installed the VegaFactory app. Record it in the control room.",
+      "expected_output": "The installation id is read from the API and written onto org.md's app-install: line alongside the two secret names, and every step needing the operator's own GitHub account is named and left to them.",
+      "files": [],
+      "assertions": [
+        "The installation id comes from gh api orgs/<org>/installations, never from a guess",
+        "Only names go into org.md — no App ID value, no PEM, no token",
+        "A 403 from the installations endpoint is reported as an owner-only endpoint and the line is left unconfirmed",
+        "Creating the App, storing the key and installing it are named as the operator's own steps"
+      ]
     }
   ]
 }

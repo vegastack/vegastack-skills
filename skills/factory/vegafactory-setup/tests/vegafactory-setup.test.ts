@@ -77,4 +77,24 @@ describe('vegafactory-setup contract', () => {
   // TODO: if this skill ships scripts/, add unit tests for every deterministic
   // branch. A prose-only skill needs nothing more here - its quality bar is the
   // behavioral eval of skillify Phase 4, which runs BEFORE tests lock anything in.
+
+  test('org.md records the App identity by name and never a key', () => {
+    const org = readFileSync(join(assets, 'org.md.template'), 'utf8')
+    expect(org).toMatch(/^app: VegaFactory\b/m)
+    expect(org).toMatch(/^app-slug: vegafactory\b/m)
+    expect(org).toMatch(/^app-install: \{\{installation-id\}\}/m)
+    expect(org).toContain('variable VEGAFACTORY_APP_ID · secret VEGAFACTORY_APP_PRIVATE_KEY')
+    expect(org).toContain('Issues read/write · Projects (organization) read/write · Metadata read · Pull requests read/write · Contents read')
+    expect(org).not.toContain('BEGIN RSA PRIVATE KEY')
+    expect(org).not.toContain('BEGIN PRIVATE KEY')
+  })
+
+  test('the skill detects an installation and refuses to create the App itself', () => {
+    const skill = readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')
+    expect(skill).toContain('## Round — automation identity')
+    expect(skill).toContain('gh api orgs/<org>/installations')
+    expect(skill).toContain('references/github-app.md')
+    expect(skill).toContain('app-install:')
+  })
+
 })

@@ -19,6 +19,15 @@ Nearest neighbor: `dev-setup` owns one repo's profile — its knobs, labels, run
 
 **Nothing secret goes in any file — names of secrets only.** A control room is readable by everyone the org onboards, so `NPM_TOKEN` is the entry and the value stays in the store that name points at.
 
+## Round — automation identity
+
+The org's automated writes go out as the public GitHub App, not as a person's token. This round records the App by name and stops at every step that needs the operator's own account.
+
+1. **Hand the operator the creation walk** in dev-setup's `references/github-app.md` — the permission table, the "Any account" setting, the webhook left off, and the private-key step — rather than restating it here, so the App's contract has one home and one place to update.
+2. **Detect an existing installation:** `gh api orgs/<org>/installations --jq '.installations[] | select(.app_slug == "vegafactory") | .id'`. Write the returned id onto `org.md`'s `app-install:` line.
+3. **Leave the line as an unconfirmed placeholder when the call answers 403 or returns nothing, and say which happened** — the endpoint answers organization owners only, so a 403 means "not an owner", never "no App". An unconfirmed line is a question the next run asks again.
+4. **Never create the App, never ask for the PEM, never write a secret value into any control-room file.** Generating the private key is a browser download GitHub delivers once, to whoever pressed the button; an automated session's download never reaches the operator. Record the two names, `VEGAFACTORY_APP_ID` and `VEGAFACTORY_APP_PRIVATE_KEY`, and leave the values in GitHub org settings.
+
 ## Seeding `groups/<g>/group.md`
 
 A group file carries one default for every knob a repo's `.vegastack/dev.md` can hold, so a repo that answers nothing still gets a complete profile. Seed it from an existing repo's dev.md — the knob lines transfer verbatim — plus the harness policy: intake, plan, and implement on Claude Fable 5.1 at high effort; review on Codex gpt-5.6 at xhigh under `cross-agent` or `cross-agent-risky` and Claude Fable 5.1 high otherwise; status and the chronicle digest on Claude Sonnet 5 at medium; xhigh for planning a `risky` `full-plan` issue.
