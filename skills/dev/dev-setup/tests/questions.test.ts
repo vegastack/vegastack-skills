@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { openQuestions, parseAnswers, renderQuestions } from '../scripts/questions.mjs'
+import { decideRoute, openQuestions, parseAnswers, renderQuestions } from '../scripts/questions.mjs'
 
 const spec = {
   questions: [
@@ -173,5 +173,45 @@ describe('openQuestions', () => {
 
   test('a fully answered round leaves nothing open', () => {
     expect(openQuestions(threeQ, parseAnswers('all recommended', threeQ)).questions).toEqual([])
+  })
+})
+
+describe('decideRoute', () => {
+  test('VSK_ASK_ROUTE=issue wins over an available tool and a matching operator', () => {
+    const r = decideRoute({ env: { VSK_ASK_ROUTE: 'issue' }, tool: 'AskUserQuestion', asker: 'kmanojkumar', operator: 'kmanojkumar' })
+    expect(r).toEqual({ route: 'issue', reason: 'VSK_ASK_ROUTE=issue' })
+  })
+
+  test('VSK_ASK_ROUTE=tool wins the other way', () => {
+    expect(decideRoute({ env: { VSK_ASK_ROUTE: 'tool' }, tool: 'none', asker: 'a', operator: 'b' }).route).toBe('tool')
+  })
+
+  test('no question tool routes to the issue', () => {
+    const r = decideRoute({ env: {}, tool: 'none', asker: 'kmanojkumar', operator: 'kmanojkumar' })
+    expect(r).toEqual({ route: 'issue', reason: 'no question tool in this harness or run' })
+  })
+
+  test('an asker who is not the issue operator routes to the issue', () => {
+    const r = decideRoute({ env: {}, tool: 'AskUserQuestion', asker: 'someone', operator: 'kmanojkumar' })
+    expect(r).toEqual({ route: 'issue', reason: 'asker someone is not the issue operator kmanojkumar' })
+  })
+
+  test('tool present and asker is the operator uses the tool', () => {
+    expect(decideRoute({ env: {}, tool: 'request_user_input', asker: 'kmanojkumar', operator: 'kmanojkumar' }).route).toBe('tool')
+  })
+
+  test('an unrecognised VSK_ASK_ROUTE value is refused rather than guessed', () => {
+    expect(() => decideRoute({ env: { VSK_ASK_ROUTE: 'maybe' }, tool: 'none', asker: 'a', operator: 'a' }))
+      .toThrow('VSK_ASK_ROUTE must be issue or tool')
+  })
+
+  test('an empty VSK_ASK_ROUTE is treated as unset', () => {
+    expect(decideRoute({ env: { VSK_ASK_ROUTE: '' }, tool: 'none', asker: 'a', operator: 'a' }).route).toBe('issue')
+  })
+
+  test('an unknown operator routes to the issue rather than assuming the asker owns it', () => {
+    const r = decideRoute({ env: {}, tool: 'AskUserQuestion', asker: 'kmanojkumar', operator: '' })
+    expect(r.route).toBe('issue')
+    expect(r.reason).toContain('operator')
   })
 })

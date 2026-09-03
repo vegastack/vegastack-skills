@@ -185,6 +185,27 @@ export function openQuestions(spec, parsed) {
   return { ...spec, questions: kept }
 }
 
+// Which surface the round goes to, in one precedence a caller cannot reorder:
+// the environment the dispatcher sets, then whether this harness and run have a
+// question tool at all, then whether the person being asked is the person who
+// owns the issue. Anything unresolved routes to the issue, because a round in a
+// comment is always readable and a round put to the wrong person is not.
+export function decideRoute(input) {
+  const env = (input && input.env) || {}
+  const forced = typeof env.VSK_ASK_ROUTE === 'string' ? env.VSK_ASK_ROUTE.trim() : ''
+  if (forced !== '') {
+    if (forced !== 'issue' && forced !== 'tool') throw new Error('VSK_ASK_ROUTE must be issue or tool, not "' + forced + '"')
+    return { route: forced, reason: 'VSK_ASK_ROUTE=' + forced }
+  }
+  const tool = input && typeof input.tool === 'string' ? input.tool.trim() : ''
+  if (tool === '' || tool === 'none') return { route: 'issue', reason: 'no question tool in this harness or run' }
+  const asker = input && typeof input.asker === 'string' ? input.asker.trim() : ''
+  const operator = input && typeof input.operator === 'string' ? input.operator.trim() : ''
+  if (asker === '' || operator === '') return { route: 'issue', reason: 'the asker or the issue operator is unknown' }
+  if (asker !== operator) return { route: 'issue', reason: 'asker ' + asker + ' is not the issue operator ' + operator }
+  return { route: 'tool', reason: 'tool ' + tool + ' is available and the asker is the issue operator' }
+}
+
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -194,6 +215,7 @@ const USAGE = [
   '  questions.mjs render --spec <file.json> [--rev <n>] [--json]',
   '  questions.mjs parse  --comment <file> --spec <file.json> [--json]',
   '  questions.mjs re-ask --spec <file.json> --comment <file> --rev <n> [--json]',
+  '  questions.mjs route  --tool <name|none> --asker <login> --operator <login> [--json]',
 ].join('\n')
 
 function readSpec(path) {
@@ -253,6 +275,17 @@ if (invokedDirectly) {
       const rev = Number(revRaw)
       const markdown = renderQuestions(open, { rev })
       report(json, { command: 're-ask', ok: true, rev, open: open.questions.map((q) => q.n), markdown }, 0, [markdown])
+    } catch (error) {
+      refuse(error.message)
+    }
+  } else if (command === 'route') {
+    const tool = get('--tool')
+    const asker = get('--asker')
+    const operator = get('--operator')
+    if (!tool || !asker || !operator) refuse(USAGE)
+    try {
+      const decision = decideRoute({ env: process.env, tool, asker, operator })
+      report(json, { command: 'route', ok: true, ...decision }, 0, ['questions: route ' + decision.route + ' — ' + decision.reason])
     } catch (error) {
       refuse(error.message)
     }
