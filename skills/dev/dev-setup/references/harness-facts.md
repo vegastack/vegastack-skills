@@ -117,6 +117,15 @@ The ship guard's only source of policy is `.vegastack/dev.md` — the `## Enviro
 
 The prose instruction in the AGENTS.md dev section is the portable base on both harnesses; these hooks are deterministic nudges on top, not a replacement.
 
+## Headless runs
+
+What a dispatcher can rely on when it starts a run with no human at the keyboard.
+
+- Hooks fire under `claude -p`: a headless Claude Code run gets the same `PreToolUse` / `Stop` events as an interactive one, which is what lets the ship guard bound a dark build. <!-- source: CC-HOOKS -->
+- Codex refuses non-managed hooks in an unattended run unless the caller vets them: `codex exec --dangerously-bypass-hook-trust` runs the enabled hooks headless, and it is the only way a dispatched Codex run reaches the ship guard at all. <!-- source: CODEX-HOOKS -->
+- Agent teams do not spawn under `-p`: a headless Claude Code run has subagents bounded by `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` and `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`, and a run needing a team is a run that belongs in an interactive session. <!-- source: CC-SUBAGENT-ENV -->
+- A headless run has no question tool at all, so `VSK_ASK_ROUTE=issue` is what the dispatcher sets: the round goes into the issue with its options and the recommendation, and the next run reads the answer there. <!-- source: CC-CLI -->
+
 ## What this means for the dev skills
 
 - AGENTS.md is the shared instruction file; the one-line CLAUDE.md import makes it reach Claude Code. Keep the marked section small — it counts against Codex's 32 KiB budget along with everything else in AGENTS.md.
