@@ -418,6 +418,145 @@ export function restoreWorktree({ repoRoot, issue, slug, type, devMd, home, writ
   return { blocks, warns, actions, path, branch };
 }
 
+// --- remove and prune -----------------------------------------------------
+
+// Read the git facts the safe-to-remove test needs. Every unverifiable fact
+// fails closed: a status call that errors reports dirty, a merge check that
+// errors reports not-merged.
+function gatherRemovalFacts({ repoRoot, path, branch, base, remote, locked }) {
+  const dirty = branch === null
+    ? false
+    : (() => {
+      const status = git(path, ['status', '--porcelain']);
+      return !status.ok || status.out !== '';
+    })();
+  if (branch === null) return { dirty, unpushed: false, remoteMissing: false, mergedIntoDefault: false };
+  const remoteRef = remote + '/' + branch;
+  const remoteMissing = !git(repoRoot, ['rev-parse', '--verify', '--quiet', 'refs/remotes/' + remoteRef]).ok;
+  const ahead = remoteMissing ? null : git(repoRoot, ['rev-list', remoteRef + '..' + branch]);
+  const unpushed = remoteMissing ? false : !ahead.ok || ahead.out !== '';
+  const baseRef = git(repoRoot, ['rev-parse', '--verify', '--quiet', 'refs/remotes/' + remote + '/' + base]).ok
+    ? remote + '/' + base
+    : base;
+  // A branch that has never reached the remote cannot have been merged: main is
+  // reached through a PR, so "ancestor of the default branch" alone would call a
+  // brand-new branch cut from origin/main 'merged' and prune it on day one.
+  const isAncestor = git(repoRoot, ['merge-base', '--is-ancestor', branch, baseRef]).ok;
+  const mergedIntoDefault = !remoteMissing && isAncestor;
+  return { dirty, unpushed, remoteMissing, mergedIntoDefault, locked };
+}
+
+// Remove one worktree directory — and only the directory. The local branch and
+// the remote branch are never touched here: deleting either is on the ship
+// guard's always-ask list and takes the operator's own word.
+export function removeWorktree({ repoRoot, name, base, force = false, push = false, write = false, remote = 'origin' }) {
+  const blocks = [];
+  const warns = [];
+  const actions = [];
+  const path = worktreePath(repoRoot, name);
+  const symlink = symlinkBlock(path);
+  if (symlink) return { blocks: [symlink], warns, actions };
+
+  const listed = git(repoRoot, ['worktree', 'list', '--porcelain']);
+  if (!listed.ok) return { blocks: [at(repoRoot, 'cannot read the worktree list: ' + listed.out)], warns, actions };
+  const entry = parseWorktreeList(listed.out).find((item) => rebaseUnderRoot(repoRoot, item.path) === path);
+  if (!entry) return { blocks: [at(name, 'no worktree at ' + path + ' — nothing to remove')], warns, actions };
+
+  const branch = entry.branch;
+  let facts = gatherRemovalFacts({ repoRoot, path, branch, base, remote, locked: entry.locked });
+  if (push && branch && (facts.remoteMissing || facts.unpushed)) {
+    actions.push(at(branch, 'git push -u ' + remote + ' ' + branch + ' before removing'));
+    if (write) {
+      const pushed = git(path, ['push', '-u', remote, branch]);
+      if (!pushed.ok) warns.push(at(branch, 'push failed: ' + pushed.out));
+      facts = gatherRemovalFacts({ repoRoot, path, branch, base, remote, locked: entry.locked });
+    } else {
+      facts = { ...facts, remoteMissing: false, unpushed: false };
+    }
+  }
+
+  const state = classifyWorktree({
+    dirExists: true,
+    branchExists: branch !== null,
+    locked: entry.locked,
+    issueState: null,
+    mergedIntoDefault: facts.mergedIntoDefault,
+  });
+  const verdict = evaluateRemoval({ state, ...facts, locked: entry.locked, force });
+  blocks.push(...verdict.blocks);
+  warns.push(...verdict.warns);
+  if (blocks.length > 0) return { blocks, warns, actions, path, branch, state };
+
+  actions.push(at(path, 'git worktree remove (the branch and its remote are left alone)'));
+  if (write) {
+    const removed = git(repoRoot, ['worktree', 'remove', path]);
+    if (!removed.ok) blocks.push(at(path, 'git worktree remove failed: ' + removed.out));
+  }
+  return { blocks, warns, actions, path, branch, state };
+}
+
+// Every worktree directory under .vegastack/.worktrees, with its branch and
+// lock flag straight off porcelain. The main checkout is never one of them.
+export function inventory(repoRoot) {
+  const listed = git(repoRoot, ['worktree', 'list', '--porcelain']);
+  if (!listed.ok) return [];
+  const prefix = worktreePath(repoRoot, '') + sep;
+  return parseWorktreeList(listed.out)
+    .map((entry) => ({ ...entry, path: rebaseUnderRoot(repoRoot, entry.path) }))
+    .filter((entry) => entry.path.startsWith(prefix))
+    .map((entry) => ({ ...entry, name: entry.path.slice(prefix.length) }));
+}
+
+// Retention prune: propose (and with --write, perform) the removal of parked
+// worktrees whose branch and ledger have both gone quiet past the window. It
+// pushes an unpushed candidate first so nothing local-only is ever discarded,
+// then re-runs the same safe-to-remove test every other caller uses. Nothing
+// but a `parked` worktree is ever a candidate.
+export function pruneWorktrees({ repoRoot, base, olderThan, devMd, ledgerTimes = {}, now = Date.now(), write = false, remote = 'origin' }) {
+  const blocks = [];
+  const warns = [];
+  const retentionMs = parseDuration(olderThan) ?? parseRetentionKnob(devMd);
+  const candidates = [];
+  for (const entry of inventory(repoRoot)) {
+    const branch = entry.branch;
+    const lastCommitAt = branch ? (git(repoRoot, ['log', '-1', '--format=%cI', branch]).out || null) : null;
+    const ledgerUpdatedAt = ledgerTimes[entry.name] ?? null;
+    const facts = gatherRemovalFacts({ repoRoot, path: entry.path, branch, base, remote, locked: entry.locked });
+    const state = classifyWorktree({
+      dirExists: true,
+      branchExists: branch !== null,
+      locked: entry.locked,
+      issueState: null,
+      mergedIntoDefault: facts.mergedIntoDefault,
+    });
+    const stamps = [lastCommitAt, ledgerUpdatedAt].map((v) => (v ? Date.parse(v) : Number.NaN)).filter(Number.isFinite);
+    const ageDays = stamps.length === 0 ? 0 : Math.floor((now - Math.max(...stamps)) / DAY_MS);
+    if (state !== 'parked') continue;
+    if (!isPastRetention({ lastCommitAt, ledgerUpdatedAt, now, retentionMs })) continue;
+    const verdict = evaluateRemoval({ state, ...facts, locked: entry.locked, force: false });
+    candidates.push({
+      name: entry.name,
+      state,
+      ageDays,
+      removable: verdict.blocks.length === 0,
+      reason: verdict.blocks[0] ?? null,
+    });
+  }
+  const actions = [];
+  for (const candidate of candidates) {
+    if (!candidate.removable) continue;
+    actions.push(at(candidate.name, 'remove after ' + candidate.ageDays + ' quiet days'));
+    if (!write) continue;
+    const removed = removeWorktree({ repoRoot, name: candidate.name, base, force: false, push: true, write: true, remote });
+    if (removed.blocks.length > 0) {
+      warns.push(at(candidate.name, 'kept after all: ' + removed.blocks[0]));
+      candidate.removable = false;
+      candidate.reason = removed.blocks[0];
+    }
+  }
+  return { blocks, warns, actions, candidates };
+}
+
 // --- dev.md defaults ------------------------------------------------------
 
 // dev.md's `repo:` line carries the default branch after a middot. Absent or
@@ -462,6 +601,13 @@ function runVerb(verb, flags) {
   const slug = flags.slug ? slugify(flags.slug) : null;
   const shared = { repoRoot, devMd, home, base, write: Boolean(flags.write) };
 
+  if (verb === 'remove') {
+    if (!flags.name) return { blocks: ['--name <n>-<slug> is required for remove'], warns: [] };
+    return removeWorktree({ repoRoot, name: flags.name, base, force: Boolean(flags.force), push: Boolean(flags.push), write: shared.write });
+  }
+  if (verb === 'prune') {
+    return pruneWorktrees({ repoRoot, base, olderThan: flags['older-than'], devMd, ledgerTimes: {}, now: Date.now(), write: shared.write });
+  }
   if (verb === 'create' || verb === 'restore') {
     if (!slug) return { blocks: ['--slug is required for ' + verb], warns: [] };
     const options = { ...shared, issue, slug, type: flags.type || 'feat', parent: flags.parent };
