@@ -21,9 +21,9 @@ import {
   fromClaudeSessionEnd, fromCodexSessionEnd, fromSkillHook,
   type CaptureContext, type SkillHookSource,
 } from './capture.ts'
-import { appendRecord, appendSkillInvocations, takeSkillInvocations } from './outbox.ts'
-import { monthToken, parseMonthToken, repoSegment, resolveStatsPolicy, type StatsPolicy, type StatsRecord } from './record.ts'
-import { planPush, pushOutbox, type GitRunner } from './push.ts'
+import { appendRecord, appendSkillInvocations, listOutbox, takeSkillInvocations } from './outbox.ts'
+import { monthToken, parseMonthToken, resolveStatsPolicy, type StatsPolicy, type StatsRecord } from './record.ts'
+import { planPush, pushOutbox, statsClonePath, type GitRunner } from './push.ts'
 import {
   rollupOrg, rollupRepo, rollupSkills, stableStringify,
   type OrgSummary, type RepoSummary, type SkillsSummary, type TimelineEvent,
@@ -263,8 +263,11 @@ async function runPush(args: StatsArgs, deps: StatsDeps): Promise<number> {
   if (args.json) {
     deps.log(JSON.stringify({ guard: 'stats-push', commit: args.commit, ...result }))
   } else if (!args.commit) {
-    const plan = planPush([], deps.cloneRoot, { ghUser: deps.ghUser, hostname: deps.hostname })
-    deps.log(`stats push (dry run — pass --commit to write): ${result.refusals.length} refusals, plan subject "${plan.subject}"`)
+    const plan = planPush(await listOutbox(deps.home), deps.cloneRoot, { ghUser: deps.ghUser, hostname: deps.hostname })
+    const lines = plan.copies.reduce((sum, copy) => sum + copy.lines, 0)
+    deps.log(lines === 0
+      ? 'stats push (dry run): the outbox is empty — nothing to push'
+      : `stats push (dry run — pass --commit to write): ${lines} record(s) into ${plan.copies.length} file(s)\n  ${plan.copies.map(copy => `${copy.from} → ${copy.to} (+${copy.lines})`).join('\n  ')}\n  commit: ${plan.subject}`)
   } else {
     deps.log(`stats push: ${result.pushed} records, ${result.retries} rebase retries, ${result.deferred.length} deferred`)
   }
@@ -273,23 +276,54 @@ async function runPush(args: StatsArgs, deps: StatsDeps): Promise<number> {
   return result.ok ? 0 : 1
 }
 
-async function summariesFor(deps: StatsDeps, months: string[], people: boolean): Promise<{ repos: RepoSummary[]; records: StatsRecord[] }> {
-  const repos: RepoSummary[] = []
-  const records: StatsRecord[] = []
+interface WindowBucket { dir: string; repo: string; month: string; records: StatsRecord[]; timelines: TimelineEvent[] }
+
+// Every (repo, month) bucket in the window. `--since SEP-2026` means "September onward", so a
+// window can hold several months and several repos, and a caller that wants one repo filters here
+// rather than picking the first bucket and hoping.
+async function windowBuckets(deps: StatsDeps, since: string | null): Promise<WindowBucket[]> {
+  const buckets: WindowBucket[] = []
   for (const dir of await repoDirs(deps.cloneRoot)) {
-    const available = monthsInWindow(await monthsUnder(deps.cloneRoot, dir), months[0] ?? null)
-    for (const month of available) {
-      const monthRecords = await readMonth(deps.cloneRoot, dir, month)
-      if (monthRecords.length === 0) continue
-      records.push(...monthRecords)
-      repos.push(rollupRepo(monthRecords, await readTimelines(deps.cloneRoot, dir, month), {
-        repo: monthRecords[0]?.repo ?? dir,
+    for (const month of monthsInWindow(await monthsUnder(deps.cloneRoot, dir), since)) {
+      const records = await readMonth(deps.cloneRoot, dir, month)
+      if (records.length === 0) continue
+      buckets.push({
+        dir,
+        repo: records[0]?.repo ?? dir,
         month,
-        people,
-      }))
+        records,
+        timelines: await readTimelines(deps.cloneRoot, dir, month),
+      })
     }
   }
-  return { repos, records }
+  return buckets
+}
+
+// The label a summary carries when the window is more than one month: a table headed "SEP-2026"
+// while it totals three months would be a lie in the one place a reader looks first.
+function windowLabel(buckets: WindowBucket[], fallback: string): string {
+  // Chronological, never alphabetical: sorting the tokens as strings puts AUG before SEP before
+  // OCT of the same year only by luck, and reads "OCT-2026…SEP-2026" the rest of the time.
+  const months = [...new Set(buckets.map(bucket => bucket.month))].sort((a, b) => {
+    const left = parseMonthToken(a)
+    const right = parseMonthToken(b)
+    if (!left || !right) return a.localeCompare(b)
+    return left.year - right.year || left.month - right.month
+  })
+  if (months.length === 0) return fallback
+  if (months.length === 1) return months[0]!
+  return `${months[0]}…${months[months.length - 1]}`
+}
+
+// One summary per repo across the whole window, so `--since` totals rather than picks.
+function summariesByRepo(buckets: WindowBucket[], people: boolean, fallback: string): RepoSummary[] {
+  const byRepo = new Map<string, WindowBucket[]>()
+  for (const bucket of buckets) byRepo.set(bucket.repo, [...(byRepo.get(bucket.repo) ?? []), bucket])
+  return [...byRepo.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([repo, group]) => rollupRepo(
+    group.flatMap(bucket => bucket.records),
+    group.flatMap(bucket => bucket.timelines),
+    { repo, month: windowLabel(group, fallback), people },
+  ))
 }
 
 async function runRollup(args: StatsArgs, deps: StatsDeps): Promise<number> {
@@ -324,9 +358,9 @@ async function runRollup(args: StatsArgs, deps: StatsDeps): Promise<number> {
 }
 
 async function runShow(args: StatsArgs, deps: StatsDeps): Promise<number> {
-  const month = args.since ?? monthToken(deps.now())
+  const fallback = args.since ?? monthToken(deps.now())
+  const subject = deps.ghUser
   if (args.scope === 'me') {
-    const subject = deps.ghUser
     if (subject !== deps.login && !deps.isLead) {
       deps.log(`people-level statistics are for the person they describe or a lead in people.csv — ${deps.login} may not read ${subject}'s`)
       return 2
@@ -336,24 +370,41 @@ async function runShow(args: StatsArgs, deps: StatsDeps): Promise<number> {
       return 2
     }
   }
-  const { repos, records } = await summariesFor(deps, [month], deps.policy.people || args.scope === 'me')
+  const buckets = await windowBuckets(deps, args.since)
+  const label = windowLabel(buckets, fallback)
+
   if (args.scope === 'skills') {
-    const summary = rollupSkills(records, { month })
+    const summary = rollupSkills(buckets.flatMap(bucket => bucket.records), { month: label })
     deps.log(args.json ? stableStringify(summary) : renderStatsTable(summary, 'skills'))
     return 0
   }
   if (args.scope === 'org') {
-    const summary = rollupOrg(repos, { month, people: deps.policy.people })
+    const summary = rollupOrg(summariesByRepo(buckets, deps.policy.people, fallback), { month: label, people: deps.policy.people })
     deps.log(args.json ? stableStringify(summary) : renderStatsTable(summary, 'org'))
     return 0
   }
-  const mine = deps.repo ? repos.filter(summary => summary.repo === deps.repo) : repos
-  const chosen = (mine.length > 0 ? mine : repos)[0]
-  if (!chosen) {
-    deps.log(args.json ? JSON.stringify({ guard: 'stats-show', month, records: 0 }) : `no records for ${month} in ${deps.cloneRoot}`)
+
+  // repo and me: this repo when the working copy names one, and for `--me` only the rows whose
+  // `human` is the subject — a `--me` table showing the whole repo would be the wrong answer
+  // delivered confidently.
+  const mine = deps.repo ? buckets.filter(bucket => bucket.repo === deps.repo) : buckets
+  const scoped = args.scope === 'me'
+    ? mine.map(bucket => ({ ...bucket, records: bucket.records.filter(record => record.human === subject) }))
+    : mine
+  const records = scoped.flatMap(bucket => bucket.records)
+  if (records.length === 0) {
+    const what = args.scope === 'me' ? `no runs of yours (${subject})` : 'no records'
+    deps.log(args.json
+      ? JSON.stringify({ guard: 'stats-show', month: label, scope: args.scope, records: 0 })
+      : `${what} for ${label} in ${deps.cloneRoot}`)
     return 0
   }
-  deps.log(args.json ? stableStringify(chosen) : renderStatsTable(chosen, args.scope === 'me' ? 'me' : 'repo'))
+  const summary = rollupRepo(records, scoped.flatMap(bucket => bucket.timelines), {
+    repo: args.scope === 'me' ? `${subject} · ${deps.repo ?? 'every repo'}` : (deps.repo ?? scoped[0]!.repo),
+    month: label,
+    people: deps.policy.people || args.scope === 'me',
+  })
+  deps.log(args.json ? stableStringify(summary) : renderStatsTable(summary, args.scope))
   return 0
 }
 
@@ -384,7 +435,7 @@ stats: / stats-people: in org.md or group.md, and a repo opt-out only under
 stats-override: allowed. There is no machine-level knob.
 
 Exit 0 done · 1 deferred (a push that will retry) · 2 a refusal.
-Statistics path: ${join('~', '.vegastack', 'stats', 'outbox', repoSegment('<owner>/<name>'), '<MON-YYYY>', '<host>.jsonl')}
+Outbox: ~/.vegastack/stats/outbox/<owner>__<name>/<MON-YYYY>/<host>.jsonl
 `
 }
 
@@ -434,12 +485,6 @@ export function isLeadIn(peopleCsv: string | null, login: string): boolean {
     if (cells[loginAt] === login) return /\blead\b/i.test(cells[roleAt] ?? '')
   }
   return false
-}
-
-export function statsClonePath(home: string, org: string): string {
-  // Deliberately NOT #120's clone: `vegafactory sync` refreshes that one with `git reset --hard`,
-  // which would eat records that are committed but not yet pushed.
-  return join(home, '.vegastack', 'stats', 'control-room', org)
 }
 
 function defaultGit(): GitRunner {

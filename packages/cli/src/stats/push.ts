@@ -73,6 +73,12 @@ export interface PushPlan {
   refusals: string[]
 }
 
+// The stats working copy is deliberately NOT #120's read-only clone: `vegafactory sync` refreshes
+// that one with `git reset --hard`, which would eat records that are committed but not yet pushed.
+export function statsClonePath(home: string, org: string): string {
+  return join(home, '.vegastack', 'stats', 'control-room', org)
+}
+
 export function controlRoomStatsPath(cloneRoot: string, repo: string, month: string, hostname: string): string {
   return join(cloneRoot, 'stats', repoSegment(repo), month, `${hostname}.jsonl`)
 }

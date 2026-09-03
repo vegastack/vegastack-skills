@@ -18,9 +18,8 @@ import { GhUnavailable, ghText } from './gh.ts'
 import { GIT_CREDENTIAL_ARGS } from './sync.ts'
 import { fromClaudeHeadless, fromCodexExec } from './stats/capture.ts'
 import { appendRecord, takeSkillInvocations } from './stats/outbox.ts'
-import { pushOutbox, type GitRunner, type PushResult } from './stats/push.ts'
+import { pushOutbox, statsClonePath, type GitRunner, type PushResult } from './stats/push.ts'
 import { normalizeRecord, resolveStatsPolicy, type StatsPolicy, type StatsRecord } from './stats/record.ts'
-import { statsClonePath } from './stats/cli.ts'
 
 export interface BoardIssue {
   number: number
