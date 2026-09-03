@@ -96,6 +96,7 @@
     "scripts/questions.mjs",
     "assets/dev-profile.md.template",
     "assets/agents-section.md.template",
+    "assets/factory-board.yml.template",
     "assets/hooks/ship-guard.mjs",
     "assets/hooks/session-start.mjs",
     "assets/hooks/stop-heartbeat.mjs",
