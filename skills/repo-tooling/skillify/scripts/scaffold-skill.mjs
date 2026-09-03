@@ -161,7 +161,7 @@ async function wireChangeset(repoRoot, name, write) {
   const path = join(directory, `add-${name}.md`)
   if (await entryAt(path)) return { step: 'changeset', status: 'skipped: changeset already exists' }
   if (!write) return { step: 'changeset', status: 'planned' }
-  await writeAtomic(path, `---\n"@vegastack/skills": minor\n---\n\nAdd the ${name} skill.\n`)
+  await writeAtomic(path, `---\n"@vegastack/vegafactory": minor\n---\n\nAdd the ${name} skill.\n`)
   return { step: 'changeset', status: 'done' }
 }
 
@@ -191,7 +191,7 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   const skillsEntry = await entryAt(skillsRoot)
   // lstat does not follow symlinks, so a symlinked skills/ fails isDirectory().
   if (!skillsEntry || !skillsEntry.isDirectory()) {
-    throw new Error(`${skillsRoot} is not a real directory - point --dir at the vegastack-skills repo root`)
+    throw new Error(`${skillsRoot} is not a real directory - point --dir at the vegafactory repo root`)
   }
 
   // A group must already exist and carry a well-formed GROUP.md; creating one is
@@ -253,7 +253,7 @@ export async function scaffoldSkill({ name, dir, group = null, write = false, no
   // command naming a group that does not exist. It is its own fence, not a second line in the
   // first one: pasting a shared fence would run the alternative too.
   const groupInstallBlock = group
-    ? `\nOr the whole ${group} family at once:\n\n\`\`\`sh\nnpx @vegastack/skills add --group ${group} --global\n\`\`\`\n`
+    ? `\nOr the whole ${group} family at once:\n\n\`\`\`sh\nnpx @vegastack/vegafactory skills add --group ${group} --global\n\`\`\`\n`
     : ''
 
   const outputs = templateFiles.map(([source, output]) => [source, output ?? `tests/${name}.test.ts`])

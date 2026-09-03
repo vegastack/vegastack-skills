@@ -7,10 +7,10 @@ This README is the walkthrough for humans and for agents reading outside a skill
 ## Install
 
 ```sh
-npx @vegastack/skills add skillify   # repo-only: not installed by --all
+npx @vegastack/vegafactory skills add skillify   # repo-only: not installed by --all
 ```
 
-Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Run it from the vegastack-skills repo root and keep it project-local: it is the deliberate exception to the recommended `--global` install, because a global copy would trigger in every other project on your machine. See the [installer README](../../../packages/cli/README.md) for all flags.
+Installs into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Run it from the vegafactory repo root and keep it project-local: it is the deliberate exception to the recommended `--global` install, because a global copy would trigger in every other project on your machine. See the [installer README](../../../packages/cli/README.md) for all flags.
 
 ## What's in this skill
 

@@ -1,5 +1,5 @@
 [
-  { "query": "bump the changeset and cut a release of @vegastack/skills", "should_trigger": true, "ambiguous_with": ["skillify"] },
+  { "query": "bump the changeset and cut a release of @vegastack/vegafactory", "should_trigger": true, "ambiguous_with": ["skillify"] },
   { "query": "rename skillify to skill-factory across the repo - directory, packaging entry, README row, changeset", "should_trigger": true, "ambiguous_with": ["skillify"] },
   { "query": "the skill-scan blocked on an AE1 in dev-ship after my edit - how do I re-adjudicate it in the baseline?", "should_trigger": true, "ambiguous_with": ["skillify"] },
   { "query": "does Hermes pick up skills from .agents/skills inside the project, or only the global directory?", "should_trigger": true },

@@ -5,13 +5,13 @@ The project's narrative memory. Every behavior-changing branch carries one story
 ## Install
 
 ```sh
-npx @vegastack/skills add dev-chronicle --global
+npx @vegastack/vegafactory skills add dev-chronicle --global
 ```
 
 Or the whole dev workflow at once:
 
 ```sh
-npx @vegastack/skills add --group dev --global
+npx @vegastack/vegafactory skills add --group dev --global
 ```
 
 `--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install. See the [installer README](../../../packages/cli/README.md) for all flags.

@@ -42,13 +42,13 @@ decision register — this skill ships no templates of its own.
 ## Try it
 
 ```sh
-npx @vegastack/skills add dev-architect --global
+npx @vegastack/vegafactory skills add dev-architect --global
 ```
 
 Or the whole dev workflow at once:
 
 ```sh
-npx @vegastack/skills add --group dev --global
+npx @vegastack/vegafactory skills add --group dev --global
 ```
 
 Then in a project session: "Should I add Redis for caching?" (expect a trigger-based no),

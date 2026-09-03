@@ -15,10 +15,10 @@ const baseIssue = () => ({
   state: 'open',
   labels: [{ name: 'ready' }, { name: 'quick-build' }],
   assignees: [],
-  repo: 'vegastack/vegastack-skills',
+  repo: 'vegastack/vegafactory',
   blockedBy: [],
 })
-const devMd = 'repo: vegastack/vegastack-skills · default branch main\n'
+const devMd = 'repo: vegastack/vegafactory · default branch main\n'
 
 describe('marker lib', () => {
   test('parses keys from a vsk marker', () => {

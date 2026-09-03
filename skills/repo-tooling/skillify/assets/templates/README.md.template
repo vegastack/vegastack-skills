@@ -5,7 +5,7 @@ TODO: one-paragraph summary for humans and agents browsing the repo. The agent e
 ## Install
 
 ```sh
-npx @vegastack/skills add {{name}} --global
+npx @vegastack/vegafactory skills add {{name}} --global
 ```
 {{groupInstallBlock}}
 `--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install.

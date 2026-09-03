@@ -7,10 +7,10 @@ This README is the walkthrough for humans and for agents reading outside a skill
 ## Install
 
 ```sh
-npx @vegastack/skills add skill-maintainer   # repo-only: not installed by --all
+npx @vegastack/vegafactory skills add skill-maintainer   # repo-only: not installed by --all
 ```
 
-Only useful if you are contributing to the vegastack-skills repository itself — it encodes that repo's contract and wiring. Install it project-local, from that repo's root: it is the deliberate exception to the recommended `--global` install, because a global copy would trigger in every other project on your machine. See the [installer README](../../../packages/cli/README.md) for all flags.
+Only useful if you are contributing to the vegafactory repository itself — it encodes that repo's contract and wiring. Install it project-local, from that repo's root: it is the deliberate exception to the recommended `--global` install, because a global copy would trigger in every other project on your machine. See the [installer README](../../../packages/cli/README.md) for all flags.
 
 ## When to load it
 

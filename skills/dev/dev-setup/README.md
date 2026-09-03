@@ -7,13 +7,13 @@ The agent entry point is [SKILL.md](SKILL.md); everything else loads progressive
 ## Install
 
 ```sh
-npx @vegastack/skills add dev-setup --global
+npx @vegastack/vegafactory skills add dev-setup --global
 ```
 
 Or the whole dev workflow at once:
 
 ```sh
-npx @vegastack/skills add --group dev --global
+npx @vegastack/vegafactory skills add --group dev --global
 ```
 
 `--global` installs into your home directory, where the skill is available in every project; drop it for a project-local install. See the [installer README](../../../packages/cli/README.md) for all flags.

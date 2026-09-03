@@ -66,7 +66,7 @@ Source: https://hermes-agent.nousresearch.com/docs/user-guide/features/skills. <
 | Codex | `.agents/skills/` | `~/.agents/skills/` | also `/etc/codex/skills` and bundled <!-- source: CODEX-SKILLS --> |
 | Hermes | — none | `~/.hermes/skills/` | **global only**; extension only via `skills.external_dirs` config <!-- source: HERMES-SKILLS --> |
 
-Installer implication: the `@vegastack/skills` installer must treat Hermes as global-only — a "project install" for Hermes does not exist.
+Installer implication: the `@vegastack/vegafactory` installer must treat Hermes as global-only — a "project install" for Hermes does not exist.
 
 These paths are the harnesses' own discovery rules and are unaffected by how skills are selected. The installer's `--group` and `--all` flags choose *which* skills to act on; an installed skill is always `<surface>/<bare-name>/`, never `<surface>/<group>/<name>/`.
 
