@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import {
-  evaluateGuards, planLabelRuns, planRocketRuns, planTick, readState, recordHandled,
-  searchQueries, shipGuardWired, writeState,
+  evaluateGuards, executeRun, failureComment, logPath, planLabelRuns, planRocketRuns, planTick, readState,
+  recordHandled, redact, searchQueries, shipGuardWired, tailLines, writeState,
   type BoardIssue, type DispatchState, type GuardState, type Rocket,
 } from '../src/dispatch.ts'
-import { parseRepoPolicy } from '../src/config.ts'
+import { parseFactoryConfig, parseRepoPolicy } from '../src/config.ts'
 
 const issue = (number: number, labels: string[], assignees: string[] = []): BoardIssue =>
   ({ number, title: `feat: thing ${number}`, labels, assignees, updatedAt: '2026-09-03T10:00:00Z' })
@@ -219,5 +219,118 @@ describe('planTick', () => {
     const withCorrections = { ...board, corrections: [forOperator] }
     const plan = planTick({ repo: 'acme/app', policy: local, board: withCorrections, rockets, state: { lastTick: {}, handled: [] }, guards: wired, maxRuns: 3 })
     expect(plan.runs.map(run => run.stage)).toEqual(['plan', 'implement', 'corrections'])
+  })
+})
+
+const logConfig = parseFactoryConfig({ repos: [{ path: '/w', repo: 'acme/app', org: 'acme' }] }, '/home/mk')
+
+describe('logPath', () => {
+  test('nests by org and repo name and stamps the run time', () => {
+    expect(logPath(logConfig, 'acme/app', 12, new Date('2026-09-03T10:04:05Z')))
+      .toBe('/home/mk/.vegastack/factory/logs/acme/app/12-20260903T100405Z.jsonl')
+  })
+})
+
+describe('redact', () => {
+  test('strips token shapes and Authorization values, keeping the surrounding text', () => {
+    const clean = redact('failed with ghp_abcdefghijklmnopqrstuvwxyz0123456789 and Authorization: Bearer xyz.123')
+    expect(clean).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789')
+    expect(clean).not.toContain('xyz.123')
+    expect(clean).toContain('failed with')
+    expect(clean).toContain('[redacted]')
+  })
+
+  test('covers the other token shapes a run can print', () => {
+    const clean = redact('github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz sk-abcdefghijklmnopqrst npm_abcdefghijklmnopqrstuvwxyz012345 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY')
+    for (const secret of ['github_pat_11ABCDEFG', 'sk-abcdefghijklmnopqrst', 'npm_abcdefghijklmnopqrstuvwxyz012345', 'wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY']) {
+      expect(clean).not.toContain(secret)
+    }
+  })
+})
+
+describe('failureComment', () => {
+  test('is a handback comment naming the exit code and carrying the redacted last 40 lines', () => {
+    const log = Array.from({ length: 60 }, (_, i) => `line ${i} ghp_abcdefghijklmnopqrstuvwxyz0123456789`).join('\n')
+    const body = failureComment({ issue: 12, stage: 'implement', exitCode: 1, timedOut: false, log, worktree: '/w/12-thing', at: '2026-09-03T10:04:05Z' })
+    expect(body.startsWith('<!-- vsk:v1 type=handback -->')).toBe(true)
+    expect(body).toContain('## Hand-back')
+    expect(body).toContain('exit 1')
+    expect(body).toContain('/w/12-thing')
+    expect(body).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789')
+    expect(tailLines(log, 40).split('\n')).toHaveLength(40)
+    expect(body).toContain('line 59')
+    expect(body).not.toContain('line 19')
+  })
+
+  test('a timeout says so instead of an exit code', () => {
+    const body = failureComment({ issue: 12, stage: 'plan', exitCode: null, timedOut: true, log: 'x', worktree: '/w/12', at: '2026-09-03T10:04:05Z' })
+    expect(body).toContain('timed out')
+  })
+})
+
+describe('executeRun', () => {
+  function harnessStub(body: string): string {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-run-'))
+    const path = join(dir, 'harness.sh')
+    writeFileSync(path, body)
+    chmodSync(path, 0o755)
+    return path
+  }
+
+  const runFor = (home: string) => parseFactoryConfig({ repos: [{ path: '/w', repo: 'acme/app', org: 'acme' }] }, home)
+  const planned = { repo: 'acme/app', issue: 12, title: 'feat: thing', stage: 'implement' as const, commentId: null, reactionId: null }
+
+  test('a clean run logs its streams and its exit, pushes the branch, and hands nothing back', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'vsk-home-'))
+    const command = harnessStub('#!/bin/sh\necho hello\n')
+    const calls: string[][] = []
+    const outcome = await executeRun(planned, { command, args: [], env: {}, cwd: home, prompt: 'p' }, runFor(home), { operator: 'mk' }, {
+      now: () => new Date('2026-09-03T10:04:05Z'),
+      gh: async args => { calls.push(args); return '' },
+      git: async args => { calls.push(['git', ...args]); return { ok: true, message: '' } },
+    })
+    expect(outcome.exitCode).toBe(0)
+    expect(outcome.handedBack).toBe(false)
+    expect(outcome.pushed).toBe(true)
+    expect(calls.some(call => call.join(' ') === 'git push -u origin HEAD')).toBe(true)
+    expect(calls.some(call => call[0] === 'issue')).toBe(false)
+    const log = readFileSync(outcome.logFile, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+    expect(log[0].event).toBe('start')
+    expect(log.some(row => row.text?.includes('hello'))).toBe(true)
+    expect(log.at(-1).event).toBe('exit')
+  })
+
+  test('a failing run posts the hand-back, moves the label and assigns the operator', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'vsk-home-'))
+    const command = harnessStub('#!/bin/sh\necho "boom ghp_abcdefghijklmnopqrstuvwxyz0123456789" >&2\nexit 3\n')
+    const calls: { args: string[]; input?: string }[] = []
+    const outcome = await executeRun(planned, { command, args: [], env: {}, cwd: home, prompt: 'p' }, runFor(home), { operator: 'mk' }, {
+      now: () => new Date('2026-09-03T10:04:05Z'),
+      gh: async (args, options) => { calls.push({ args, input: options?.input }); return '' },
+      git: async () => ({ ok: true, message: '' }),
+    })
+    expect(outcome.exitCode).toBe(3)
+    expect(outcome.handedBack).toBe(true)
+    const comment = calls.find(call => call.args[0] === 'issue' && call.args[1] === 'comment')!
+    expect(comment.args).toContain('--body-file')
+    expect(comment.input).toContain('exit 3')
+    expect(comment.input).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123456789')
+    const edit = calls.find(call => call.args[1] === 'edit')!
+    expect(edit.args).toEqual(['issue', 'edit', '12', '--repo', 'acme/app', '--add-label', 'needs-operator', '--remove-label', 'working', '--add-assignee', 'mk'])
+  })
+
+  test('a hand-back gh cannot post is logged, and never throws out of the tick', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'vsk-home-'))
+    const command = harnessStub('#!/bin/sh\nexit 1\n')
+    const outcome = await executeRun(planned, { command, args: [], env: {}, cwd: home, prompt: 'p' }, runFor(home), { operator: null }, {
+      now: () => new Date('2026-09-03T10:04:05Z'),
+      gh: async () => { throw new Error('gh issue comment failed: HTTP 403') },
+      git: async () => ({ ok: false, message: 'no upstream' }),
+    })
+    expect(outcome.handedBack).toBe(false)
+    expect(outcome.pushed).toBe(false)
+    const log = readFileSync(outcome.logFile, 'utf8')
+    expect(log).toContain('handback-failed')
+    expect(log).toContain('push-failed')
   })
 })

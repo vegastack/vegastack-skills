@@ -5,9 +5,12 @@
 //
 // Refusals are first-class output, never silence: a repo that is skipped says why, in the JSON and
 // in the log, because "nothing happened" and "the ship guard is unwired" look identical otherwise.
-import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { appendFile, lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { Harness, RepoPolicy, Stage } from './config.ts'
+import type { FactoryConfig, Harness, RepoPolicy, Stage } from './config.ts'
+import type { LaunchPlan } from './launch.ts'
+import { ghText } from './gh.ts'
 
 export interface BoardIssue {
   number: number
@@ -309,4 +312,182 @@ export function planTick(input: {
     reason: `#${run.issue} (${run.stage}) waits for the next tick — maxRuns ${input.maxRuns} is already committed`,
   }))
   return { runs, refusals: [...labels.refusals, ...rockets.refusals, ...dropped] }
+}
+
+// One log file per run, named so `ls` sorts by issue then time and two runs of the same issue never
+// collide.
+export function logPath(config: FactoryConfig, repo: string, issue: number, at: Date): string {
+  const [org, name] = repo.split('/')
+  const stamp = at.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')
+  return join(config.logRoot, org ?? repo, name ?? repo, `${issue}-${stamp}.jsonl`)
+}
+
+// Pattern-based, and deliberately broad: this text goes into a public issue comment, so a shape
+// that merely looks like a credential is redacted rather than reasoned about.
+const SECRET_PATTERNS: RegExp[] = [
+  /\bghp_[A-Za-z0-9]{16,}/g,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
+  /\bgho_[A-Za-z0-9]{16,}/g,
+  /\bsk-[A-Za-z0-9_-]{16,}/g,
+  /\bnpm_[A-Za-z0-9]{16,}/g,
+  /(Authorization:\s*\S+\s*)\S+/gi,
+  /((?:AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|GITHUB_TOKEN|GH_TOKEN|ANTHROPIC_API_KEY|OPENAI_API_KEY)\s*[=:]\s*)\S+/g,
+]
+
+export function redact(text: string): string {
+  let out = text
+  for (const pattern of SECRET_PATTERNS) {
+    out = out.replace(pattern, (...args) => {
+      const groups = args.slice(1, -2)
+      return typeof groups[0] === 'string' ? `${groups[0]}[redacted]` : '[redacted]'
+    })
+  }
+  return out
+}
+
+export function tailLines(text: string, count: number): string {
+  return text.split('\n').slice(-count).join('\n')
+}
+
+export function failureComment(input: {
+  issue: number
+  stage: Stage
+  exitCode: number | null
+  timedOut: boolean
+  log: string
+  worktree: string
+  at: string
+}): string {
+  const how = input.timedOut ? 'timed out' : `failed with exit ${input.exitCode ?? 'unknown'}`
+  return [
+    '<!-- vsk:v1 type=handback -->',
+    '## Hand-back',
+    '',
+    `The headless ${input.stage} run ${how} at ${input.at}. Nothing was handed back as finished, and no label beyond this one was moved.`,
+    '',
+    `The worktree is left in place at \`${input.worktree}\` — whatever the run had done is still there, and the ledger comment is the last checkpoint it reached.`,
+    '',
+    'Last 40 log lines (secrets redacted by pattern):',
+    '',
+    '```',
+    redact(tailLines(input.log, 40)),
+    '```',
+  ].join('\n')
+}
+
+export interface RunOutcome {
+  exitCode: number | null
+  timedOut: boolean
+  logFile: string
+  pushed: boolean
+  handedBack: boolean
+}
+
+export interface ExecuteDeps {
+  now: () => Date
+  gh: (args: string[], options?: { cwd?: string; input?: string }) => Promise<string>
+  git: (args: string[], cwd: string) => Promise<{ ok: boolean; message: string }>
+  timeoutMs: number
+}
+
+function defaultGit(args: string[], cwd: string): Promise<{ ok: boolean; message: string }> {
+  return new Promise(resolve => {
+    const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    let message = ''
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
+    child.stdout.on('data', (chunk: string) => { message += chunk })
+    child.stderr.on('data', (chunk: string) => { message += chunk })
+    child.on('error', error => resolve({ ok: false, message: (error as Error).message }))
+    child.on('close', code => resolve({ ok: code === 0, message: message.trim() }))
+  })
+}
+
+// The effectful half, and the only place in this file that spawns a harness. Both pipes are
+// streamed to the log as they arrive rather than buffered, so a dispatcher that dies still leaves a
+// readable record of how far the run got, and a run that prints megabytes cannot exhaust memory.
+//
+// A run that fails is not retried and is never left looking finished: the branch is pushed anyway
+// (an evidence sha only resolves once the commit is on the remote), a hand-back comment carrying
+// the redacted tail is posted, the issue goes back to `needs-operator` assigned to its operator,
+// and the worktree is left exactly as the run left it.
+export async function executeRun(
+  run: PlannedRun,
+  plan: LaunchPlan,
+  config: FactoryConfig,
+  options: { operator: string | null },
+  deps?: Partial<ExecuteDeps>,
+): Promise<RunOutcome> {
+  const now = deps?.now ?? (() => new Date())
+  const gh = deps?.gh ?? ((args: string[], ghOptions?: { cwd?: string; input?: string }) => ghText(args, ghOptions))
+  const git = deps?.git ?? defaultGit
+  const timeoutMs = deps?.timeoutMs ?? 6 * 60 * 60 * 1000
+  const startedAt = now()
+  const file = logPath(config, run.repo, run.issue, startedAt)
+  await mkdir(dirname(file), { recursive: true })
+  await refuseSymlink(file)
+  const lines: string[] = []
+  const record = (row: Record<string, unknown>): void => { lines.push(JSON.stringify(row)) }
+  const flush = async (): Promise<void> => {
+    if (lines.length === 0) return
+    await appendFile(file, `${lines.join('\n')}\n`)
+    lines.length = 0
+  }
+  record({ at: startedAt.toISOString(), event: 'start', repo: run.repo, issue: run.issue, stage: run.stage, command: plan.command, args: plan.args, cwd: plan.cwd })
+  await flush()
+
+  let tail = ''
+  const outcome = await new Promise<{ exitCode: number | null; timedOut: boolean }>(resolve => {
+    const child = spawn(plan.command, plan.args, { cwd: plan.cwd, env: { ...process.env, ...plan.env }, stdio: ['ignore', 'pipe', 'pipe'] })
+    let timedOut = false
+    const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM') }, timeoutMs)
+    for (const stream of ['stdout', 'stderr'] as const) {
+      child[stream].setEncoding('utf8')
+      child[stream].on('data', (chunk: string) => {
+        tail = `${tail}${chunk}`.split('\n').slice(-200).join('\n')
+        record({ at: new Date().toISOString(), stream, text: chunk })
+        void flush()
+      })
+    }
+    child.on('error', error => {
+      clearTimeout(timer)
+      record({ at: new Date().toISOString(), stream: 'stderr', text: `could not start ${plan.command}: ${(error as Error).message}` })
+      resolve({ exitCode: null, timedOut })
+    })
+    child.on('close', code => {
+      clearTimeout(timer)
+      resolve({ exitCode: code, timedOut })
+    })
+  })
+
+  const push = await git(['push', '-u', 'origin', 'HEAD'], plan.cwd)
+  if (!push.ok) record({ at: new Date().toISOString(), event: 'push-failed', message: redact(push.message) })
+
+  let handedBack = false
+  const failed = outcome.timedOut || outcome.exitCode !== 0
+  if (failed) {
+    const body = failureComment({
+      issue: run.issue,
+      stage: run.stage,
+      exitCode: outcome.exitCode,
+      timedOut: outcome.timedOut,
+      log: tail,
+      worktree: plan.cwd,
+      at: new Date().toISOString(),
+    })
+    try {
+      await gh(['issue', 'comment', String(run.issue), '--repo', run.repo, '--body-file', '-'], { input: body })
+      const edit = ['issue', 'edit', String(run.issue), '--repo', run.repo, '--add-label', 'needs-operator', '--remove-label', 'working']
+      if (options.operator) edit.push('--add-assignee', options.operator)
+      await gh(edit)
+      handedBack = true
+    } catch (error) {
+      // A hand-back that cannot be posted must not take the dispatcher down with it; the log is
+      // then the only record, and `vegafactory status` surfaces the run as failed either way.
+      record({ at: new Date().toISOString(), event: 'handback-failed', message: redact((error as Error).message) })
+    }
+  }
+  record({ at: new Date().toISOString(), event: 'exit', exitCode: outcome.exitCode, timedOut: outcome.timedOut, pushed: push.ok, handedBack })
+  await flush()
+  return { exitCode: outcome.exitCode, timedOut: outcome.timedOut, logFile: file, pushed: push.ok, handedBack }
 }
