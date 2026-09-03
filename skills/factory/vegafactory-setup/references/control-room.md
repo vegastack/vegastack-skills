@@ -17,7 +17,13 @@ rules/                       org-wide review known-patterns, security rules, COD
 onboarding/new-repo.md       checklist run by vegafactory-setup, then dev-setup
 onboarding/new-teammate.md   gh auth, harness install, skills install, control-room access, Slack
 templates/                   hook wiring snippets, board workflow, dev.md section overrides
+stats/<owner>__<name>/<MON-YYYY>/<hostname>.jsonl   one record per run or session, written by automation
+stats/<owner>__<name>/<MON-YYYY>.summary.json       regenerated per repo per month
+stats/org/<MON-YYYY>.summary.json                   regenerated across every repo
+stats/org/<MON-YYYY>.skills.json                    regenerated: invocations per skill
 ```
+
+`stats/` is the one tree automation writes, and the shape is the reason it can. One file per repo, per month, per **machine** means two machines never touch the same file, so a concurrent push is a non-fast-forward — solved by `pull --rebase` and a retry — and never a content conflict needing a human. The repo segment is `<owner>__<name>` so a path stays two levels deep and a repo name can never be mistaken for a month directory. The three summaries are **regenerated**, never appended: a summary that accumulated would drift the first time a record arrived late from a machine that was offline. Records are counts and identifiers only — never prompt text, assistant text, tool arguments, or file contents — and `rules/stats-privacy.md` is where that promise is written down for everyone the org onboards.
 
 `groups/dev/` is the only department seeded today; another department is a new `groups/<g>/` with the same three files.
 

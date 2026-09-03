@@ -38,6 +38,7 @@ describe('vegafactory-setup contract', () => {
       'assets/control-room/boards.md.template',
       'assets/control-room/rules/README.md.template',
       'assets/control-room/rules/CODEOWNERS.template',
+      'assets/control-room/rules/stats-privacy.md.template',
       'assets/control-room/templates/README.md.template',
       'assets/control-room/onboarding/new-repo.md.template',
       'assets/control-room/onboarding/new-teammate.md.template',
