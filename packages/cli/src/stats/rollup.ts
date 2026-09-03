@@ -38,7 +38,10 @@ export interface RepoSummary {
   month: string
   runs: number
   by_stage: Record<string, StageStats>
-  rework: { review_rounds: number; fix_rounds: number; handbacks: number; runs_with_rework: number }
+  // Null when no record in the month measured it: "no review rounds were captured" and "there
+  // were no review rounds" are different facts, and a summary that printed 0 for both would be
+  // read as the second.
+  rework: { review_rounds: number | null; fix_rounds: number | null; handbacks: number | null; runs_with_rework: number }
   throughput: { issues_touched: number; issues_closed: number }
   lead_time_h: Pct
   cycle_time_h: Record<string, Pct>
@@ -160,6 +163,25 @@ function leadTimes(timelines: TimelineEvent[]): { pct: Pct; closed: number } {
   return { pct: percentiles(spans), closed }
 }
 
+// Rework rounds are an issue's, not a run's: every run on an issue reads the same ledger, so the
+// month's total takes each issue's highest reading once rather than summing it per run. A record
+// with no issue stands alone. Null when nothing in the month measured the field at all.
+function reworkTotal(records: StatsRecord[], field: 'review_rounds' | 'fix_rounds' | 'handbacks'): number | null {
+  const perIssue = new Map<string, number>()
+  let measured = false
+  records.forEach((record, index) => {
+    const value = record[field]
+    if (value === null || value === undefined) return
+    measured = true
+    const key = record.issue === null ? `run:${index}` : `issue:${record.issue}`
+    perIssue.set(key, Math.max(perIssue.get(key) ?? 0, value))
+  })
+  if (!measured) return null
+  let total = 0
+  for (const value of perIssue.values()) total += value
+  return total
+}
+
 export function rollupRepo(
   records: StatsRecord[],
   timelines: TimelineEvent[],
@@ -167,8 +189,8 @@ export function rollupRepo(
 ): RepoSummary {
   const byStage: Record<string, StageStats> = {}
   const byPerson: Record<string, StageStats> = {}
-  const rework = { review_rounds: 0, fix_rounds: 0, handbacks: 0, runs_with_rework: 0 }
   const issues = new Set<number>()
+  let runsWithRework = 0
 
   for (const record of records) {
     const stage = record.stage ?? 'unknown'
@@ -178,11 +200,7 @@ export function rollupRepo(
     byPerson[person] = byPerson[person] ?? emptyStage()
     addRecord(byPerson[person]!, record)
     if (record.issue !== null) issues.add(record.issue)
-    const rounds = (record.review_rounds ?? 0) + (record.fix_rounds ?? 0) + (record.handbacks ?? 0)
-    rework.review_rounds += record.review_rounds ?? 0
-    rework.fix_rounds += record.fix_rounds ?? 0
-    rework.handbacks += record.handbacks ?? 0
-    if (rounds > 0) rework.runs_with_rework += 1
+    if ((record.review_rounds ?? 0) + (record.fix_rounds ?? 0) + (record.handbacks ?? 0) > 0) runsWithRework += 1
   }
 
   const lead = leadTimes(timelines)
@@ -192,7 +210,12 @@ export function rollupRepo(
     month: options.month,
     runs: records.length,
     by_stage: byStage,
-    rework,
+    rework: {
+      review_rounds: reworkTotal(records, 'review_rounds'),
+      fix_rounds: reworkTotal(records, 'fix_rounds'),
+      handbacks: reworkTotal(records, 'handbacks'),
+      runs_with_rework: runsWithRework,
+    },
     throughput: { issues_touched: issues.size, issues_closed: lead.closed },
     lead_time_h: lead.pct,
     cycle_time_h: cycleTimes(timelines),

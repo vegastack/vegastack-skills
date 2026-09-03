@@ -137,7 +137,8 @@ export function renderStatsTable(summary: RepoSummary | OrgSummary | SkillsSumma
   if (!('repo' in runs)) return `${heading}\n${body}`
   const repo = runs
   const lead = repo.lead_time_h.p50 === null ? '—' : `${repo.lead_time_h.p50}h`
-  return `${heading}\n${body}\n\nlead time p50 ${lead} · issues touched ${repo.throughput.issues_touched} · closed ${repo.throughput.issues_closed} · rework: ${repo.rework.review_rounds} review, ${repo.rework.fix_rounds} fix, ${repo.rework.handbacks} handbacks`
+  const count = (value: number | null): string => (value === null ? '—' : String(value))
+  return `${heading}\n${body}\n\nlead time p50 ${lead} · issues touched ${repo.throughput.issues_touched} · closed ${repo.throughput.issues_closed} · rework: ${count(repo.rework.review_rounds)} review, ${count(repo.rework.fix_rounds)} fix, ${count(repo.rework.handbacks)} handbacks`
 }
 
 // --- reading the control room ------------------------------------------------------------

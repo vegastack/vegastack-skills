@@ -16,7 +16,7 @@ import { loadFactoryConfig, mergeRepoPolicy, stagePolicy, type FactoryConfig, ty
 import { buildLaunchPlan, type LaunchPlan } from './launch.ts'
 import { GhUnavailable, ghText } from './gh.ts'
 import { GIT_CREDENTIAL_ARGS } from './sync.ts'
-import { fromClaudeHeadless, fromCodexExec } from './stats/capture.ts'
+import { fromClaudeHeadless, fromCodexExec, reworkFromComments, type ReworkCounts } from './stats/capture.ts'
 import { appendRecord, takeSkillInvocations } from './stats/outbox.ts'
 import { pushOutbox, statsClonePath, type GitRunner, type PushResult } from './stats/push.ts'
 import { normalizeRecord, resolveStatsPolicy, type StatsPolicy, type StatsRecord } from './stats/record.ts'
@@ -739,12 +739,31 @@ function elapsedSeconds(startedAt: string, finishedAt: string): number | null {
   return Math.round((to - from) / 1000)
 }
 
+// The issue's rework, read after the run from its workflow comments. A read that fails leaves the
+// three fields null — a run whose rework could not be looked up is still a run, and the rollup
+// reports null rather than a zero nobody measured.
+export async function issueRework(gh: TickDeps['gh'], repo: string, issue: number): Promise<ReworkCounts> {
+  const comments = await ghJsonVia<{ body?: unknown }[]>(gh, ['api', `repos/${repo}/issues/${issue}/comments`, '--paginate'])
+  return reworkFromComments((Array.isArray(comments) ? comments : []).map(comment => (typeof comment?.body === 'string' ? comment.body : '')))
+}
+
 export async function recordRun(
   input: RunOutcomeInput,
-  deps: { home: string; hostname: string; policy: StatsPolicy },
+  deps: { home: string; hostname: string; policy: StatsPolicy; rework?: (repo: string, issue: number) => Promise<ReworkCounts | null> },
 ): Promise<string | null> {
   if (!deps.policy.enabled) return null
+  let rework: ReworkCounts | null = null
+  if (deps.rework && input.issue !== null) {
+    try {
+      rework = await deps.rework(input.repo, input.issue)
+    } catch {
+      rework = null
+    }
+  }
   const context = {
+    review_rounds: rework?.review_rounds ?? null,
+    fix_rounds: rework?.fix_rounds ?? null,
+    handbacks: rework?.handbacks ?? null,
     repo: input.repo,
     ts: input.finishedAt,
     stage: input.stage,
@@ -1331,7 +1350,7 @@ export async function runTick(
             effort: runStage.effort,
             human: policy.operators[0] ?? 'unknown',
             worktree: runTarget.path,
-          }, { home: config.home, hostname: hostname(), policy: statsPolicy })
+          }, { home: config.home, hostname: hostname(), policy: statsPolicy, rework: (repo, issue) => issueRework(gh, repo, issue) })
           // Never allowed to fail into the run: a control room that is unreachable costs the org a
           // delay, not a run.
           if (written) {

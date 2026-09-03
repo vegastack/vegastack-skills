@@ -58,3 +58,15 @@ test('the skills summary counts invocations by trigger and harness', () => {
     by_harness: { claude: 1, codex: 1 }, outcomes: { complete: 1, handback: 1 },
   })
 })
+
+test('rework never measured is null, never a confident zero, and rounds count once per issue', () => {
+  const bare = records.map((record) => ({ ...record, review_rounds: null, fix_rounds: null, handbacks: null }))
+  const unmeasured = rollupRepo(bare, timelines, options)
+  expect(unmeasured.rework).toEqual({ review_rounds: null, fix_rounds: null, handbacks: null, runs_with_rework: 0 })
+  expect(stableStringify(unmeasured)).toContain('"review_rounds":null')
+  // Two runs of one issue each read the same ledger: its rounds are the issue's, counted once.
+  const twice = rollupRepo([...records, { ...records[1]!, ts: '2026-09-05T10:00:00.000Z' }], timelines, options)
+  expect(twice.rework.review_rounds).toBe(3)
+  expect(twice.rework.fix_rounds).toBe(1)
+  expect(twice.rework.handbacks).toBe(1)
+})

@@ -61,3 +61,14 @@ test('a failed flush never throws into the tick', async () => {
   expect(result.ok).toBe(false)
   expect(await listOutbox(home)).toHaveLength(1)
 })
+
+test('the run record carries the issue\'s rework when the comments can be read, and null when they cannot', async () => {
+  await recordRun(input, {
+    home, hostname: 'mini', policy,
+    rework: async () => ({ review_rounds: 2, fix_rounds: 1, handbacks: 0 }),
+  })
+  expect((await listOutbox(home))[0]!.records[0]).toMatchObject({ review_rounds: 2, fix_rounds: 1, handbacks: 0 })
+  const blind = await mkdtemp(join(tmpdir(), 'vsk-dispatch-'))
+  await recordRun(input, { home: blind, hostname: 'mini', policy, rework: async () => { throw new Error('HTTP 403') } })
+  expect((await listOutbox(blind))[0]!.records[0]).toMatchObject({ review_rounds: null, fix_rounds: null, handbacks: null })
+})

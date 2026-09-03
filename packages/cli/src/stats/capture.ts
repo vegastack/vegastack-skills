@@ -178,6 +178,35 @@ export function fromCodexSessionEnd(hook: unknown, context: CaptureContext): Sta
   })
 }
 
+export interface ReworkCounts { review_rounds: number; fix_rounds: number; handbacks: number }
+
+const MARKER = /<!--\s*vsk:v1\s+([^>]*?)-->/
+const FIX_ROUND = /\bfix round (\d+)\/\d+/g
+
+// Rework lives in the issue's own workflow comments, located by marker and never by heading text
+// (dev-setup's conventions.md): the review comments' `round=` is the review count, the ledger's
+// `fix round R/3` lines are the fix count, and every hand-back comment is one hand-back. Comments
+// that were read and carry none of these measure zero rework; a fetch that failed is the caller's
+// null, so "no rework" and "could not look" never print the same.
+export function reworkFromComments(bodies: string[]): ReworkCounts {
+  const counts: ReworkCounts = { review_rounds: 0, fix_rounds: 0, handbacks: 0 }
+  for (const body of bodies) {
+    const marker = MARKER.exec(typeof body === 'string' ? body : '')
+    if (!marker) continue
+    const keys = marker[1] ?? ''
+    const type = /\btype=([a-z-]+)/.exec(keys)?.[1]
+    if (type === 'review') {
+      const round = Number(/\bround=(\d+)/.exec(keys)?.[1] ?? '1')
+      counts.review_rounds = Math.max(counts.review_rounds, round)
+    } else if (type === 'ledger') {
+      for (const match of body.matchAll(FIX_ROUND)) counts.fix_rounds = Math.max(counts.fix_rounds, Number(match[1]))
+    } else if (type === 'handback') {
+      counts.handbacks += 1
+    }
+  }
+  return counts
+}
+
 export type SkillHookSource = 'claude-post-tool' | 'claude-prompt-expansion' | 'codex-prompt'
 
 const MENTION = /\$([a-z0-9][a-z0-9-]*)/g

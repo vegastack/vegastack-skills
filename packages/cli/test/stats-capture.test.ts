@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   issueFromWorktree, fromClaudeHeadless, fromCodexExec,
-  fromClaudeSessionEnd, fromCodexSessionEnd, fromSkillHook,
+  fromClaudeSessionEnd, fromCodexSessionEnd, fromSkillHook, reworkFromComments,
 } from '../src/stats/capture.ts'
 
 const context = { repo: 'vegastack/vegafactory', ts: '2026-09-03T10:00:00.000Z', stage: 'implement' }
@@ -98,4 +98,17 @@ describe('fromSkillHook', () => {
   test('an unrecognised payload yields no invocations rather than a guess', () => {
     expect(fromSkillHook({}, 'claude-post-tool')).toEqual({ sessionId: null, invocations: [] })
   })
+})
+
+test('rework is read off the issue comments by marker: review rounds, the ledger fix rounds, hand-backs', () => {
+  const comments = [
+    '<!-- vsk:v1 type=ledger branch=feat/121-stats -->\n## Ledger — feat/121-stats\n- Task 4: fix round 2/3 (1 addressed)\n- Task 6: fix round 1/3 (2 addressed)',
+    '<!-- vsk:v1 type=review round=1 sha=abc1234 agent=codex verdict=needs-fixes -->\n## Review (round 1)',
+    '<!-- vsk:v1 type=review round=2 sha=def5678 agent=codex verdict=clean -->\n## Review (round 2)',
+    '<!-- vsk:v1 type=handback -->\n## Handed back',
+    'a plain comment mentioning fix round 9/3 and type=review in prose',
+  ]
+  expect(reworkFromComments(comments)).toEqual({ review_rounds: 2, fix_rounds: 2, handbacks: 1 })
+  // Comments that were fetched and carry no marker measure zero rework; that is a fact, not a gap.
+  expect(reworkFromComments(['hello'])).toEqual({ review_rounds: 0, fix_rounds: 0, handbacks: 0 })
 })
