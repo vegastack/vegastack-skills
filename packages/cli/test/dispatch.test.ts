@@ -182,6 +182,20 @@ describe('shipGuardWired', () => {
     expect(result.wired).toBe(true)
   })
 
+  test('given the repo and home, the preflight also wants the compiled policy file and names the sync command when it is missing', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'vsk-guard-home-'))
+    const repoPath = repoWith({ guard: true, settings: claudeSettings, harness: 'claude' })
+    const missing = await shipGuardWired(repoPath, 'claude', { home, repo: 'acme/app' })
+    expect(missing.wired).toBe(false)
+    expect(missing.detail).toContain('acme__app.json')
+    expect(missing.detail).toContain('vegafactory guard sync')
+    mkdirSync(join(home, '.vegastack/guard'), { recursive: true })
+    writeFileSync(join(home, '.vegastack/guard/acme__app.json'), JSON.stringify({ schemaVersion: 1, repo: 'acme/other' }))
+    expect((await shipGuardWired(repoPath, 'claude', { home, repo: 'acme/app' })).wired).toBe(false)
+    writeFileSync(join(home, '.vegastack/guard/acme__app.json'), JSON.stringify({ schemaVersion: 1, repo: 'acme/app', defaultBranch: 'main', gates: 3, environments: [], shipAsk: [] }))
+    expect((await shipGuardWired(repoPath, 'claude', { home, repo: 'acme/app' })).wired).toBe(true)
+  })
+
   test('a guard file that no harness config references is unwired, and says which file is missing it', async () => {
     const result = await shipGuardWired(repoWith({ guard: true, settings: JSON.stringify({ hooks: {} }), harness: 'claude' }), 'claude')
     expect(result.wired).toBe(false)

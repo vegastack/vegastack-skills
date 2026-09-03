@@ -79,7 +79,21 @@ function item(issue) {
   return `#${issue.number} ${issue.title}`
 }
 
-export function renderContext(status, { cwd, states }) {
+// One line when the compiled ship-guard policy no longer says what dev.md says, read from
+// `vegafactory guard sync --check`: exit 2 is stale or missing, anything else is silence.
+export function guardWarning(run) {
+  if (!run || run.status !== 2) return null
+  let reason = null
+  try {
+    const parsed = JSON.parse(run.stdout)
+    if (parsed && typeof parsed.reason === 'string' && parsed.reason) reason = parsed.reason
+  } catch {
+    reason = null
+  }
+  return `Ship-guard policy ${reason ? 'is stale: ' + reason : 'is missing or stale'} — run vegafactory guard sync.`
+}
+
+export function renderContext(status, { cwd, states, warnings = [] }) {
   const repo = (status && status.repo) || ''
   const board = (status && status.board) || {}
   const bucket = (name) => (Array.isArray(board[name]) ? board[name] : [])
@@ -87,7 +101,7 @@ export function renderContext(status, { cwd, states }) {
 
   const yours = [...needsOperator, ...forOperator].sort((a, b) => a.number - b.number)
   const inFlight = ready.length + working.length
-  if (yours.length === 0 && inFlight === 0) return [`${repo}: nothing on the board needs you.`]
+  if (yours.length === 0 && inFlight === 0) return [`${repo}: nothing on the board needs you.`, ...warnings.filter((line) => typeof line === 'string' && line)].slice(0, MAX_LINES)
 
   const lines = []
   if (yours.length > 0) {
@@ -95,6 +109,7 @@ export function renderContext(status, { cwd, states }) {
   } else {
     lines.push(repo + ': nothing needs you right now.')
   }
+  lines.push(...warnings.filter((line) => typeof line === 'string' && line))
   if (inFlight > 0) lines.push(ready.length + ' ready, ' + working.length + ' in flight.')
   const orphans = working.filter((issue) => issue.possiblyOrphaned)
   if (orphans.length > 0) lines.push(`Ledger quiet, so possibly orphaned: ${orphans.map(item).join(', ')}.`)
@@ -147,6 +162,16 @@ function readIfPresent(path) {
   }
 }
 
+function checkGuardPolicy() {
+  const bin = process.env.VSK_VEGAFACTORY || 'vegafactory'
+  try {
+    execFileSync(bin, ['guard', 'sync', '--check', '--json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10000 })
+    return null
+  } catch (error) {
+    return guardWarning({ status: error && typeof error.status === 'number' ? error.status : null, stdout: error && typeof error.stdout === 'string' ? error.stdout : '' })
+  }
+}
+
 function maybeSync() {
   try {
     const devMdText = readIfPresent(join(process.cwd(), '.vegastack/dev.md'))
@@ -185,7 +210,8 @@ function main(argv) {
   maybeSync()
 
   const states = ['needs-operator', 'needs-plan', 'ready', 'working', 'for-operator']
-  const lines = renderContext(status, { cwd: process.cwd(), states })
+  const warning = checkGuardPolicy()
+  const lines = renderContext(status, { cwd: process.cwd(), states, warnings: warning ? [warning] : [] })
   if (lines.length === 0) return
   const text = lines.join('\n')
   if (harness === 'codex') {

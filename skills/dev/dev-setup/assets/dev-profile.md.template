@@ -58,7 +58,7 @@ Line prefixes: `auto:` (agent just does it) · `ask:` (operator's word first) ·
 
 - {{environments and their targets; which the agent may touch}}
 - {{where secret NAMES are defined — values never appear in this file}}
-- Ship-guard policy lines, one per deployable target, read by `.vegastack/hooks/ship-guard.mjs`: `- <target>: <auto|ask> — <command pattern>` — for example `- preview: auto — wrangler deploy --env preview` and `- production: ask — wrangler deploy --env production`. The pattern runs to the end of the line and is matched as a literal prefix of a command segment; the longest match wins; a deploy or publish command matching no line is asked.
+- Ship-guard policy lines, one per deployable target: `- <target>: <auto|ask> — <command pattern>` — for example `- preview: auto — wrangler deploy --env preview` and `- production: ask — wrangler deploy --env production`. The pattern runs to the end of the line and is matched as a literal prefix of the resolved command (quotes, wrappers and a path on the first word stripped); the longest match wins; a deploy or publish command matching no line is asked. `.vegastack/hooks/ship-guard.mjs` never reads this file: `vegafactory guard sync` compiles these lines into `~/.vegastack/guard/<owner>__<repo>.json`, and until it runs every guarded command asks.
 
 ## Design
 

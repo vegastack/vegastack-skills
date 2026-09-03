@@ -11,6 +11,7 @@ import { selectSkills, type SkillEntry } from './selection.ts'
 import { resolveTarget, syncControlRoom } from './sync.ts'
 import { dashboardUsage, runDashboard } from './dashboard.ts'
 import { dispatchUsage, runDispatchCli } from './dispatch.ts'
+import { guardUsage, runGuardCli } from './guard.ts'
 import { runServiceCli, serviceUsage } from './service.ts'
 import { runStatsCli } from './stats/cli.ts'
 import { runStatusCli, statusUsage } from './status.ts'
@@ -19,7 +20,7 @@ import { runWorktree, worktreeUsage } from './worktree.ts'
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch' | 'service' | 'status' | 'stats' | 'dashboard'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch' | 'service' | 'status' | 'stats' | 'dashboard' | 'guard'
 // Top-level verbs the factory reserves; they are named in usage and refuse until they land.
 const reservedTopLevel: readonly string[] = [] as const
 const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
@@ -88,7 +89,13 @@ The dispatcher (headless runs in feature worktrees, on the operator's own machin
   vegafactory dispatch [--once] [--watch] [--dry-run] [--json] [--config PATH]
   Turns labels and rocket reactions on the repos named in ~/.vegastack/factory.json
   into headless runs. Dry run unless --once or --watch is given, and every repo
-  stays refused until its dev.md says dispatch: local and its ship guard is wired.
+  stays refused until its dev.md says dispatch: local, its ship guard is wired and
+  its compiled guard policy exists.
+
+  vegafactory guard sync [--check] [--dry-run] [--dev-md PATH] [--json]
+  Compiles dev.md's guard policy into ~/.vegastack/guard/<owner>__<repo>.json, the
+  one file the ship guard reads — outside every worktree. --check exits 2 when the
+  file is stale against dev.md; the SessionStart hook runs it to warn.
 
   vegafactory service <install|uninstall|status> [--write] [--json]
   Installs that dispatcher as a launchd LaunchAgent (macOS) or a systemd user unit
@@ -133,7 +140,7 @@ function parse(argv: string[]): Options {
       if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
       command = verb as Command
     }
-    else if (head === 'worktree' || head === 'dispatch' || head === 'service' || head === 'status' || head === 'stats' || head === 'dashboard') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
+    else if (head === 'worktree' || head === 'dispatch' || head === 'service' || head === 'status' || head === 'stats' || head === 'dashboard' || head === 'guard') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
     else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
     else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
     else if (head === 'sync' || head === 'help' || head === 'version') command = head
@@ -757,6 +764,12 @@ async function main() {
     const rest = options.rest ?? []
     if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(worktreeUsage())
     process.exitCode = await runWorktree(rest)
+    return
+  }
+  if (options.command === 'guard') {
+    const rest = options.rest ?? []
+    if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(guardUsage())
+    process.exitCode = await runGuardCli(rest)
     return
   }
   if (options.command === 'dispatch') {

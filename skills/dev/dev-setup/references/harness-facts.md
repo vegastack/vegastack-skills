@@ -78,7 +78,7 @@ Four hooks, one Node file each, written to `.vegastack/hooks/` and wired only on
 
 | Event | File | What it does | Harnesses |
 |---|---|---|---|
-| `PreToolUse` | `ship-guard.mjs` | Asks before a command the profile says needs the operator's word — a merge, a tag, a publish, a production deploy. | Claude Code · Codex · Hermes |
+| `PreToolUse` | `ship-guard.mjs` | Asks before a command the compiled policy says needs the operator's word — a merge, a tag, a publish, a production deploy, a force push. | Claude Code · Codex · Hermes |
 | `SessionStart` | `session-start.mjs` | Opens the session with the operator's queue and the worktree claim this checkout holds. | Claude Code · Codex |
 | `Stop` | `stop-heartbeat.mjs` | Asks a session holding a `working` claim to checkpoint its ledger before it stops. | Claude Code · Codex |
 | `Stop` | `decision-nudge.mjs` | Asks whether this session settled a directional choice worth a register line. | Claude Code · Codex |
@@ -120,7 +120,9 @@ hooks:
 
 Hermes has no Stop-style turn hook and no SessionStart event, so only the ship guard wires there; it reuses the Codex block shape because Hermes reads the same `{"decision":"block"}` contract. <!-- source: HERMES-HOOKS -->
 
-The ship guard's only source of policy is `.vegastack/dev.md` — the `## Environments` policy lines, the `gates:` knob and the `## Ship` runbook's `ask:` lines — so a project changes its guard by editing one file and never by editing the script. A command inside the shipping family that no line classifies resolves to ask, never allow.
+The ship guard's only source of policy is `~/.vegastack/guard/<owner>__<repo>.json`, keyed by the checkout's origin remote and compiled from `.vegastack/dev.md` — the `## Environments` policy lines, the `gates:` knob, the `repo:` line's default branch and the commands the `## Ship` runbook's `ask:` lines name in backticks — by `scripts/ship-policy.mjs` on the operator's yes, or by `vegafactory guard sync` afterwards. dev.md stays the declared intent a human edits; the JSON is the enforcement copy, outside every worktree, so no task edits it and no commit carries it. The guard never reads dev.md: a run under bypassed permissions could otherwise write `- prod: auto — gh pr merge` into its own worktree's profile and authorise the command it was about to run. With the policy file missing, unreadable, malformed or compiled for another repository, every guarded command asks with a reason naming the file and the sync command; a command whose text touches `.vegastack/guard` is itself on the always-ask list; the SessionStart hook runs `vegafactory guard sync --check` and says when the file is stale. The guard reads the command as a shell would — quotes, escapes, `;` `&&` `||` `|` `&`, subshells and `$(…)` — resolves wrappers (`sudo`, `env`, `nice`, `time`, `timeout`, `xargs`, `sh -c`, a path or an escape on the head) and git and gh global options, then matches the resolved argv: a push's destination in every refspec spelling (`HEAD:main`, `refs/heads/main`, `main:main`, `+main`), force and delete flags in any position, `gh api` on a merge URL, and a probe of text handed to another interpreter. A command inside the shipping family that nothing classifies resolves to ask, never allow.
+
+What the guard is not: it runs as the same user as the agent, so it can neither hide its policy from that user nor stop a run that reads credentials or reaches the network outside the shipping verbs. Branch protection and a read-only App token remain the walls; the guard closes the self-authorisation path, refuses what it cannot read, and makes tampering visible.
 
 The prose instruction in the AGENTS.md dev section is the portable base on both harnesses; these hooks are deterministic nudges on top, not a replacement.
 

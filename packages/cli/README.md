@@ -67,6 +67,7 @@ These operate on the vegafactory repository itself and do nothing useful in anot
 | `status` | The board, the worktrees, the last tick, the runs in flight, and the dispatcher's own health |
 | `stats` | Where agent time and money went — record, push, roll up, and print the org's own numbers |
 | `dashboard` | Start the local read-only dashboard over the control room's statistics and the live board |
+| `guard sync [--check]` | Compile `.vegastack/dev.md`'s guard policy into `~/.vegastack/guard/<owner>__<repo>.json`, the one file the ship guard reads; `--check` exits 2 when it is stale |
 
 ### Selecting what to act on
 
@@ -128,7 +129,7 @@ dispatch: local             # off | local
 Three refusals stand between a board and a dark build, and each one names itself in the output:
 
 - `dispatch: off`, no `dispatch:` line, or any other value — opting in is explicit, and the default is off.
-- The ship guard is not wired for the harness that would run: the guard script at `.vegastack/hooks/ship-guard.mjs` **and** the harness's hook config (`.claude/settings.json` or `.codex/hooks.json`) must both be there. Dark builds run under bypassed permissions; the guard is what bounds them.
+- The ship guard is not wired for the harness that would run: the guard script at `.vegastack/hooks/ship-guard.mjs`, the harness's hook config (`.claude/settings.json` or `.codex/hooks.json`) **and** the compiled policy at `~/.vegastack/guard/<owner>__<repo>.json` (written by `vegafactory guard sync`) must all be there. Dark builds run under bypassed permissions; the guard is what asks before a merge, tag, publish, deploy or force push. It is not a sandbox: it runs as you, so branch protection and a read-only token remain the walls, and it closes the path where a run edits its own worktree's dev.md into permission — the policy lives outside every worktree and touching it is itself an ask.
 - Another run holds the repo's lock, the issue is assigned, or `maxRuns` is already committed.
 
 Read the plan before anything ever runs — this is the default, and both `--once` and `--watch` are opt-ins:

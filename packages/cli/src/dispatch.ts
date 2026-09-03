@@ -311,10 +311,12 @@ function callsShipGuard(node: unknown): boolean {
   return false
 }
 
-// Wired means two files agree: the guard script exists, and this harness's hook config actually
-// calls it. Either one missing or unreadable is unwired — the whole point of the check is that a
-// repo whose guard state cannot be established never starts an unattended run.
-export async function shipGuardWired(repoPath: string, harness: Harness): Promise<{ wired: boolean; detail: string }> {
+// Wired means three files agree: the guard script exists, this harness's hook config actually
+// calls it, and — when the caller names the repo and home — the compiled policy the guard reads
+// exists for that repo. Any one missing or unreadable is unwired; the whole point of the check is
+// that a repo whose guard state cannot be established never starts an unattended run. The policy
+// lives in the home directory, not the checkout, so a run cannot edit it into permission.
+export async function shipGuardWired(repoPath: string, harness: Harness, policy?: { home: string; repo: string }): Promise<{ wired: boolean; detail: string }> {
   const guardPath = join(repoPath, '.vegastack', 'hooks', 'ship-guard.mjs')
   try {
     await readFile(guardPath, 'utf8')
@@ -340,7 +342,21 @@ export async function shipGuardWired(repoPath: string, harness: Harness): Promis
   if (!callsShipGuard(parsed)) {
     return { wired: false, detail: `${relative} has no hook command calling ship-guard.mjs` }
   }
-  return { wired: true, detail: `.vegastack/hooks/ship-guard.mjs wired for ${harness} in ${relative}` }
+  if (policy) {
+    const policyFile = join(policy.home, '.vegastack', 'guard', `${policy.repo.replace(/\//g, '__').replace(/[^A-Za-z0-9._-]/g, '-')}.json`)
+    const shown = `~/.vegastack/guard/${policyFile.split('/').pop()}`
+    let stored: unknown
+    try {
+      stored = JSON.parse(await readFile(policyFile, 'utf8'))
+    } catch {
+      return { wired: false, detail: `no compiled guard policy at ${shown} — run \`vegafactory guard sync\` in ${repoPath}` }
+    }
+    const record = stored && typeof stored === 'object' ? stored as { schemaVersion?: unknown; repo?: unknown } : {}
+    if (record.schemaVersion !== 1 || record.repo !== policy.repo) {
+      return { wired: false, detail: `the compiled guard policy at ${shown} is not for ${policy.repo} (schemaVersion 1) — run \`vegafactory guard sync\` in ${repoPath}` }
+    }
+  }
+  return { wired: true, detail: `.vegastack/hooks/ship-guard.mjs wired for ${harness} in ${relative}${policy ? ', policy compiled' : ''}` }
 }
 
 // Guards first, then the board, then the reactions, then the budget. Truncation is loud: every run
@@ -798,7 +814,7 @@ export interface TickDeps {
   issueBody: (repo: string, issue: number) => Promise<string>
   gh: (args: string[], options?: { cwd?: string; input?: string }) => Promise<string>
   now: () => Date
-  shipGuard: (repoPath: string, harness: Harness) => Promise<{ wired: boolean; detail: string }>
+  shipGuard: (repoPath: string, harness: Harness, policy?: { home: string; repo: string }) => Promise<{ wired: boolean; detail: string }>
   ensureWorktree: (repoPath: string, issue: number, title: string) => Promise<WorktreeTarget>
   execute: (run: PlannedRun, plan: LaunchPlan, config: FactoryConfig, options: { operator: string | null }) => Promise<RunOutcome>
   // Which parents could run their children at the same time. Reading a plan's independent groups
@@ -1087,7 +1103,7 @@ export async function runTick(
     }
     const lockPath = repoLockPath(config, entry.repo)
     const guards: GuardState = {
-      shipGuard: await shipGuard(entry.path, harness),
+      shipGuard: await shipGuard(entry.path, harness, { home: config.home, repo: entry.repo }),
       lock: await readLock(lockPath),
       activeRuns: 0,
     }

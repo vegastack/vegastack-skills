@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -11,6 +11,8 @@ function fixture({ dispatch = 'local', assignees = '[]' }: { dispatch?: string; 
   mkdirSync(join(repo, '.vegastack/hooks'), { recursive: true })
   mkdirSync(join(repo, '.claude'), { recursive: true })
   writeFileSync(join(repo, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+  mkdirSync(join(home, '.vegastack/guard'), { recursive: true })
+  writeFileSync(join(home, '.vegastack/guard/acme__app.json'), JSON.stringify({ schemaVersion: 1, repo: 'acme/app', defaultBranch: 'main', gates: 3, environments: [], shipAsk: [] }))
   writeFileSync(join(repo, '.claude/settings.json'), JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'node .vegastack/hooks/ship-guard.mjs' }] }] } }))
   writeFileSync(join(repo, '.vegastack/dev.md'), `## Knobs\n\ndispatch: ${dispatch}\noperators: mk\nplan: claude fable-5-1 high\nimplement: claude fable-5-1 high\n`)
   const config = join(home, 'factory.json')
@@ -52,6 +54,14 @@ describe('vegafactory dispatch', () => {
     const result = run(['dispatch', '--once', '--dry-run', '--json', '--config', config], { HOME: home, VSK_GH: gh })
     expect(result.exitCode).toBe(1)
     expect(JSON.parse(result.stdout).refusals[0].reason).toContain('assigned to ada')
+  })
+
+  test('a repo whose compiled ship-guard policy is missing is refused with the sync command', () => {
+    const { home, config, gh } = fixture()
+    rmSync(join(home, '.vegastack/guard/acme__app.json'))
+    const result = run(['dispatch', '--once', '--dry-run', '--json', '--config', config], { HOME: home, VSK_GH: gh })
+    expect(result.exitCode).toBe(1)
+    expect(JSON.parse(result.stdout).refusals[0].reason).toContain('vegafactory guard sync')
   })
 
   test('--once and --watch together is a usage error', () => {

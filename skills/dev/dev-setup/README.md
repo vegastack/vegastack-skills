@@ -30,10 +30,11 @@ npx @vegastack/vegafactory skills add --group dev --global
 | [references/ask-route.md](references/ask-route.md) | The ask route — tool or issue, the questions comment format, the reply grammar, re-asks |
 | [references/stack-playbooks.md](references/stack-playbooks.md) | Per-stack detection → draft mapping (npm/changesets, Node app, Flutter, Python, Go, generic), the guard library, and the greenfield playbook |
 | [scripts/questions.mjs](scripts/questions.mjs) | The ask round renderer, answer parser and route decision — authored here, duplicated into intake, plan and implement |
+| [scripts/ship-policy.mjs](scripts/ship-policy.mjs) | Compiles dev.md's Environments lines, gates knob and backticked Ship ask: commands into `~/.vegastack/guard/<owner>__<repo>.json`, the one file the ship guard reads; `--check` exits 2 when it is stale |
 | [assets/dev-profile.md.template](assets/dev-profile.md.template) | The `.vegastack/dev.md` starting point |
 | [assets/agents-section.md.template](assets/agents-section.md.template) | The marked AGENTS.md block this skill owns |
 | [assets/factory-board.yml.template](assets/factory-board.yml.template) | The board-mirror workflow dev-setup writes when the project has a project board |
-| [assets/hooks/ship-guard.mjs](assets/hooks/ship-guard.mjs) | Environment-aware PreToolUse ship guard: reads dev.md's Environments lines, gates knob and Ship ask: lines, asks on anything else in the shipping family |
+| [assets/hooks/ship-guard.mjs](assets/hooks/ship-guard.mjs) | PreToolUse ship guard: reads only the compiled policy outside the worktree, parses the command as a shell would, and asks on a merge, tag, publish, deploy, force push or anything in the shipping family it cannot classify |
 | [assets/hooks/session-start.mjs](assets/hooks/session-start.mjs) | SessionStart context: the operator's queue and the worktree claim this checkout holds |
 | [assets/hooks/stop-heartbeat.mjs](assets/hooks/stop-heartbeat.mjs) | Stop heartbeat: one nudge to checkpoint the ledger when a working claim's ledger is older than the session |
 | [assets/hooks/decision-nudge.mjs](assets/hooks/decision-nudge.mjs) | Stop decision nudge: asks whether this session settled a directional choice |
