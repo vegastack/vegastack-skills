@@ -5,6 +5,8 @@
 //
 // Refusals are first-class output, never silence: a repo that is skipped says why, in the JSON and
 // in the log, because "nothing happened" and "the ship guard is unwired" look identical otherwise.
+import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { Stage } from './config.ts'
 
 export interface BoardIssue {
@@ -84,4 +86,135 @@ export function planLabelRuns(input: { repo: string; needsPlan: BoardIssue[]; re
   for (const issue of input.needsPlan) consider(issue, 'plan')
   for (const issue of input.ready) consider(issue, 'implement')
   return { runs, refusals }
+}
+
+export interface Rocket {
+  issue: number
+  commentId: number
+  reactionId: number
+  login: string
+}
+
+export interface HandledRun {
+  repo: string
+  issue: number
+  commentId: number | null
+  reactionId: number | null
+}
+
+export interface DispatchState {
+  lastTick: Record<string, string>
+  handled: HandledRun[]
+}
+
+function handledKey(run: HandledRun): string {
+  return `${run.repo}#${run.issue}#${run.commentId ?? '-'}#${run.reactionId ?? '-'}`
+}
+
+// A rocket is a start signal from a named human, and nothing else is. Three things have to hold
+// before a corrections run exists: the issue is still `for-operator` (the board moved while the
+// tick was reading), the reacting login is in the repo's `operators:` list, and this exact reaction
+// id has never been handled. The last one is why the state file exists at all — reactions have no
+// "seen" bit, so a restart would otherwise re-run every correction ever asked for.
+export function planRocketRuns(input: {
+  repo: string
+  corrections: BoardIssue[]
+  rockets: Rocket[]
+  operators: string[]
+  state: DispatchState
+}): TickPlan {
+  const runs: PlannedRun[] = []
+  const refusals: Refusal[] = []
+  const handled = new Set(input.state.handled.map(handledKey))
+  const byIssue = new Map(input.corrections.map(issue => [issue.number, issue]))
+  const newestByIssue = new Map<number, Rocket>()
+
+  for (const rocket of input.rockets) {
+    if (handled.has(handledKey({ repo: input.repo, issue: rocket.issue, commentId: rocket.commentId, reactionId: rocket.reactionId }))) continue
+    const issue = byIssue.get(rocket.issue)
+    if (!issue) {
+      refusals.push({ repo: input.repo, issue: rocket.issue, reason: `#${rocket.issue} is no longer for-operator — the reaction is left for the next tick to re-read` })
+      continue
+    }
+    if (input.operators.length === 0) {
+      refusals.push({ repo: input.repo, issue: rocket.issue, reason: `#${rocket.issue} has a rocket but the profile lists no operators: — nobody is trusted to start a run` })
+      continue
+    }
+    if (!input.operators.includes(rocket.login)) {
+      refusals.push({ repo: input.repo, issue: rocket.issue, reason: `the rocket on #${rocket.issue} is from ${rocket.login}, who is not in operators: — only a listed operator starts a run` })
+      continue
+    }
+    const current = newestByIssue.get(rocket.issue)
+    // One run per issue: the newest reacted comment wins, because that is the correction the
+    // operator wrote last and it is the one the run is told to read from.
+    if (!current || rocket.commentId > current.commentId) newestByIssue.set(rocket.issue, rocket)
+  }
+
+  for (const rocket of newestByIssue.values()) {
+    const issue = byIssue.get(rocket.issue)!
+    runs.push({ repo: input.repo, issue: issue.number, title: issue.title, stage: 'corrections', commentId: rocket.commentId, reactionId: rocket.reactionId })
+  }
+  return { runs, refusals }
+}
+
+export function recordHandled(state: DispatchState, run: PlannedRun): DispatchState {
+  const entry: HandledRun = { repo: run.repo, issue: run.issue, commentId: run.commentId, reactionId: run.reactionId }
+  if (state.handled.some(existing => handledKey(existing) === handledKey(entry))) return state
+  return { lastTick: { ...state.lastTick }, handled: [...state.handled, entry] }
+}
+
+export function withLastTick(state: DispatchState, repo: string, at: string): DispatchState {
+  return { lastTick: { ...state.lastTick, [repo]: at }, handled: state.handled }
+}
+
+// A state file that cannot be read is an empty state on purpose: the worst it costs is one repeated
+// corrections run, while throwing would stop a service whose whole job is to keep ticking. The
+// write is the opposite — temp file plus rename, and a symlinked target is refused, because that
+// path is attacker-controlled the moment somebody else can write the home directory.
+export async function readState(path: string): Promise<DispatchState> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(await readFile(path, 'utf8'))
+  } catch {
+    return { lastTick: {}, handled: [] }
+  }
+  const document = (parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}) as Record<string, unknown>
+  const lastTick: Record<string, string> = {}
+  if (document.lastTick && typeof document.lastTick === 'object') {
+    for (const [repo, at] of Object.entries(document.lastTick as Record<string, unknown>)) {
+      if (typeof at === 'string') lastTick[repo] = at
+    }
+  }
+  const handled: HandledRun[] = []
+  if (Array.isArray(document.handled)) {
+    for (const entry of document.handled) {
+      const row = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>
+      if (typeof row.repo === 'string' && typeof row.issue === 'number') {
+        handled.push({
+          repo: row.repo,
+          issue: row.issue,
+          commentId: typeof row.commentId === 'number' ? row.commentId : null,
+          reactionId: typeof row.reactionId === 'number' ? row.reactionId : null,
+        })
+      }
+    }
+  }
+  return { lastTick, handled }
+}
+
+export async function writeState(path: string, state: DispatchState): Promise<void> {
+  await refuseSymlink(path)
+  await mkdir(dirname(path), { recursive: true })
+  const temp = `${path}.${process.pid}.tmp`
+  await writeFile(temp, `${JSON.stringify({ lastTick: state.lastTick, handled: state.handled }, null, 2)}\n`)
+  await rename(temp, path)
+}
+
+export async function refuseSymlink(path: string): Promise<void> {
+  try {
+    const stats = await lstat(path)
+    if (stats.isSymbolicLink()) throw new Error(`refusing to write ${path}: it is a symlink`)
+  } catch (error) {
+    if ((error as Error).message.startsWith('refusing to write')) throw error
+  }
 }

@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { planLabelRuns, searchQueries, type BoardIssue } from '../src/dispatch.ts'
+import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import {
+  planLabelRuns, planRocketRuns, readState, recordHandled, searchQueries, writeState,
+  type BoardIssue, type DispatchState, type Rocket,
+} from '../src/dispatch.ts'
 
 const issue = (number: number, labels: string[], assignees: string[] = []): BoardIssue =>
   ({ number, title: `feat: thing ${number}`, labels, assignees, updatedAt: '2026-09-03T10:00:00Z' })
@@ -40,5 +46,78 @@ describe('planLabelRuns', () => {
     const plan = planLabelRuns({ repo: 'acme/app', needsPlan: [], ready: [issue(11, ['ready', 'epic'])] })
     expect(plan.runs).toEqual([])
     expect(plan.refusals[0]!.reason).toContain('epic')
+  })
+})
+
+const empty: DispatchState = { lastTick: {}, handled: [] }
+const forOperator: BoardIssue = { number: 12, title: 'feat: thing', labels: ['for-operator'], assignees: ['mk'], updatedAt: '2026-09-03T10:00:00Z' }
+const rocket = (login: string): Rocket => ({ issue: 12, commentId: 555, reactionId: 999, login })
+
+describe('planRocketRuns', () => {
+  test('a rocket from a listed operator starts one corrections run carrying the reacted comment', () => {
+    const plan = planRocketRuns({ repo: 'acme/app', corrections: [forOperator], rockets: [rocket('mk')], operators: ['mk'], state: empty })
+    expect(plan.runs).toHaveLength(1)
+    expect(plan.runs[0]!.stage).toBe('corrections')
+    expect(plan.runs[0]!.commentId).toBe(555)
+    expect(plan.runs[0]!.reactionId).toBe(999)
+  })
+
+  test('a rocket from someone who is not an operator is refused, naming the login', () => {
+    const plan = planRocketRuns({ repo: 'acme/app', corrections: [forOperator], rockets: [rocket('drive-by')], operators: ['mk'], state: empty })
+    expect(plan.runs).toEqual([])
+    expect(plan.refusals[0]!.reason).toContain('drive-by')
+  })
+
+  test('a reaction already in the state file never launches twice', () => {
+    const state = recordHandled(empty, { repo: 'acme/app', issue: 12, title: 't', stage: 'corrections', commentId: 555, reactionId: 999 })
+    const plan = planRocketRuns({ repo: 'acme/app', corrections: [forOperator], rockets: [rocket('mk')], operators: ['mk'], state })
+    expect(plan.runs).toEqual([])
+    expect(plan.refusals).toEqual([])
+  })
+
+  test('two rockets on different comments of one issue produce one run, the newest comment', () => {
+    const rockets: Rocket[] = [rocket('mk'), { issue: 12, commentId: 777, reactionId: 1001, login: 'mk' }]
+    const plan = planRocketRuns({ repo: 'acme/app', corrections: [forOperator], rockets, operators: ['mk'], state: empty })
+    expect(plan.runs).toHaveLength(1)
+    expect(plan.runs[0]!.commentId).toBe(777)
+  })
+
+  test('a rocket on an issue that is no longer for-operator is refused, not run', () => {
+    const plan = planRocketRuns({ repo: 'acme/app', corrections: [], rockets: [rocket('mk')], operators: ['mk'], state: empty })
+    expect(plan.runs).toEqual([])
+    expect(plan.refusals[0]!.reason).toContain('for-operator')
+  })
+
+  test('no operators listed means no rocket is trusted', () => {
+    const plan = planRocketRuns({ repo: 'acme/app', corrections: [forOperator], rockets: [rocket('mk')], operators: [], state: empty })
+    expect(plan.runs).toEqual([])
+    expect(plan.refusals[0]!.reason).toContain('operators:')
+  })
+})
+
+describe('readState and writeState', () => {
+  test('a round trip keeps the handled runs and the last tick', async () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'vsk-state-')), 'state.json')
+    await writeState(path, { lastTick: { 'acme/app': '2026-09-03T10:00:00Z' }, handled: [{ repo: 'acme/app', issue: 12, commentId: 555, reactionId: 999 }] })
+    const back = await readState(path)
+    expect(back.lastTick['acme/app']).toBe('2026-09-03T10:00:00Z')
+    expect(back.handled[0]!.reactionId).toBe(999)
+  })
+
+  test('a missing or unparseable state file is an empty state, never a throw', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-state-'))
+    expect(await readState(join(dir, 'absent.json'))).toEqual({ lastTick: {}, handled: [] })
+    const broken = join(dir, 'broken.json')
+    writeFileSync(broken, '{ not json')
+    expect(await readState(broken)).toEqual({ lastTick: {}, handled: [] })
+  })
+
+  test('a symlinked state path is refused rather than followed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vsk-state-'))
+    const real = join(dir, 'real.json')
+    writeFileSync(real, '{}')
+    const link = join(dir, 'link.json')
+    symlinkSync(real, link)
+    await expect(writeState(link, empty)).rejects.toThrow(/symlink/)
   })
 })
