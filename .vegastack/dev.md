@@ -19,7 +19,7 @@ skillspector-update: auto   # off | notify | auto — the CLI self-installs and 
 skill-scan: packages/cli/skill   # the BUILT bundle — authored skills/ carries unpackaged tests/ fixtures that are deliberately adversarial and score higher than anything shipped; suppressions in .vegastack/skillspector-baseline.json
 merge: rebase               # meaningful commits, linear history
 branch: <type>/<slug>       # type: feat | fix | docs | chore | refactor — the only place this list lives
-worktree-include: none      # nothing gitignored is needed by a fresh checkout here; `bun install` (the setup command) rebuilds node_modules
+worktree-include: .claude/settings.json      # the Claude hook wiring is gitignored, so each worktree needs its own copy; .codex/hooks.json is tracked and needs none
 worktree-retention: 14d     # a parked worktree survives this long with no session, measured from the later of its last commit and its last ledger edit
 labels: needs-operator needs-plan ready working for-operator risky research quick-build full-plan epic   # epic label marks map parents (org has no native Epic issue type)
 board: none                 # no project board yet; the operator's project commands are in vegafactory-setup's references/control-room.md
