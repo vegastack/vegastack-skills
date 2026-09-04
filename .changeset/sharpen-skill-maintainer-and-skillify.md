@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 skill-maintainer and skillify are sharpened against each other: skill-maintainer owns the standards and the repo and release operations, skillify owns the procedure and cites those standards instead of restating them.

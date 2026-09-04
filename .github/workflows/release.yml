@@ -1,19 +1,19 @@
-# Release: publish @vegastack/skills to npm and attach an SBOM to the GitHub release.
+# Release: publish @vegastack/vegafactory to npm and attach an SBOM to the GitHub release.
 #
 # ONE-TIME BOOTSTRAP (read before the first release):
 #
 #   Trusted publishing cannot be configured for a package that does not exist on
-#   the registry yet. The FIRST-EVER publish of @vegastack/skills must be done
+#   the registry yet. The FIRST-EVER publish of @vegastack/vegafactory must be done
 #   manually with a short-lived granular access token:
 #
 #     1. On npmjs.com create a granular token scoped to the @vegastack org,
 #        packages: read/write, short expiry.
 #     2. Locally: cd packages/cli && npm publish --access public
 #        (prepack builds via Bun; make sure `bun run check` passes first).
-#     3. On npmjs.com, open the package settings for @vegastack/skills and
+#     3. On npmjs.com, open the package settings for @vegastack/vegafactory and
 #        configure a Trusted Publisher:
 #          - provider:  GitHub Actions
-#          - repository: vegastack/vegastack-skills
+#          - repository: vegastack/vegafactory
 #          - workflow:  release.yml
 #     4. Revoke the bootstrap token.
 #
@@ -45,10 +45,15 @@ jobs:
     # re-confirmed on a fresh run 01-09-2026). Self-hosted minutes are unmetered and do dispatch.
     #
     # Targets the repo-level macOS runners registered on the operator's machine
-    # (`vsk-runner-mac-mk-1/2`, label `vsk-runners-mac`). The org's `vsk-runners-mac-mini` and
-    # `vsk-runners-linux` groups are NOT reachable from this repository — a probe on 01-09-2026
-    # left all three org label sets queued indefinitely with `runner: null`, which is how a
-    # missing runner-group grant presents (it queues forever rather than erroring).
+    # (`vsk-runner-mac-mk-1/2`, label `vsk-runners-mac`). The always-on Mac mini is the intended
+    # host and is not registered yet (#119): its org runner group is `vsk-runners-mac-mini`, its
+    # runner account is a different macOS user from the dispatcher account, and provisioning is
+    # the control room's `onboarding/dispatcher-box.md`. Until the operator grants that group to
+    # this repository and it lists an online runner, it is not reachable from here — a probe on
+    # 01-09-2026 left all three org label sets queued indefinitely with `runner: null`, which is
+    # how a missing runner-group grant presents (it queues forever rather than erroring). The
+    # switch is the same two lines as in ci.yml, and it does NOT restore provenance: npm accepts
+    # a provenance bundle only from a GitHub-hosted runner.
     #
     # macOS means BSD userland, which the steps below were not written for. Audited before use:
     # the changelog-extraction `awk` is pure POSIX, `grep -q '[^[:space:]]'` uses a POSIX class,
@@ -73,12 +78,20 @@ jobs:
 
       # A v0.2.0 tag on a tree whose package.json still says 0.1.0 must fail here,
       # not publish the wrong version.
-      - name: Verify tag matches package version
+      - name: Verify both packages carry the tag version
         run: |
           set -euo pipefail
           PKG_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          DASH_VERSION=$(node -p "require('./packages/dashboard/package.json').version")
           if [ "v$PKG_VERSION" != "$GITHUB_REF_NAME" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match packages/cli/package.json version $PKG_VERSION"
+            exit 1
+          fi
+          # `vegafactory dashboard` fetches @vegastack/vegafactory-dashboard at the CLI's own
+          # version. Publishing a CLI whose dashboard version differs would ship a verb whose
+          # first-use fetch resolves nothing.
+          if [ "$DASH_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::packages/dashboard is at $DASH_VERSION but packages/cli is at $PKG_VERSION"
             exit 1
           fi
 
@@ -112,8 +125,8 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./package.json').version")
-          if npm view "@vegastack/skills@$VERSION" version >/dev/null 2>&1; then
-            echo "@vegastack/skills@$VERSION is already on the registry; skipping publish."
+          if npm view "@vegastack/vegafactory@$VERSION" version >/dev/null 2>&1; then
+            echo "@vegastack/vegafactory@$VERSION is already on the registry; skipping publish."
           else
             # TEMPORARY (0.16.1), revert with the runs-on change above. npm refuses a
             # provenance bundle built anywhere but a GitHub-hosted runner, and hosted runners
@@ -129,10 +142,28 @@ jobs:
       # Bun's node_modules/.bun layout, and --package-lock-only only needs
       # registry metadata, so clear the installed tree first (publish and check
       # already ran; nothing after this step needs node_modules).
+      # The dashboard is the second published package: `vegafactory dashboard` fetches it at
+      # the CLI's own version on first use, so the two must reach the registry together. Its
+      # prepack runs `next build && assemble`, which is what fills dist-standalone.
+      - name: Publish dashboard to npm (trusted publishing, no token)
+        working-directory: packages/dashboard
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@vegastack/vegafactory-dashboard@$VERSION" version >/dev/null 2>&1; then
+            echo "@vegastack/vegafactory-dashboard@$VERSION is already on the registry; skipping publish."
+          else
+            # TEMPORARY, with the same reason and the same revert as the CLI publish above:
+            # npm refuses a provenance bundle built anywhere but a GitHub-hosted runner, and
+            # hosted runners are billing-locked (#57). Auth is unaffected — still token-free
+            # trusted publishing over OIDC.
+            npm publish --access public --no-provenance
+          fi
+
       - name: Generate SBOM (CycloneDX)
         run: |
           set -euo pipefail
-          rm -rf node_modules packages/cli/node_modules
+          rm -rf node_modules packages/cli/node_modules packages/dashboard/node_modules
           npm install --no-audit --no-fund
           npm sbom --sbom-format cyclonedx > sbom.json
 

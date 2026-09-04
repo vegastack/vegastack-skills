@@ -1,0 +1,133 @@
+# Board mirror — the five state labels drive the project board's Status field.
+#
+# One way only: this workflow reads labels and writes Status. Nothing reads the board.
+# A card dragged on the board is cosmetic until the next label change overwrites it.
+#
+# Needs the VegaFactory App (org variable VEGAFACTORY_APP_ID, org secret
+# VEGAFACTORY_APP_PRIVATE_KEY) because GITHUB_TOKEN cannot write Projects, and gh 2.97.0
+# or newer on the runner for `--field Status --value <name>`.
+name: Board mirror
+
+on:
+  issues:
+    types: [labeled, unlabeled, opened, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: board-mirror-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: [self-hosted, vsk-runners-mac]
+    steps:
+      - name: Read the profile
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: ".vegastack/dev.md"
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve the board and the state label
+        id: resolve
+        env:
+          PROFILE: ".vegastack/dev.md"
+          STATE_LABELS: "needs-operator,needs-plan,ready,working,for-operator"
+          LABELS: "${{ join(github.event.issue.labels.*.name, ',') }}"
+          APP_ID: "${{ vars.VEGAFACTORY_APP_ID }}"
+        run: |
+          set -eu
+
+          if [ ! -f "$PROFILE" ]; then
+            echo "board mirror: skipped - no such file $PROFILE in this repo"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          board=$(sed -n 's/^board:[[:space:]]*\([^[:space:]#]*\).*/\1/p' "$PROFILE" | head -1)
+          if [ -z "$board" ] || [ "$board" = "none" ]; then
+            echo "board mirror: skipped - $PROFILE carries no board number"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "${APP_ID:-}" ]; then
+            echo "board mirror: skipped - no VEGAFACTORY_APP_ID variable; the factory App is not installed for this org"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          have=$(gh --version | sed -n '1s/^gh version \([0-9][0-9.]*\).*/\1/p')
+          have_n=$(awk -F. '{ printf "%d", $1 * 1000000 + $2 * 1000 + $3 }' <<<"$have")
+          if [ "${have_n:-0}" -lt 2097000 ]; then
+            echo "::error::board mirror needs gh 2.97.0 or newer for name-based project fields; this runner has ${have:-unknown}"
+            exit 1
+          fi
+
+          found=''
+          count=0
+          IFS=','
+          for label in $LABELS; do
+            for state in $STATE_LABELS; do
+              [ "$label" = "$state" ] || continue
+              found=$label
+              count=$((count + 1))
+            done
+          done
+          unset IFS
+
+          if [ "$count" -eq 0 ]; then
+            echo "board mirror: skipped - no state label on this issue"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$count" -gt 1 ]; then
+            echo "board mirror: ambiguous, skipped - $count state labels present ($LABELS)"
+            echo 'decision=skip' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "board mirror: $found -> Status on project $board"
+          { echo 'decision=sync'; echo "board=$board"; echo "status=$found"; } >> "$GITHUB_OUTPUT"
+
+      - name: Mint the App token
+        id: token
+        if: steps.resolve.outputs.decision == 'sync'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: "${{ vars.VEGAFACTORY_APP_ID }}"
+          private-key: "${{ secrets.VEGAFACTORY_APP_PRIVATE_KEY }}"
+          # owner resolves the org installation; repositories narrows the token to this one
+          # repository — without it the token reaches every repository the installation covers.
+          owner: "${{ github.repository_owner }}"
+          repositories: "${{ github.event.repository.name }}"
+
+      - name: Write Status on the board
+        id: mirror
+        if: steps.resolve.outputs.decision == 'sync'
+        env:
+          GH_TOKEN: "${{ steps.token.outputs.token }}"
+          OWNER: "${{ github.repository_owner }}"
+          BOARD: "${{ steps.resolve.outputs.board }}"
+          STATUS: "${{ steps.resolve.outputs.status }}"
+          ISSUE_URL: "${{ github.event.issue.html_url }}"
+        run: |
+          set -eu
+          err=$(mktemp)
+          if gh project item-edit "$BOARD" --owner "$OWNER" --url "$ISSUE_URL" --field Status --value "$STATUS" 2>"$err"; then
+            echo "board mirror: Status=$STATUS on project $BOARD"
+            exit 0
+          fi
+          cat "$err" >&2
+          # Only the one failure that means "not on the board yet" earns an item-add; gh names
+          # it ("<url> is not an item in project <n>; add it first with `gh project item-add`").
+          # A permission, option or transport error is reported as itself and stops here.
+          if ! grep -q 'is not an item in project' "$err"; then
+            echo "::error::board mirror: item-edit failed for a reason other than a missing item (the message above) - not adding, not retrying"
+            exit 1
+          fi
+          echo "board mirror: item not on project $BOARD yet - adding it, then retrying once"
+          gh project item-add "$BOARD" --owner "$OWNER" --url "$ISSUE_URL"
+          gh project item-edit "$BOARD" --owner "$OWNER" --url "$ISSUE_URL" --field Status --value "$STATUS"
+          echo "board mirror: Status=$STATUS on project $BOARD"

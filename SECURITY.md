@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Report vulnerabilities privately via [GitHub Security Advisories](https://github.com/vegastack/vegastack-skills/security/advisories/new) on this repository. Do not open a public issue for security problems.
+Report vulnerabilities privately via [GitHub Security Advisories](https://github.com/vegastack/vegafactory/security/advisories/new) on this repository. Do not open a public issue for security problems.
 
 We aim to acknowledge reports within 5 business days.
 
@@ -12,11 +12,11 @@ We follow a 90-day coordinated disclosure window: unless we agree otherwise with
 
 ## Supported versions
 
-Only the latest published minor of `@vegastack/skills` receives security fixes.
+Only the latest published minor of `@vegastack/vegafactory` receives security fixes.
 
 | Version | Supported |
 |---|---|
-| latest minor (see [npm](https://www.npmjs.com/package/@vegastack/skills)) | yes |
+| latest minor (see [npm](https://www.npmjs.com/package/@vegastack/vegafactory)) | yes |
 | older versions | no — upgrade |
 
 ## Scope notes

@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Cut a release of @vegastack/skills — everything merged to main since v0.18.0. Three changesets are pending under `.changeset/` (two minor, one patch). dev.md's Ship runbook: `auto: bunx changeset version && bun install → commit chore: release @vegastack/skills <version> on chore/release-<version> → open its PR`, `ask: merge the release PR`, `guard: changelog entry exists for the new version`, `guard: the built bundle carries no unsuppressed HIGH/CRITICAL skill finding`, `auto: tag and push v<version>`, `auto: confirm npm view`. Main is branch-protected.",
+      "prompt": "Cut a release of @vegastack/vegafactory — everything merged to main since v0.18.0. Three changesets are pending under `.changeset/` (two minor, one patch). dev.md's Ship runbook: `auto: bunx changeset version && bun install → commit chore: release @vegastack/vegafactory <version> on chore/release-<version> → open its PR`, `ask: merge the release PR`, `guard: changelog entry exists for the new version`, `guard: the built bundle carries no unsuppressed HIGH/CRITICAL skill finding`, `auto: tag and push v<version>`, `auto: confirm npm view`. Main is branch-protected.",
       "expected_output": "The runbook is followed in order: the version bump lands on a release branch with its PR, the release-PR merge is put to the operator as a question, both guards run at their positions, and no tag is pushed before the operator answers.",
       "files": [],
       "assertions": [

@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 Every skill now carries agentskills.io eval cases, and skillify names `claude plugin eval` as the Claude-side runner beside the subagent procedure.

@@ -210,7 +210,7 @@ describe('scaffold-skill runs', () => {
       expect(readme).toContain('| [demo-skill](skills/demo-skill/) |')
       expect(readme.indexOf('demo-skill')).toBeGreaterThan(readme.indexOf('architect'))
       expect(readme).toContain('After the table.')
-      expect(await readFile(join(repo, '.changeset/add-demo-skill.md'), 'utf8')).toContain('"@vegastack/skills": minor')
+      expect(await readFile(join(repo, '.changeset/add-demo-skill.md'), 'utf8')).toContain('"@vegastack/vegafactory": minor')
     } finally {
       await rm(repo, { recursive: true, force: true })
     }
@@ -385,11 +385,11 @@ describe('scaffold-skill groups', () => {
     try {
       await scaffoldSkill({ name: 'demo-skill', dir: grouped, group: 'fam', write: true })
       const readme = await readFile(join(grouped, 'skills/fam/demo-skill/README.md'), 'utf8')
-      expect(readme).toContain('npx @vegastack/skills add demo-skill --global')
-      expect(readme).toContain('npx @vegastack/skills add --group fam --global')
+      expect(readme).toContain('npx @vegastack/vegafactory skills add demo-skill --global')
+      expect(readme).toContain('npx @vegastack/vegafactory skills add --group fam --global')
       // The family install is an alternative, so it gets its own fence: sharing one with the
       // single-skill command would run both on a paste.
-      expect(readme).toContain('```sh\nnpx @vegastack/skills add --group fam --global\n```')
+      expect(readme).toContain('```sh\nnpx @vegastack/vegafactory skills add --group fam --global\n```')
       // A literal placeholder would ship a command that always errors.
       expect(readme).not.toContain('<group>')
       expect(readme).not.toContain('{{group')
@@ -403,7 +403,7 @@ describe('scaffold-skill groups', () => {
       const readme = await readFile(join(flat, 'skills/demo-skill/README.md'), 'utf8')
       // Ungrouped: no group line at all, rather than one naming a group that does not apply.
       expect(readme).not.toContain('--group')
-      expect(readme).toContain('npx @vegastack/skills add demo-skill --global')
+      expect(readme).toContain('npx @vegastack/vegafactory skills add demo-skill --global')
       expect(readme).not.toContain('{{groupInstallBlock}}')
     } finally {
       await rm(flat, { recursive: true, force: true })

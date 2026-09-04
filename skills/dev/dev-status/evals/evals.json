@@ -1,0 +1,82 @@
+{
+  "skill_name": "dev-status",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "status — here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached). Render the board.",
+      "expected_output": "The operator's board: every issue as a linked title with its state and age, sections with zero entries omitted, the working issue whose ledger has been silent 13 hours called out as possibly orphaned with the reclaim path, the open PR with its check state, and the pending decision with the issue it records at.",
+      "files": [
+        "evals/files/status.json"
+      ],
+      "assertions": [
+        "Every issue appears as a linked title; no bare issue number appears as an identifier",
+        "Issue 27 is listed as possibly orphaned with the ledger silence in hours and the `reclaim.mjs` path named",
+        "Sections with zero entries are omitted from the render",
+        "The pending decision on issue 39 is shown with a link to the issue"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "anything stale?",
+      "expected_output": "A short answer taken from the data: which issues have waited longest in each state, in hours or days as the data gives them, and nothing invented beyond it.",
+      "files": [
+        "evals/files/status.json"
+      ],
+      "assertions": [
+        "Every staleness figure is stated in hours or days and matches the attached data",
+        "No issue, PR, or decision that is absent from the data is mentioned",
+        "The answer is a short list, not the full board"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "status for vegastack/billing — note: `status.mjs` just exited 2 with `gh: not logged in to any hosts`.",
+      "expected_output": "No board: the verification gap is named plainly (the script could not read GitHub), the fix is named (authenticate gh), and nothing is guessed.",
+      "files": [],
+      "assertions": [
+        "No board is rendered",
+        "The output names the exit-2 reason and what would resolve it",
+        "No issue state is guessed or recalled from memory"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "what needs me? — here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached).",
+      "expected_output": "The Needs-you queue built from the script's needsYou array — issue 39, for-operator, with its age and the word needed — then an Unowned section naming issue 44 as a human-state issue nobody is assigned, with the `gh issue edit 44 --add-assignee kmanojkumar` line that fixes it. Nothing outside the attached data; `needs-plan` and `ready` are agent states and never appear in either section.",
+      "files": [
+        "evals/files/status.json"
+      ],
+      "assertions": [
+        "Only issues present in the data's `needsYou` array appear under Needs you — issue 39 and nothing else; issue 44 is not among them",
+        "Issue 44 is listed separately as unowned with a `gh issue edit` line naming its resolved operator kmanojkumar",
+        "No issue, PR, or decision that is absent from the attached data is mentioned"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "status — here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached); its controlRoom is synced and its knobs array has one entry.",
+      "expected_output": "The board plus one control-room line naming the knob (review), this repo's value (cross-agent-risky), the control room's value (cross-agent) and the two shas (a1b2c3d recorded, e4f5a6b in the clone) — labelled a proposal the operator decides, with no claim that .vegastack/dev.md was edited.",
+      "files": [
+        "evals/files/status.json"
+      ],
+      "assertions": [
+        "The control-room line names the knob review with both values, cross-agent-risky and cross-agent, and is labelled a proposal",
+        "Both shas from the data, a1b2c3d and e4f5a6b, appear on that line",
+        "The report does not claim to have changed .vegastack/dev.md"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "status — here is the output of `status.mjs --orphan-hours 6 --json` for vegastack/billing (attached); its controlRoom is not available on this machine.",
+      "expected_output": "The board plus one control-room line saying the control room is not synced and naming `vegafactory sync` as the fix — never a claim that the knobs agree, because nothing was compared.",
+      "files": [
+        "evals/files/status-unsynced.json"
+      ],
+      "assertions": [
+        "The control-room line reports the room as not synced and names `vegafactory sync`",
+        "No knob is reported as agreeing or drifting, because the data carries no knobs array",
+        "The report does not claim to have changed .vegastack/dev.md"
+      ]
+    }
+  ]
+}

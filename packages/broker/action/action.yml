@@ -1,0 +1,60 @@
+name: VegaStack Factory token
+description: Exchange this job's GitHub Actions OIDC token for a one-repository VegaStack Factory token (issues + projects, 1 hour).
+author: VegaStack
+
+# The calling job MUST request an OIDC token, or `core.getIDToken` has nothing to fetch:
+#
+#   permissions:
+#     id-token: write
+#     contents: read
+#
+# The broker derives the repository from the verified OIDC claims, so this action sends no body
+# and there is no repository input to get wrong.
+
+branding:
+  icon: key
+  color: purple
+
+inputs:
+  endpoint:
+    description: The broker endpoint to exchange the OIDC token at.
+    required: false
+    default: https://factory-token.vegastack.com/token
+  audience:
+    description: The OIDC audience the broker verifies.
+    required: false
+    default: vegastack-factory
+
+outputs:
+  token:
+    description: A one-repository installation token, valid for one hour, capped to issues + projects.
+    value: ${{ steps.mint.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - id: mint
+      uses: actions/github-script@v8
+      env:
+        BROKER_ENDPOINT: ${{ inputs.endpoint }}
+        BROKER_AUDIENCE: ${{ inputs.audience }}
+      with:
+        script: |
+          const endpoint = process.env.BROKER_ENDPOINT
+          const audience = process.env.BROKER_AUDIENCE
+          const idToken = await core.getIDToken(audience)
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { authorization: `Bearer ${idToken}`, accept: 'application/json' },
+          })
+          const body = await response.json().catch(() => ({}))
+          if (!response.ok) {
+            core.setFailed(`the token broker refused this request: HTTP ${response.status} (${body.reason ?? body.error ?? 'no reason given'})`)
+            return
+          }
+          // core.setSecret emits the `::add-mask::` workflow command, so the token is redacted in
+          // every log line of this job before it is ever set as an output.
+          core.setSecret(body.token)
+          core.setOutput('token', body.token)
+          core.setOutput('expires_at', body.expires_at)
+          core.info(`minted a token for ${body.repository}, expiring ${body.expires_at}`)

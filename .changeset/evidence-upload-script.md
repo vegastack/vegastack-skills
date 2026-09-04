@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 dev-implement uploads UI evidence through a dry-run-by-default script and keeps its changelog mechanics and dev-review's scanner-provisioning detail out of the skill bodies.

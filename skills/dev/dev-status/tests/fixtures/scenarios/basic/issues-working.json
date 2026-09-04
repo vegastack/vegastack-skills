@@ -1,0 +1,23 @@
+[
+  {
+    "number": 7,
+    "title": "feat: widget frobber",
+    "url": "https://x/7",
+    "updatedAt": "2026-08-29T10:00:00Z",
+    "labels": [
+      {
+        "name": "working"
+      },
+      {
+        "name": "quick-build"
+      },
+      {
+        "name": "risky"
+      }
+    ],
+    "assignees": [],
+    "author": {
+      "login": "kmanojkumar"
+    }
+  }
+]

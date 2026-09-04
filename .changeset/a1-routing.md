@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": patch
+"@vegastack/vegafactory": patch
 ---
 
 A feature request typed in chat now routes to dev-intake, and a trivial fix stays on dev-implement's direct path, on Claude Code and Codex alike.

@@ -1,0 +1,334 @@
+// The tick as a whole, with the network and the harness stubbed: what runTick asks gh for, what it
+// launches, and what it writes to the state file. The pure decision functions have their own tests
+// in dispatch.test.ts; these cover the seams between them, which is where the review found the
+// silent drops.
+import { describe, expect, test } from 'bun:test'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fetchRockets, readLock, readState, repoLockPath, runOnce, runTick, settleRuns, watch, writeState, type PlannedRun, type RunOutcome, type RunTracker, type TickDeps } from '../src/dispatch.ts'
+import { parseFactoryConfig } from '../src/config.ts'
+
+const CLAUDE_WIRING = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'node .vegastack/hooks/ship-guard.mjs --harness claude' }] }] } })
+const CODEX_WIRING = JSON.stringify({ hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'node .vegastack/hooks/ship-guard.mjs --harness codex' }] }] } })
+
+interface FixtureOptions {
+  repos?: string[]
+  devMd?: string
+  maxRuns?: number
+}
+
+// One home with one or more opted-in repos, each wired for Claude in its main checkout.
+function fixture(options: FixtureOptions = {}) {
+  const home = mkdtempSync(join(tmpdir(), 'vf-tick-'))
+  const names = options.repos ?? ['app']
+  const devMd = options.devMd ?? 'dispatch: local\noperators: mk\nplan: claude fable-5-1 high\nimplement: claude fable-5-1 high\n'
+  const repos = names.map(name => {
+    const path = join(home, name)
+    mkdirSync(join(path, '.vegastack/hooks'), { recursive: true })
+    mkdirSync(join(path, '.claude'), { recursive: true })
+    writeFileSync(join(path, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+    writeFileSync(join(path, '.claude/settings.json'), CLAUDE_WIRING)
+    writeFileSync(join(path, '.vegastack/dev.md'), devMd)
+    mkdirSync(join(home, '.vegastack/guard'), { recursive: true })
+    writeFileSync(join(home, `.vegastack/guard/acme__${name}.json`), JSON.stringify({ schemaVersion: 1, repo: `acme/${name}`, defaultBranch: 'main', gates: 3, environments: [], shipAsk: [] }))
+    return { path, repo: `acme/${name}`, org: 'acme' }
+  })
+  const config = parseFactoryConfig({ repos, maxRuns: options.maxRuns ?? 1 }, home)
+  return { home, config, repos }
+}
+
+interface SearchRow { number: number; title: string; labels: string[]; assignees?: string[]; updated_at?: string }
+
+// A gh that answers searches from a table and records every query it was asked.
+function ghStub(rows: { needsPlan?: SearchRow[]; ready?: SearchRow[]; forOperator?: SearchRow[] }, extra?: (args: string[]) => string | null) {
+  const queries: string[] = []
+  const calls: string[][] = []
+  const gh = async (args: string[]): Promise<string> => {
+    calls.push(args)
+    const custom = extra?.(args)
+    if (custom !== null && custom !== undefined) return custom
+    if (args[0] === 'api' && args.includes('search/issues')) {
+      const q = args[args.indexOf('-f') + 1]!.slice(2)
+      queries.push(q)
+      const pick = q.includes('label:needs-plan') ? rows.needsPlan : q.includes('label:ready') ? rows.ready : rows.forOperator
+      const items = (pick ?? []).map(row => ({
+        number: row.number, title: row.title,
+        labels: row.labels.map(name => ({ name })),
+        assignees: (row.assignees ?? []).map(login => ({ login })),
+        updated_at: row.updated_at ?? '2026-09-03T09:00:00Z',
+      }))
+      return JSON.stringify({ items })
+    }
+    if (args[0] === 'issue' && args.includes('body')) return JSON.stringify({ body: '' })
+    return '[]'
+  }
+  return { gh, queries, calls }
+}
+
+const ensureWorktree: TickDeps['ensureWorktree'] = async (repoPath, issue, title) => {
+  const slug = title.replace(/^[a-z]+:\s*/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const path = join(repoPath, '.vegastack', '.worktrees', `${issue}-${slug}`)
+  mkdirSync(join(path, '.vegastack/hooks'), { recursive: true })
+  writeFileSync(join(path, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+  mkdirSync(join(path, '.claude'), { recursive: true })
+  writeFileSync(join(path, '.claude/settings.json'), CLAUDE_WIRING)
+  return { path, branch: `feat/${issue}-${slug}`, slug, type: 'feat' }
+}
+
+const finished = (run: PlannedRun): RunOutcome => ({ exitCode: 0, timedOut: false, logFile: `/logs/${run.issue}.jsonl`, pushed: true, handedBack: false })
+
+describe('the corrections window (F17, F18)', () => {
+  // A 🚀 on an existing comment does not move the issue's updated_at, and a comment posted while a
+  // run was in flight lands before the next window opens. Neither may be dropped: every
+  // for-operator issue is read on every tick, and the handled list is what stops the repeats.
+  test('a second tick still asks for every for-operator issue, and finds a bare rocket on an old comment', async () => {
+    const { home, config } = fixture()
+    await writeState(config.stateFile, { lastTick: { 'acme/app': '2026-09-03T10:00:00Z' }, handled: [] })
+    const { gh, queries } = ghStub({ forOperator: [{ number: 12, title: 'feat: thing', labels: ['for-operator'], assignees: ['mk'], updated_at: '2026-09-03T09:00:00Z' }] }, args => {
+      if (args[0] === 'api' && args[1] === 'repos/acme/app/issues/12/comments') return JSON.stringify([{ id: 555, reactions: { rocket: 1 } }])
+      if (args[0] === 'api' && args[1] === 'repos/acme/app/issues/comments/555/reactions') return JSON.stringify([{ id: 999, content: 'rocket', user: { login: 'mk' } }])
+      return null
+    })
+    const result = await runTick(config, { dryRun: true }, { gh, ensureWorktree, execute: async run => finished(run), parentCandidates: async () => [] })
+    expect(queries.some(q => q.includes('updated:'))).toBe(false)
+    expect(result.runs.map(run => [run.issue, run.stage])).toEqual([[12, 'corrections']])
+    expect(existsSync(home)).toBe(true)
+  })
+
+  test('a comment whose rockets are all handled costs no reactions call', async () => {
+    const calls: string[][] = []
+    const gh = async (args: string[]): Promise<string> => {
+      calls.push(args)
+      if (args[1] === 'repos/acme/app/issues/12/comments') return JSON.stringify([{ id: 555, reactions: { rocket: 1 } }, { id: 556, reactions: { rocket: 2 } }])
+      if (args[1] === 'repos/acme/app/issues/comments/556/reactions') return JSON.stringify([{ id: 1001, content: 'rocket', user: { login: 'mk' } }, { id: 1002, content: 'rocket', user: { login: 'ada' } }])
+      return '[]'
+    }
+    const corrections = [{ number: 12, title: 'feat: thing', labels: ['for-operator'], assignees: ['mk'], updatedAt: '' }]
+    const handled = [{ repo: 'acme/app', issue: 12, commentId: 555, reactionId: 999 }, { repo: 'acme/app', issue: 12, commentId: 556, reactionId: 1001 }]
+    const rockets = await fetchRockets(gh, 'acme/app', corrections, handled)
+    expect(calls.some(call => call[1] === 'repos/acme/app/issues/comments/555/reactions')).toBe(false)
+    expect(rockets.map(rocket => rocket.reactionId)).toEqual([1001, 1002])
+  })
+
+  test('lastTick is the time the board was read, not the time the runs finished', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    let clock = Date.parse('2026-09-03T10:00:00Z')
+    const now = () => new Date(clock)
+    const execute = async (run: PlannedRun): Promise<RunOutcome> => {
+      clock += 40 * 60 * 1000
+      return finished(run)
+    }
+    await runTick(config, { dryRun: false }, { gh, now, ensureWorktree, execute, parentCandidates: async () => [] })
+    const state = await readState(config.stateFile)
+    expect(state.lastTick['acme/app']).toBe('2026-09-03T10:00:00Z')
+  })
+})
+
+// An execute stub whose runs finish only when the test says so.
+function deferredExecute() {
+  const pending: Array<{ run: PlannedRun; resolve: () => void }> = []
+  const execute = (run: PlannedRun): Promise<RunOutcome> => new Promise(resolve => {
+    pending.push({ run, resolve: () => resolve(finished(run)) })
+  })
+  return { execute, pending, finishAll: () => { for (const entry of pending.splice(0)) entry.resolve() } }
+}
+
+describe('runs leave the tick (F19)', () => {
+  test('a run in flight on one repo does not stop the next repo from being read the same tick', async () => {
+    const { config } = fixture({ repos: ['app', 'web'] })
+    const { gh, queries } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const result = await runTick(config, { dryRun: false }, { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker })
+    expect(pending).toHaveLength(2)
+    expect(queries.filter(q => q.includes('repo:acme/web'))).toHaveLength(3)
+    expect(result.runs.map(run => [run.repo, run.launched, run.exitCode])).toEqual([['acme/app', true, undefined], ['acme/web', true, undefined]])
+    finishAll()
+    await settleRuns(tracker)
+    expect(result.runs.map(run => run.exitCode)).toEqual([0, 0])
+  })
+
+  test('the next tick counts the run as active: at maxRuns the repo is refused, and after it ends the repo is free again', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const deps = { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker }
+    const first = await runTick(config, { dryRun: false }, deps)
+    expect(first.runs).toHaveLength(1)
+    const lock = await readLock(repoLockPath(config, 'acme/app'))
+    expect(lock).toEqual({ held: true, pid: process.pid })
+    const second = await runTick(config, { dryRun: false }, deps)
+    expect(second.runs).toEqual([])
+    expect(second.refusals[0]!.reason).toContain('maxRuns 1 with 1 in flight')
+    finishAll()
+    await settleRuns(tracker)
+    expect((await readLock(repoLockPath(config, 'acme/app'))).held).toBe(false)
+    const third = await runTick(config, { dryRun: false }, deps)
+    expect(third.runs).toHaveLength(1)
+    finishAll()
+    await settleRuns(tracker)
+  })
+
+  test('with room in maxRuns, an issue whose run is still in flight is refused by name rather than started twice', async () => {
+    const { config } = fixture({ maxRuns: 3 })
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const deps = { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker }
+    await runTick(config, { dryRun: false }, deps)
+    const second = await runTick(config, { dryRun: false }, deps)
+    expect(pending).toHaveLength(1)
+    expect(second.runs).toEqual([])
+    expect(second.refusals.map(refusal => refusal.reason).join('\n')).toContain('#8 already has a run in flight')
+    finishAll()
+    await settleRuns(tracker)
+  })
+
+  test('a reaction is recorded as handled when its run starts, so the next tick does not start it again', async () => {
+    const { config } = fixture({ maxRuns: 3 })
+    const { gh } = ghStub({ forOperator: [{ number: 12, title: 'feat: thing', labels: ['for-operator'], assignees: ['mk'] }] }, args => {
+      if (args[1] === 'repos/acme/app/issues/12/comments') return JSON.stringify([{ id: 555, reactions: { rocket: 1 } }])
+      if (args[1] === 'repos/acme/app/issues/comments/555/reactions') return JSON.stringify([{ id: 999, content: 'rocket', user: { login: 'mk' } }])
+      return null
+    })
+    const { execute, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const deps = { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker }
+    const first = await runTick(config, { dryRun: false }, deps)
+    expect(first.runs.map(run => run.stage)).toEqual(['corrections'])
+    expect((await readState(config.stateFile)).handled).toEqual([{ repo: 'acme/app', issue: 12, commentId: 555, reactionId: 999 }])
+    finishAll()
+    await settleRuns(tracker)
+    const second = await runTick(config, { dryRun: false }, deps)
+    expect(second.runs).toEqual([])
+  })
+
+  test('--once waits for the runs it started, so its report carries their exit codes', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const once = runOnce(config, { dryRun: false }, { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker })
+    let settled = false
+    void once.then(() => { settled = true })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(pending).toHaveLength(1)
+    expect(settled).toBe(false)
+    pending[0]!.resolve()
+    const result = await once
+    expect(result.runs[0]!.exitCode).toBe(0)
+  })
+
+  test('the watch loop keeps ticking while a run is in flight', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const { execute, pending, finishAll } = deferredExecute()
+    const tracker: RunTracker = new Map()
+    const ticks: number[] = []
+    const looped = watch({ ...config, interval: 1 }, {
+      dryRun: false,
+      ticks: 2,
+      onTick: result => { ticks.push(result.runs.length) },
+    }, { gh, ensureWorktree, execute, parentCandidates: async () => [], tracker })
+    const secondTick = new Promise<void>(resolve => {
+      const poll = setInterval(() => { if (ticks.length === 2) { clearInterval(poll); resolve() } }, 20)
+    })
+    await secondTick
+    expect(pending).toHaveLength(1)
+    expect(ticks).toEqual([1, 0])
+    finishAll()
+    await looped
+  })
+})
+
+describe('the guard is checked for the harness and the checkout that will run (F21, F22)', () => {
+  const mixed = 'dispatch: local\noperators: mk\nplan: codex gpt-5.6 high\nimplement: claude fable-5-1 high\n'
+
+  test('a plan run on a harness the guard is not wired for is refused by name, while implement runs on the wired one', async () => {
+    const { config } = fixture({ devMd: mixed, maxRuns: 3 })
+    const { gh } = ghStub({ needsPlan: [{ number: 7, title: 'feat: a', labels: ['needs-plan'] }], ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const result = await runTick(config, { dryRun: true }, { gh, ensureWorktree, execute: async run => finished(run), parentCandidates: async () => [] })
+    expect(result.runs.map(run => run.issue)).toEqual([8])
+    const refusal = result.refusals.find(entry => entry.issue === 7)!
+    expect(refusal.reason).toContain('.codex/hooks.json')
+    expect(refusal.reason).toContain('codex')
+  })
+
+  test('a profile with no plan entry refuses the needs-plan issue by name instead of throwing out of the tick', async () => {
+    const { config } = fixture({ devMd: 'dispatch: local\noperators: mk\nimplement: claude fable-5-1 high\n', maxRuns: 3 })
+    const { gh } = ghStub({ needsPlan: [{ number: 7, title: 'feat: a', labels: ['needs-plan'] }], ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const result = await runTick(config, { dryRun: true }, { gh, ensureWorktree, execute: async run => finished(run), parentCandidates: async () => [] })
+    expect(result.runs.map(run => run.issue)).toEqual([8])
+    expect(result.refusals.find(entry => entry.issue === 7)!.reason).toContain('no harness policy for the plan stage')
+  })
+
+  test('a worktree that lacks the harness wiring the main checkout has is refused before anything launches', async () => {
+    const { config } = fixture()
+    const { gh } = ghStub({ ready: [{ number: 8, title: 'feat: b', labels: ['ready'] }] })
+    const launched: number[] = []
+    // A fresh checkout: tracked files only, so the gitignored .claude/settings.json is not there.
+    const bare: TickDeps['ensureWorktree'] = async (repoPath, issue) => {
+      const path = join(repoPath, '.vegastack', '.worktrees', `${issue}-b`)
+      mkdirSync(join(path, '.vegastack/hooks'), { recursive: true })
+      writeFileSync(join(path, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+      return { path, branch: `feat/${issue}-b`, slug: 'b', type: 'feat' }
+    }
+    const tracker: RunTracker = new Map()
+    const result = await runTick(config, { dryRun: false }, { gh, ensureWorktree: bare, execute: async run => { launched.push(run.issue); return finished(run) }, parentCandidates: async () => [], tracker })
+    await settleRuns(tracker)
+    expect(launched).toEqual([])
+    expect(result.runs).toEqual([])
+    const refusal = result.refusals.find(entry => entry.issue === 8)!
+    expect(refusal.reason).toContain(join('.vegastack', '.worktrees', '8-b'))
+    expect(refusal.reason).toContain('worktree-include:')
+  })
+
+  test('a worktree that carries the wiring launches, and a codex plan run is checked against its own file there', async () => {
+    const { config } = fixture({ devMd: mixed, maxRuns: 3 })
+    const { gh } = ghStub({ needsPlan: [{ number: 7, title: 'feat: a', labels: ['needs-plan'] }] })
+    for (const entry of config.repos) {
+      mkdirSync(join(entry.path, '.codex'), { recursive: true })
+      writeFileSync(join(entry.path, '.codex/hooks.json'), CODEX_WIRING)
+    }
+    const withCodex: TickDeps['ensureWorktree'] = async (repoPath, issue, title) => {
+      const target = await ensureWorktree(repoPath, issue, title)
+      mkdirSync(join(target.path, '.codex'), { recursive: true })
+      writeFileSync(join(target.path, '.codex/hooks.json'), CODEX_WIRING)
+      return target
+    }
+    const launched: string[] = []
+    const tracker: RunTracker = new Map()
+    const result = await runTick(config, { dryRun: false }, { gh, ensureWorktree: withCodex, execute: async (run, plan) => { launched.push(plan.command); return finished(run) }, parentCandidates: async () => [], tracker })
+    await settleRuns(tracker)
+    expect(launched).toEqual(['codex'])
+    expect(result.refusals).toEqual([])
+  })
+})
+
+describe('the parallel path launches the implement harness (F28)', () => {
+  test('a codex-implement repo launches codex for a parent-parallel run, and its guard check reads the codex wiring', async () => {
+    const { config } = fixture({ devMd: 'dispatch: local\noperators: mk\nplan: codex gpt-5.6 high\nimplement: codex gpt-5.6 high\n', maxRuns: 3 })
+    const repoPath = config.repos[0]!.path
+    // The main checkout is wired for Codex and only Codex; so is the parent worktree.
+    mkdirSync(join(repoPath, '.codex'), { recursive: true })
+    writeFileSync(join(repoPath, '.codex/hooks.json'), CODEX_WIRING)
+    const parentWorktree = join(repoPath, '.vegastack/.worktrees/104-parent')
+    mkdirSync(join(parentWorktree, '.vegastack/hooks'), { recursive: true })
+    writeFileSync(join(parentWorktree, '.vegastack/hooks/ship-guard.mjs'), '// guard\n')
+    mkdirSync(join(parentWorktree, '.codex'), { recursive: true })
+    writeFileSync(join(parentWorktree, '.codex/hooks.json'), CODEX_WIRING)
+    const { gh } = ghStub({ ready: [{ number: 131, title: 'feat: x', labels: ['ready'] }, { number: 132, title: 'feat: y', labels: ['ready'] }] })
+    const parentCandidates: TickDeps['parentCandidates'] = async () => [{
+      parent: { issue: 104, branch: 'feat/104-parent', head: 'abc1234', worktree: parentWorktree },
+      groups: [{ id: 'a', members: ['#131'], files: ['a.ts'] }, { id: 'b', members: ['#132'], files: ['b.ts'] }],
+      children: [{ number: 131, parent: 104, assignee: null, labels: ['ready'] }, { number: 132, parent: 104, assignee: null, labels: ['ready'] }],
+    }]
+    const result = await runTick(config, { dryRun: true }, { gh, ensureWorktree, execute: async run => finished(run), parentCandidates })
+    expect(result.refusals).toEqual([])
+    expect(result.runs.map(run => [run.issue, run.launch.command])).toEqual([[104, 'codex']])
+    expect(result.runs[0]!.launch.args).not.toContain('--allowed-tools')
+  })
+})

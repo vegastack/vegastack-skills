@@ -1,0 +1,18 @@
+[
+  { "query": "set up the dev workflow in this repo", "should_trigger": true },
+  { "query": "bootstrap this new project for agent development - labels, profile, everything", "should_trigger": true },
+  { "query": "this is a brand new empty folder - set it up for the agent workflow", "should_trigger": true },
+  { "query": "install your issue workflow here like we have in the other repos", "should_trigger": true },
+  { "query": "we need the .vegastack/dev.md thing in this project", "should_trigger": true },
+  { "query": "re-run dev setup, I want to switch review to cross-agent", "should_trigger": true },
+  { "query": "add the workflow labels to this repo", "should_trigger": true },
+  { "query": "what changelog convention should this project use - detect it and set it up", "should_trigger": true },
+  { "query": "add the changelog and tag guards to our release workflow", "should_trigger": true },
+  { "query": "set up the architecture profile for this repo", "should_trigger": true, "ambiguous_with": ["dev-architect"] },
+  { "query": "turn the notes above into github issues", "should_trigger": false, "ambiguous_with": ["dev-intake"] },
+  { "query": "set up a build and test pipeline for our deploys", "should_trigger": false },
+  { "query": "install the dev-architect skill into my project", "should_trigger": false },
+  { "query": "what hosting and database should this new project use", "should_trigger": false, "ambiguous_with": ["dev-architect"] },
+  { "query": "set up the control room for our org", "should_trigger": false, "ambiguous_with": ["vegafactory-setup"] },
+  { "query": "register this repo in the control room", "should_trigger": false, "ambiguous_with": ["vegafactory-setup"] }
+]

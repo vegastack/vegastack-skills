@@ -1,0 +1,40 @@
+# {{org}} — org profile
+
+The org's global answers. Everything here applies to everyone, in every group and every repo. Department knobs live in `groups/<g>/group.md`, never here — layout, precedence, and the read path are the vegafactory-setup skill's `references/control-room.md`.
+
+org: {{org}}
+
+## Goals
+
+{{goals}}   <!-- one paragraph: what this org is building and for whom -->
+
+## What applies to everyone
+
+- language: {{language}}                  # the language every artifact is written in
+- dates: DD-MM-YYYY                       # the date format in every register, approval, and revision line
+- Nothing ships without the operator's explicit instruction — no push to a default branch, merge, tag, publish, or deploy on green checks, schedules, or standing approvals alone. A repo's gates knob changes how many actions one instruction covers, never whether an instruction is needed.
+- Secrets are named here, never written here. A runbook names `{{secret-name-example}}`; the value lives in the secret store that name points at.
+
+## Statistics policy
+
+Three lines, each `on`/`off` except the last — a run is recorded only when the first says so, per-person fields only when the second does, and a repo may opt out only when the third allows it.
+
+stats: on
+stats-people: off
+stats-override: allowed
+
+## Automation identity
+
+The names of the org's automation identity. Values live in GitHub org settings; nothing here is a secret.
+
+app: VegaFactory   # the public GitHub App every automated write uses; humans still own issues
+app-slug: vegafactory   # GitHub's slug for the App name — confirm it on the App settings page; a bot edit shows the actor <app-slug>[bot]
+app-install: {{installation-id}}   # gh api orgs/{{org}}/installations — filled after the operator installs the App
+app-secrets: variable VEGAFACTORY_APP_ID · secret VEGAFACTORY_APP_PRIVATE_KEY   # names only; the values live in GitHub org settings and nowhere else
+app-permissions: Issues read/write · Projects (organization) read/write · Metadata read · Pull requests read/write · Contents read   # widening any of these is a register line
+
+## Unconfirmed
+
+Lines the operator has not confirmed yet. Each is a question the next run asks again rather than an answer anyone may assume.
+
+- (none)

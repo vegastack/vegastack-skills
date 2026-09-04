@@ -1,0 +1,33 @@
+{
+  "skill_name": "dev-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review branch feat/27-json-flag against issue 27 in vegastack/docs-tools; the diff is attached. Brief: add a `--json` flag to `scripts/check-links.mjs` printing `{ broken: [...] }`, keep the exit codes, document the flag in the header. Out of scope: renaming or restructuring existing functions. Plan: Task 1 failing test then flag; Task 2 header and changeset. Head sha is 9b7d0e4. Write the review comment.",
+      "expected_output": "One review comment in the workflow format: the marker line, findings each with severity, confidence and `path:line`, the `brokenLinks` → `findBroken` rename reported as scope creep quoting the brief's out-of-scope line, the missing changeset noted against the plan, and a verdict. (prose half only — the live label, branch and PR flow is the sandbox drill's proof)",
+      "files": [
+        "evals/files/27.diff"
+      ],
+      "assertions": [
+        "The comment opens with `<!-- vsk:v1 type=review round=1 sha=9b7d0e4 agent=... verdict=... -->`",
+        "Every finding carries a severity tag, a confidence, and a `path:line` location",
+        "The rename of `brokenLinks` to `findBroken` is reported as scope creep, quoting the brief's out-of-scope line",
+        "The absent changeset is reported against the plan's Task 2",
+        "The comment contains no praise lines"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "second pair of eyes on this pls — same diff as before, issue 27, branch feat/27-json-flag",
+      "expected_output": "The same review discipline at a casual ask: findings with a fix suggestion each and a verdict of clean or needs-fixes. (prose half only — the live label, branch and PR flow is the sandbox drill's proof)",
+      "files": [
+        "evals/files/27.diff"
+      ],
+      "assertions": [
+        "Each finding carries a concrete fix suggestion",
+        "The verdict is exactly `clean` or `needs-fixes`",
+        "Findings are numbered `Finding [N]`, never `#N`"
+      ]
+    }
+  ]
+}

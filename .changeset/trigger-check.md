@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 skillify ships `scripts/trigger-check.mjs`, a deterministic family-level trigger guard that runs in `bun run check` as `validate:triggers`.

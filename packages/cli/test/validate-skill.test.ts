@@ -43,3 +43,27 @@ describe('discoverSkillDirs', () => {
     rmSync(root, { recursive: true, force: true })
   })
 })
+
+describe('validateSkill description YAML hazards', () => {
+  const skillWith = (description: string) => {
+    const root = mkdtempSync(join(tmpdir(), 'validate-desc-'))
+    const dir = join(root, 'skills', 'probe')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'SKILL.md'), `---\nname: probe\ndescription: ${description}\n---\n\nBody.\n`)
+    const result = validateSkill(dir)
+    rmSync(root, { recursive: true, force: true })
+    return result
+  }
+
+  test("rejects ': ' inside the description — YAML reads it as a nested mapping and fails to parse", () => {
+    // The shape that shipped in skill-maintainer: an unquoted scalar carrying
+    // 'this repository: editing', which yaml.safe_load refuses outright.
+    const result = skillWith('Standards for this repository: editing a skill, cutting a release.')
+    expect(result.ok).toBe(false)
+    expect(result.message).toContain("': '")
+  })
+
+  test('a colon not followed by whitespace is ordinary text', () => {
+    expect(skillWith('Reads https://example.com and times like 12:30 without complaint.').ok).toBe(true)
+  })
+})

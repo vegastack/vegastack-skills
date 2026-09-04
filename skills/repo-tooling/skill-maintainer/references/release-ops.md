@@ -35,7 +35,7 @@ Contributors do not bump versions in PRs; releases are maintainer-driven.
 `npm unpublish` is limited to 72 hours and breaks pinned consumers — it is not the rollback mechanism.
 
 1. **Roll forward:** revert the offending commits through a PR onto `main` (protection applies to reverts too), changeset, tag, release the previous known-good content as a **new patch version**.
-2. **Deprecate the bad version:** `npm deprecate @vegastack/skills@<bad> "Broken — use <new>"`.
+2. **Deprecate the bad version:** `npm deprecate @vegastack/vegafactory@<bad> "Broken — use <new>"`.
 3. Unpublish only if the bad version leaked secrets or is actively harmful, still within 72 hours, and always *in addition to* steps 1–2, never instead.
 
 ## Rename a skill

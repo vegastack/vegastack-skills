@@ -1,0 +1,17 @@
+# Boards
+
+Project boards and the repos that mirror onto them. Labels stay the machine state; a board is a view. Several repos may share one board, and one repo may have its own.
+
+**One way only.** `.github/workflows/factory-board.yml` reads a repo's state label and writes the board's Status field. Nothing reads the board: a card dragged on the board is cosmetic until the next label change overwrites it.
+
+Status options, in this order: needs-operator · needs-plan · ready · working · for-operator · Done — the five state labels plus Done, which the built-in automations set.
+
+Built-in automations, switched on once per board in its Workflows UI (no CLI covers them): auto-add `is:issue is:open`, item closed → Done, PR merged → Done, auto-archive after 14 days.
+
+The commands that create, field-configure and link a board are in `vegafactory-setup`'s `references/control-room.md`, and the operator runs them — they need the `project` scope on a human token.
+
+| board | number | repos | notes |
+|---|---|---|---|
+| {{board-title}} | {{number}} | {{owner/repo}} | {{blank, or what this board is for}} |
+
+A repo the org plan's auto-add cap blocks (Team plans allow five auto-add workflows per board) is recorded here with its date and handed back to the operator, never worked around.

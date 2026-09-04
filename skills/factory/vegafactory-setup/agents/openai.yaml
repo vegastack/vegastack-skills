@@ -1,0 +1,4 @@
+interface:
+  display_name: "vegafactory-setup"
+  short_description: "Bootstrap and maintain the org control room every repo inherits from"
+  default_prompt: "Use $vegafactory-setup to set up or update this org's control room."

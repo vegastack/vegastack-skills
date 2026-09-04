@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported privately to the maintainers through this repository's [private
-reporting form](https://github.com/vegastack/vegastack-skills/security/advisories/new).
+reporting form](https://github.com/vegastack/vegafactory/security/advisories/new).
 It is the same private channel used for security reports, and it is monitored by
 the maintainers — say up front that your report concerns conduct rather than a
 vulnerability. Please do not open a public issue.

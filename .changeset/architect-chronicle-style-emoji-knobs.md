@@ -1,5 +1,5 @@
 ---
-"@vegastack/skills": minor
+"@vegastack/vegafactory": minor
 ---
 
 dev.md gains an architecture-owner knob and two chronicle voice knobs, dev-setup writes them without a question, and dev-architect now addresses the architecture owner instead of one named person.

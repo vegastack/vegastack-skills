@@ -111,7 +111,7 @@ describe('readGroupDoc', () => {
 
 describe('nameError', () => {
   test('accepts a legal name and rejects each grammar break', () => {
-    expect(nameError('dev-skills')).toBeNull()
+    expect(nameError('dev')).toBeNull()
     expect(nameError('Dev')).toContain('lowercase')
     expect(nameError('a--b')).toContain('consecutive')
     expect(nameError('a-')).toContain('hyphen')

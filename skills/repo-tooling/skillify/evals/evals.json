@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Audit `skills/dev-skills/dev-status` — is it complete? Score it against the contract; don't change anything.",
+      "prompt": "Audit `skills/dev/dev-status` — is it complete? Score it against the contract; don't change anything.",
       "expected_output": "The Phase 1 audit block: skill, path, `Score: N/8`, one of the three verdicts, every N/A item with a one-line rationale and every miss with its evidence; no file is edited because the ask was an audit.",
       "files": [],
       "assertions": [

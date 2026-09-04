@@ -6,12 +6,24 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline/promises'
+import { factoryConfigPath, parseSyncMaxAge, readFactoryConfig, serializeFactoryConfig } from './control-room.ts'
 import { selectSkills, type SkillEntry } from './selection.ts'
+import { resolveTarget, syncControlRoom } from './sync.ts'
+import { dashboardUsage, runDashboard } from './dashboard.ts'
+import { dispatchUsage, runDispatchCli } from './dispatch.ts'
+import { guardUsage, runGuardCli } from './guard.ts'
+import { runServiceCli, serviceUsage } from './service.ts'
+import { runStatsCli } from './stats/cli.ts'
+import { runStatusCli, statusUsage } from './status.ts'
+import { runWorktree, worktreeUsage } from './worktree.ts'
 
 type Agent = 'codex' | 'claude' | 'hermes'
 type AgentChoice = Agent | 'both' | 'all'
 type Mode = 'project' | 'global'
-type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help'
+type Command = 'add' | 'verify' | 'doctor' | 'remove' | 'list' | 'version' | 'help' | 'worktree' | 'sync' | 'dispatch' | 'service' | 'status' | 'stats' | 'dashboard' | 'guard'
+// Top-level verbs the factory reserves; they are named in usage and refuse until they land.
+const reservedTopLevel: readonly string[] = [] as const
+const installerVerbs: readonly string[] = ['add', 'verify', 'doctor', 'remove', 'list'] as const
 interface Options {
   command: Command
   skill?: string
@@ -20,9 +32,12 @@ interface Options {
   agent?: AgentChoice
   mode?: Mode
   dir?: string
+  org?: string
   dryRun: boolean
   force: boolean
   nonInteractive: boolean
+  json: boolean
+  rest?: string[]
 }
 interface SkillIntegrity { files: Record<string, string>; group?: string | null; repoOnly?: boolean }
 interface Integrity { schemaVersion: number; skills: Record<string, SkillIntegrity> }
@@ -38,10 +53,10 @@ const projectAgents: Agent[] = ['codex', 'claude']
 const packageVersion = (JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')) as { version: string }).version
 
 function usage() {
-  return `Usage: vegastack-skills <add|verify|remove> <skill> [options]
-       vegastack-skills <add|verify|remove> --group <group> [options]
-       vegastack-skills <add|verify|remove> --all [options]
-       vegastack-skills <list|doctor> [options]
+  return `Usage: vegafactory skills <add|verify|remove> <skill> [options]
+       vegafactory skills <add|verify|remove> --group <group> [options]
+       vegafactory skills <add|verify|remove> --all [options]
+       vegafactory skills <list|doctor> [options]
 
 Select exactly one of: a skill name, --group <group>, or --all.
 --all installs every skill except the repo-only ones; name those explicitly.
@@ -55,10 +70,59 @@ Options:
   --dir PATH
   --dry-run
   --force
+  --json                                 machine-readable output (sync)
   --non-interactive
   --version
 
-Run "vegastack-skills list" to see the bundled skills.
+Worktrees (one feature, one worktree — the main checkout never leaves the default branch):
+  vegafactory worktree <list|create|restore|remove|prune|status> [options]
+  list [--all-repos] · status · create <issue> · restore <issue>
+  remove <issue> [--force] [--write] · prune [--older-than 14d] [--write]
+  remove and prune are dry-run until --write, and never touch a branch or anything uncommitted.
+
+Control room (skills read the local clone, never the network):
+  vegafactory sync [--org ORG] [--dry-run] [--force] [--json] [--dir PATH]
+  Refreshes this machine's shallow clone of the control room named by the project's
+  control-room: knob. --org ORG is the bootstrap path for a repo whose profile has no
+  knob yet (the first dev-setup run): the room is <org>/vegafactory-control-room by
+  convention. Exit 0 synced, already fresh, or no control room · 1 the fetch
+  failed and the existing clone stands · 2 a refusal (dirty clone, symlink, bad state file).
+
+The dispatcher (headless runs in feature worktrees, on the operator's own machine):
+  vegafactory dispatch [--once] [--watch] [--dry-run] [--json] [--config PATH]
+  Turns labels and rocket reactions on the repos named in ~/.vegastack/factory.json
+  into headless runs. Dry run unless --once or --watch is given, and every repo
+  stays refused until its dev.md says dispatch: local, its ship guard is wired and
+  its compiled guard policy exists.
+
+  vegafactory guard sync [--check] [--dry-run] [--dev-md PATH] [--json]
+  Compiles dev.md's guard policy into ~/.vegastack/guard/<owner>__<repo>.json, the
+  one file the ship guard reads — outside every worktree. --check exits 2 when the
+  file is stale against dev.md; the SessionStart hook runs it to warn.
+
+  vegafactory service <install|uninstall|status> [--write] [--json]
+  Installs that dispatcher as a launchd LaunchAgent (macOS) or a systemd user unit
+  (Linux), running as you with your own gh and harness auth. Dry run until --write.
+
+  vegafactory status [--json] [--config PATH]
+  The board, the worktrees, the last tick, the runs in flight, and whether the
+  dispatcher is alive at all.
+
+Statistics (where agent time and money went — counts and identifiers only, never transcript text):
+  vegafactory stats [--repo|--me|--org|skills] [--since MON-YYYY] [--json]
+  vegafactory stats push [--commit]
+  Reads and writes the org's own control room over your existing gh credentials.
+  push is a dry run until --commit. Recording is org policy (stats: in org.md),
+  not a machine setting. Run "vegafactory stats help" for the whole surface.
+
+The dashboard (a local, read-only web view over the control room and the live board):
+  vegafactory dashboard [--port N] [--open] [--dir PATH] [--dry-run] [--json]
+  Fetches @vegastack/vegafactory-dashboard at this CLI's version on first use and
+  serves it on 127.0.0.1. Run "vegafactory dashboard --help" for the whole surface.
+
+Reserved (not yet available): dashboard
+
+Run "vegafactory skills list" to see the bundled skills.
 `
 }
 
@@ -68,9 +132,24 @@ async function bundledSkills(): Promise<string[]> {
 }
 
 function parse(argv: string[]): Options {
-  // A leading flag (e.g. `vegastack-skills --version`) is not a command.
-  const command = (argv[0] && !argv[0].startsWith('-') ? argv.shift()! : 'help') as Command
-  const options: Options = { command, all: false, dryRun: false, force: false, nonInteractive: false }
+  // Installer verbs live under the `skills` namespace; a leading flag (e.g. `vegafactory --version`)
+  // is not a command at all. The reserved verbs are named here so `vegafactory dispatch` says when
+  // it lands rather than "unknown command" — they gain behaviour in later releases.
+  let command: Command = 'help'
+  if (argv[0] && !argv[0].startsWith('-')) {
+    const head = argv.shift()!
+    if (head === 'skills') {
+      const verb = argv[0] && !argv[0].startsWith('-') ? argv.shift()! : 'help'
+      if (!installerVerbs.includes(verb) && verb !== 'help' && verb !== 'version') throw new Error(`Unknown command: skills ${verb}`)
+      command = verb as Command
+    }
+    else if (head === 'worktree' || head === 'dispatch' || head === 'service' || head === 'status' || head === 'stats' || head === 'dashboard' || head === 'guard') return { command: head, all: false, dryRun: false, force: false, nonInteractive: false, json: false, rest: argv.splice(0) }
+    else if (reservedTopLevel.includes(head)) throw new Error(`${head} is not available yet — it lands in a later release of vegafactory`)
+    else if (installerVerbs.includes(head)) throw new Error(`Unknown command: ${head} — installer verbs moved under the skills namespace: run "vegafactory skills ${head} …"`)
+    else if (head === 'sync' || head === 'help' || head === 'version') command = head
+    else throw new Error(`Unknown command: ${head}`)
+  }
+  const options: Options = { command, all: false, dryRun: false, force: false, nonInteractive: false, json: false }
   if (argv[0] && !argv[0].startsWith('-')) options.skill = argv.shift()!
   while (argv.length) {
     const flag = argv.shift()!
@@ -86,14 +165,19 @@ function parse(argv: string[]): Options {
     else if (flag === '--project') options.mode = 'project'
     else if (flag === '--global') options.mode = 'global'
     else if (flag === '--dir') options.dir = argv.shift()
+    else if (flag === '--org') {
+      const value = argv.shift()
+      if (value === undefined || value === '' || value.startsWith('-')) throw new Error('--org requires a value')
+      options.org = value
+    }
     else if (flag === '--dry-run') options.dryRun = true
     else if (flag === '--force') options.force = true
     else if (flag === '--non-interactive' || flag === '--yes') options.nonInteractive = true
+    else if (flag === '--json') options.json = true
     else if (flag === '--help' || flag === '-h') options.command = 'help'
     else if (flag === '--version' || flag === '-v') options.command = 'version'
     else throw new Error(`Unknown option: ${flag}`)
   }
-  if (!['add', 'verify', 'doctor', 'remove', 'list', 'version', 'help'].includes(options.command)) throw new Error(`Unknown command: ${options.command}`)
   if (options.agent && !['codex', 'claude', 'hermes', 'both', 'all'].includes(options.agent)) throw new Error(`Invalid --agent: ${options.agent}`)
   if (options.mode === 'global' && options.dir) throw new Error('--dir cannot be combined with --global')
   return options
@@ -405,7 +489,7 @@ async function installLocked(options: Options, skillNames: string[], agents: Age
       await assertNoSymlink(dirname(operation.destination), false)
       const { source, files } = sources.get(operation.skill)!
       await cp(source, operation.stage, { recursive: true, dereference: false, errorOnExist: true })
-      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/skills', version: packageVersion, skill: operation.skill, files }, null, 2)}\n`, { flag: 'wx' })
+      await writeFile(join(operation.stage, '.vegastack-install.json'), `${JSON.stringify({ installer: '@vegastack/vegafactory', version: packageVersion, skill: operation.skill, files }, null, 2)}\n`, { flag: 'wx' })
       const stagedCheck = await compare(operation.stage, files)
       if (stagedCheck.status !== 'verified') throw new Error(`Staged copy failed verification: ${stagedCheck.issues.join(', ')}`)
       staged.push(operation)
@@ -490,7 +574,7 @@ function semverLess(a: string, b: string): boolean {
 
 async function latestPublishedVersion(): Promise<string | null> {
   try {
-    const response = await fetch('https://registry.npmjs.org/@vegastack%2fskills/latest', { signal: AbortSignal.timeout(3000) })
+    const response = await fetch('https://registry.npmjs.org/@vegastack%2fvegafactory/latest', { signal: AbortSignal.timeout(3000) })
     if (!response.ok) return null
     const version = ((await response.json()) as { version?: unknown }).version
     return typeof version === 'string' && /^\d+\.\d+\.\d+/.test(version) ? version : null
@@ -558,7 +642,7 @@ async function list() {
   }
 
   for (const group of groups) {
-    console.log(`${group}  —  vegastack-skills add --group ${group}`)
+    console.log(`${group}  —  vegafactory skills add --group ${group}`)
     for (const entry of entries.filter(item => item.group === group).sort((a, b) => a.name.localeCompare(b.name))) await show(entry)
     console.log('')
   }
@@ -592,7 +676,7 @@ async function doctor(options: Options) {
   console.log(`ok runtime: Node ${process.versions.node}`)
   // The only network call the CLI ever makes: one npm version check so stale installs are visible.
   const latest = await latestPublishedVersion()
-  if (latest && semverLess(packageVersion, latest)) console.log(`update available: installed ${packageVersion}, latest ${latest} — run: npx @vegastack/skills@latest add <skill> --force`)
+  if (latest && semverLess(packageVersion, latest)) console.log(`update available: installed ${packageVersion}, latest ${latest} — run: npx @vegastack/vegafactory@latest skills add <skill> --force`)
   else if (latest && semverLess(latest, packageVersion)) console.log(`ok installer version: ${packageVersion} (ahead of registry latest ${latest})`)
   else if (latest) console.log(`ok installer version: ${packageVersion} (latest)`)
   else console.log(`skipped installer version check (npmjs.org unreachable); installed ${packageVersion}`)
@@ -613,8 +697,124 @@ async function doctor(options: Options) {
   if (failed) process.exitCode = 1
 }
 
+// `sync` is the one verb that reaches the network on purpose: one shallow fetch of the control
+// room this project names, into a machine-local clone every skill then reads instead of GitHub.
+// It refreshes by default — a hook or a dispatcher tick calling a dry-run-by-default verb would be
+// a silent no-op — and writes nothing outside the clone path and ~/.vegastack/factory.json.
+async function sync(options: Options) {
+  const base = baseFor('project', options.dir)
+  const devMdPath = join(base, '.vegastack', 'dev.md')
+  const devMdText = await exists(devMdPath) ? await readFile(devMdPath, 'utf8') : ''
+  const home = homedir()
+  const statePath = factoryConfigPath(home)
+
+  let config
+  try {
+    config = readFactoryConfig(await exists(statePath) ? await readFile(statePath, 'utf8') : null)
+  } catch (error) {
+    return report(options, { command: 'sync', ok: false, action: 'refused', org: null, path: statePath, sha: null, lastSyncedAt: null, ageMinutes: null, message: (error as Error).message }, 2)
+  }
+
+  let target
+  try {
+    target = resolveTarget({ devMdText, config, home, org: options.org })
+  } catch (error) {
+    return report(options, { command: 'sync', ok: false, action: 'refused', org: options.org ?? null, path: null, sha: null, lastSyncedAt: null, ageMinutes: null, message: (error as Error).message }, 2)
+  }
+  if (!target) {
+    return report(options, { command: 'sync', ok: true, action: 'none', org: null, path: null, sha: null, lastSyncedAt: null, ageMinutes: null, message: 'this repo names no control room — skill defaults apply' }, 0)
+  }
+
+  const result = await syncControlRoom({
+    target,
+    config,
+    now: Date.now(),
+    maxAgeMinutes: parseSyncMaxAge(devMdText),
+    force: options.force,
+    dryRun: options.dryRun,
+  })
+  if (result.ok && !options.dryRun && result.config !== config) await durableJson(statePath, serializeFactoryConfig(result.config))
+
+  const code = result.ok ? 0 : result.action === 'refused' ? 2 : 1
+  return report(options, {
+    command: 'sync',
+    ok: result.ok,
+    action: result.action,
+    org: result.org,
+    path: result.path,
+    sha: result.sha,
+    lastSyncedAt: result.lastSyncedAt,
+    ageMinutes: result.ageMinutes,
+    message: result.message,
+  }, code)
+}
+
+interface SyncReport {
+  command: 'sync'
+  ok: boolean
+  action: string
+  org: string | null
+  path: string | null
+  sha: string | null
+  lastSyncedAt: string | null
+  ageMinutes: number | null
+  message: string
+}
+
+function report(options: Options, payload: SyncReport, code: number) {
+  if (options.json) console.log(JSON.stringify(payload, null, 2))
+  else if (payload.ok) console.log(payload.message)
+  else {
+    const when = payload.lastSyncedAt ? ` last synced ${payload.lastSyncedAt}${payload.ageMinutes === null ? '' : ` (${payload.ageMinutes}m ago)`} —` : ''
+    console.error(`control room ${payload.org ?? '?'}:${when} ${payload.message}`)
+  }
+  process.exitCode = code
+}
+
 async function main() {
   const options = parse(process.argv.slice(2))
+  if (options.command === 'worktree') {
+    const rest = options.rest ?? []
+    if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(worktreeUsage())
+    process.exitCode = await runWorktree(rest)
+    return
+  }
+  if (options.command === 'guard') {
+    const rest = options.rest ?? []
+    if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(guardUsage())
+    process.exitCode = await runGuardCli(rest)
+    return
+  }
+  if (options.command === 'dispatch') {
+    const rest = options.rest ?? []
+    if (rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(dispatchUsage())
+    process.exitCode = await runDispatchCli(rest, homedir())
+    return
+  }
+  if (options.command === 'service') {
+    const rest = options.rest ?? []
+    if (rest.length === 0 || rest[0] === 'help' || rest[0] === '--help' || rest[0] === '-h') return console.log(serviceUsage())
+    process.exitCode = await runServiceCli(rest, homedir())
+    return
+  }
+  if (options.command === 'stats') {
+    const rest = options.rest ?? []
+    process.exitCode = await runStatsCli(rest, homedir())
+    return
+  }
+  if (options.command === 'dashboard') {
+    const rest = options.rest ?? []
+    if (rest[0] === 'help') return console.log(dashboardUsage())
+    process.exitCode = await runDashboard({ rest, home: homedir(), version: packageVersion })
+    return
+  }
+  if (options.command === 'status') {
+    const rest = options.rest ?? []
+    if (rest[0] === 'help') return console.log(statusUsage())
+    process.exitCode = await runStatusCli(rest, homedir())
+    return
+  }
+  if (options.command === 'sync') return sync(options)
   if (options.command === 'help') return console.log(usage())
   if (options.command === 'version') return console.log(packageVersion)
   if (options.command === 'list') return list()
