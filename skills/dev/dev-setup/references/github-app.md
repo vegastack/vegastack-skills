@@ -53,6 +53,11 @@ one-repository token. Written here for an org that is not `vegastack`.
 
 Request: no body. The broker reads nothing the caller sends — see the tenancy statement below.
 
+From a workflow, the composite action in the product repository does the exchange and masks the
+result — `uses: vegastack/vegafactory/packages/broker/action@factory-token-v1` with
+`permissions: id-token: write`; its README under `packages/broker/action/` lists the inputs and
+outputs. A release tag (`@v0.19.0`) pins one exact version of it.
+
 Response `200`:
 
 ```json

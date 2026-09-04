@@ -1,7 +1,9 @@
-# vegastack/factory-token
+# VegaStack Factory token action
 
-**This directory is the source of truth.** The public action lives at `vegastack/factory-token`;
-that repository is a mirror of this directory, and a change lands here first.
+**This directory is the action.** GitHub Actions resolves an action from a subdirectory of any
+public repository, so there is no separate action repository to mirror: consumers reference this
+path in `vegastack/vegafactory` directly. `factory-token-v1` is the moving tag the Ship runbook
+advances whenever this directory changes; a release tag such as `v0.19.0` pins one exact version.
 
 Exchange a GitHub Actions OIDC token for a one-repository VegaStack Factory token — issues and
 projects, one hour, that repository only. No private key in your organisation.
@@ -16,7 +18,7 @@ jobs:
       id-token: write   # required — without it there is no OIDC token to exchange
       contents: read
     steps:
-      - uses: vegastack/factory-token@v1
+      - uses: vegastack/vegafactory/packages/broker/action@factory-token-v1
         id: factory
       - run: gh issue edit 12 --add-label ready
         env:
